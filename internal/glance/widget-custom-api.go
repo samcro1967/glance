@@ -35,6 +35,7 @@ type CustomAPIRequest struct {
 	SkipJSONValidation bool                 `yaml:"skip-json-validation"`
 	bodyReader         io.ReadSeeker        `yaml:"-"`
 	httpRequest        *http.Request        `yaml:"-"`
+	Timeout            durationField        `yaml:"timeout"`
 }
 
 type customAPIWidget struct {
@@ -240,7 +241,13 @@ func fetchCustomAPIResponse(ctx context.Context, req *CustomAPIRequest) (*custom
 		req.bodyReader.Seek(0, io.SeekStart)
 	}
 
-	client := ternary(req.AllowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
+	baseClient := ternary(req.AllowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
+	client := *baseClient
+
+	if req.Timeout > 0 {
+		client.Timeout = time.Duration(req.Timeout)
+	}
+
 	resp, err := client.Do(req.httpRequest.WithContext(ctx))
 	if err != nil {
 		return nil, err
