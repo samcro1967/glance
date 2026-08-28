@@ -3,6 +3,8 @@ package glance
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -333,11 +335,12 @@ dashboards:
     - shared
 `))
 
+	personal := app.slugToDashboard["personal"]
+
 	req := httptest.NewRequest(http.MethodGet, "/personal/", nil)
-	req.SetPathValue("dashboard", "personal")
 	rec := httptest.NewRecorder()
 
-	app.handleDashboardPageRequest(rec, req)
+	app.handleDashboardPageRequest(personal, rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf(
@@ -366,6 +369,8 @@ dashboards:
     - home
     - page2
 `))
+
+	personal := app.slugToDashboard["personal"]
 
 	tests := []struct {
 		name       string
@@ -396,12 +401,11 @@ dashboards:
 				"/personal/"+tt.page,
 				nil,
 			)
-			req.SetPathValue("dashboard", "personal")
 			req.SetPathValue("page", tt.page)
 
 			rec := httptest.NewRecorder()
 
-			app.handleDashboardPageRequest(rec, req)
+			app.handleDashboardPageRequest(personal, rec, req)
 
 			if rec.Code != tt.wantStatus {
 				t.Fatalf(
@@ -429,12 +433,13 @@ dashboards:
     - shared
 `))
 
+	personal := app.slugToDashboard["personal"]
+
 	req := httptest.NewRequest(http.MethodGet, "/personal/page2", nil)
-	req.SetPathValue("dashboard", "personal")
 	req.SetPathValue("page", "page2")
 	rec := httptest.NewRecorder()
 
-	app.handleDashboardPageRequest(rec, req)
+	app.handleDashboardPageRequest(personal, rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
@@ -475,13 +480,13 @@ dashboards:
 `)
 
 	app := newDashboardTestApplication(t, yaml)
+	personal := app.slugToDashboard["personal"]
 
 	req := httptest.NewRequest(http.MethodGet, "/personal/page2", nil)
-	req.SetPathValue("dashboard", "personal")
 	req.SetPathValue("page", "page2")
 	rec := httptest.NewRecorder()
 
-	app.handleDashboardPageRequest(rec, req)
+	app.handleDashboardPageRequest(personal, rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
@@ -532,12 +537,12 @@ dashboards:
 		t.Fatal("GET /page2 did not render the Default Page 2 page")
 	}
 
-	// /page2/ is the home of the Page 2 named dashboard.
+	// /page2/ is the home of the Page2 named dashboard.
+	page2Dashboard := app.slugToDashboard["page2"]
 	dashboardReq := httptest.NewRequest(http.MethodGet, "/page2/", nil)
-	dashboardReq.SetPathValue("dashboard", "page2")
 	dashboardRec := httptest.NewRecorder()
 
-	app.handleDashboardPageRequest(dashboardRec, dashboardReq)
+	app.handleDashboardPageRequest(page2Dashboard, dashboardRec, dashboardReq)
 
 	if dashboardRec.Code != http.StatusOK {
 		t.Fatalf(
@@ -635,6 +640,101 @@ dashboards:
 			}
 
 			if tt.wantContent != "" && !strings.Contains(rec.Body.String(), tt.wantContent) {
+				t.Fatalf(
+					"GET %s response does not contain %q",
+					tt.path,
+					tt.wantContent,
+				)
+			}
+		})
+	}
+}
+
+func TestDashboardRouterWithAssetsPath(t *testing.T) {
+	assetsDir := t.TempDir()
+	assetPath := filepath.Join(assetsDir, "dashboard-test.txt")
+	assetContents := "dashboard assets route"
+
+	if err := os.WriteFile(assetPath, []byte(assetContents), 0o644); err != nil {
+		t.Fatalf("writing test asset: %v", err)
+	}
+
+	yaml := dashboardTestYAML(`
+server:
+  assets-path: ` + assetsDir + `
+
+dashboards:
+  Default:
+    - home
+    - page2
+
+  Personal:
+    - home
+    - page2
+`)
+
+	app := newDashboardTestApplication(t, yaml)
+
+	var handler http.Handler
+	func() {
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				t.Fatalf("router() panicked with dashboards and assets-path: %v", recovered)
+			}
+		}()
+
+		handler = app.router()
+	}()
+
+	tests := []struct {
+		name        string
+		path        string
+		wantStatus  int
+		wantContent string
+	}{
+		{
+			name:        "default dashboard remains available",
+			path:        "/",
+			wantStatus:  http.StatusOK,
+			wantContent: "Home",
+		},
+		{
+			name:        "named dashboard remains available",
+			path:        "/personal/",
+			wantStatus:  http.StatusOK,
+			wantContent: "Home",
+		},
+		{
+			name:        "named dashboard page remains available",
+			path:        "/personal/page2",
+			wantStatus:  http.StatusOK,
+			wantContent: "Page 2",
+		},
+		{
+			name:        "custom asset remains available",
+			path:        "/assets/dashboard-test.txt",
+			wantStatus:  http.StatusOK,
+			wantContent: assetContents,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+			rec := httptest.NewRecorder()
+
+			handler.ServeHTTP(rec, req)
+
+			if rec.Code != tt.wantStatus {
+				t.Fatalf(
+					"GET %s status = %d, want %d",
+					tt.path,
+					rec.Code,
+					tt.wantStatus,
+				)
+			}
+
+			if !strings.Contains(rec.Body.String(), tt.wantContent) {
 				t.Fatalf(
 					"GET %s response does not contain %q",
 					tt.path,
