@@ -424,13 +424,11 @@ func (a *application) handlePageRequest(w http.ResponseWriter, r *http.Request) 
 	a.renderPage(w, r, page, a.defaultDashboard.Pages, "")
 }
 
-func (a *application) handleDashboardPageRequest(w http.ResponseWriter, r *http.Request) {
-	dashboard, exists := a.slugToDashboard[r.PathValue("dashboard")]
-	if !exists {
-		a.handleNotFound(w, r)
-		return
-	}
-
+func (a *application) handleDashboardPageRequest(
+	dashboard *dashboard,
+	w http.ResponseWriter,
+	r *http.Request,
+) {
 	pageSlug := r.PathValue("page")
 	var page *page
 
@@ -585,8 +583,21 @@ func (a *application) router() http.Handler {
 	mux.HandleFunc("GET /{page}", a.handlePageRequest)
 
 	if a.defaultDashboard != nil {
-		mux.HandleFunc("GET /{dashboard}/{$}", a.handleDashboardPageRequest)
-		mux.HandleFunc("GET /{dashboard}/{page}", a.handleDashboardPageRequest)
+		for dashboardSlug, dashboard := range a.slugToDashboard {
+			mux.HandleFunc(
+				fmt.Sprintf("GET /%s/{$}", dashboardSlug),
+				func(w http.ResponseWriter, r *http.Request) {
+					a.handleDashboardPageRequest(dashboard, w, r)
+				},
+			)
+
+			mux.HandleFunc(
+				fmt.Sprintf("GET /%s/{page}", dashboardSlug),
+				func(w http.ResponseWriter, r *http.Request) {
+					a.handleDashboardPageRequest(dashboard, w, r)
+				},
+			)
+		}
 	}
 
 	mux.HandleFunc("GET /api/pages/{page}/content/{$}", a.handlePageContentRequest)
