@@ -258,8 +258,25 @@ function setupGroups() {
 
     for (let g = 0; g < groups.length; g++) {
         const group = groups[g];
-        const titles = group.getElementsByClassName("widget-header")[0].children;
-        const tabs = group.getElementsByClassName("widget-group-contents")[0].children;
+
+        const content = group.querySelector(":scope > .widget-content");
+        if (content === null) {
+            continue;
+        }
+
+        const header = content.querySelector(
+            ":scope > .widget-group-header > .widget-header"
+        );
+        const contents = content.querySelector(
+            ":scope > .widget-group-contents"
+        );
+
+        if (header === null || contents === null) {
+            continue;
+        }
+
+        const titles = header.children;
+        const tabs = contents.children;
         let current = 0;
 
         for (let t = 0; t < titles.length; t++) {
