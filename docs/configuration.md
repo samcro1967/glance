@@ -1654,6 +1654,16 @@ Examples:
 | subrequests | map of requests | no | |
 | timeout | duration string | no | 5s |
 
+##### Stale fallback
+
+After a `custom-api` widget has completed at least one successful refresh, Glance preserves that last successfully rendered content if a later refresh fails. The previous content remains visible and is marked with a `STALE` indicator showing how long ago the last successful refresh occurred.
+
+The `cache` setting continues to control how often fresh data is requested. A failed refresh does not replace the last successful content or reset its age. Glance retries the update according to its normal retry schedule, and the stale indicator is automatically cleared when a later refresh succeeds.
+
+If the initial request fails before any content has been successfully rendered, there is no previous content to fall back to and the normal widget error behavior is used.
+
+A non-success HTTP response with an empty body is treated as a failed refresh. Non-success responses containing a body retain the existing Custom API behavior and remain available to templates through `.Response`, allowing templates to handle status codes explicitly.
+
 ##### `url`
 The URL to fetch the data from. It must be accessible from the server that Glance is running on.
 

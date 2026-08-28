@@ -3,5 +3,12 @@
 {{ define "widget-content-classes" }}{{ if .Frameless }}widget-content-frameless{{ end }}{{ end }}
 
 {{ define "widget-content" }}
+{{ if .Stale }}
+<div class="custom-api-stale flex items-center gap-5 size-h6 color-negative">
+    <span>STALE</span>
+    <span>·</span>
+    <span {{ dynamicRelativeTimeAttrs .LastSuccessfulUpdate }}></span>
+</div>
+{{ end }}
 {{ .CompiledHTML }}
 {{ end }}

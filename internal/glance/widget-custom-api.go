@@ -39,14 +39,16 @@ type CustomAPIRequest struct {
 }
 
 type customAPIWidget struct {
-	widgetBase        `yaml:",inline"`
-	*CustomAPIRequest `yaml:",inline"`             // the primary request
-	Subrequests       map[string]*CustomAPIRequest `yaml:"subrequests"`
-	Options           customAPIOptions             `yaml:"options"`
-	Template          string                       `yaml:"template"`
-	Frameless         bool                         `yaml:"frameless"`
-	compiledTemplate  *template.Template           `yaml:"-"`
-	CompiledHTML      template.HTML                `yaml:"-"`
+	widgetBase           `yaml:",inline"`
+	*CustomAPIRequest    `yaml:",inline"`             // the primary request
+	Subrequests          map[string]*CustomAPIRequest `yaml:"subrequests"`
+	Options              customAPIOptions             `yaml:"options"`
+	Template             string                       `yaml:"template"`
+	Frameless            bool                         `yaml:"frameless"`
+	compiledTemplate     *template.Template           `yaml:"-"`
+	CompiledHTML         template.HTML                `yaml:"-"`
+	Stale                bool                         `yaml:"-"`
+	LastSuccessfulUpdate time.Time                    `yaml:"-"`
 }
 
 func (widget *customAPIWidget) initialize() error {
@@ -80,11 +82,38 @@ func (widget *customAPIWidget) update(ctx context.Context) {
 	compiledHTML, err := fetchAndRenderCustomAPIRequest(
 		widget.CustomAPIRequest, widget.Subrequests, widget.Options, widget.compiledTemplate,
 	)
-	if !widget.canContinueUpdateAfterHandlingErr(err) {
+
+	if err != nil {
+		hasLastKnownGood := !widget.LastSuccessfulUpdate.IsZero()
+
+		if hasLastKnownGood {
+			widget.Stale = true
+
+			requestURL := ""
+			if widget.CustomAPIRequest != nil {
+				requestURL = widget.CustomAPIRequest.URL
+			}
+
+			slog.Warn(
+				"Custom API refresh failed; serving stale content",
+				"title", widget.Title,
+				"url", requestURL,
+				"last_successful_update", widget.LastSuccessfulUpdate,
+				"error", err,
+			)
+		}
+
+		widget.canContinueUpdateAfterHandlingErr(err)
+		return
+	}
+
+	if !widget.canContinueUpdateAfterHandlingErr(nil) {
 		return
 	}
 
 	widget.CompiledHTML = compiledHTML
+	widget.LastSuccessfulUpdate = time.Now()
+	widget.Stale = false
 }
 
 func (widget *customAPIWidget) Render() template.HTML {
@@ -261,6 +290,14 @@ func fetchCustomAPIResponse(ctx context.Context, req *CustomAPIRequest) (*custom
 
 	body := strings.TrimSpace(string(bodyBytes))
 
+	// Preserve the documented ability for custom API templates to inspect and
+	// render non-2xx responses. However, a non-2xx response with no body has
+	// nothing useful for the template to consume and should be treated as a
+	// failed refresh.
+	if (resp.StatusCode < 200 || resp.StatusCode >= 300) && body == "" {
+		return nil, fmt.Errorf("%d %s", resp.StatusCode, http.StatusText(resp.StatusCode))
+	}
+
 	if !req.SkipJSONValidation && body != "" && !gjson.Valid(body) {
 		if 200 <= resp.StatusCode && resp.StatusCode < 300 {
 			truncatedBody, isTruncated := limitStringLength(body, 100)
@@ -268,12 +305,15 @@ func fetchCustomAPIResponse(ctx context.Context, req *CustomAPIRequest) (*custom
 				truncatedBody += "... <truncated>"
 			}
 
-			slog.Error("Invalid response JSON in custom API widget", "url", req.httpRequest.URL.String(), "body", truncatedBody)
+			slog.Error(
+				"Invalid response JSON in custom API widget",
+				"url", req.httpRequest.URL.String(),
+				"body", truncatedBody,
+			)
 			return nil, errors.New("invalid response JSON")
 		}
 
 		return nil, fmt.Errorf("%d %s", resp.StatusCode, http.StatusText(resp.StatusCode))
-
 	}
 
 	return &customAPIResponseData{
