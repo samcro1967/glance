@@ -65,7 +65,8 @@ type config struct {
 		AppBackgroundColor string        `yaml:"app-background-color"`
 	} `yaml:"branding"`
 
-	Pages []page `yaml:"pages"`
+	Pages      []page                           `yaml:"pages"`
+	Dashboards orderedYAMLMap[string, []string] `yaml:"dashboards"`
 }
 
 type user struct {
@@ -451,6 +452,35 @@ func configFilesWatcher(
 func isConfigStateValid(config *config) error {
 	if len(config.Pages) == 0 {
 		return fmt.Errorf("no pages configured")
+	}
+
+	if len(config.Dashboards.keys) > 0 {
+		if _, exists := config.Dashboards.Get("Default"); !exists {
+			return fmt.Errorf("dashboards configuration requires a Default dashboard")
+		}
+
+		for dashboardName, pageSlugs := range config.Dashboards.Items() {
+			if strings.TrimSpace(dashboardName) == "" {
+				return fmt.Errorf("dashboard has no name")
+			}
+
+			if len(pageSlugs) == 0 {
+				return fmt.Errorf("dashboard %q has no pages", dashboardName)
+			}
+
+			seenPageSlugs := make(map[string]struct{}, len(pageSlugs))
+			for _, pageSlug := range pageSlugs {
+				if strings.TrimSpace(pageSlug) == "" {
+					return fmt.Errorf("dashboard %q contains an empty page slug", dashboardName)
+				}
+
+				if _, exists := seenPageSlugs[pageSlug]; exists {
+					return fmt.Errorf("dashboard %q contains duplicate page slug %q", dashboardName, pageSlug)
+				}
+
+				seenPageSlugs[pageSlug] = struct{}{}
+			}
+		}
 	}
 
 	if len(config.Auth.Users) > 0 && config.Auth.SecretKey == "" {

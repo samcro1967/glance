@@ -28,6 +28,7 @@ It tracks the upstream Glance project while incorporating additional functionali
 - **Nested groups** — Allows `group` widgets to contain other `group` widgets, enabling multiple levels of tabbed navigation.
 - **Custom API timeouts** — Adds configurable request timeouts to `custom-api` widgets based on upstream [PR #997](https://github.com/glanceapp/glance/pull/997), with independent timeout settings for primary requests and subrequests.
 - **Custom API stale fallback** — Preserves the last successfully rendered `custom-api` content when a refresh fails, displays a visible stale indicator with the age of the last successful update, and automatically clears the stale state after a successful refresh.
+- **Named dashboards** — Allows configured pages to be organized into multiple independently addressable dashboards with dashboard-specific navigation. Pages are defined once and can be shared across dashboards while retaining the same underlying widget state, caching, and update lifecycle. Existing configurations without `dashboards` continue to use the standard Glance page behavior.
 - **Container image** — Automatically builds and publishes this fork from the `main` branch to GitHub Container Registry:
   - `ghcr.io/samcro1967/glance:latest`
   - `ghcr.io/samcro1967/glance:sha-<commit>`
