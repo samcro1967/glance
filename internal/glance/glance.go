@@ -27,6 +27,21 @@ const STATIC_ASSETS_CACHE_DURATION = 24 * time.Hour
 
 var reservedPageSlugs = []string{"login", "logout"}
 
+var reservedDashboardSlugs = []string{
+	"api",
+	"assets",
+	"login",
+	"logout",
+	"manifest.json",
+	"static",
+}
+
+type dashboard struct {
+	Name  string
+	Slug  string
+	Pages []*page
+}
+
 type application struct {
 	Version   string
 	CreatedAt time.Time
@@ -34,8 +49,10 @@ type application struct {
 
 	parsedManifest []byte
 
-	slugToPage map[string]*page
-	widgetByID map[uint64]widget
+	slugToPage       map[string]*page
+	slugToDashboard  map[string]*dashboard
+	defaultDashboard *dashboard
+	widgetByID       map[uint64]widget
 
 	RequiresAuth           bool
 	authSecretKey          []byte
@@ -46,11 +63,12 @@ type application struct {
 
 func newApplication(c *config) (*application, error) {
 	app := &application{
-		Version:    buildVersion,
-		CreatedAt:  time.Now(),
-		Config:     *c,
-		slugToPage: make(map[string]*page),
-		widgetByID: make(map[uint64]widget),
+		Version:         buildVersion,
+		CreatedAt:       time.Now(),
+		Config:          *c,
+		slugToPage:      make(map[string]*page),
+		slugToDashboard: make(map[string]*dashboard),
+		widgetByID:      make(map[uint64]widget),
 	}
 	config := &app.Config
 
@@ -193,6 +211,49 @@ func newApplication(c *config) (*application, error) {
 		}
 	}
 
+	if len(config.Dashboards.keys) > 0 {
+		for dashboardName, pageSlugs := range config.Dashboards.Items() {
+			dashboardSlug := titleToSlug(dashboardName)
+			if dashboardSlug == "" {
+				return nil, fmt.Errorf("dashboard %q has an invalid slug", dashboardName)
+			}
+
+			if dashboardName != "Default" && slices.Contains(reservedDashboardSlugs, dashboardSlug) {
+				return nil, fmt.Errorf("dashboard slug %q is reserved", dashboardSlug)
+			}
+
+			if dashboardName != "Default" {
+				if _, exists := app.slugToDashboard[dashboardSlug]; exists {
+					return nil, fmt.Errorf("dashboard slug %q is duplicated", dashboardSlug)
+				}
+			}
+
+			dashboardPages := make([]*page, 0, len(pageSlugs))
+			for _, pageSlug := range pageSlugs {
+				page, exists := app.slugToPage[pageSlug]
+				if !exists {
+					return nil, fmt.Errorf("dashboard %q references unknown page slug %q", dashboardName, pageSlug)
+				}
+
+				dashboardPages = append(dashboardPages, page)
+			}
+
+			dashboard := &dashboard{
+				Name:  dashboardName,
+				Slug:  dashboardSlug,
+				Pages: dashboardPages,
+			}
+
+			if dashboardName == "Default" {
+				dashboard.Slug = ""
+				app.defaultDashboard = dashboard
+				continue
+			}
+
+			app.slugToDashboard[dashboard.Slug] = dashboard
+		}
+	}
+
 	config.Server.BaseURL = strings.TrimRight(config.Server.BaseURL, "/")
 	config.Theme.CustomCSSFile = app.resolveUserDefinedAssetPath(config.Theme.CustomCSSFile)
 	config.Branding.LogoURL = app.resolveUserDefinedAssetPath(config.Branding.LogoURL)
@@ -282,9 +343,11 @@ type templateRequestData struct {
 }
 
 type templateData struct {
-	App     *application
-	Page    *page
-	Request templateRequestData
+	App             *application
+	Page            *page
+	NavigationPages []*page
+	DashboardPath   string
+	Request         templateRequestData
 }
 
 func (a *application) populateTemplateRequestData(data *templateRequestData, r *http.Request) {
@@ -303,20 +366,16 @@ func (a *application) populateTemplateRequestData(data *templateRequestData, r *
 	data.Theme = theme
 }
 
-func (a *application) handlePageRequest(w http.ResponseWriter, r *http.Request) {
-	page, exists := a.slugToPage[r.PathValue("page")]
-	if !exists {
-		a.handleNotFound(w, r)
-		return
-	}
-
+func (a *application) renderPage(w http.ResponseWriter, r *http.Request, page *page, navigationPages []*page, dashboardPath string) {
 	if a.handleUnauthorizedResponse(w, r, redirectToLogin) {
 		return
 	}
 
 	data := templateData{
-		Page: page,
-		App:  a,
+		App:             a,
+		Page:            page,
+		NavigationPages: navigationPages,
+		DashboardPath:   dashboardPath,
 	}
 	a.populateTemplateRequestData(&data.Request, r)
 
@@ -329,6 +388,83 @@ func (a *application) handlePageRequest(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.Write(responseBytes.Bytes())
+}
+
+func (a *application) handlePageRequest(w http.ResponseWriter, r *http.Request) {
+	if a.defaultDashboard == nil {
+		page, exists := a.slugToPage[r.PathValue("page")]
+		if !exists {
+			a.handleNotFound(w, r)
+			return
+		}
+
+		a.renderPage(w, r, page, pagePointers(a.Config.Pages), "")
+		return
+	}
+
+	pageSlug := r.PathValue("page")
+	var page *page
+
+	if pageSlug == "" {
+		page = a.defaultDashboard.Pages[0]
+	} else {
+		for _, candidate := range a.defaultDashboard.Pages {
+			if candidate.Slug == pageSlug {
+				page = candidate
+				break
+			}
+		}
+	}
+
+	if page == nil {
+		a.handleNotFound(w, r)
+		return
+	}
+
+	a.renderPage(w, r, page, a.defaultDashboard.Pages, "")
+}
+
+func (a *application) handleDashboardPageRequest(w http.ResponseWriter, r *http.Request) {
+	dashboard, exists := a.slugToDashboard[r.PathValue("dashboard")]
+	if !exists {
+		a.handleNotFound(w, r)
+		return
+	}
+
+	pageSlug := r.PathValue("page")
+	var page *page
+
+	if pageSlug == "" {
+		page = dashboard.Pages[0]
+	} else {
+		for _, candidate := range dashboard.Pages {
+			if candidate.Slug == pageSlug {
+				page = candidate
+				break
+			}
+		}
+	}
+
+	if page == nil {
+		a.handleNotFound(w, r)
+		return
+	}
+
+	a.renderPage(
+		w,
+		r,
+		page,
+		dashboard.Pages,
+		"/"+dashboard.Slug,
+	)
+}
+
+func pagePointers(pages []page) []*page {
+	result := make([]*page, len(pages))
+	for i := range pages {
+		result[i] = &pages[i]
+	}
+	return result
 }
 
 func (a *application) handlePageContentRequest(w http.ResponseWriter, r *http.Request) {
@@ -442,11 +578,16 @@ func (a *application) VersionedAssetPath(asset string) string {
 		"?v=" + strconv.FormatInt(a.CreatedAt.Unix(), 10)
 }
 
-func (a *application) server() (func() error, func() error) {
+func (a *application) router() http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /{$}", a.handlePageRequest)
 	mux.HandleFunc("GET /{page}", a.handlePageRequest)
+
+	if a.defaultDashboard != nil {
+		mux.HandleFunc("GET /{dashboard}/{$}", a.handleDashboardPageRequest)
+		mux.HandleFunc("GET /{dashboard}/{page}", a.handleDashboardPageRequest)
+	}
 
 	mux.HandleFunc("GET /api/pages/{page}/content/{$}", a.handlePageContentRequest)
 
@@ -490,16 +631,23 @@ func (a *application) server() (func() error, func() error) {
 		w.Write(a.parsedManifest)
 	})
 
-	var absAssetsPath string
 	if a.Config.Server.AssetsPath != "" {
-		absAssetsPath, _ = filepath.Abs(a.Config.Server.AssetsPath)
 		assetsFS := fileServerWithCache(http.Dir(a.Config.Server.AssetsPath), 2*time.Hour)
 		mux.Handle("/assets/{path...}", http.StripPrefix("/assets/", assetsFS))
 	}
 
+	return mux
+}
+
+func (a *application) server() (func() error, func() error) {
+	var absAssetsPath string
+	if a.Config.Server.AssetsPath != "" {
+		absAssetsPath, _ = filepath.Abs(a.Config.Server.AssetsPath)
+	}
+
 	server := http.Server{
 		Addr:    fmt.Sprintf("%s:%d", a.Config.Server.Host, a.Config.Server.Port),
-		Handler: mux,
+		Handler: a.router(),
 	}
 
 	start := func() error {

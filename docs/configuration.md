@@ -15,6 +15,7 @@
 - [Theme](#theme)
   - [Available themes](#available-themes)
 - [Pages & Columns](#pages--columns)
+  - [Named dashboards](#named-dashboards)
 - [Widgets](#widgets)
   - [RSS](#rss)
   - [Videos](#videos)
@@ -535,19 +536,23 @@ To override the default dark and light themes, use the key names `default-dark` 
 Using pages and columns is how widgets are organized. Each page contains up to 3 columns and each column can have any number of widgets.
 
 ### Pages
-Pages are defined through a top level `pages` property. The page defined first becomes the home page and all pages get automatically added to the navigation bar in the order that they were defined. Example:
+Pages are defined through a top level `pages` property.
+
+When `dashboards` is not configured, Glance uses its standard page behavior: the page defined first becomes the home page and all pages are automatically added to the navigation bar in the order that they were defined.
 
 ```yaml
 pages:
   - name: Home
     columns: ...
 
-  - name: Videos
+  - name: Page 2
     columns: ...
 
-  - name: Homelab
+  - name: Page 3
     columns: ...
 ```
+
+When [named dashboards](#named-dashboards) are configured, pages are still defined only once under `pages`, but each dashboard controls which pages appear in its navigation and in what order.
 
 ### Properties
 | Name | Type | Required | Default |
@@ -633,6 +638,136 @@ pages:
           - type: weather
             location: London, United Kingdom
 ```
+
+### Named dashboards
+
+Named dashboards allow the same configured pages to be organized into multiple independently addressable navigation sets.
+
+Pages continue to be defined once under the top-level `pages` property. The optional top-level `dashboards` property selects which pages belong to each dashboard and controls their navigation order.
+
+A page can belong to multiple dashboards. The page itself is not duplicated: each dashboard uses the same underlying page, widgets, cached data, and update lifecycle.
+
+Example:
+
+```yaml
+pages:
+  - name: Home
+    slug: home
+    columns: ...
+
+  - name: Page 2
+    slug: page2
+    columns: ...
+
+  - name: Page 3
+    slug: page3
+    columns: ...
+
+  - name: Shared
+    slug: shared
+    columns: ...
+
+dashboards:
+  Default:
+    - home
+    - page2
+    - page3
+    - shared
+
+  Personal:
+    - home
+    - page2
+    - shared
+
+  Family:
+    - home
+    - page3
+    - shared
+```
+
+Dashboard entries reference pages by their slug. If a page does not explicitly define a `slug`, its automatically generated slug is used.
+
+#### Default dashboard
+
+When `dashboards` is configured, a dashboard named `Default` is required.
+
+The `Default` dashboard controls the standard Glance routes. Its first page becomes the home page at `/`, and its pages use their normal top-level paths.
+
+Using the example above:
+
+```text
+/          -> Home
+/page2     -> Page 2
+/page3     -> Page 3
+/shared    -> Shared
+```
+
+Only pages assigned to `Default` appear in the default navigation.
+
+#### Named dashboard routes
+
+Every dashboard other than `Default` receives its own URL prefix generated from the dashboard name.
+
+The first page assigned to the dashboard becomes its dashboard home page.
+
+For example, the `Personal` dashboard above is available at:
+
+```text
+/personal/         -> Home
+/personal/page2    -> Page 2
+/personal/shared   -> Shared
+```
+
+The `Family` dashboard is available at:
+
+```text
+/family/         -> Home
+/family/page3    -> Page 3
+/family/shared   -> Shared
+```
+
+Navigation within a named dashboard remains inside that dashboard. For example, selecting Shared while viewing the `Family` dashboard links to `/family/shared` rather than `/shared`.
+
+A page that exists globally but is not assigned to a particular dashboard cannot be accessed through that dashboard's route.
+
+#### Shared pages
+
+Pages referenced by multiple dashboards are shared rather than copied.
+
+For example, because `shared` belongs to `Default`, `Personal`, and `Family`, all three dashboard routes render the same configured Shared page:
+
+```text
+/shared
+/personal/shared
+/family/shared
+```
+
+This means you do not need separate page configurations for each dashboard, and widgets retain the same caching and update behavior regardless of which dashboard is used to view the page.
+
+#### Backward compatibility
+
+The `dashboards` property is optional.
+
+If it is omitted, Glance behaves exactly as it does without this feature:
+
+- the first configured page is the home page;
+- all configured pages appear in navigation;
+- pages use their normal top-level routes.
+
+Existing configurations therefore continue to work without modification.
+
+#### Validation
+
+When `dashboards` is configured:
+
+- a `Default` dashboard is required;
+- each dashboard must contain at least one page;
+- every referenced page slug must exist;
+- the same page cannot be listed more than once in a dashboard;
+- dashboard names must generate unique URL slugs;
+- dashboard slugs cannot conflict with reserved Glance routes.
+
+The order of pages in each dashboard determines both the navigation order and which page becomes that dashboard's home page.
 
 ### Columns
 Columns are defined for each page using a `columns` property. There are two types of columns - `full` and `small`, which refers to their width. A small column takes up a fixed amount of width (300px) and a full column takes up the all of the remaining width. You can have up to 3 columns per page and you must have either 1 or 2 full columns. Example:
