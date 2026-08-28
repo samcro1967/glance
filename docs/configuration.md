@@ -23,6 +23,7 @@
   - [Reddit](#reddit)
   - [Search](#search-widget)
   - [Group](#group)
+  - [Stack](#stack)
   - [Split Column](#split-column)
   - [Custom API](#custom-api)
   - [Extension](#extension)
@@ -1286,7 +1287,9 @@ url: https://www.amazon.com/s?k={QUERY}
 ```
 
 ### Group
-Group multiple widgets into one using tabs. Widgets are defined using a `widgets` property exactly as you would on a page column. The only limitation is that you cannot place a group widget or a split column widget within a group widget.
+Group multiple widgets into one using tabs. Widgets are defined using a `widgets` property exactly as you would on a page column.
+
+Groups can also contain other groups, allowing you to create multiple levels of tabbed navigation. A `split-column` widget cannot be placed inside a `group` widget.
 
 Example:
 
@@ -1308,6 +1311,48 @@ Preview:
 
 ![](images/group-widget-preview.png)
 
+#### Nested groups
+
+A group can contain other group widgets to create multiple levels of tabs. The title of each nested group is used as the tab title in its parent group.
+
+For example:
+
+```yaml
+- type: group
+  widgets:
+    - type: group
+      title: Major Leagues
+      widgets:
+        - type: custom-api
+          title: MLB
+          url: https://example.com/mlb.json
+          template: |
+            <p>{{ .JSON.String "name" }}</p>
+
+        - type: custom-api
+          title: NFL
+          url: https://example.com/nfl.json
+          template: |
+            <p>{{ .JSON.String "name" }}</p>
+
+    - type: group
+      title: College
+      widgets:
+        - type: custom-api
+          title: NCAAF
+          url: https://example.com/ncaaf.json
+          template: |
+            <p>{{ .JSON.String "name" }}</p>
+
+        - type: custom-api
+          title: NCAAM
+          url: https://example.com/ncaam.json
+          template: |
+            <p>{{ .JSON.String "name" }}</p>
+```
+
+This produces an outer set of tabs for `Major Leagues` and `College`, with each tab containing its own inner set of tabs.
+
 #### Sharing properties
 
 To avoid repetition you can use [YAML anchors](https://support.atlassian.com/bitbucket-cloud/docs/yaml-anchors/) and share properties between widgets.
@@ -1328,6 +1373,39 @@ Example:
     - subreddit: pcgaming
       <<: *shared-properties
 ```
+
+### Stack
+Stack multiple widgets vertically and treat them as a single widget when used inside a group.
+
+This is useful when you want one group tab to display multiple widgets at the same time instead of displaying only a single widget.
+
+Widgets are defined using a `widgets` property exactly as you would on a page column.
+
+Example:
+
+```yaml
+- type: group
+  widgets:
+    - type: stack
+      title: News
+      widgets:
+        - type: hacker-news
+          collapse-after: 5
+
+        - type: lobsters
+          collapse-after: 5
+
+    - type: stack
+      title: Social
+      widgets:
+        - type: reddit
+          subreddit: selfhosted
+
+        - type: reddit
+          subreddit: homelab
+```
+
+In this example, the group has two tabs: `News` and `Social`. Selecting `News` displays both the Hacker News and Lobsters widgets vertically, while selecting `Social` displays both Reddit widgets vertically.
 
 ### Split Column
 Splits a full sized column in half, allowing you to place widgets side by side horizontally. This is converted to a single column on mobile devices or if not enough width is available. Widgets are defined using a `widgets` property exactly as you would on a page column.
@@ -1470,8 +1548,7 @@ pages:
 </details>
 <br>
 
-Just like the `group` widget, you can insert any widget type, you can even insert a `group` widget inside of a `split-column` widget, but you can't insert a `split-column` widget inside of a `group` widget.
-
+A `split-column` can contain other widget types, including `group` widgets. A `split-column` widget cannot be placed inside a `group` widget.
 
 ### Custom API
 

@@ -16,6 +16,22 @@
 
 ![](docs/images/readme-main-image.png)
 
+## About this fork
+
+This repository is a fork of [Glance](https://github.com/glanceapp/glance) maintained by [samcro1967](https://github.com/samcro1967/glance).
+
+It tracks the upstream Glance project while incorporating additional functionality not currently available in the upstream release.
+
+### Changes from upstream
+
+- **Stack widget** — Adds the `stack` widget from upstream [PR #765](https://github.com/glanceapp/glance/pull/765), allowing multiple widgets to be stacked vertically and treated as a single widget.
+- **Nested groups** — Allows `group` widgets to contain other `group` widgets, enabling multiple levels of tabbed navigation.
+- **Container image** — Automatically builds and publishes this fork from the `main` branch to GitHub Container Registry:
+  - `ghcr.io/samcro1967/glance:latest`
+  - `ghcr.io/samcro1967/glance:sha-<commit>`
+
+See the [configuration documentation](docs/configuration.md#configuring-glance) for details on using the additional widgets and functionality.
+
 ## Features
 ### Various widgets
 * RSS feeds
@@ -204,7 +220,7 @@ Create a `docker-compose.yml` file with the following contents:
 services:
   glance:
     container_name: glance
-    image: glanceapp/glance
+    image: ghcr.io/samcro1967/glance:latest
     restart: unless-stopped
     volumes:
       - ./config:/app/config
