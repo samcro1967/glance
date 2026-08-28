@@ -26,6 +26,7 @@ It tracks the upstream Glance project while incorporating additional functionali
 
 - **Stack widget** — Adds the `stack` widget from upstream [PR #765](https://github.com/glanceapp/glance/pull/765), allowing multiple widgets to be stacked vertically and treated as a single widget.
 - **Nested groups** — Allows `group` widgets to contain other `group` widgets, enabling multiple levels of tabbed navigation.
+- **Custom API timeouts** — Adds configurable request timeouts to `custom-api` widgets based on upstream [PR #997](https://github.com/glanceapp/glance/pull/997), with independent timeout settings for primary requests and subrequests.
 - **Container image** — Automatically builds and publishes this fork from the `main` branch to GitHub Container Registry:
   - `ghcr.io/samcro1967/glance:latest`
   - `ghcr.io/samcro1967/glance:sha-<commit>`
