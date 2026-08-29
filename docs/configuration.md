@@ -726,6 +726,30 @@ The `Family` dashboard is available at:
 /family/shared   -> Shared
 ```
 
+#### Dashboard switcher
+
+When named dashboards are configured, the application logo in the desktop navigation acts as a dashboard switcher.
+
+Selecting the logo opens a menu containing all available dashboards in the same order they are defined under `dashboards`. The currently active dashboard is indicated in the menu.
+
+Selecting a dashboard navigates to that dashboard's home page:
+
+```text
+Default  -> /
+Personal -> /personal/
+Family   -> /family/
+```
+
+The switcher can be closed by selecting the logo again, clicking outside the menu, or pressing <kbd>Escape</kbd>. When the logo is focused using keyboard navigation, <kbd>Enter</kbd> or <kbd>Space</kbd> opens or closes the switcher.
+
+On mobile, the available dashboards are shown with the other mobile navigation actions.
+
+When `dashboards` is not configured, the application logo retains the standard Glance behavior and no dashboard switcher is shown.
+
+Navigation within a named dashboard remains inside that dashboard. For example, selecting Shared while viewing the `Family` dashboard links to `/family/shared` rather than `/shared`.
+
+A page that exists globally but is not assigned to a particular dashboard cannot be accessed through that dashboard's route.
+
 Navigation within a named dashboard remains inside that dashboard. For example, selecting Shared while viewing the `Family` dashboard links to `/family/shared` rather than `/shared`.
 
 A page that exists globally but is not assigned to a particular dashboard cannot be accessed through that dashboard's route.

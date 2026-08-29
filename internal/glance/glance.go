@@ -51,6 +51,7 @@ type application struct {
 
 	slugToPage       map[string]*page
 	slugToDashboard  map[string]*dashboard
+	dashboards       []*dashboard
 	defaultDashboard *dashboard
 	widgetByID       map[uint64]widget
 
@@ -253,6 +254,8 @@ func newApplication(c *config) (*application, error) {
 				Pages: dashboardPages,
 			}
 
+			app.dashboards = append(app.dashboards, dashboard)
+
 			if dashboardName == "Default" {
 				dashboard.Slug = ""
 				app.defaultDashboard = dashboard
@@ -355,6 +358,8 @@ type templateData struct {
 	App             *application
 	Page            *page
 	NavigationPages []*page
+	Dashboards      []*dashboard
+	Dashboard       *dashboard
 	DashboardPath   string
 	Request         templateRequestData
 }
@@ -375,7 +380,14 @@ func (a *application) populateTemplateRequestData(data *templateRequestData, r *
 	data.Theme = theme
 }
 
-func (a *application) renderPage(w http.ResponseWriter, r *http.Request, page *page, navigationPages []*page, dashboardPath string) {
+func (a *application) renderPage(
+	w http.ResponseWriter,
+	r *http.Request,
+	page *page,
+	navigationPages []*page,
+	dashboard *dashboard,
+	dashboardPath string,
+) {
 	if a.handleUnauthorizedResponse(w, r, redirectToLogin) {
 		return
 	}
@@ -384,6 +396,8 @@ func (a *application) renderPage(w http.ResponseWriter, r *http.Request, page *p
 		App:             a,
 		Page:            page,
 		NavigationPages: navigationPages,
+		Dashboards:      a.dashboards,
+		Dashboard:       dashboard,
 		DashboardPath:   dashboardPath,
 	}
 	a.populateTemplateRequestData(&data.Request, r)
@@ -407,7 +421,14 @@ func (a *application) handlePageRequest(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
-		a.renderPage(w, r, page, pagePointers(a.Config.Pages), "")
+		a.renderPage(
+			w,
+			r,
+			page,
+			pagePointers(a.Config.Pages),
+			nil,
+			"",
+		)
 		return
 	}
 
@@ -430,7 +451,14 @@ func (a *application) handlePageRequest(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	a.renderPage(w, r, page, a.defaultDashboard.Pages, "")
+	a.renderPage(
+		w,
+		r,
+		page,
+		a.defaultDashboard.Pages,
+		a.defaultDashboard,
+		"",
+	)
 }
 
 func (a *application) handleDashboardPageRequest(
@@ -462,6 +490,7 @@ func (a *application) handleDashboardPageRequest(
 		r,
 		page,
 		dashboard.Pages,
+		dashboard,
 		"/"+dashboard.Slug,
 	)
 }
