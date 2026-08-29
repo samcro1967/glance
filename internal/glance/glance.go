@@ -125,7 +125,7 @@ func newApplication(c *config) (*application, error) {
 		themeProps := make([]*themeProperties, 0, 2)
 
 		defaultDarkTheme, ok := config.Theme.Presets.Get("default-dark")
-		if ok && !config.Theme.SameAs(defaultDarkTheme) || !config.Theme.SameAs(&themeProperties{}) {
+		if ok && (!config.Theme.SameAs(defaultDarkTheme) || !config.Theme.SameAs(&themeProperties{})) {
 			themeKeys = append(themeKeys, "default-dark")
 			themeProps = append(themeProps, &themeProperties{})
 		}
@@ -187,7 +187,7 @@ func newApplication(c *config) (*application, error) {
 			page.Width = ""
 		}
 
-		if page.DesktopNavigationWidth == "" && page.DesktopNavigationWidth != "default" {
+		if page.DesktopNavigationWidth == "" || page.DesktopNavigationWidth == "default" {
 			page.DesktopNavigationWidth = page.Width
 		}
 
