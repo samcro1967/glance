@@ -187,6 +187,7 @@ type widgetBase struct {
 	cacheType           cacheType        `yaml:"-"`
 	nextUpdate          time.Time        `yaml:"-"`
 	updateRetriedTimes  int              `yaml:"-"`
+	refreshDegraded     bool             `yaml:"-"`
 	refreshMu           sync.Mutex       `yaml:"-"`
 }
 
@@ -339,7 +340,27 @@ func (w *widgetBase) canContinueUpdateAfterHandlingErr(err error) bool {
 	if err != nil {
 		w.scheduleEarlyUpdate()
 
-		if !errors.Is(err, errPartialContent) {
+		partialContent := errors.Is(err, errPartialContent)
+
+		if !w.refreshDegraded {
+			message := "Widget refresh failed"
+			if partialContent {
+				message = "Widget refresh degraded"
+			}
+
+			slog.Warn(
+				message,
+				"widget_id", w.ID,
+				"type", w.Type,
+				"title", w.Title,
+				"retry_attempt", w.updateRetriedTimes,
+				"next_update", w.nextUpdate,
+			)
+
+			w.refreshDegraded = true
+		}
+
+		if !partialContent {
 			w.withError(err)
 			w.withNotice(nil)
 			return false
@@ -350,9 +371,22 @@ func (w *widgetBase) canContinueUpdateAfterHandlingErr(err error) bool {
 		return true
 	}
 
+	wasDegraded := w.refreshDegraded
+
 	w.withNotice(nil)
 	w.withError(nil)
 	w.scheduleNextUpdate()
+	w.refreshDegraded = false
+
+	if wasDegraded {
+		slog.Info(
+			"Widget recovered",
+			"widget_id", w.ID,
+			"type", w.Type,
+			"title", w.Title,
+		)
+	}
+
 	return true
 }
 
