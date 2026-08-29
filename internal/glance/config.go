@@ -138,8 +138,6 @@ var configVariablePattern = regexp.MustCompile(`(^|.)\$\{(?:([a-zA-Z]+):)?([a-zA
 // ${secret:api_key} 			        - value gets loaded from /run/secrets/api_key
 // ${readFileFromEnv:PATH_TO_SECRET}    - value gets loaded from the file path specified in the environment variable PATH_TO_SECRET
 //
-// TODO: don't match against commented out sections, not sure exactly how since
-// variables can be placed anywhere and used to modify the YAML structure itself
 // findYAMLCommentStart returns the index of the YAML comment start (# preceded
 // by whitespace or at the start of a line) while respecting quoted strings.
 // Returns -1 if there is no comment on the line.
