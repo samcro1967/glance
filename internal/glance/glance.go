@@ -309,33 +309,20 @@ func (p *page) updateOutdatedWidgets() {
 	var wg sync.WaitGroup
 	context := context.Background()
 
+	refreshWidget := func(widget widget) {
+		defer wg.Done()
+		refreshWidgetIfNeeded(context, widget, &now)
+	}
+
 	for w := range p.HeadWidgets {
-		widget := p.HeadWidgets[w]
-
-		if !widget.requiresUpdate(&now) {
-			continue
-		}
-
 		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			widget.update(context)
-		}()
+		go refreshWidget(p.HeadWidgets[w])
 	}
 
 	for c := range p.Columns {
 		for w := range p.Columns[c].Widgets {
-			widget := p.Columns[c].Widgets[w]
-
-			if !widget.requiresUpdate(&now) {
-				continue
-			}
-
 			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				widget.update(context)
-			}()
+			go refreshWidget(p.Columns[c].Widgets[w])
 		}
 	}
 
