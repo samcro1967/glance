@@ -111,6 +111,33 @@ type configDiagnostic struct {
 	cause   error
 }
 
+type configSemanticSources struct {
+	root       int
+	server     int
+	assetsPath int
+	auth       int
+	authUsers  int
+	users      map[string]int
+	dashboards int
+	dashboard  map[string]int
+	pages      int
+	page       []configPageSemanticSources
+}
+
+type configPageSemanticSources struct {
+	line                   int
+	name                   int
+	width                  int
+	desktopNavigationWidth int
+	columns                int
+	column                 []configColumnSemanticSources
+}
+
+type configColumnSemanticSources struct {
+	line int
+	size int
+}
+
 func (d *configDiagnostic) Error() string {
 	if d == nil {
 		return ""
@@ -218,7 +245,12 @@ func newConfigFromParsedYAML(parsed *parsedYAMLConfig) (*config, error) {
 		return nil, configDiagnosticFromYAMLError(parsed, err)
 	}
 
-	if err = isConfigStateValid(config); err != nil {
+	semanticSources, err := parseConfigSemanticSources(contents)
+	if err != nil {
+		return nil, configDiagnosticFromYAMLError(parsed, err)
+	}
+
+	if err = isConfigStateValidWithSources(config, parsed, semanticSources); err != nil {
 		return nil, err
 	}
 
@@ -678,37 +710,206 @@ func configFilesWatcher(
 	)
 }
 
+func yamlMappingValue(node *yaml.Node, key string) (*yaml.Node, *yaml.Node) {
+	if node == nil || node.Kind != yaml.MappingNode {
+		return nil, nil
+	}
+
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		keyNode := node.Content[i]
+		if keyNode.Value == key {
+			return keyNode, node.Content[i+1]
+		}
+	}
+
+	return nil, nil
+}
+
+func parseConfigSemanticSources(contents []byte) (*configSemanticSources, error) {
+	var document yaml.Node
+	if err := yaml.Unmarshal(contents, &document); err != nil {
+		return nil, err
+	}
+
+	sources := &configSemanticSources{
+		users:     make(map[string]int),
+		dashboard: make(map[string]int),
+	}
+
+	if len(document.Content) == 0 {
+		return sources, nil
+	}
+
+	root := document.Content[0]
+	sources.root = root.Line
+
+	if key, server := yamlMappingValue(root, "server"); server != nil {
+		sources.server = key.Line
+		if key, value := yamlMappingValue(server, "assets-path"); value != nil {
+			sources.assetsPath = key.Line
+		}
+	}
+
+	if key, auth := yamlMappingValue(root, "auth"); auth != nil {
+		sources.auth = key.Line
+		if usersKey, users := yamlMappingValue(auth, "users"); users != nil {
+			sources.authUsers = usersKey.Line
+			if users.Kind == yaml.MappingNode {
+				for i := 0; i+1 < len(users.Content); i += 2 {
+					keyNode := users.Content[i]
+					sources.users[keyNode.Value] = keyNode.Line
+				}
+			}
+		}
+	}
+
+	if key, dashboards := yamlMappingValue(root, "dashboards"); dashboards != nil {
+		sources.dashboards = key.Line
+		if dashboards.Kind == yaml.MappingNode {
+			for i := 0; i+1 < len(dashboards.Content); i += 2 {
+				keyNode := dashboards.Content[i]
+				sources.dashboard[keyNode.Value] = keyNode.Line
+			}
+		}
+	}
+
+	if key, pages := yamlMappingValue(root, "pages"); pages != nil {
+		sources.pages = key.Line
+		if pages.Kind == yaml.SequenceNode {
+			sources.page = make([]configPageSemanticSources, 0, len(pages.Content))
+			for _, pageNode := range pages.Content {
+				pageSource := configPageSemanticSources{line: pageNode.Line}
+
+				if key, value := yamlMappingValue(pageNode, "name"); value != nil {
+					pageSource.name = key.Line
+				}
+				if key, value := yamlMappingValue(pageNode, "width"); value != nil {
+					pageSource.width = key.Line
+				}
+				if key, value := yamlMappingValue(pageNode, "desktop-navigation-width"); value != nil {
+					pageSource.desktopNavigationWidth = key.Line
+				}
+				if columnsKey, columns := yamlMappingValue(pageNode, "columns"); columns != nil {
+					pageSource.columns = columnsKey.Line
+					if columns.Kind == yaml.SequenceNode {
+						pageSource.column = make([]configColumnSemanticSources, 0, len(columns.Content))
+						for _, columnNode := range columns.Content {
+							columnSource := configColumnSemanticSources{line: columnNode.Line}
+							if key, value := yamlMappingValue(columnNode, "size"); value != nil {
+								columnSource.size = key.Line
+							}
+							pageSource.column = append(pageSource.column, columnSource)
+						}
+					}
+				}
+
+				sources.page = append(sources.page, pageSource)
+			}
+		}
+	}
+
+	return sources, nil
+}
+
+func semanticConfigDiagnostic(
+	parsed *parsedYAMLConfig,
+	generatedLine int,
+	err error,
+) error {
+	if err == nil || generatedLine < 1 {
+		return err
+	}
+
+	source, found := parsed.sourceLocation(generatedLine)
+	if !found {
+		return err
+	}
+
+	return &configDiagnostic{
+		File:    source.File,
+		Line:    source.Line,
+		Message: err.Error(),
+		cause:   err,
+	}
+}
+
+func semanticSourceLine(lines ...int) int {
+	for _, line := range lines {
+		if line > 0 {
+			return line
+		}
+	}
+	return 0
+}
+
+func configPageDescription(page *page, index int) string {
+	if page != nil && strings.TrimSpace(page.Title) != "" {
+		return fmt.Sprintf("page %q", page.Title)
+	}
+	return fmt.Sprintf("page %d", index+1)
+}
+
 // TODO: Refactor, we currently validate in two different places, this being
 // one of them, which doesn't modify the data and only checks for logical errors
 // and then again when creating the application which does modify the data and do
 // further validation. Would be better if validation was done in a single place.
 func isConfigStateValid(config *config) error {
+	return isConfigStateValidWithSources(config, nil, nil)
+}
+
+func isConfigStateValidWithSources(
+	config *config,
+	parsed *parsedYAMLConfig,
+	sources *configSemanticSources,
+) error {
+	diagnostic := func(line int, err error) error {
+		return semanticConfigDiagnostic(parsed, line, err)
+	}
+
+	rootLine := 0
+	if sources != nil {
+		rootLine = sources.root
+	}
+
 	if len(config.Pages) == 0 {
-		return fmt.Errorf("no pages configured")
+		line := rootLine
+		if sources != nil {
+			line = semanticSourceLine(sources.pages, rootLine)
+		}
+		return diagnostic(line, fmt.Errorf("no pages configured"))
 	}
 
 	if len(config.Dashboards.keys) > 0 {
 		if _, exists := config.Dashboards.Get("Default"); !exists {
-			return fmt.Errorf("dashboards configuration requires a Default dashboard")
+			line := rootLine
+			if sources != nil {
+				line = semanticSourceLine(sources.dashboards, rootLine)
+			}
+			return diagnostic(line, fmt.Errorf("dashboards configuration requires a Default dashboard"))
 		}
 
 		for dashboardName, pageSlugs := range config.Dashboards.Items() {
+			line := rootLine
+			if sources != nil {
+				line = semanticSourceLine(sources.dashboard[dashboardName], sources.dashboards, rootLine)
+			}
+
 			if strings.TrimSpace(dashboardName) == "" {
-				return fmt.Errorf("dashboard has no name")
+				return diagnostic(line, fmt.Errorf("dashboard has no name"))
 			}
 
 			if len(pageSlugs) == 0 {
-				return fmt.Errorf("dashboard %q has no pages", dashboardName)
+				return diagnostic(line, fmt.Errorf("dashboard %q has no pages", dashboardName))
 			}
 
 			seenPageSlugs := make(map[string]struct{}, len(pageSlugs))
 			for _, pageSlug := range pageSlugs {
 				if strings.TrimSpace(pageSlug) == "" {
-					return fmt.Errorf("dashboard %q contains an empty page slug", dashboardName)
+					return diagnostic(line, fmt.Errorf("dashboard %q contains an empty page slug", dashboardName))
 				}
 
 				if _, exists := seenPageSlugs[pageSlug]; exists {
-					return fmt.Errorf("dashboard %q contains duplicate page slug %q", dashboardName, pageSlug)
+					return diagnostic(line, fmt.Errorf("dashboard %q contains duplicate page slug %q", dashboardName, pageSlug))
 				}
 
 				seenPageSlugs[pageSlug] = struct{}{}
@@ -717,63 +918,105 @@ func isConfigStateValid(config *config) error {
 	}
 
 	if len(config.Auth.Users) > 0 && config.Auth.SecretKey == "" {
-		return fmt.Errorf("secret-key must be set when users are configured")
+		line := rootLine
+		if sources != nil {
+			line = semanticSourceLine(sources.authUsers, sources.auth, rootLine)
+		}
+		return diagnostic(line, fmt.Errorf("secret-key must be set when users are configured"))
 	}
 
 	for username := range config.Auth.Users {
+		line := rootLine
+		if sources != nil {
+			line = semanticSourceLine(sources.users[username], sources.authUsers, sources.auth, rootLine)
+		}
+
 		if username == "" {
-			return fmt.Errorf("user has no name")
+			return diagnostic(line, fmt.Errorf("user has no name"))
 		}
 
 		if len(username) < 3 {
-			return errors.New("usernames must be at least 3 characters")
+			return diagnostic(line, errors.New("usernames must be at least 3 characters"))
 		}
 
 		user := config.Auth.Users[username]
 
 		if user.Password == "" {
 			if user.PasswordHashString == "" {
-				return fmt.Errorf("user %s must have a password or a password-hash set", username)
+				return diagnostic(line, fmt.Errorf("user %s must have a password or a password-hash set", username))
 			}
 		} else if len(user.Password) < 6 {
-			return fmt.Errorf("the password for %s must be at least 6 characters", username)
+			return diagnostic(line, fmt.Errorf("the password for %s must be at least 6 characters", username))
 		}
 	}
 
 	if config.Server.AssetsPath != "" {
 		if _, err := os.Stat(config.Server.AssetsPath); os.IsNotExist(err) {
-			return fmt.Errorf("assets directory does not exist: %s", config.Server.AssetsPath)
+			line := rootLine
+			if sources != nil {
+				line = semanticSourceLine(sources.assetsPath, sources.server, rootLine)
+			}
+			return diagnostic(line, fmt.Errorf("assets directory does not exist: %s", config.Server.AssetsPath))
 		}
 	}
 
 	for i := range config.Pages {
 		page := &config.Pages[i]
+		pageDescription := configPageDescription(page, i)
+
+		var pageSource configPageSemanticSources
+		if sources != nil && i < len(sources.page) {
+			pageSource = sources.page[i]
+		}
+		pagesLine := rootLine
+		if sources != nil {
+			pagesLine = semanticSourceLine(sources.pages, rootLine)
+		}
+		pageLine := semanticSourceLine(pageSource.line, pagesLine)
 
 		if page.Title == "" {
-			return fmt.Errorf("page %d has no name", i+1)
+			return diagnostic(
+				semanticSourceLine(pageSource.name, pageLine),
+				fmt.Errorf("page %d has no name", i+1),
+			)
 		}
 
 		if page.Width != "" && (page.Width != "wide" && page.Width != "slim" && page.Width != "default") {
-			return fmt.Errorf("page %d: width can only be either wide or slim", i+1)
+			return diagnostic(
+				semanticSourceLine(pageSource.width, pageLine),
+				fmt.Errorf("%s: width can only be either wide, slim or default", pageDescription),
+			)
 		}
 
 		if page.DesktopNavigationWidth != "" {
 			if page.DesktopNavigationWidth != "wide" && page.DesktopNavigationWidth != "slim" && page.DesktopNavigationWidth != "default" {
-				return fmt.Errorf("page %d: desktop-navigation-width can only be either wide or slim", i+1)
+				return diagnostic(
+					semanticSourceLine(pageSource.desktopNavigationWidth, pageLine),
+					fmt.Errorf("%s: desktop-navigation-width can only be either wide, slim or default", pageDescription),
+				)
 			}
 		}
 
 		if len(page.Columns) == 0 {
-			return fmt.Errorf("page %d has no columns", i+1)
+			return diagnostic(
+				semanticSourceLine(pageSource.columns, pageLine),
+				fmt.Errorf("%s has no columns", pageDescription),
+			)
 		}
 
 		if page.Width == "slim" {
 			if len(page.Columns) > 2 {
-				return fmt.Errorf("page %d is slim and cannot have more than 2 columns", i+1)
+				return diagnostic(
+					semanticSourceLine(pageSource.columns, pageLine),
+					fmt.Errorf("%s is slim and cannot have more than 2 columns", pageDescription),
+				)
 			}
 		} else {
 			if len(page.Columns) > 3 {
-				return fmt.Errorf("page %d has more than 3 columns", i+1)
+				return diagnostic(
+					semanticSourceLine(pageSource.columns, pageLine),
+					fmt.Errorf("%s has more than 3 columns", pageDescription),
+				)
 			}
 		}
 
@@ -782,8 +1025,17 @@ func isConfigStateValid(config *config) error {
 		for j := range page.Columns {
 			column := &page.Columns[j]
 
+			var columnSource configColumnSemanticSources
+			if j < len(pageSource.column) {
+				columnSource = pageSource.column[j]
+			}
+			columnLine := semanticSourceLine(columnSource.line, pageSource.columns, pageLine)
+
 			if column.Size != "small" && column.Size != "full" {
-				return fmt.Errorf("column %d of page %d: size can only be either small or full", j+1, i+1)
+				return diagnostic(
+					semanticSourceLine(columnSource.size, columnLine),
+					fmt.Errorf("column %d of %s: size can only be either small or full", j+1, pageDescription),
+				)
 			}
 
 			columnSizesCount[page.Columns[j].Size]++
@@ -792,7 +1044,10 @@ func isConfigStateValid(config *config) error {
 		full := columnSizesCount["full"]
 
 		if full > 2 || full == 0 {
-			return fmt.Errorf("page %d must have either 1 or 2 full width columns", i+1)
+			return diagnostic(
+				semanticSourceLine(pageSource.columns, pageLine),
+				fmt.Errorf("%s must have either 1 or 2 full width columns", pageDescription),
+			)
 		}
 	}
 
