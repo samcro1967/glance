@@ -71,6 +71,129 @@ func TestParseConfigVariablesIgnoresComments(t *testing.T) {
 	}
 }
 
+func TestParseConfigVariablesWithSourcesReportsSource(t *testing.T) {
+	tests := []struct {
+		name        string
+		files       map[string]string
+		wantFile    string
+		wantLine    int
+		wantMessage string
+	}{
+		{
+			name: "root environment variable",
+			files: map[string]string{
+				"glance.yml": "server:\n  host: ${PR35_MISSING_ENV}\npages:\n  - name: Home\n    columns:\n      - size: full\n",
+			},
+			wantFile:    "glance.yml",
+			wantLine:    2,
+			wantMessage: "parsing variable: environment variable PR35_MISSING_ENV not found",
+		},
+		{
+			name: "direct included environment variable",
+			files: map[string]string{
+				"glance.yml": "pages:\n  $include: pages.yml\n",
+				"pages.yml":  "- name: ${PR35_MISSING_INCLUDED_ENV}\n  columns:\n    - size: full\n",
+			},
+			wantFile:    "pages.yml",
+			wantLine:    1,
+			wantMessage: "parsing variable: environment variable PR35_MISSING_INCLUDED_ENV not found",
+		},
+		{
+			name: "nested included environment variable",
+			files: map[string]string{
+				"glance.yml":  "pages:\n  $include: pages.yml\n",
+				"pages.yml":   "- name: Home\n  columns:\n    $include: columns.yml\n",
+				"columns.yml": "- size: full\n  widgets:\n    - type: clock\n      title: ${PR35_MISSING_NESTED_ENV}\n",
+			},
+			wantFile:    "columns.yml",
+			wantLine:    4,
+			wantMessage: "parsing variable: environment variable PR35_MISSING_NESTED_ENV not found",
+		},
+		{
+			name: "missing secret file",
+			files: map[string]string{
+				"glance.yml": "server:\n  host: ${secret:pr35-secret-that-does-not-exist}\npages:\n  - name: Home\n    columns:\n      - size: full\n",
+			},
+			wantFile:    "glance.yml",
+			wantLine:    2,
+			wantMessage: "parsing variable: reading secret file:",
+		},
+		{
+			name: "readFileFromEnv missing environment variable",
+			files: map[string]string{
+				"glance.yml": "server:\n  host: ${readFileFromEnv:PR35_MISSING_FILE_ENV}\npages:\n  - name: Home\n    columns:\n      - size: full\n",
+			},
+			wantFile:    "glance.yml",
+			wantLine:    2,
+			wantMessage: "parsing variable: readFileFromEnv: environment variable PR35_MISSING_FILE_ENV not found",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			for name, contents := range tt.files {
+				writeConfigTestFile(t, filepath.Join(dir, name), contents)
+			}
+
+			parsed, err := parseYAMLIncludesWithSources(filepath.Join(dir, "glance.yml"))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			_, err = newConfigFromParsedYAML(parsed)
+			if err == nil {
+				t.Fatal("expected variable configuration error")
+			}
+
+			var diagnostic *configDiagnostic
+			if !errors.As(err, &diagnostic) {
+				t.Fatalf("error type = %T, want *configDiagnostic: %v", err, err)
+			}
+
+			wantFile := absConfigTestPath(t, filepath.Join(dir, tt.wantFile))
+			if diagnostic.File != wantFile {
+				t.Errorf("diagnostic file = %q, want %q", diagnostic.File, wantFile)
+			}
+			if diagnostic.Line != tt.wantLine {
+				t.Errorf("diagnostic line = %d, want %d", diagnostic.Line, tt.wantLine)
+			}
+			if !strings.HasPrefix(diagnostic.Message, tt.wantMessage) {
+				t.Errorf("diagnostic message = %q, want prefix %q", diagnostic.Message, tt.wantMessage)
+			}
+			if diagnostic.cause == nil {
+				t.Fatal("diagnostic cause is nil")
+			}
+			if !errors.Is(err, diagnostic.cause) {
+				t.Error("diagnostic does not unwrap to its variable cause")
+			}
+		})
+	}
+}
+
+func TestParseConfigVariablesCompatibilityErrorWithoutSources(t *testing.T) {
+	const variableName = "PR35_MISSING_COMPAT_ENV"
+	t.Setenv(variableName, "temporary")
+	if err := os.Unsetenv(variableName); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := parseConfigVariables([]byte("key: ${" + variableName + "}"))
+	if err == nil {
+		t.Fatal("expected variable parsing error")
+	}
+
+	var diagnostic *configDiagnostic
+	if errors.As(err, &diagnostic) {
+		t.Fatalf("compatibility parser unexpectedly returned configDiagnostic: %v", err)
+	}
+
+	want := "parsing variable: environment variable " + variableName + " not found"
+	if err.Error() != want {
+		t.Errorf("error = %q, want %q", err.Error(), want)
+	}
+}
+
 func TestFindYAMLCommentStart(t *testing.T) {
 	tests := []struct {
 		input    string

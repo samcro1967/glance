@@ -260,7 +260,7 @@ func newConfigFromYAML(contents []byte) (*config, error) {
 }
 
 func newConfigFromParsedYAML(parsed *parsedYAMLConfig) (*config, error) {
-	contents, err := parseConfigVariables(parsed.Contents)
+	contents, err := parseConfigVariablesWithSources(parsed.Contents, parsed)
 	if err != nil {
 		return nil, err
 	}
@@ -377,7 +377,13 @@ func findYAMLCommentStart(line []byte) int {
 }
 
 func parseConfigVariables(contents []byte) ([]byte, error) {
+	return parseConfigVariablesWithSources(contents, nil)
+}
+
+func parseConfigVariablesWithSources(contents []byte, parsed *parsedYAMLConfig) ([]byte, error) {
 	var err error
+	generatedLine := 0
+	errorLine := 0
 
 	replaceFunc := func(match []byte) []byte {
 		if err != nil {
@@ -405,7 +411,8 @@ func parseConfigVariables(contents []byte) ([]byte, error) {
 
 		parsedValue, returnOriginal, localErr := parseConfigVariableOfType(variableType, variableName)
 		if localErr != nil {
-			err = fmt.Errorf("parsing variable: %v", localErr)
+			err = fmt.Errorf("parsing variable: %w", localErr)
+			errorLine = generatedLine
 			return nil
 		}
 
@@ -420,6 +427,7 @@ func parseConfigVariables(contents []byte) ([]byte, error) {
 	// have their variables expanded (fixes #948).
 	lines := bytes.Split(contents, []byte("\n"))
 	for i, line := range lines {
+		generatedLine = i + 1
 		commentIdx := findYAMLCommentStart(line)
 		if commentIdx >= 0 {
 			// Only apply variable substitution to the part before the comment
@@ -433,7 +441,7 @@ func parseConfigVariables(contents []byte) ([]byte, error) {
 	}
 
 	if err != nil {
-		return nil, err
+		return nil, semanticConfigDiagnostic(parsed, errorLine, err)
 	}
 
 	return bytes.Join(lines, []byte("\n")), nil
