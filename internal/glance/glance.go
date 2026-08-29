@@ -226,6 +226,15 @@ func newApplication(c *config) (*application, error) {
 				if _, exists := app.slugToDashboard[dashboardSlug]; exists {
 					return nil, fmt.Errorf("dashboard slug %q is duplicated", dashboardSlug)
 				}
+
+				if _, exists := app.slugToPage[dashboardSlug]; exists {
+					log.Printf(
+						"WARNING: ignoring dashboard %q: slug %q conflicts with page slug\n",
+						dashboardName,
+						dashboardSlug,
+					)
+					continue
+				}
 			}
 
 			dashboardPages := make([]*page, 0, len(pageSlugs))
