@@ -875,7 +875,9 @@ func parseWidgetSemanticSources(node *yaml.Node) []configWidgetSemanticSources {
 	for _, widgetNode := range node.Content {
 		source := configWidgetSemanticSources{line: widgetNode.Line}
 
-		if _, templateNode := yamlMappingValue(widgetNode, "template"); templateNode != nil {
+		if _, templateNode := yamlMappingValue(widgetNode, "template"); templateNode != nil &&
+			templateNode.Kind == yaml.ScalarNode &&
+			templateNode.Style == yaml.LiteralStyle {
 			source.template = templateNode.Line
 		}
 

@@ -1062,6 +1062,77 @@ func TestNewConfigFromParsedYAMLCustomAPITemplateDiagnostics(t *testing.T) {
 	}
 }
 
+func TestNewConfigFromParsedYAMLCustomAPITemplateNonLiteralFallback(t *testing.T) {
+	tests := []struct {
+		name     string
+		template string
+	}{
+		{
+			name:     "single quoted scalar",
+			template: `'{{ doesNotExist }}'`,
+		},
+		{
+			name:     "double quoted scalar",
+			template: `"{{ doesNotExist }}"`,
+		},
+		{
+			name: "folded scalar",
+			template: ">\n" +
+				"              first line\n" +
+				"              {{ doesNotExist }}",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			mainPath := filepath.Join(dir, "glance.yml")
+			writeConfigTestFile(
+				t,
+				mainPath,
+				"pages:\n"+
+					"  - name: Home\n"+
+					"    columns:\n"+
+					"      - size: full\n"+
+					"        widgets:\n"+
+					"          - type: custom-api\n"+
+					"            template: "+tt.template+"\n",
+			)
+
+			parsed, err := parseYAMLIncludesWithSources(mainPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			_, err = newConfigFromParsedYAML(parsed)
+			if err == nil {
+				t.Fatal("expected custom API template initialization error")
+			}
+
+			var diagnostic *configDiagnostic
+			if !errors.As(err, &diagnostic) {
+				t.Fatalf("error type = %T, want *configDiagnostic: %v", err, err)
+			}
+
+			wantFile := absConfigTestPath(t, mainPath)
+			if diagnostic.File != wantFile {
+				t.Errorf("diagnostic file = %q, want %q", diagnostic.File, wantFile)
+			}
+			if diagnostic.Line != 6 {
+				t.Errorf("diagnostic line = %d, want widget line 6", diagnostic.Line)
+			}
+
+			var templateErr *customAPITemplateParseError
+			if !errors.As(err, &templateErr) {
+				t.Fatalf("diagnostic does not unwrap to *customAPITemplateParseError: %v", err)
+			}
+			if templateErr.line < 1 {
+				t.Errorf("template parse error line = %d, want positive line", templateErr.line)
+			}
+		})
+	}
+}
+
 func TestWidgetInitializationDiagnosticCustomAPITemplateFallback(t *testing.T) {
 	w := &customAPIWidget{}
 	w.Type = "custom-api"
