@@ -2,6 +2,7 @@ package glance
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 	"time"
 )
@@ -63,6 +64,14 @@ func runWidgetRefreshScheduler(
 	if scanInterval <= 0 {
 		scanInterval = widgetRefreshScanInterval
 	}
+
+	slog.Info(
+		"Widget refresh scheduler started",
+		"widgets", len(refreshWidgets),
+		"scan_interval", scanInterval,
+		"concurrency", concurrency,
+	)
+	defer slog.Info("Widget refresh scheduler stopped")
 
 	refreshDueWidgets(ctx, refreshWidgets, concurrency)
 

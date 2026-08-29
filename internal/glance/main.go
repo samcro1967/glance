@@ -3,7 +3,7 @@ package glance
 import (
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -99,13 +99,22 @@ func serveApp(configPath string) error {
 	var stopServer func() error
 
 	onChange := func(newContents []byte) {
-		if stopServer != nil {
-			log.Println("Config file changed, reloading...")
+		isReload := stopServer != nil
+
+		if isReload {
+			slog.Info("Configuration changed, reloading")
 		}
 
 		config, err := newConfigFromYAML(newContents)
 		if err != nil {
-			log.Printf("Config has errors: %v", err)
+			if isReload {
+				slog.Warn(
+					"Configuration reload rejected; keeping existing application",
+					"error", err,
+				)
+			} else {
+				slog.Error("Configuration is invalid", "error", err)
+			}
 
 			if !hadValidConfigOnStartup {
 				reportExitError(exitChannel, fmt.Errorf("validating config file: %w", err))
@@ -116,7 +125,14 @@ func serveApp(configPath string) error {
 
 		app, err := newApplication(config)
 		if err != nil {
-			log.Printf("Failed to create application: %v", err)
+			if isReload {
+				slog.Warn(
+					"Application reload rejected; keeping existing application",
+					"error", err,
+				)
+			} else {
+				slog.Error("Failed to create application", "error", err)
+			}
 
 			if !hadValidConfigOnStartup {
 				reportExitError(exitChannel, fmt.Errorf("creating application: %w", err))
@@ -131,17 +147,23 @@ func serveApp(configPath string) error {
 
 		if stopServer != nil {
 			if err := stopServer(); err != nil {
-				log.Printf("Error while trying to stop server: %v", err)
+				slog.Error("Failed to stop server during configuration reload", "error", err)
 			}
 		}
 
 		var startServer func() error
 		startServer, stopServer = app.server()
 		go startServerAndReport(startServer, exitChannel)
+
+		if isReload {
+			slog.Info("Configuration reload accepted")
+		} else {
+			slog.Info("Application configuration loaded successfully")
+		}
 	}
 
 	onErr := func(err error) {
-		log.Printf("Error watching config files: %v", err)
+		slog.Error("Error watching configuration files", "error", err)
 	}
 
 	configContents, configIncludes, err := parseYAMLIncludes(configPath)
@@ -153,7 +175,10 @@ func serveApp(configPath string) error {
 	if err == nil {
 		defer stopWatching()
 	} else {
-		log.Printf("Error starting file watcher, config file changes will require a manual restart. (%v)", err)
+		slog.Warn(
+			"Failed to start configuration file watcher; configuration changes require a manual restart",
+			"error", err,
+		)
 
 		config, err := newConfigFromYAML(configContents)
 		if err != nil {
@@ -164,6 +189,8 @@ func serveApp(configPath string) error {
 		if err != nil {
 			return fmt.Errorf("creating application: %w", err)
 		}
+
+		slog.Info("Application configuration loaded successfully")
 
 		startServer, _ := app.server()
 		if err := startServer(); err != nil {
@@ -176,7 +203,7 @@ func serveApp(configPath string) error {
 
 func startServerAndReport(startServer func() error, exitChannel chan<- error) {
 	if err := startServer(); err != nil {
-		log.Printf("Failed to start server: %v", err)
+		slog.Error("Failed to start server", "error", err)
 		reportExitError(exitChannel, fmt.Errorf("starting server: %w", err))
 	}
 }
