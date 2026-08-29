@@ -30,7 +30,7 @@ const observer = new ResizeObserver(queueRepositionContainer);
 
 function handleMouseEnter(event) {
     clearTogglePopoverTimeout();
-    const target = event.target;
+    const target = event.currentTarget;
     pendingTarget = target;
     const showDelay = target.dataset.popoverShowDelay || defaultShowDelayMs;
 
@@ -52,6 +52,30 @@ function handleMouseLeave(event) {
     clearTogglePopoverTimeout();
     const target = activeTarget || event.target;
     togglePopoverTimeout = setTimeout(hidePopover, target.dataset.popoverHideDelay || defaultHideDelayMs);
+}
+
+function handleKeyboardActivation(event) {
+    if (event.key !== "Enter" && event.key !== " ") {
+        return;
+    }
+
+    event.preventDefault();
+    handleMouseEnter(event);
+}
+
+function handleHidePopoverOnOutsideClick(event) {
+    if (activeTarget === null) {
+        return;
+    }
+
+    if (
+        activeTarget.contains(event.target) ||
+        containerElement.contains(event.target)
+    ) {
+        return;
+    }
+
+    hidePopover();
 }
 
 function clearTogglePopoverTimeout() {
@@ -101,7 +125,13 @@ function showPopover() {
 
     contentElement.style.maxWidth = contentMaxWidth;
     activeTarget.classList.add("popover-active");
+
+    if (activeTarget.hasAttribute("aria-expanded")) {
+        activeTarget.setAttribute("aria-expanded", "true");
+    }
+
     document.addEventListener("keydown", handleHidePopoverOnEscape);
+    document.addEventListener("click", handleHidePopoverOnOutsideClick);
     window.addEventListener("scroll", queueRepositionContainer);
     window.addEventListener("resize", queueRepositionContainer);
     observer.observe(containerElement);
@@ -161,11 +191,17 @@ function hidePopover() {
     if (activeTarget === null) return;
 
     activeTarget.classList.remove("popover-active");
+
+    if (activeTarget.hasAttribute("aria-expanded")) {
+        activeTarget.setAttribute("aria-expanded", "false");
+    }
+
     containerElement.style.display = "none";
     containerElement.style.removeProperty("top");
     containerElement.style.removeProperty("left");
     containerElement.style.removeProperty("right");
     document.removeEventListener("keydown", handleHidePopoverOnEscape);
+    document.removeEventListener("click", handleHidePopoverOnOutsideClick);
     window.removeEventListener("scroll", queueRepositionContainer);
     window.removeEventListener("resize", queueRepositionContainer);
     observer.unobserve(containerElement);
@@ -192,6 +228,7 @@ export function setupPopovers() {
 
         if (target.dataset.popoverTrigger === "click") {
             target.addEventListener("click", handleMouseEnter);
+            target.addEventListener("keydown", handleKeyboardActivation);
         } else {
             target.addEventListener("mouseenter", handleMouseEnter);
         }

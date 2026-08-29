@@ -275,6 +275,73 @@ kbd:active {
     max-height: 2.7rem;
 }
 
+.dashboard-switcher {
+    cursor: pointer;
+    transition: opacity .2s;
+}
+
+.dashboard-switcher:hover,
+.dashboard-switcher.popover-active {
+    opacity: 0.75;
+}
+
+.dashboard-switcher-menu {
+    display: flex;
+    flex-direction: column;
+    min-width: 15rem;
+    margin: -0.4rem;
+}
+
+.dashboard-switcher-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+    min-width: 0;
+    padding: 0.7rem 0.9rem;
+    border-radius: var(--border-radius);
+    color: var(--color-text-base);
+    font-size: var(--font-size-h4);
+    line-height: 1.4;
+    white-space: nowrap;
+    transition: color .15s, background-color .15s;
+}
+
+.dashboard-switcher-link:hover,
+.dashboard-switcher-link:focus-visible {
+    color: var(--color-text-highlight);
+    background-color: var(--color-widget-background-highlight);
+}
+
+.dashboard-switcher-link-current {
+    color: var(--color-text-highlight);
+}
+
+.dashboard-switcher-link-current > span:last-child {
+    color: var(--color-primary);
+}
+
+.dashboard-switcher-mobile {
+    cursor: default;
+}
+
+.dashboard-switcher-mobile-links {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-top: 0.8rem;
+}
+
+.dashboard-switcher-mobile .dashboard-switcher-link {
+    width: 100%;
+    padding: 0.7rem 0;
+}
+
+.dashboard-switcher-mobile .dashboard-switcher-link:hover,
+.dashboard-switcher-mobile .dashboard-switcher-link:focus-visible {
+    background-color: transparent;
+}
+
 .nav {
     overflow-x: auto;
     min-width: 0;

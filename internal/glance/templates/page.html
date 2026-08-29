@@ -12,27 +12,70 @@
 {{ end }}
 {{ end }}
 
+{{ define "dashboard-switcher-links" }}
+{{ range .Dashboards }}
+<a
+    href="{{ $.App.Config.Server.BaseURL }}{{ if .Slug }}/{{ .Slug }}/{{ else }}/{{ end }}"
+    class="dashboard-switcher-link{{ if eq .Slug $.Dashboard.Slug }} dashboard-switcher-link-current{{ end }}"
+    {{ if eq .Slug $.Dashboard.Slug }}aria-current="true"{{ end }}
+>
+    <span>{{ .Name }}</span>
+    {{ if eq .Slug $.Dashboard.Slug }}
+    <span aria-hidden="true">✓</span>
+    {{ end }}
+</a>
+{{ end }}
+{{ end }}
+
+{{ define "logo-content" }}
+{{- if .App.Config.Branding.LogoURL }}
+<img src="{{ .App.Config.Branding.LogoURL }}" alt="">
+{{- else if .App.Config.Branding.LogoText }}
+{{- .App.Config.Branding.LogoText }}
+{{- else }}
+<svg style="max-height: 2rem;" width="100%" viewBox="0 0 108 108" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect fill="var(--color-text-subdue)" width="50" height="108" rx="6.875" />
+    <path fill="var(--color-primary)" fill-rule="evenodd" clip-rule="evenodd" d="M64.875 0C61.078 0 58 3.07804 58 6.875V43.125C58 46.922 61.078 50 64.875 50H101.125C104.922 50 108 46.922 108 43.125V6.875C108 3.07804 104.922 0 101.125 0H64.875ZM75.7545 11L71.3078 15.6814H85.2233C85.9209 15.6814 86.5835 15.6633 87.2113 15.627C87.839 15.5544 88.3273 15.4093 88.6761 15.1915L70 34.5706L73.4004 38L91.8149 18.7843C91.6056 19.1835 91.4487 19.7097 91.3441 20.3629C91.2743 20.9798 91.2394 21.5968 91.2394 22.2137V37.1835L96 32.2843V11H75.7545Z"/>
+    <rect fill="var(--color-text-base)" x="58" y="58" width="50" height="50" rx="6.875" />
+</svg>
+{{- end }}
+{{ end }}
+
 {{ define "document-body" }}
 <div class="flex flex-column body-content">
     {{ if not .Page.HideDesktopNavigation }}
     <div class="header-container content-bounds{{ if .Page.DesktopNavigationWidth }} content-bounds-{{ .Page.DesktopNavigationWidth }} {{ end }}">
         <div class="header flex padding-inline-widget widget-content-frame">
+			{{ if .Dashboard }}
+			<div
+				class="logo dashboard-switcher"
+				data-popover-type="html"
+				data-popover-position="below"
+				data-popover-show-delay="0"
+				data-popover-trigger="click"
+				role="button"
+				tabindex="0"
+				aria-label="Switch dashboard"
+				title="Switch dashboard"
+			>
+				{{ template "logo-content" . }}
+
+				<div data-popover-html>
+					<div class="dashboard-switcher-menu">
+						{{ template "dashboard-switcher-links" . }}
+					</div>
+				</div>
+			</div>
+			{{ else }}
             <div class="logo" aria-hidden="true">
-                {{- if .App.Config.Branding.LogoURL }}
-                <img src="{{ .App.Config.Branding.LogoURL }}" alt="">
-                {{- else if .App.Config.Branding.LogoText }}
-                {{- .App.Config.Branding.LogoText }}
-                {{- else }}
-                <svg style="max-height: 2rem;" width="100%" viewBox="0 0 108 108" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect fill="var(--color-text-subdue)" width="50" height="108" rx="6.875" />
-                    <path fill="var(--color-primary)" fill-rule="evenodd" clip-rule="evenodd" d="M64.875 0C61.078 0 58 3.07804 58 6.875V43.125C58 46.922 61.078 50 64.875 50H101.125C104.922 50 108 46.922 108 43.125V6.875C108 3.07804 104.922 0 101.125 0H64.875ZM75.7545 11L71.3078 15.6814H85.2233C85.9209 15.6814 86.5835 15.6633 87.2113 15.627C87.839 15.5544 88.3273 15.4093 88.6761 15.1915L70 34.5706L73.4004 38L91.8149 18.7843C91.6056 19.1835 91.4487 19.7097 91.3441 20.3629C91.2743 20.9798 91.2394 21.5968 91.2394 22.2137V37.1835L96 32.2843V11H75.7545Z"/>
-                    <rect fill="var(--color-text-base)" x="58" y="58" width="50" height="50" rx="6.875" />
-                </svg>
-                {{- end }}
+                {{ template "logo-content" . }}
             </div>
+            {{ end }}
+
             <nav class="nav flex grow hide-scrollbars">
                 {{ template "navigation-links" . }}
             </nav>
+
             {{ if not .App.Config.Theme.DisablePicker }}
             <div class="theme-picker self-center" data-popover-type="html" data-popover-position="below" data-popover-show-delay="0">
                 <div class="current-theme-preview">
@@ -43,6 +86,7 @@
                 </div>
             </div>
             {{ end }}
+
             {{- if .App.RequiresAuth }}
             <a class="block self-center" href="{{ .App.Config.Server.BaseURL }}/logout" title="Logout">
                 <svg class="logout-button" stroke="var(--color-text-subdue)" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5">
@@ -68,6 +112,15 @@
         </div>
 
         <div class="mobile-navigation-actions flex flex-column margin-block-10">
+            {{ if .Dashboard }}
+            <div class="dashboard-switcher-mobile">
+                <div class="size-h3">Dashboard</div>
+                <div class="dashboard-switcher-mobile-links">
+                    {{ template "dashboard-switcher-links" . }}
+                </div>
+            </div>
+            {{ end }}
+
             {{ if not .App.Config.Theme.DisablePicker }}
             <div class="theme-picker flex justify-between items-center" data-popover-type="html" data-popover-position="above" data-popover-show-delay="0" data-popover-hide-delay="100" data-popover-anchor=".current-theme-preview" data-popover-trigger="click">
                 <div data-popover-html>
