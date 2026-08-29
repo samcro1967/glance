@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -138,6 +139,19 @@ type widget interface {
 	setID(uint64)
 	handleRequest(w http.ResponseWriter, r *http.Request)
 	setHideHeader(bool)
+	lockRefresh()
+	unlockRefresh()
+}
+
+func refreshWidgetIfNeeded(ctx context.Context, widget widget, now *time.Time) {
+	widget.lockRefresh()
+	defer widget.unlockRefresh()
+
+	if !widget.requiresUpdate(now) {
+		return
+	}
+
+	widget.update(ctx)
 }
 
 type cacheType int
@@ -166,6 +180,7 @@ type widgetBase struct {
 	cacheType           cacheType        `yaml:"-"`
 	nextUpdate          time.Time        `yaml:"-"`
 	updateRetriedTimes  int              `yaml:"-"`
+	refreshMu           sync.Mutex       `yaml:"-"`
 }
 
 type widgetProviders struct {
@@ -182,6 +197,14 @@ func (w *widgetBase) requiresUpdate(now *time.Time) bool {
 	}
 
 	return now.After(w.nextUpdate)
+}
+
+func (w *widgetBase) lockRefresh() {
+	w.refreshMu.Lock()
+}
+
+func (w *widgetBase) unlockRefresh() {
+	w.refreshMu.Unlock()
 }
 
 func (w *widgetBase) IsWIP() bool {

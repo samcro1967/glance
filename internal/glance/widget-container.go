@@ -27,14 +27,10 @@ func (widget *containerWidgetBase) _update(ctx context.Context) {
 	for w := range widget.Widgets {
 		widget := widget.Widgets[w]
 
-		if !widget.requiresUpdate(&now) {
-			continue
-		}
-
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			widget.update(ctx)
+			refreshWidgetIfNeeded(ctx, widget, &now)
 		}()
 	}
 
