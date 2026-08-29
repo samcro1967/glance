@@ -99,7 +99,7 @@ func (widget *redditWidget) initialize() error {
 }
 
 func (widget *redditWidget) update(ctx context.Context) {
-	posts, err := widget.fetchSubredditPosts()
+	posts, err := widget.fetchSubredditPosts(ctx)
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
 		return
 	}
@@ -126,7 +126,6 @@ func (widget *redditWidget) Render() template.HTML {
 	}
 
 	return widget.renderTemplate(widget, forumPostsTemplate)
-
 }
 
 type subredditResponseJson struct {
@@ -164,7 +163,7 @@ func (widget *redditWidget) parseCustomCommentsURL(subreddit, postId, postPath s
 	return template
 }
 
-func (widget *redditWidget) fetchSubredditPosts() (forumPostList, error) {
+func (widget *redditWidget) fetchSubredditPosts(ctx context.Context) (forumPostList, error) {
 	var client requestDoer = redditHTTPClient
 	var baseURL string
 	var requestURL string
@@ -181,7 +180,7 @@ func (widget *redditWidget) fetchSubredditPosts() (forumPostList, error) {
 		baseURL = "https://oauth.reddit.com"
 
 		if app.accessToken == "" || time.Now().Add(time.Minute).After(app.tokenExpiresAt) {
-			if err := widget.fetchNewAppAccessToken(); err != nil {
+			if err := widget.fetchNewAppAccessToken(ctx); err != nil {
 				return nil, fmt.Errorf("fetching new app access token: %v", err)
 			}
 		}
@@ -213,7 +212,7 @@ func (widget *redditWidget) fetchSubredditPosts() (forumPostList, error) {
 		client = widget.Proxy.client
 	}
 
-	request, err := http.NewRequest("GET", requestURL, nil)
+	request, err := http.NewRequestWithContext(ctx, "GET", requestURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -294,9 +293,14 @@ func (widget *redditWidget) fetchSubredditPosts() (forumPostList, error) {
 	return posts, nil
 }
 
-func (widget *redditWidget) fetchNewAppAccessToken() error {
+func (widget *redditWidget) fetchNewAppAccessToken(ctx context.Context) error {
 	body := strings.NewReader("grant_type=client_credentials")
-	req, err := http.NewRequest("POST", "https://www.reddit.com/api/v1/access_token", body)
+	req, err := http.NewRequestWithContext(
+		ctx,
+		"POST",
+		"https://www.reddit.com/api/v1/access_token",
+		body,
+	)
 	if err != nil {
 		return fmt.Errorf("creating request for app access token: %v", err)
 	}
@@ -326,30 +330,33 @@ func (widget *redditWidget) fetchNewAppAccessToken() error {
 // On Windows the default HTTP client works fine, but on Linux it seems to
 // get detected and blocked by reddit (or cloudflare) presumably because of TLS fingerprinting,
 // so we use uTLS to mimic a real browser's TLS fingerprint, which seems to work around the issue
-var redditHTTPClient = &http.Client{Transport: &http2.Transport{
-	DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
-		host, _, err := net.SplitHostPort(addr)
-		if err != nil {
-			return nil, err
-		}
+var redditHTTPClient = &http.Client{
+	Timeout: 5 * time.Second,
+	Transport: &http2.Transport{
+		DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
+			host, _, err := net.SplitHostPort(addr)
+			if err != nil {
+				return nil, err
+			}
 
-		tcpConn, err := (&net.Dialer{}).DialContext(ctx, network, addr)
-		if err != nil {
-			return nil, err
-		}
+			tcpConn, err := (&net.Dialer{}).DialContext(ctx, network, addr)
+			if err != nil {
+				return nil, err
+			}
 
-		uconn := utls.UClient(tcpConn, &utls.Config{
-			ServerName: host,
-		}, utls.HelloFirefox_Auto)
+			uconn := utls.UClient(tcpConn, &utls.Config{
+				ServerName: host,
+			}, utls.HelloFirefox_Auto)
 
-		if err := uconn.HandshakeContext(ctx); err != nil {
-			tcpConn.Close()
-			return nil, err
-		}
+			if err := uconn.HandshakeContext(ctx); err != nil {
+				tcpConn.Close()
+				return nil, err
+			}
 
-		return uconn, nil
+			return uconn, nil
+		},
 	},
-}}
+}
 
 var (
 	redditChallengePattern = regexp.MustCompile(`await\(async \w+\s*=>\s*\w+\s*\+\s*\w+\)\("([^"]+)"\)`)

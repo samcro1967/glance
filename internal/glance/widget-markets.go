@@ -48,7 +48,7 @@ func (widget *marketsWidget) initialize() error {
 }
 
 func (widget *marketsWidget) update(ctx context.Context) {
-	markets, err := fetchMarketsDataFromYahoo(widget.MarketRequests)
+	markets, err := fetchMarketsDataFromYahoo(ctx, widget.MarketRequests)
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
 		return
@@ -122,16 +122,28 @@ type marketResponseJson struct {
 // TODO: allow changing chart time frame
 const marketChartDays = 21
 
-func fetchMarketsDataFromYahoo(marketRequests []marketRequest) (marketList, error) {
+func fetchMarketsDataFromYahoo(ctx context.Context, marketRequests []marketRequest) (marketList, error) {
 	requests := make([]*http.Request, 0, len(marketRequests))
 
 	for i := range marketRequests {
-		request, _ := http.NewRequest("GET", fmt.Sprintf("https://query1.finance.yahoo.com/v8/finance/chart/%s?range=1mo&interval=1d", marketRequests[i].Symbol), nil)
+		request, _ := http.NewRequestWithContext(
+			ctx,
+			"GET",
+			fmt.Sprintf(
+				"https://query1.finance.yahoo.com/v8/finance/chart/%s?range=1mo&interval=1d",
+				marketRequests[i].Symbol,
+			),
+			nil,
+		)
 		setBrowserUserAgentHeader(request)
 		requests = append(requests, request)
 	}
 
-	job := newJob(decodeJsonFromRequestTask[marketResponseJson](defaultHTTPClient), requests)
+	job := newJob(
+		decodeJsonFromRequestTask[marketResponseJson](defaultHTTPClient),
+		requests,
+	).withContext(ctx)
+
 	responses, errs, err := workerPoolDo(job)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", errNoContent, err)

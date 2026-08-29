@@ -78,7 +78,7 @@ func (widget *rssWidget) initialize() error {
 }
 
 func (widget *rssWidget) update(ctx context.Context) {
-	items, err := widget.fetchItemsFromFeeds()
+	items, err := widget.fetchItemsFromFeeds(ctx)
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
 		return
@@ -149,10 +149,14 @@ func (f rssFeedItemList) sortByNewest() rssFeedItemList {
 	return f
 }
 
-func (widget *rssWidget) fetchItemsFromFeeds() (rssFeedItemList, error) {
+func (widget *rssWidget) fetchItemsFromFeeds(ctx context.Context) (rssFeedItemList, error) {
 	requests := widget.FeedRequests
 
-	job := newJob(widget.fetchItemsFromFeedTask, requests).withWorkers(30)
+	task := func(request rssFeedRequest) ([]rssFeedItem, error) {
+		return widget.fetchItemsFromFeedTask(ctx, request)
+	}
+
+	job := newJob(task, requests).withWorkers(30).withContext(ctx)
 	feeds, errs, err := workerPoolDo(job)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", errNoContent, err)
@@ -189,8 +193,8 @@ func (widget *rssWidget) fetchItemsFromFeeds() (rssFeedItemList, error) {
 	return entries, nil
 }
 
-func (widget *rssWidget) fetchItemsFromFeedTask(request rssFeedRequest) ([]rssFeedItem, error) {
-	req, err := http.NewRequest("GET", request.URL, nil)
+func (widget *rssWidget) fetchItemsFromFeedTask(ctx context.Context, request rssFeedRequest) ([]rssFeedItem, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", request.URL, nil)
 	if err != nil {
 		return nil, err
 	}
