@@ -34,6 +34,7 @@ It tracks the upstream Glance project while incorporating additional functionali
 - **YAML comment variable parsing** — Incorporates upstream [PR #965](https://github.com/glanceapp/glance/pull/965), preventing configuration variables inside YAML comments from being expanded while correctly preserving hashes inside quoted values and handling escaped or doubled quotes.
 - **Search autofocus fix** — Incorporates upstream [PR #885](https://github.com/glanceapp/glance/pull/885), ensuring search widgets configured with `autofocus` reliably receive focus after dynamic initialization, including in browsers such as Firefox.
 - **Automatic widget recovery** — Adds server-side background refresh and recovery for updateable widgets. Expired or previously failed widgets are retried automatically without requiring a page to be open or manually refreshed. Refreshes are synchronized per widget to prevent duplicate concurrent updates while preserving parallel updates across different widgets, use bounded concurrency and progressive retry backoff after failures, and are cancelled cleanly during shutdown and configuration reloads. Normal successful refresh timing continues to respect each widget's configured cache duration. The `custom-api` widget additionally preserves its last successfully rendered content while a refresh is failing.
+- **Structured operational logging** — Adds structured lifecycle and recovery logging for improved container and service observability. Glance logs application, HTTP server, and background refresh scheduler lifecycle events; reports widget failure or degraded transitions without repeatedly logging the same failed state; and records when affected widgets recover. Operational diagnostics avoid logging configured provider URLs, response bodies, authentication credentials, tokens, cookies, and other sensitive values where those values may contain secrets.
 - **Named dashboards** — Allows configured pages to be organized into multiple independently addressable dashboards with dashboard-specific navigation. Pages are defined once and can be shared across dashboards while retaining the same underlying widget state, caching, and update lifecycle. When dashboards are configured, the application logo provides a dashboard switcher for quickly moving between dashboards, with the current dashboard indicated in the menu. Named dashboards whose generated slugs conflict with existing page slugs are ignored with a warning, allowing the remaining dashboards and pages to continue operating normally. Existing configurations without `dashboards` continue to use the standard Glance page and logo behavior.
 - **Container image** — Automatically builds and publishes this fork from the `main` branch to GitHub Container Registry:
   - `ghcr.io/samcro1967/glance:latest`
@@ -334,12 +335,12 @@ The most common cause of this is having a `pages` key in your `glance.yml` and t
 ## FAQ
 <details>
 <summary><strong>Does the information on the page update automatically?</strong></summary>
-No, a page refresh is required to update the information. Some things do dynamically update where it makes sense, like the clock widget and the relative time showing how long ago something happened.
+Updateable widgets are refreshed and recovered server-side when their cached data expires, even when no page is open. A browser page refresh may still be required to display newly fetched server-side content. Some client-side information also updates dynamically where it makes sense, such as the clock widget and relative times.
 </details>
 
 <details>
 <summary><strong>How frequently do widgets update?</strong></summary>
-No requests are made periodically in the background, information is only fetched upon loading the page and then cached. The default cache lifetime is different for each widget and can be configured.
+Updateable widgets are refreshed server-side after their cached data expires. The normal refresh interval is determined by each widget's cache lifetime and can be configured where supported. Failed refreshes are retried automatically using progressive backoff so temporary dependency or network failures can recover without restarting Glance or opening the page.
 </details>
 
 <details>
