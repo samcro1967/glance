@@ -594,6 +594,18 @@ func (a *application) router() http.Handler {
 	if a.defaultDashboard != nil {
 		for dashboardSlug, dashboard := range a.slugToDashboard {
 			mux.HandleFunc(
+				fmt.Sprintf("GET /%s", dashboardSlug),
+				func(w http.ResponseWriter, r *http.Request) {
+					http.Redirect(
+						w,
+						r,
+						a.Config.Server.BaseURL+"/"+dashboardSlug+"/",
+						http.StatusMovedPermanently,
+					)
+				},
+			)
+
+			mux.HandleFunc(
 				fmt.Sprintf("GET /%s/{$}", dashboardSlug),
 				func(w http.ResponseWriter, r *http.Request) {
 					a.handleDashboardPageRequest(dashboard, w, r)
