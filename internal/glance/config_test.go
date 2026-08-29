@@ -711,3 +711,169 @@ func TestSemanticConfigDiagnosticFallbackWithoutSource(t *testing.T) {
 		})
 	}
 }
+
+func TestNewConfigFromParsedYAMLWidgetInitializationDiagnostics(t *testing.T) {
+	tests := []struct {
+		name        string
+		files       map[string]string
+		wantFile    string
+		wantLine    int
+		wantMessage string
+	}{
+		{
+			name: "included head widget",
+			files: map[string]string{
+				"glance.yml":  "pages:\n  - name: Home\n    head-widgets:\n      $include: widgets.yml\n    columns:\n      - size: full\n",
+				"widgets.yml": "- type: weather\n",
+			},
+			wantFile:    "widgets.yml",
+			wantLine:    1,
+			wantMessage: "weather widget: location is required",
+		},
+		{
+			name: "included column widget",
+			files: map[string]string{
+				"glance.yml":  "pages:\n  - name: Home\n    columns:\n      - size: full\n        widgets:\n          $include: widgets.yml\n",
+				"widgets.yml": "- type: weather\n",
+			},
+			wantFile:    "widgets.yml",
+			wantLine:    1,
+			wantMessage: "weather widget: location is required",
+		},
+		{
+			name: "nested container child",
+			files: map[string]string{
+				"glance.yml": "pages:\n  - name: Home\n    columns:\n      - size: full\n        widgets:\n          - type: group\n            widgets:\n              - type: weather\n",
+			},
+			wantFile:    "glance.yml",
+			wantLine:    8,
+			wantMessage: "group widget: weather widget: location is required",
+		},
+		{
+			name: "nested included container child",
+			files: map[string]string{
+				"glance.yml":   "pages:\n  - name: Home\n    columns:\n      - size: full\n        widgets:\n          $include: group.yml\n",
+				"group.yml":    "- type: group\n  widgets:\n    $include: children.yml\n",
+				"children.yml": "- type: weather\n",
+			},
+			wantFile:    "children.yml",
+			wantLine:    1,
+			wantMessage: "group widget: weather widget: location is required",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			for name, contents := range tt.files {
+				writeConfigTestFile(t, filepath.Join(dir, name), contents)
+			}
+
+			parsed, err := parseYAMLIncludesWithSources(filepath.Join(dir, "glance.yml"))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			_, err = newConfigFromParsedYAML(parsed)
+			if err == nil {
+				t.Fatal("expected widget initialization error")
+			}
+
+			var diagnostic *configDiagnostic
+			if !errors.As(err, &diagnostic) {
+				t.Fatalf("error type = %T, want *configDiagnostic: %v", err, err)
+			}
+
+			wantFile := absConfigTestPath(t, filepath.Join(dir, tt.wantFile))
+			if diagnostic.File != wantFile {
+				t.Errorf("diagnostic file = %q, want %q", diagnostic.File, wantFile)
+			}
+			if diagnostic.Line != tt.wantLine {
+				t.Errorf("diagnostic line = %d, want %d", diagnostic.Line, tt.wantLine)
+			}
+			if diagnostic.Message != tt.wantMessage {
+				t.Errorf("diagnostic message = %q, want %q", diagnostic.Message, tt.wantMessage)
+			}
+
+			var initErr *widgetInitError
+			if !errors.As(err, &initErr) {
+				t.Fatalf("diagnostic does not unwrap to *widgetInitError: %v", err)
+			}
+			if initErr.widget == nil {
+				t.Fatal("widget initialization error has no failing widget")
+			}
+			if initErr.widget.GetType() != "weather" {
+				t.Errorf("failing widget type = %q, want %q", initErr.widget.GetType(), "weather")
+			}
+		})
+	}
+}
+
+func TestWidgetInitializationDiagnosticFallbackWithoutSource(t *testing.T) {
+	w := &weatherWidget{}
+	w.Type = "weather"
+
+	original := errors.New("location is required")
+	formatted := formatWidgetInitError(original, w)
+
+	got := widgetInitializationDiagnostic(
+		nil,
+		formatted,
+		w,
+		configWidgetSemanticSources{},
+	)
+
+	if got != formatted {
+		t.Fatalf("error = %v, want original formatted widget error", got)
+	}
+	if got.Error() != "weather widget: location is required" {
+		t.Errorf("error = %q, want %q", got.Error(), "weather widget: location is required")
+	}
+	if !errors.Is(got, original) {
+		t.Error("formatted widget error does not unwrap to original cause")
+	}
+}
+
+func TestNewConfigFromParsedYAMLUnknownWidgetTypeDiagnostic(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "glance.yml")
+	widgetPath := filepath.Join(dir, "widgets.yml")
+
+	writeConfigTestFile(t, mainPath,
+		"pages:\n"+
+			"  - name: Home\n"+
+			"    columns:\n"+
+			"      - size: full\n"+
+			"        widgets:\n"+
+			"          $include: widgets.yml\n",
+	)
+	writeConfigTestFile(t, widgetPath, "- type: does-not-exist\n")
+
+	parsed, err := parseYAMLIncludesWithSources(mainPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = newConfigFromParsedYAML(parsed)
+	if err == nil {
+		t.Fatal("expected unknown widget type error")
+	}
+
+	var diagnostic *configDiagnostic
+	if !errors.As(err, &diagnostic) {
+		t.Fatalf("error type = %T, want *configDiagnostic: %v", err, err)
+	}
+	if want := absConfigTestPath(t, widgetPath); diagnostic.File != want {
+		t.Errorf("diagnostic file = %q, want %q", diagnostic.File, want)
+	}
+	if diagnostic.Line != 1 {
+		t.Errorf("diagnostic line = %d, want 1", diagnostic.Line)
+	}
+	if diagnostic.Message != "unknown widget type: does-not-exist" {
+		t.Errorf(
+			"diagnostic message = %q, want %q",
+			diagnostic.Message,
+			"unknown widget type: does-not-exist",
+		)
+	}
+}

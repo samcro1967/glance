@@ -129,13 +129,40 @@ type configPageSemanticSources struct {
 	name                   int
 	width                  int
 	desktopNavigationWidth int
+	headWidgets            []configWidgetSemanticSources
 	columns                int
 	column                 []configColumnSemanticSources
 }
 
 type configColumnSemanticSources struct {
-	line int
-	size int
+	line    int
+	size    int
+	widgets []configWidgetSemanticSources
+}
+
+type configWidgetSemanticSources struct {
+	line    int
+	widgets []configWidgetSemanticSources
+}
+
+type widgetInitError struct {
+	message string
+	widget  widget
+	cause   error
+}
+
+func (e *widgetInitError) Error() string {
+	if e == nil {
+		return ""
+	}
+	return e.message
+}
+
+func (e *widgetInitError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.cause
 }
 
 func (d *configDiagnostic) Error() string {
@@ -255,16 +282,40 @@ func newConfigFromParsedYAML(parsed *parsedYAMLConfig) (*config, error) {
 	}
 
 	for p := range config.Pages {
+		var pageSource configPageSemanticSources
+		if semanticSources != nil && p < len(semanticSources.page) {
+			pageSource = semanticSources.page[p]
+		}
+
 		for w := range config.Pages[p].HeadWidgets {
-			if err := config.Pages[p].HeadWidgets[w].initialize(); err != nil {
-				return nil, formatWidgetInitError(err, config.Pages[p].HeadWidgets[w])
+			candidate := config.Pages[p].HeadWidgets[w]
+			if err := candidate.initialize(); err != nil {
+				formatted := formatWidgetInitError(err, candidate)
+				return nil, widgetInitializationDiagnostic(
+					parsed,
+					formatted,
+					candidate,
+					widgetSourceAt(pageSource.headWidgets, w),
+				)
 			}
 		}
 
 		for c := range config.Pages[p].Columns {
+			var columnSource configColumnSemanticSources
+			if c < len(pageSource.column) {
+				columnSource = pageSource.column[c]
+			}
+
 			for w := range config.Pages[p].Columns[c].Widgets {
-				if err := config.Pages[p].Columns[c].Widgets[w].initialize(); err != nil {
-					return nil, formatWidgetInitError(err, config.Pages[p].Columns[c].Widgets[w])
+				candidate := config.Pages[p].Columns[c].Widgets[w]
+				if err := candidate.initialize(); err != nil {
+					formatted := formatWidgetInitError(err, candidate)
+					return nil, widgetInitializationDiagnostic(
+						parsed,
+						formatted,
+						candidate,
+						widgetSourceAt(columnSource.widgets, w),
+					)
 				}
 			}
 		}
@@ -435,7 +486,79 @@ func parseConfigVariableOfType(variableType, variableName string) (string, bool,
 }
 
 func formatWidgetInitError(err error, w widget) error {
-	return fmt.Errorf("%s widget: %v", w.GetType(), err)
+	failedWidget := w
+	var nested *widgetInitError
+	if errors.As(err, &nested) && nested.widget != nil {
+		failedWidget = nested.widget
+	}
+
+	return &widgetInitError{
+		message: fmt.Sprintf("%s widget: %v", w.GetType(), err),
+		widget:  failedWidget,
+		cause:   err,
+	}
+}
+
+func widgetSourceAt(sources []configWidgetSemanticSources, index int) configWidgetSemanticSources {
+	if index < 0 || index >= len(sources) {
+		return configWidgetSemanticSources{}
+	}
+	return sources[index]
+}
+
+func findWidgetSemanticSource(
+	candidate widget,
+	source configWidgetSemanticSources,
+	target widget,
+) (configWidgetSemanticSources, bool) {
+	if candidate == nil || target == nil {
+		return configWidgetSemanticSources{}, false
+	}
+	if candidate == target {
+		return source, true
+	}
+
+	container, ok := candidate.(widgetContainer)
+	if !ok {
+		return configWidgetSemanticSources{}, false
+	}
+
+	children := container.childWidgets()
+	for i := range children {
+		if found, ok := findWidgetSemanticSource(
+			children[i],
+			widgetSourceAt(source.widgets, i),
+			target,
+		); ok {
+			return found, true
+		}
+	}
+
+	return configWidgetSemanticSources{}, false
+}
+
+func widgetInitializationDiagnostic(
+	parsed *parsedYAMLConfig,
+	err error,
+	root widget,
+	source configWidgetSemanticSources,
+) error {
+	if err == nil {
+		return nil
+	}
+
+	target := root
+	var initErr *widgetInitError
+	if errors.As(err, &initErr) && initErr.widget != nil {
+		target = initErr.widget
+	}
+
+	targetSource, found := findWidgetSemanticSource(root, source, target)
+	if !found {
+		return err
+	}
+
+	return semanticConfigDiagnostic(parsed, targetSource.line, err)
 }
 
 var configIncludePattern = regexp.MustCompile(`(?m)^([ \t]*)(?:-[ \t]*)?(?:!|\$)include:[ \t]*(.+)$`)
@@ -725,6 +848,23 @@ func yamlMappingValue(node *yaml.Node, key string) (*yaml.Node, *yaml.Node) {
 	return nil, nil
 }
 
+func parseWidgetSemanticSources(node *yaml.Node) []configWidgetSemanticSources {
+	if node == nil || node.Kind != yaml.SequenceNode {
+		return nil
+	}
+
+	sources := make([]configWidgetSemanticSources, 0, len(node.Content))
+	for _, widgetNode := range node.Content {
+		source := configWidgetSemanticSources{line: widgetNode.Line}
+		if _, children := yamlMappingValue(widgetNode, "widgets"); children != nil {
+			source.widgets = parseWidgetSemanticSources(children)
+		}
+		sources = append(sources, source)
+	}
+
+	return sources
+}
+
 func parseConfigSemanticSources(contents []byte) (*configSemanticSources, error) {
 	var document yaml.Node
 	if err := yaml.Unmarshal(contents, &document); err != nil {
@@ -789,6 +929,9 @@ func parseConfigSemanticSources(contents []byte) (*configSemanticSources, error)
 				if key, value := yamlMappingValue(pageNode, "desktop-navigation-width"); value != nil {
 					pageSource.desktopNavigationWidth = key.Line
 				}
+				if _, headWidgets := yamlMappingValue(pageNode, "head-widgets"); headWidgets != nil {
+					pageSource.headWidgets = parseWidgetSemanticSources(headWidgets)
+				}
 				if columnsKey, columns := yamlMappingValue(pageNode, "columns"); columns != nil {
 					pageSource.columns = columnsKey.Line
 					if columns.Kind == yaml.SequenceNode {
@@ -797,6 +940,9 @@ func parseConfigSemanticSources(contents []byte) (*configSemanticSources, error)
 							columnSource := configColumnSemanticSources{line: columnNode.Line}
 							if key, value := yamlMappingValue(columnNode, "size"); value != nil {
 								columnSource.size = key.Line
+							}
+							if _, widgets := yamlMappingValue(columnNode, "widgets"); widgets != nil {
+								columnSource.widgets = parseWidgetSemanticSources(widgets)
 							}
 							pageSource.column = append(pageSource.column, columnSource)
 						}
