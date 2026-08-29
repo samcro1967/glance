@@ -88,23 +88,8 @@ func (widget *customAPIWidget) update(ctx context.Context) {
 	)
 
 	if err != nil {
-		hasLastKnownGood := !widget.LastSuccessfulUpdate.IsZero()
-
-		if hasLastKnownGood {
+		if !widget.LastSuccessfulUpdate.IsZero() {
 			widget.Stale = true
-
-			requestURL := ""
-			if widget.CustomAPIRequest != nil {
-				requestURL = widget.CustomAPIRequest.URL
-			}
-
-			slog.Warn(
-				"Custom API refresh failed; serving stale content",
-				"title", widget.Title,
-				"url", requestURL,
-				"last_successful_update", widget.LastSuccessfulUpdate,
-				"error", err,
-			)
 		}
 
 		widget.canContinueUpdateAfterHandlingErr(err)
@@ -304,16 +289,6 @@ func fetchCustomAPIResponse(ctx context.Context, req *CustomAPIRequest) (*custom
 
 	if !req.SkipJSONValidation && body != "" && !gjson.Valid(body) {
 		if 200 <= resp.StatusCode && resp.StatusCode < 300 {
-			truncatedBody, isTruncated := limitStringLength(body, 100)
-			if isTruncated {
-				truncatedBody += "... <truncated>"
-			}
-
-			slog.Error(
-				"Invalid response JSON in custom API widget",
-				"url", req.httpRequest.URL.String(),
-				"body", truncatedBody,
-			)
 			return nil, errors.New("invalid response JSON")
 		}
 

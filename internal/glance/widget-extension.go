@@ -7,7 +7,6 @@ import (
 	"html"
 	"html/template"
 	"io"
-	"log/slog"
 	"net/http"
 	"net/url"
 	"time"
@@ -128,7 +127,6 @@ func fetchExtension(options extensionRequestOptions) (extension, error) {
 
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
-		slog.Error("Failed fetching extension", "url", options.URL, "error", err)
 		return extension{}, fmt.Errorf("%w: request failed: %w", errNoContent, err)
 	}
 
@@ -136,7 +134,6 @@ func fetchExtension(options extensionRequestOptions) (extension, error) {
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
-		slog.Error("Failed reading response body of extension", "url", options.URL, "error", err)
 		return extension{}, fmt.Errorf("%w: could not read body: %w", errNoContent, err)
 	}
 

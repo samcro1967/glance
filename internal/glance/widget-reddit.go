@@ -8,6 +8,7 @@ import (
 	"html"
 	"html/template"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -220,7 +221,7 @@ func (widget *redditWidget) fetchSubredditPosts(ctx context.Context) (forumPostL
 
 	loid, err := getRedditLoidCookie()
 	if err != nil {
-		fmt.Printf("Error fetching reddit loid cookie: %v\n", err)
+		slog.Error("Failed to fetch Reddit LOID cookie", "error", err)
 		return nil, errors.New("could not solve reddit challenge")
 	}
 	request.AddCookie(&http.Cookie{Name: "loid", Value: loid})
@@ -381,7 +382,7 @@ var getRedditLoidCookie = func() func() (string, error) {
 		loid, err := fetchRedditLoidCookie()
 		if err != nil {
 			if cachedLoid != "" {
-				fmt.Printf("Error fetching new reddit loid cookie, using cached value: %v\n", err)
+				slog.Warn("Failed to refresh Reddit LOID cookie; using cached value", "error", err)
 				return cachedLoid, nil
 			}
 			return "", err

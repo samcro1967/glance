@@ -169,7 +169,22 @@ func (widget *rssWidget) fetchItemsFromFeeds(ctx context.Context) (rssFeedItemLi
 	for i := range feeds {
 		if errs[i] != nil {
 			failed++
-			slog.Error("Failed to get RSS feed", "url", requests[i].URL, "error", errs[i])
+
+			if requests[i].Title != "" {
+				slog.Error(
+					"Failed to get RSS feed",
+					"feed", i+1,
+					"title", requests[i].Title,
+					"error", errs[i],
+				)
+			} else {
+				slog.Error(
+					"Failed to get RSS feed",
+					"feed", i+1,
+					"error", errs[i],
+				)
+			}
+
 			continue
 		}
 
@@ -228,7 +243,7 @@ func (widget *rssWidget) fetchItemsFromFeedTask(ctx context.Context, request rss
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code %d from %s", resp.StatusCode, request.URL)
+		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(resp.Body)

@@ -147,7 +147,11 @@ func fetchWatchesFromChangeDetection(instanceURL string, requestedWatchIDs []str
 	for i := range responses {
 		if errs[i] != nil {
 			failed++
-			slog.Error("Failed to fetch or parse change detection watch", "url", requests[i].URL, "error", errs[i])
+			slog.Error(
+				"Failed to fetch or parse change detection watch",
+				"watch_id", requestedWatchIDs[i],
+				"error", errs[i],
+			)
 			continue
 		}
 

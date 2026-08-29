@@ -104,7 +104,11 @@ func fetchHackerNewsPostsFromIds(postIds []int, commentsUrlTemplate string) (for
 
 	for i := range results {
 		if errs[i] != nil {
-			slog.Error("Failed to fetch or parse hacker news post", "error", errs[i], "url", requests[i].URL)
+			slog.Error(
+				"Failed to fetch or parse hacker news post",
+				"post_id", postIds[i],
+				"error", errs[i],
+			)
 			continue
 		}
 
