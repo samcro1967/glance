@@ -54,12 +54,42 @@ type application struct {
 	dashboards       []*dashboard
 	defaultDashboard *dashboard
 	widgetByID       map[uint64]widget
+	refreshWidgets   []widget
 
 	RequiresAuth           bool
 	authSecretKey          []byte
 	usernameHashToUsername map[string]string
 	authAttemptsMu         sync.Mutex
 	failedAuthAttempts     map[string]*failedAuthAttempt
+}
+
+func collectRefreshWidgets(source widgets) []widget {
+	seen := make(map[uint64]struct{})
+	collected := make([]widget, 0)
+
+	var collect func(widget)
+	collect = func(candidate widget) {
+		if container, ok := candidate.(widgetContainer); ok {
+			for _, child := range container.childWidgets() {
+				collect(child)
+			}
+			return
+		}
+
+		id := candidate.GetID()
+		if _, exists := seen[id]; exists {
+			return
+		}
+
+		seen[id] = struct{}{}
+		collected = append(collected, candidate)
+	}
+
+	for _, candidate := range source {
+		collect(candidate)
+	}
+
+	return collected
 }
 
 func newApplication(c *config) (*application, error) {
@@ -265,6 +295,17 @@ func newApplication(c *config) (*application, error) {
 			app.slugToDashboard[dashboard.Slug] = dashboard
 		}
 	}
+
+	refreshSources := make(widgets, 0)
+	for p := range config.Pages {
+		page := &config.Pages[p]
+		refreshSources = append(refreshSources, page.HeadWidgets...)
+
+		for c := range page.Columns {
+			refreshSources = append(refreshSources, page.Columns[c].Widgets...)
+		}
+	}
+	app.refreshWidgets = collectRefreshWidgets(refreshSources)
 
 	config.Server.BaseURL = strings.TrimRight(config.Server.BaseURL, "/")
 	config.Theme.CustomCSSFile = app.resolveUserDefinedAssetPath(config.Theme.CustomCSSFile)
@@ -698,6 +739,9 @@ func (a *application) server() (func() error, func() error) {
 		Handler: a.router(),
 	}
 
+	schedulerCtx, stopScheduler := context.WithCancel(context.Background())
+	var schedulerWG sync.WaitGroup
+
 	start := func() error {
 		log.Printf("Starting server on %s:%d (base-url: \"%s\", assets-path: \"%s\")\n",
 			a.Config.Server.Host,
@@ -706,7 +750,21 @@ func (a *application) server() (func() error, func() error) {
 			absAssetsPath,
 		)
 
+		schedulerWG.Add(1)
+		go func() {
+			defer schedulerWG.Done()
+
+			runWidgetRefreshScheduler(
+				schedulerCtx,
+				a.refreshWidgets,
+				widgetRefreshScanInterval,
+				widgetRefreshConcurrency,
+			)
+		}()
+
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			stopScheduler()
+			schedulerWG.Wait()
 			return err
 		}
 
@@ -714,7 +772,13 @@ func (a *application) server() (func() error, func() error) {
 	}
 
 	stop := func() error {
-		return server.Close()
+		stopScheduler()
+
+		serverErr := server.Close()
+
+		schedulerWG.Wait()
+
+		return serverErr
 	}
 
 	return start, stop

@@ -6,8 +6,16 @@ import (
 	"time"
 )
 
+type widgetContainer interface {
+	childWidgets() widgets
+}
+
 type containerWidgetBase struct {
 	Widgets widgets `yaml:"widgets"`
+}
+
+func (widget *containerWidgetBase) childWidgets() widgets {
+	return widget.Widgets
 }
 
 func (widget *containerWidgetBase) _initializeWidgets() error {
