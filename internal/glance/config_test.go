@@ -1,8 +1,13 @@
 package glance
 
 import (
+	"errors"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestParseConfigVariablesIgnoresComments(t *testing.T) {
@@ -92,4 +97,406 @@ func TestFindYAMLCommentStart(t *testing.T) {
 			}
 		})
 	}
+}
+
+func writeConfigTestFile(t *testing.T, path, contents string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func absConfigTestPath(t *testing.T, path string) string {
+	t.Helper()
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return absolute
+}
+
+func assertConfigSources(t *testing.T, got, want []configSourceLocation) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("got %d source entries, want %d", len(got), len(want))
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("source %d = %+v, want %+v", i, got[i], want[i])
+		}
+	}
+}
+
+func TestParseYAMLIncludesWithSourcesRootFile(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "glance.yml")
+	contents := "first: value\n\nthird: value\n"
+	writeConfigTestFile(t, mainPath, contents)
+
+	parsed, err := parseYAMLIncludesWithSources(mainPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(parsed.Contents) != contents {
+		t.Fatalf("contents mismatch\ngot:  %q\nwant: %q", parsed.Contents, contents)
+	}
+
+	mainAbs := absConfigTestPath(t, mainPath)
+	assertConfigSources(t, parsed.Sources, []configSourceLocation{
+		{File: mainAbs, Line: 1},
+		{File: mainAbs, Line: 2},
+		{File: mainAbs, Line: 3},
+		{File: mainAbs, Line: 4},
+	})
+}
+
+func TestParseYAMLIncludesWithSourcesIncludes(t *testing.T) {
+	tests := []struct {
+		name       string
+		files      map[string]string
+		want       string
+		wantSource []struct {
+			file string
+			line int
+		}
+		wantIncludes []string
+	}{
+		{
+			name: "direct",
+			files: map[string]string{
+				"glance.yml": "pages:\n  - $include: page.yml\nfooter: value",
+				"page.yml":   "name: Home\nslug: home",
+			},
+			want: "pages:\n  name: Home\n  slug: home\nfooter: value",
+			wantSource: []struct {
+				file string
+				line int
+			}{
+				{"glance.yml", 1},
+				{"page.yml", 1},
+				{"page.yml", 2},
+				{"glance.yml", 3},
+			},
+			wantIncludes: []string{"page.yml"},
+		},
+		{
+			name: "nested",
+			files: map[string]string{
+				"glance.yml": "pages:\n  - $include: page.yml",
+				"page.yml":   "name: Home\nwidgets:\n  - $include: widget.yml",
+				"widget.yml": "type: clock\ntitle: Clock",
+			},
+			want: "pages:\n  name: Home\n  widgets:\n    type: clock\n    title: Clock",
+			wantSource: []struct {
+				file string
+				line int
+			}{
+				{"glance.yml", 1},
+				{"page.yml", 1},
+				{"page.yml", 2},
+				{"widget.yml", 1},
+				{"widget.yml", 2},
+			},
+			wantIncludes: []string{"page.yml", "widget.yml"},
+		},
+		{
+			name: "multiple",
+			files: map[string]string{
+				"glance.yml": "$include: first.yml\nmiddle: true\n$include: second.yml",
+				"first.yml":  "first: true",
+				"second.yml": "second: true",
+			},
+			want: "first: true\nmiddle: true\nsecond: true",
+			wantSource: []struct {
+				file string
+				line int
+			}{
+				{"first.yml", 1},
+				{"glance.yml", 2},
+				{"second.yml", 1},
+			},
+			wantIncludes: []string{"first.yml", "second.yml"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			for name, contents := range tt.files {
+				writeConfigTestFile(t, filepath.Join(dir, name), contents)
+			}
+
+			parsed, err := parseYAMLIncludesWithSources(filepath.Join(dir, "glance.yml"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(parsed.Contents) != tt.want {
+				t.Fatalf("expanded contents mismatch\ngot:\n%s\nwant:\n%s", parsed.Contents, tt.want)
+			}
+
+			wantSources := make([]configSourceLocation, len(tt.wantSource))
+			for i, source := range tt.wantSource {
+				wantSources[i] = configSourceLocation{
+					File: absConfigTestPath(t, filepath.Join(dir, source.file)),
+					Line: source.line,
+				}
+			}
+			assertConfigSources(t, parsed.Sources, wantSources)
+
+			for _, include := range tt.wantIncludes {
+				path := absConfigTestPath(t, filepath.Join(dir, include))
+				if _, ok := parsed.Includes[path]; !ok {
+					t.Errorf("included file %q was not tracked", path)
+				}
+			}
+		})
+	}
+}
+
+func TestParseYAMLIncludesWithSourcesPreservesBlankAndTrailingLines(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "glance.yml")
+	includePath := filepath.Join(dir, "included.yml")
+	writeConfigTestFile(t, mainPath, "before: true\n$include: included.yml\nafter: true\n")
+	writeConfigTestFile(t, includePath, "first: true\n\nthird: true\n")
+
+	parsed, err := parseYAMLIncludesWithSources(mainPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	want := "before: true\nfirst: true\n\nthird: true\n\nafter: true\n"
+	if string(parsed.Contents) != want {
+		t.Fatalf("expanded contents mismatch\ngot:  %q\nwant: %q", parsed.Contents, want)
+	}
+
+	mainAbs := absConfigTestPath(t, mainPath)
+	includeAbs := absConfigTestPath(t, includePath)
+	assertConfigSources(t, parsed.Sources, []configSourceLocation{
+		{File: mainAbs, Line: 1},
+		{File: includeAbs, Line: 1},
+		{File: includeAbs, Line: 2},
+		{File: includeAbs, Line: 3},
+		{File: includeAbs, Line: 4},
+		{File: mainAbs, Line: 3},
+		{File: mainAbs, Line: 4},
+	})
+}
+
+func TestParsedYAMLConfigSourceLocation(t *testing.T) {
+	parsed := &parsedYAMLConfig{
+		Sources: []configSourceLocation{
+			{File: "/config/glance.yml", Line: 1},
+			{File: "/config/page.yml", Line: 7},
+		},
+	}
+
+	location, ok := parsed.sourceLocation(2)
+	if !ok || location != (configSourceLocation{File: "/config/page.yml", Line: 7}) {
+		t.Fatalf("sourceLocation(2) = %+v, %v", location, ok)
+	}
+
+	for _, line := range []int{-1, 0, 3, 100} {
+		if _, ok := parsed.sourceLocation(line); ok {
+			t.Errorf("sourceLocation(%d) returned ok=true", line)
+		}
+	}
+
+	var nilParsed *parsedYAMLConfig
+	if _, ok := nilParsed.sourceLocation(1); ok {
+		t.Error("sourceLocation() returned ok=true for nil parsed config")
+	}
+}
+
+func TestParseYAMLIncludesMissingNestedIncludeReportsParent(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "glance.yml")
+	pagePath := filepath.Join(dir, "page.yml")
+	writeConfigTestFile(t, mainPath, "pages:\n  - $include: page.yml")
+	writeConfigTestFile(t, pagePath, "name: Home\nwidgets:\n  - $include: missing.yml")
+
+	_, err := parseYAMLIncludesWithSources(mainPath)
+	if err == nil {
+		t.Fatal("expected include error")
+	}
+
+	expected := []string{
+		"resolving include " + absConfigTestPath(t, mainPath) + ":2",
+		"resolving include " + absConfigTestPath(t, pagePath) + ":3",
+		"reading " + absConfigTestPath(t, filepath.Join(dir, "missing.yml")),
+	}
+	for _, part := range expected {
+		if !strings.Contains(err.Error(), part) {
+			t.Errorf("error %q does not contain %q", err, part)
+		}
+	}
+}
+
+func TestParseYAMLIncludesCompatibilityWrapper(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "glance.yml")
+	includePath := filepath.Join(dir, "page.yml")
+	writeConfigTestFile(t, mainPath, "pages:\n  - $include: page.yml")
+	writeConfigTestFile(t, includePath, "name: Home\nslug: home")
+
+	contents, includes, err := parseYAMLIncludes(mainPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "pages:\n  name: Home\n  slug: home"; string(contents) != want {
+		t.Fatalf("contents = %q, want %q", contents, want)
+	}
+	if path := absConfigTestPath(t, includePath); func() bool { _, ok := includes[path]; return ok }() == false {
+		t.Errorf("included file was not tracked")
+	}
+}
+
+func TestParseYAMLLinePrefix(t *testing.T) {
+	tests := []struct {
+		message     string
+		wantLine    int
+		wantMessage string
+		wantOK      bool
+	}{
+		{"yaml: line 17: could not find expected ':'", 17, "could not find expected ':'", true},
+		{"line 8: cannot unmarshal value", 8, "cannot unmarshal value", true},
+		{"unknown widget type: example", 0, "unknown widget type: example", false},
+		{"yaml: line nope: invalid", 0, "yaml: line nope: invalid", false},
+		{"yaml: line 0: invalid", 0, "yaml: line 0: invalid", false},
+		{"yaml: line 4:", 0, "yaml: line 4:", false},
+	}
+
+	for _, tt := range tests {
+		line, message, ok := parseYAMLLinePrefix(tt.message)
+		if line != tt.wantLine || message != tt.wantMessage || ok != tt.wantOK {
+			t.Errorf("parseYAMLLinePrefix(%q) = (%d, %q, %v), want (%d, %q, %v)",
+				tt.message, line, message, ok, tt.wantLine, tt.wantMessage, tt.wantOK)
+		}
+	}
+}
+
+func TestNewConfigFromParsedYAMLReportsSource(t *testing.T) {
+	tests := []struct {
+		name     string
+		files    map[string]string
+		wantFile string
+		wantLine int
+	}{
+		{
+			name: "root",
+			files: map[string]string{
+				"glance.yml": "pages:\n  - name: Home\n    columns:\n      - size: full\n        widgets:\n          - type: clock\n    broken\n",
+			},
+			wantFile: "glance.yml",
+			wantLine: 7,
+		},
+		{
+			name: "direct include",
+			files: map[string]string{
+				"glance.yml": "server:\n  port: 8080\n\npages:\n  - $include: page.yml\n",
+				"page.yml":   "name: Home\ncolumns:\n  - size: full\n    widgets:\n      - type: clock\nbroken\n",
+			},
+			wantFile: "page.yml",
+			wantLine: 6,
+		},
+		{
+			name: "nested include",
+			files: map[string]string{
+				"glance.yml": "server:\n  port: 8080\n\npages:\n  - $include: page.yml\n",
+				"page.yml":   "name: Home\ncolumns:\n  - $include: column.yml\n",
+				"column.yml": "size: full\nwidgets:\n  - type: clock\nbroken\n",
+			},
+			wantFile: "column.yml",
+			wantLine: 4,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			for name, contents := range tt.files {
+				writeConfigTestFile(t, filepath.Join(dir, name), contents)
+			}
+
+			parsed, err := parseYAMLIncludesWithSources(filepath.Join(dir, "glance.yml"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = newConfigFromParsedYAML(parsed)
+			if err == nil {
+				t.Fatal("expected configuration error")
+			}
+
+			var diagnostic *configDiagnostic
+			if !errors.As(err, &diagnostic) {
+				t.Fatalf("error type = %T, want *configDiagnostic: %v", err, err)
+			}
+			if want := absConfigTestPath(t, filepath.Join(dir, tt.wantFile)); diagnostic.File != want {
+				t.Errorf("diagnostic file = %q, want %q", diagnostic.File, want)
+			}
+			if diagnostic.Line != tt.wantLine {
+				t.Errorf("diagnostic line = %d, want %d", diagnostic.Line, tt.wantLine)
+			}
+			if diagnostic.Message == "" {
+				t.Error("diagnostic message is empty")
+			}
+		})
+	}
+}
+
+func TestConfigDiagnosticFromSingleYAMLTypeError(t *testing.T) {
+	parsed := &parsedYAMLConfig{
+		Sources: []configSourceLocation{
+			{File: "/config/glance.yml", Line: 1},
+			{File: "/config/widget.yml", Line: 9},
+		},
+	}
+	original := &yaml.TypeError{
+		Errors: []string{"line 2: cannot unmarshal !!str `invalid` into uint16"},
+	}
+
+	err := configDiagnosticFromYAMLError(parsed, original)
+	var diagnostic *configDiagnostic
+	if !errors.As(err, &diagnostic) {
+		t.Fatalf("error type = %T, want *configDiagnostic", err)
+	}
+	if diagnostic.File != "/config/widget.yml" || diagnostic.Line != 9 {
+		t.Errorf("diagnostic location = %s:%d", diagnostic.File, diagnostic.Line)
+	}
+	if diagnostic.Message != "cannot unmarshal !!str `invalid` into uint16" {
+		t.Errorf("diagnostic message = %q", diagnostic.Message)
+	}
+	if !errors.Is(err, original) {
+		t.Error("diagnostic does not unwrap to original yaml.TypeError")
+	}
+}
+
+func TestConfigDiagnosticFallbacks(t *testing.T) {
+	t.Run("unknown source line", func(t *testing.T) {
+		parsed := &parsedYAMLConfig{
+			Sources: []configSourceLocation{{File: "/config/glance.yml", Line: 1}},
+		}
+		original := errors.New("yaml: line 20: could not find expected ':'")
+		if got := configDiagnosticFromYAMLError(parsed, original); got != original {
+			t.Fatalf("error = %v, want original error", got)
+		}
+	})
+
+	t.Run("multiple type errors", func(t *testing.T) {
+		parsed := &parsedYAMLConfig{
+			Sources: []configSourceLocation{
+				{File: "/config/glance.yml", Line: 1},
+				{File: "/config/glance.yml", Line: 2},
+			},
+		}
+		original := &yaml.TypeError{
+			Errors: []string{
+				"line 1: cannot unmarshal one",
+				"line 2: cannot unmarshal two",
+			},
+		}
+		if got := configDiagnosticFromYAMLError(parsed, original); got != original {
+			t.Fatalf("error = %v, want original multi-error", got)
+		}
+	})
 }
