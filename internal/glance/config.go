@@ -138,12 +138,52 @@ var configVariablePattern = regexp.MustCompile(`(^|.)\$\{(?:([a-zA-Z]+):)?([a-zA
 // ${secret:api_key} 			        - value gets loaded from /run/secrets/api_key
 // ${readFileFromEnv:PATH_TO_SECRET}    - value gets loaded from the file path specified in the environment variable PATH_TO_SECRET
 //
-// TODO: don't match against commented out sections, not sure exactly how since
-// variables can be placed anywhere and used to modify the YAML structure itself
+// findYAMLCommentStart returns the index of the YAML comment start (# preceded
+// by whitespace or at the start of a line) while respecting quoted strings.
+// Returns -1 if there is no comment on the line.
+func findYAMLCommentStart(line []byte) int {
+	inSingle := false
+	inDouble := false
+
+	for i := 0; i < len(line); i++ {
+		switch {
+		case inSingle:
+			if line[i] == '\'' {
+				if i+1 < len(line) && line[i+1] == '\'' {
+					i++
+				} else {
+					inSingle = false
+				}
+			}
+		case inDouble:
+			if line[i] == '\\' {
+				if i+1 < len(line) {
+					i++
+				}
+			} else if line[i] == '"' {
+				inDouble = false
+			}
+		default:
+			switch line[i] {
+			case '\'':
+				inSingle = true
+			case '"':
+				inDouble = true
+			case '#':
+				if i == 0 || line[i-1] == ' ' || line[i-1] == '\t' {
+					return i
+				}
+			}
+		}
+	}
+
+	return -1
+}
+
 func parseConfigVariables(contents []byte) ([]byte, error) {
 	var err error
 
-	replaced := configVariablePattern.ReplaceAllFunc(contents, func(match []byte) []byte {
+	replaceFunc := func(match []byte) []byte {
 		if err != nil {
 			return nil
 		}
@@ -178,13 +218,29 @@ func parseConfigVariables(contents []byte) ([]byte, error) {
 		}
 
 		return []byte(prefix + parsedValue)
-	})
+	}
+
+	// Process line by line so we can skip YAML comments, which should not
+	// have their variables expanded (fixes #948).
+	lines := bytes.Split(contents, []byte("\n"))
+	for i, line := range lines {
+		commentIdx := findYAMLCommentStart(line)
+		if commentIdx >= 0 {
+			// Only apply variable substitution to the part before the comment
+			lines[i] = append(
+				configVariablePattern.ReplaceAllFunc(line[:commentIdx], replaceFunc),
+				line[commentIdx:]...,
+			)
+		} else {
+			lines[i] = configVariablePattern.ReplaceAllFunc(line, replaceFunc)
+		}
+	}
 
 	if err != nil {
 		return nil, err
 	}
 
-	return replaced, nil
+	return bytes.Join(lines, []byte("\n")), nil
 }
 
 // When the bool return value is true, it indicates that the caller should use the original value
