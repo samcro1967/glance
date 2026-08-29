@@ -750,10 +750,6 @@ Navigation within a named dashboard remains inside that dashboard. For example, 
 
 A page that exists globally but is not assigned to a particular dashboard cannot be accessed through that dashboard's route.
 
-Navigation within a named dashboard remains inside that dashboard. For example, selecting Shared while viewing the `Family` dashboard links to `/family/shared` rather than `/shared`.
-
-A page that exists globally but is not assigned to a particular dashboard cannot be accessed through that dashboard's route.
-
 #### Shared pages
 
 Pages referenced by multiple dashboards are shared rather than copied.
