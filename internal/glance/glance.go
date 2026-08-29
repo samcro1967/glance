@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"path/filepath"
 	"slices"
@@ -259,10 +259,10 @@ func newApplication(c *config) (*application, error) {
 				}
 
 				if _, exists := app.slugToPage[dashboardSlug]; exists {
-					log.Printf(
-						"WARNING: ignoring dashboard %q: slug %q conflicts with page slug\n",
-						dashboardName,
-						dashboardSlug,
+					slog.Warn(
+						"Ignoring dashboard because its slug conflicts with a page slug",
+						"dashboard", dashboardName,
+						"slug", dashboardSlug,
 					)
 					continue
 				}
@@ -743,11 +743,12 @@ func (a *application) server() (func() error, func() error) {
 	var schedulerWG sync.WaitGroup
 
 	start := func() error {
-		log.Printf("Starting server on %s:%d (base-url: \"%s\", assets-path: \"%s\")\n",
-			a.Config.Server.Host,
-			a.Config.Server.Port,
-			a.Config.Server.BaseURL,
-			absAssetsPath,
+		slog.Info(
+			"Server starting",
+			"host", a.Config.Server.Host,
+			"port", a.Config.Server.Port,
+			"base_url", a.Config.Server.BaseURL,
+			"assets_path", absAssetsPath,
 		)
 
 		schedulerWG.Add(1)
@@ -768,10 +769,14 @@ func (a *application) server() (func() error, func() error) {
 			return err
 		}
 
+		slog.Info("Server stopped")
+
 		return nil
 	}
 
 	stop := func() error {
+		slog.Info("Server stopping")
+
 		stopScheduler()
 
 		serverErr := server.Close()

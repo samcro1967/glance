@@ -322,16 +322,23 @@ dashboards:
 
 	warning := logOutput.String()
 
-	if !strings.Contains(warning, `ignoring dashboard "Page2"`) {
+	if !strings.Contains(warning, "WARN Ignoring dashboard because its slug conflicts with a page slug") {
 		t.Fatalf(
-			"log output = %q, want warning that Page2 dashboard was ignored",
+			"log output = %q, want dashboard slug collision warning",
 			warning,
 		)
 	}
 
-	if !strings.Contains(warning, `slug "page2" conflicts with page slug`) {
+	if !strings.Contains(warning, "dashboard=Page2") {
 		t.Fatalf(
-			"log output = %q, want page slug collision explanation",
+			"log output = %q, want dashboard field",
+			warning,
+		)
+	}
+
+	if !strings.Contains(warning, "slug=page2") {
+		t.Fatalf(
+			"log output = %q, want slug field",
 			warning,
 		)
 	}
