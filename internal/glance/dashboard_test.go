@@ -572,6 +572,81 @@ dashboards:
 	}
 }
 
+func TestNamedDashboardWithoutTrailingSlashRedirects(t *testing.T) {
+	app := newDashboardTestApplication(t, dashboardTestYAML(`
+dashboards:
+  Default:
+    - home
+    - page2
+
+  Personal:
+    - home
+    - page2
+`))
+
+	handler := app.router()
+
+	req := httptest.NewRequest(http.MethodGet, "/personal", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusMovedPermanently {
+		t.Fatalf(
+			"GET /personal status = %d, want %d",
+			rec.Code,
+			http.StatusMovedPermanently,
+		)
+	}
+
+	if location := rec.Header().Get("Location"); location != "/personal/" {
+		t.Fatalf(
+			"GET /personal Location = %q, want %q",
+			location,
+			"/personal/",
+		)
+	}
+}
+
+func TestNamedDashboardWithoutTrailingSlashRedirectsWithBaseURL(t *testing.T) {
+	app := newDashboardTestApplication(t, dashboardTestYAML(`
+server:
+  base-url: /glance
+
+dashboards:
+  Default:
+    - home
+    - page2
+
+  Personal:
+    - home
+    - page2
+`))
+
+	handler := app.router()
+
+	req := httptest.NewRequest(http.MethodGet, "/personal", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusMovedPermanently {
+		t.Fatalf(
+			"GET /personal status = %d, want %d",
+			rec.Code,
+			http.StatusMovedPermanently,
+		)
+	}
+
+	if location := rec.Header().Get("Location"); location != "/glance/personal/" {
+		t.Fatalf(
+			"GET /personal Location = %q, want %q",
+			location,
+			"/glance/personal/",
+		)
+	}
+}
+
 func TestDashboardPageSlugCollisionPreservesPageRoute(t *testing.T) {
 	app := newDashboardTestApplication(t, dashboardTestYAML(`
 dashboards:
