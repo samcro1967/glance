@@ -117,3 +117,161 @@ pages:
 		t.Fatalf("DesktopNavigationWidth = %q, want %q", got, "slim")
 	}
 }
+
+func TestApplicationCollectsRefreshWidgetLeaves(t *testing.T) {
+	app := newGlanceTestApplication(t, `
+pages:
+  - name: Home
+    head-widgets:
+      - type: rss
+        feeds:
+          - url: https://example.com/feed.xml
+
+    columns:
+      - size: full
+        widgets:
+          - type: group
+            widgets:
+              - type: monitor
+                sites:
+                  - title: Example
+                    url: https://example.com
+
+              - type: group
+                widgets:
+                  - type: markets
+                    markets:
+                      - symbol: SPY
+                        name: Example Market
+
+          - type: stack
+            widgets:
+              - type: releases
+                repositories:
+                  - glanceapp/glance
+
+          - type: split-column
+            widgets:
+              - type: reddit
+                subreddit: golang
+
+              - type: videos
+                channels:
+                  - UC_x5XG1OV2P6uZZ5FSM9Ttw
+`)
+
+	gotTypes := make([]string, 0, len(app.refreshWidgets))
+	for _, widget := range app.refreshWidgets {
+		gotTypes = append(gotTypes, widget.GetType())
+	}
+
+	wantTypes := []string{
+		"rss",
+		"monitor",
+		"markets",
+		"releases",
+		"reddit",
+		"videos",
+	}
+
+	if len(gotTypes) != len(wantTypes) {
+		t.Fatalf("refreshWidgets types = %v, want %v", gotTypes, wantTypes)
+	}
+
+	for i := range wantTypes {
+		if gotTypes[i] != wantTypes[i] {
+			t.Fatalf(
+				"refreshWidgets[%d] type = %q, want %q; all types = %v",
+				i,
+				gotTypes[i],
+				wantTypes[i],
+				gotTypes,
+			)
+		}
+	}
+
+	for _, widget := range app.refreshWidgets {
+		switch widget.GetType() {
+		case "group", "stack", "split-column":
+			t.Fatalf(
+				"refreshWidgets contains container widget type %q",
+				widget.GetType(),
+			)
+		}
+	}
+}
+
+func TestCollectRefreshWidgetsDeduplicatesLeaves(t *testing.T) {
+	first := &htmlWidget{
+		widgetBase: widgetBase{
+			ID:   1001,
+			Type: "html",
+		},
+	}
+	second := &htmlWidget{
+		widgetBase: widgetBase{
+			ID:   1002,
+			Type: "html",
+		},
+	}
+
+	container := &groupWidget{
+		containerWidgetBase: containerWidgetBase{
+			Widgets: widgets{
+				first,
+				second,
+			},
+		},
+	}
+
+	collected := collectRefreshWidgets(widgets{
+		first,
+		container,
+		second,
+	})
+
+	if len(collected) != 2 {
+		t.Fatalf("collectRefreshWidgets() returned %d widgets, want 2", len(collected))
+	}
+
+	if collected[0] != first {
+		t.Fatal("first collected widget is not the first encountered leaf")
+	}
+
+	if collected[1] != second {
+		t.Fatal("second collected widget is not the second encountered unique leaf")
+	}
+}
+
+func TestCollectRefreshWidgetsRecursesThroughNestedContainers(t *testing.T) {
+	leaf := &htmlWidget{
+		widgetBase: widgetBase{
+			ID:   2001,
+			Type: "html",
+		},
+	}
+
+	nested := &groupWidget{
+		containerWidgetBase: containerWidgetBase{
+			Widgets: widgets{
+				&groupWidget{
+					containerWidgetBase: containerWidgetBase{
+						Widgets: widgets{
+							leaf,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	collected := collectRefreshWidgets(widgets{nested})
+
+	if len(collected) != 1 {
+		t.Fatalf("collectRefreshWidgets() returned %d widgets, want 1", len(collected))
+	}
+
+	if collected[0] != leaf {
+		t.Fatal("collectRefreshWidgets() did not return the nested leaf")
+	}
+}
