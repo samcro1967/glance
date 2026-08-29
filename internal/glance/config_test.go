@@ -500,3 +500,214 @@ func TestConfigDiagnosticFallbacks(t *testing.T) {
 		}
 	})
 }
+
+func TestNewConfigFromParsedYAMLSemanticDiagnostics(t *testing.T) {
+	tests := []struct {
+		name        string
+		files       map[string]string
+		wantFile    string
+		wantLine    int
+		wantMessage string
+	}{
+		{
+			name: "root no pages",
+			files: map[string]string{
+				"glance.yml": "server:\n  port: 8080\n",
+			},
+			wantFile:    "glance.yml",
+			wantLine:    1,
+			wantMessage: "no pages configured",
+		},
+		{
+			name: "direct included page full width requirement",
+			files: map[string]string{
+				"glance.yml": "pages:\n  $include: pages.yml\n",
+				"pages.yml":  "- name: News\n  columns:\n    - size: small\n",
+			},
+			wantFile:    "pages.yml",
+			wantLine:    2,
+			wantMessage: `page "News" must have either 1 or 2 full width columns`,
+		},
+		{
+			name: "nested included column size",
+			files: map[string]string{
+				"glance.yml":  "pages:\n  $include: pages.yml\n",
+				"pages.yml":   "- name: News\n  columns:\n    $include: columns.yml\n",
+				"columns.yml": "- size: enormous\n",
+			},
+			wantFile:    "columns.yml",
+			wantLine:    1,
+			wantMessage: `column 1 of page "News": size can only be either small or full`,
+		},
+		{
+			name: "page width property",
+			files: map[string]string{
+				"glance.yml": "pages:\n  $include: pages.yml\n",
+				"pages.yml":  "- name: News\n  width: enormous\n  columns:\n    - size: full\n",
+			},
+			wantFile:    "pages.yml",
+			wantLine:    2,
+			wantMessage: `page "News": width can only be either wide, slim or default`,
+		},
+		{
+			name: "desktop navigation width property",
+			files: map[string]string{
+				"glance.yml": "pages:\n  $include: pages.yml\n",
+				"pages.yml":  "- name: News\n  desktop-navigation-width: enormous\n  columns:\n    - size: full\n",
+			},
+			wantFile:    "pages.yml",
+			wantLine:    2,
+			wantMessage: `page "News": desktop-navigation-width can only be either wide, slim or default`,
+		},
+		{
+			name: "dashboard",
+			files: map[string]string{
+				"glance.yml": "dashboards:\n  Secondary: [home]\npages:\n  - name: Home\n    slug: home\n    columns:\n      - size: full\n",
+			},
+			wantFile:    "glance.yml",
+			wantLine:    1,
+			wantMessage: "dashboards configuration requires a Default dashboard",
+		},
+		{
+			name: "included user",
+			files: map[string]string{
+				"glance.yml": "auth:\n  secret-key: configured\n  users:\n    $include: users.yml\npages:\n  - name: Home\n    columns:\n      - size: full\n",
+				"users.yml":  "ab:\n  password: example-password\n",
+			},
+			wantFile:    "users.yml",
+			wantLine:    1,
+			wantMessage: "usernames must be at least 3 characters",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			for name, contents := range tt.files {
+				writeConfigTestFile(t, filepath.Join(dir, name), contents)
+			}
+
+			parsed, err := parseYAMLIncludesWithSources(filepath.Join(dir, "glance.yml"))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			_, err = newConfigFromParsedYAML(parsed)
+			if err == nil {
+				t.Fatal("expected semantic configuration error")
+			}
+
+			var diagnostic *configDiagnostic
+			if !errors.As(err, &diagnostic) {
+				t.Fatalf("error type = %T, want *configDiagnostic: %v", err, err)
+			}
+
+			wantFile := absConfigTestPath(t, filepath.Join(dir, tt.wantFile))
+			if diagnostic.File != wantFile {
+				t.Errorf("diagnostic file = %q, want %q", diagnostic.File, wantFile)
+			}
+			if diagnostic.Line != tt.wantLine {
+				t.Errorf("diagnostic line = %d, want %d", diagnostic.Line, tt.wantLine)
+			}
+			if diagnostic.Message != tt.wantMessage {
+				t.Errorf("diagnostic message = %q, want %q", diagnostic.Message, tt.wantMessage)
+			}
+			if diagnostic.cause == nil {
+				t.Fatal("diagnostic cause is nil")
+			}
+			if !errors.Is(err, diagnostic.cause) {
+				t.Error("diagnostic does not unwrap to its semantic cause")
+			}
+		})
+	}
+}
+
+func TestNewConfigFromParsedYAMLSemanticServerAssetsPathDiagnostic(t *testing.T) {
+	dir := t.TempDir()
+	missingAssetsPath := filepath.Join(dir, "missing-assets")
+	mainPath := filepath.Join(dir, "glance.yml")
+
+	writeConfigTestFile(t, mainPath,
+		"server:\n"+
+			"  assets-path: "+missingAssetsPath+"\n"+
+			"pages:\n"+
+			"  - name: Home\n"+
+			"    columns:\n"+
+			"      - size: full\n",
+	)
+
+	parsed, err := parseYAMLIncludesWithSources(mainPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = newConfigFromParsedYAML(parsed)
+	if err == nil {
+		t.Fatal("expected assets-path configuration error")
+	}
+
+	var diagnostic *configDiagnostic
+	if !errors.As(err, &diagnostic) {
+		t.Fatalf("error type = %T, want *configDiagnostic: %v", err, err)
+	}
+	if diagnostic.File != absConfigTestPath(t, mainPath) {
+		t.Errorf("diagnostic file = %q", diagnostic.File)
+	}
+	if diagnostic.Line != 2 {
+		t.Errorf("diagnostic line = %d, want 2", diagnostic.Line)
+	}
+	if want := "assets directory does not exist: " + missingAssetsPath; diagnostic.Message != want {
+		t.Errorf("diagnostic message = %q, want %q", diagnostic.Message, want)
+	}
+}
+
+func TestIsConfigStateValidCompatibilityWithoutSources(t *testing.T) {
+	cfg := &config{}
+	err := isConfigStateValid(cfg)
+	if err == nil {
+		t.Fatal("expected configuration error")
+	}
+
+	var diagnostic *configDiagnostic
+	if errors.As(err, &diagnostic) {
+		t.Fatalf("compatibility validation unexpectedly returned configDiagnostic: %v", err)
+	}
+	if err.Error() != "no pages configured" {
+		t.Errorf("error = %q, want %q", err.Error(), "no pages configured")
+	}
+}
+
+func TestSemanticConfigDiagnosticFallbackWithoutSource(t *testing.T) {
+	original := errors.New("semantic failure")
+
+	tests := []struct {
+		name   string
+		parsed *parsedYAMLConfig
+		line   int
+	}{
+		{name: "nil parsed", parsed: nil, line: 1},
+		{
+			name: "unknown generated line",
+			parsed: &parsedYAMLConfig{
+				Sources: []configSourceLocation{{File: "/config/glance.yml", Line: 1}},
+			},
+			line: 20,
+		},
+		{
+			name: "zero generated line",
+			parsed: &parsedYAMLConfig{
+				Sources: []configSourceLocation{{File: "/config/glance.yml", Line: 1}},
+			},
+			line: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := semanticConfigDiagnostic(tt.parsed, tt.line, original)
+			if got != original {
+				t.Fatalf("error = %v, want original error", got)
+			}
+		})
+	}
+}
