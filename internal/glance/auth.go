@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	mathrand "math/rand/v2"
 	"net/http"
 	"strconv"
@@ -196,9 +196,9 @@ func (a *application) handleAuthenticationAttempt(w http.ResponseWriter, r *http
 	}
 
 	logAuthFailure := func() {
-		log.Printf(
-			"Failed login attempt for user '%s' from %s",
-			creds.Username, ip,
+		slog.Warn(
+			"Failed login attempt",
+			"client_ip", ip,
 		)
 	}
 
@@ -232,7 +232,7 @@ func (a *application) handleAuthenticationAttempt(w http.ResponseWriter, r *http
 
 	token, err := generateSessionToken(creds.Username, a.authSecretKey, time.Now())
 	if err != nil {
-		log.Printf("Could not compute session token during login attempt: %v", err)
+		slog.Error("Could not compute session token during login attempt", "error", err)
 		time.Sleep(waitOnFailure)
 		w.WriteHeader(http.StatusUnauthorized)
 		return
@@ -275,7 +275,7 @@ func (a *application) isAuthorized(w http.ResponseWriter, r *http.Request) bool 
 	if shouldRegenerate {
 		newToken, err := generateSessionToken(username, a.authSecretKey, time.Now())
 		if err != nil {
-			log.Printf("Could not compute session token during regeneration: %v", err)
+			slog.Error("Could not compute session token during regeneration", "error", err)
 			return false
 		}
 

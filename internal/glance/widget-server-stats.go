@@ -50,8 +50,8 @@ func (widget *serverStatsWidget) update(context.Context) {
 			info, errs := sysinfo.Collect(serv.SystemInfoRequest)
 
 			if len(errs) > 0 {
-				for i := range errs {
-					slog.Warn("Getting system info: " + errs[i].Error())
+				for _, err := range errs {
+					slog.Warn("Failed to get local system info", "error", err)
 				}
 			}
 
@@ -63,7 +63,20 @@ func (widget *serverStatsWidget) update(context.Context) {
 				defer wg.Done()
 				info, err := fetchRemoteServerInfo(serv)
 				if err != nil {
-					slog.Warn("Getting remote system info: " + err.Error())
+					if serv.Name != "" {
+						slog.Warn(
+							"Failed to get remote system info",
+							"server", serv.Name,
+							"error", err,
+						)
+					} else {
+						slog.Warn(
+							"Failed to get remote system info",
+							"server", i+1,
+							"error", err,
+						)
+					}
+
 					serv.IsReachable = false
 					serv.Info = &sysinfo.SystemInfo{
 						Hostname: "Unnamed server #" + strconv.Itoa(i+1),

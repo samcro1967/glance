@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"html/template"
 	"iter"
-	"log"
+	"log/slog"
 	"maps"
 	"os"
 	"path/filepath"
@@ -133,9 +133,9 @@ var envVariableNamePattern = regexp.MustCompile(`^[A-Z0-9_]+$`)
 var configVariablePattern = regexp.MustCompile(`(^|.)\$\{(?:([a-zA-Z]+):)?([a-zA-Z0-9_-]+)\}`)
 
 // Parses variables defined in the config such as:
-// ${API_KEY} 				            - gets replaced with the value of the API_KEY environment variable
-// \${API_KEY} 					        - escaped, gets used as is without the \ in the config
-// ${secret:api_key} 			        - value gets loaded from /run/secrets/api_key
+// ${API_KEY}                                      - gets replaced with the value of the API_KEY environment variable
+// \${API_KEY}                                                 - escaped, gets used as is without the \ in the config
+// ${secret:api_key}                           - value gets loaded from /run/secrets/api_key
 // ${readFileFromEnv:PATH_TO_SECRET}    - value gets loaded from the file path specified in the environment variable PATH_TO_SECRET
 //
 // findYAMLCommentStart returns the index of the YAML comment start (# preceded
@@ -389,9 +389,10 @@ func configFilesWatcher(
 		for filePath := range newWatched {
 			if _, ok := previousWatched[filePath]; !ok {
 				if err := watcher.Add(filePath); err != nil {
-					log.Printf(
-						"Could not add file to watcher, changes to this file will not trigger a reload. path: %s, error: %v",
-						filePath, err,
+					slog.Warn(
+						"Could not add configuration file to watcher",
+						"path", filePath,
+						"error", err,
 					)
 				}
 			}
