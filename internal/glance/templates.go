@@ -15,6 +15,7 @@ var intl = message.NewPrinter(language.English)
 var globalTemplateFunctions = template.FuncMap{
 	"formatApproxNumber": formatApproxNumber,
 	"formatNumber":       intl.Sprint,
+	"renderWidget":       renderWidget,
 	"safeCSS": func(str string) template.CSS {
 		return template.CSS(str)
 	},

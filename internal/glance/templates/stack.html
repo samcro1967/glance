@@ -4,6 +4,6 @@
 
 {{ define "widget-content" }}
     {{- range $i, $widget := .Widgets }}
-        {{- .Render -}}
+        {{- renderWidget $widget -}}
     {{- end }}
 {{ end }}

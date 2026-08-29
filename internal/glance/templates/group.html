@@ -14,7 +14,7 @@
 <div class="widget-group-contents">
 {{- range $i, $widget := .Widgets }}
     <div class="widget-group-content{{ if eq $i 0 }} widget-group-content-current{{ end }}" id="widget-{{ .GetID }}-tabpanel-{{ $i }}" role="tabpanel" aria-labelledby="widget-{{ .GetID }}-tab-{{ $i }}" aria-hidden="{{ if eq $i 0 }}false{{ else }}true{{ end }}">
-        {{- .Render -}}
+        {{- renderWidget $widget -}}
     </div>
 {{- end }}
 </div>
