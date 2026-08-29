@@ -77,6 +77,10 @@ func TestFindYAMLCommentStart(t *testing.T) {
 		{`key: "value # not comment"`, -1},
 		{`key: 'value # not comment'`, -1},
 		{`key: "quoted" # comment`, 14},
+		{`key: "value \"quoted # text\""`, -1},
+		{`key: "value \"quoted # text\"" # comment`, 31},
+		{`key: 'value ''quoted # text'''`, -1},
+		{`key: 'value ''quoted # text''' # comment`, 31},
 		{"key: value#no-space-not-comment", -1},
 	}
 

@@ -146,22 +146,39 @@ var configVariablePattern = regexp.MustCompile(`(^|.)\$\{(?:([a-zA-Z]+):)?([a-zA
 func findYAMLCommentStart(line []byte) int {
 	inSingle := false
 	inDouble := false
-	for i, b := range line {
-		switch b {
-		case '\'':
-			if !inDouble {
-				inSingle = !inSingle
+
+	for i := 0; i < len(line); i++ {
+		switch {
+		case inSingle:
+			if line[i] == '\'' {
+				if i+1 < len(line) && line[i+1] == '\'' {
+					i++
+				} else {
+					inSingle = false
+				}
 			}
-		case '"':
-			if !inSingle {
-				inDouble = !inDouble
+		case inDouble:
+			if line[i] == '\\' {
+				if i+1 < len(line) {
+					i++
+				}
+			} else if line[i] == '"' {
+				inDouble = false
 			}
-		case '#':
-			if !inSingle && !inDouble && (i == 0 || line[i-1] == ' ' || line[i-1] == '\t') {
-				return i
+		default:
+			switch line[i] {
+			case '\'':
+				inSingle = true
+			case '"':
+				inDouble = true
+			case '#':
+				if i == 0 || line[i-1] == ' ' || line[i-1] == '\t' {
+					return i
+				}
 			}
 		}
 	}
+
 	return -1
 }
 
