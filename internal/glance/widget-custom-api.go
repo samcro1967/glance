@@ -23,6 +23,52 @@ import (
 
 var customAPIWidgetTemplate = mustParseTemplate("custom-api.html", "widget-base.html")
 
+type customAPITemplateParseError struct {
+	line  int
+	cause error
+}
+
+func (e *customAPITemplateParseError) Error() string {
+	if e == nil || e.cause == nil {
+		return "parsing template"
+	}
+
+	return fmt.Sprintf("parsing template: %v", e.cause)
+}
+
+func (e *customAPITemplateParseError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+
+	return e.cause
+}
+
+func parseCustomAPITemplateErrorLine(message string) int {
+	const prefix = "template: :"
+
+	if !strings.HasPrefix(message, prefix) {
+		return 0
+	}
+
+	remainder := strings.TrimPrefix(message, prefix)
+	colon := strings.IndexByte(remainder, ':')
+	if colon <= 0 {
+		return 0
+	}
+
+	line, err := strconv.Atoi(remainder[:colon])
+	if err != nil || line < 1 {
+		return 0
+	}
+
+	if strings.TrimSpace(remainder[colon+1:]) == "" {
+		return 0
+	}
+
+	return line
+}
+
 // Needs to be exported for the YAML unmarshaler to work
 type CustomAPIRequest struct {
 	URL                string               `yaml:"url"`
@@ -70,7 +116,10 @@ func (widget *customAPIWidget) initialize() error {
 
 	compiledTemplate, err := template.New("").Funcs(customAPITemplateFuncs).Parse(widget.Template)
 	if err != nil {
-		return fmt.Errorf("parsing template: %w", err)
+		return &customAPITemplateParseError{
+			line:  parseCustomAPITemplateErrorLine(err.Error()),
+			cause: err,
+		}
 	}
 
 	widget.compiledTemplate = compiledTemplate
