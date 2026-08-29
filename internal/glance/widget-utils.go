@@ -163,13 +163,13 @@ func (job *workerPoolJob[I, O]) withWorkers(workers int) *workerPoolJob[I, O] {
 	return job
 }
 
-// func (job *workerPoolJob[I, O]) withContext(ctx context.Context) *workerPoolJob[I, O] {
-// 	if ctx != nil {
-// 		job.ctx = ctx
-// 	}
+func (job *workerPoolJob[I, O]) withContext(ctx context.Context) *workerPoolJob[I, O] {
+	if ctx != nil {
+		job.ctx = ctx
+	}
 
-// 	return job
-// }
+	return job
+}
 
 func newJob[I any, O any](task func(I) (O, error), data []I) *workerPoolJob[I, O] {
 	return &workerPoolJob[I, O]{
@@ -185,50 +185,80 @@ func workerPoolDo[I any, O any](job *workerPoolJob[I, O]) ([]O, []error, error) 
 	errs := make([]error, len(job.data))
 
 	if len(job.data) == 0 {
-		return results, errs, nil
+		return results, errs, job.ctx.Err()
+	}
+
+	if err := job.ctx.Err(); err != nil {
+		return results, errs, err
 	}
 
 	if len(job.data) == 1 {
+		select {
+		case <-job.ctx.Done():
+			return results, errs, job.ctx.Err()
+		default:
+		}
+
 		results[0], errs[0] = job.task(job.data[0])
-		return results, errs, nil
+		return results, errs, job.ctx.Err()
 	}
 
 	tasksQueue := make(chan *workerPoolTask[I, O])
 	resultsQueue := make(chan *workerPoolTask[I, O])
 
-	var wg sync.WaitGroup
+	var workersWG sync.WaitGroup
 
 	for range job.workers {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		workersWG.Add(1)
 
-			for t := range tasksQueue {
-				t.output, t.err = job.task(t.input)
-				resultsQueue <- t
+		go func() {
+			defer workersWG.Done()
+
+			for {
+				select {
+				case <-job.ctx.Done():
+					return
+
+				case task, ok := <-tasksQueue:
+					if !ok {
+						return
+					}
+
+					if job.ctx.Err() != nil {
+						return
+					}
+
+					task.output, task.err = job.task(task.input)
+
+					select {
+					case resultsQueue <- task:
+					case <-job.ctx.Done():
+						return
+					}
+				}
 			}
 		}()
 	}
 
-	var err error
-
 	go func() {
-	loop:
+		defer close(tasksQueue)
+
 		for i := range job.data {
+			task := &workerPoolTask[I, O]{
+				index: i,
+				input: job.data[i],
+			}
+
 			select {
-			default:
-				tasksQueue <- &workerPoolTask[I, O]{
-					index: i,
-					input: job.data[i],
-				}
+			case tasksQueue <- task:
 			case <-job.ctx.Done():
-				err = job.ctx.Err()
-				break loop
+				return
 			}
 		}
+	}()
 
-		close(tasksQueue)
-		wg.Wait()
+	go func() {
+		workersWG.Wait()
 		close(resultsQueue)
 	}()
 
@@ -237,5 +267,5 @@ func workerPoolDo[I any, O any](job *workerPoolJob[I, O]) ([]O, []error, error) 
 		results[task.index] = task.output
 	}
 
-	return results, errs, err
+	return results, errs, job.ctx.Err()
 }

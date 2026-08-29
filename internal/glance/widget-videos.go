@@ -66,7 +66,12 @@ func (w *videosWidget) initialize() error {
 }
 
 func (w *videosWidget) update(ctx context.Context) {
-	videos, err := w.fetchYoutubeChannelUploads(w.Channels, w.VideoUrlTemplate, w.IncludeShorts)
+	videos, err := w.fetchYoutubeChannelUploads(
+		ctx,
+		w.Channels,
+		w.VideoUrlTemplate,
+		w.IncludeShorts,
+	)
 
 	if !w.canContinueUpdateAfterHandlingErr(err) {
 		return
@@ -140,7 +145,12 @@ func (v videoList) sortByNewest() videoList {
 	return v
 }
 
-func (w *videosWidget) fetchYoutubeChannelUploads(channelOrPlaylistIDs []string, videoUrlTemplate string, includeShorts bool) (videoList, error) {
+func (w *videosWidget) fetchYoutubeChannelUploads(
+	ctx context.Context,
+	channelOrPlaylistIDs []string,
+	videoUrlTemplate string,
+	includeShorts bool,
+) (videoList, error) {
 	task := func(id string) (videoList, error) {
 		if cached, ok := w.cachedVideoLists.Load(id); ok {
 			entry := cached.(cachedEntry[videoList])
@@ -161,7 +171,7 @@ func (w *videosWidget) fetchYoutubeChannelUploads(channelOrPlaylistIDs []string,
 			feedURL = "https://www.youtube.com/feeds/videos.xml?channel_id=" + id
 		}
 
-		request, _ := http.NewRequest("GET", feedURL, nil)
+		request, _ := http.NewRequestWithContext(ctx, "GET", feedURL, nil)
 		response, err := decodeXmlFromRequest[youtubeFeedResponseXml](defaultHTTPClient, request)
 		if err != nil {
 			cached, ok := w.cachedVideoLists.Load(id)
@@ -196,14 +206,13 @@ func (w *videosWidget) fetchYoutubeChannelUploads(channelOrPlaylistIDs []string,
 				AuthorUrl:    response.ChannelLink + "/videos",
 				TimePosted:   parseYoutubeFeedTime(v.Published),
 			})
-
 		}
 
 		w.cachedVideoLists.Store(id, cachedEntry[videoList]{value: list, timestamp: time.Now()})
 		return list, nil
 	}
 
-	job := newJob(task, channelOrPlaylistIDs).withWorkers(30)
+	job := newJob(task, channelOrPlaylistIDs).withWorkers(30).withContext(ctx)
 	lists, errs, err := workerPoolDo(job)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", errNoContent, err)

@@ -53,7 +53,7 @@ func (widget *releasesWidget) initialize() error {
 }
 
 func (widget *releasesWidget) update(ctx context.Context) {
-	releases, err := fetchLatestReleases(widget.Repositories)
+	releases, err := fetchLatestReleases(ctx, widget.Repositories)
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
 		return
@@ -153,8 +153,12 @@ func (r *releaseRequest) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
-func fetchLatestReleases(requests []*releaseRequest) (appReleaseList, error) {
-	job := newJob(fetchLatestReleaseTask, requests).withWorkers(20)
+func fetchLatestReleases(ctx context.Context, requests []*releaseRequest) (appReleaseList, error) {
+	task := func(request *releaseRequest) (*appRelease, error) {
+		return fetchLatestReleaseTask(ctx, request)
+	}
+
+	job := newJob(task, requests).withWorkers(20).withContext(ctx)
 	results, errs, err := workerPoolDo(job)
 	if err != nil {
 		return nil, err
@@ -187,16 +191,16 @@ func fetchLatestReleases(requests []*releaseRequest) (appReleaseList, error) {
 	return releases, nil
 }
 
-func fetchLatestReleaseTask(request *releaseRequest) (*appRelease, error) {
+func fetchLatestReleaseTask(ctx context.Context, request *releaseRequest) (*appRelease, error) {
 	switch request.source {
 	case releaseSourceCodeberg:
-		return fetchLatestCodebergRelease(request)
+		return fetchLatestCodebergRelease(ctx, request)
 	case releaseSourceGithub:
-		return fetchLatestGithubRelease(request)
+		return fetchLatestGithubRelease(ctx, request)
 	case releaseSourceGitlab:
-		return fetchLatestGitLabRelease(request)
+		return fetchLatestGitLabRelease(ctx, request)
 	case releaseSourceDockerHub:
-		return fetchLatestDockerHubRelease(request)
+		return fetchLatestDockerHubRelease(ctx, request)
 	}
 
 	return nil, errors.New("unsupported source")
@@ -211,7 +215,7 @@ type githubReleaseResponseJson struct {
 	} `json:"reactions"`
 }
 
-func fetchLatestGithubRelease(request *releaseRequest) (*appRelease, error) {
+func fetchLatestGithubRelease(ctx context.Context, request *releaseRequest) (*appRelease, error) {
 	var requestURL string
 	if !request.IncludePreleases {
 		requestURL = fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", request.Repository)
@@ -219,7 +223,7 @@ func fetchLatestGithubRelease(request *releaseRequest) (*appRelease, error) {
 		requestURL = fmt.Sprintf("https://api.github.com/repos/%s/releases", request.Repository)
 	}
 
-	httpRequest, err := http.NewRequest("GET", requestURL, nil)
+	httpRequest, err := http.NewRequestWithContext(ctx, "GET", requestURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -272,7 +276,7 @@ const dockerHubRepoTagURLFormat = "https://hub.docker.com/r/%s/tags?name=%s"
 const dockerHubTagsURLFormat = "https://hub.docker.com/v2/namespaces/%s/repositories/%s/tags"
 const dockerHubSpecificTagURLFormat = "https://hub.docker.com/v2/namespaces/%s/repositories/%s/tags/%s"
 
-func fetchLatestDockerHubRelease(request *releaseRequest) (*appRelease, error) {
+func fetchLatestDockerHubRelease(ctx context.Context, request *releaseRequest) (*appRelease, error) {
 	nameParts := strings.Split(request.Repository, "/")
 
 	if len(nameParts) > 2 {
@@ -290,7 +294,7 @@ func fetchLatestDockerHubRelease(request *releaseRequest) (*appRelease, error) {
 		requestURL = fmt.Sprintf(dockerHubTagsURLFormat, nameParts[0], nameParts[1])
 	}
 
-	httpRequest, err := http.NewRequest("GET", requestURL, nil)
+	httpRequest, err := http.NewRequestWithContext(ctx, "GET", requestURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -356,8 +360,9 @@ type gitlabReleaseResponseJson struct {
 	} `json:"_links"`
 }
 
-func fetchLatestGitLabRelease(request *releaseRequest) (*appRelease, error) {
-	httpRequest, err := http.NewRequest(
+func fetchLatestGitLabRelease(ctx context.Context, request *releaseRequest) (*appRelease, error) {
+	httpRequest, err := http.NewRequestWithContext(
+		ctx,
 		"GET",
 		fmt.Sprintf(
 			"https://gitlab.com/api/v4/projects/%s/releases/permalink/latest",
@@ -393,8 +398,9 @@ type codebergReleaseResponseJson struct {
 	HtmlUrl     string `json:"html_url"`
 }
 
-func fetchLatestCodebergRelease(request *releaseRequest) (*appRelease, error) {
-	httpRequest, err := http.NewRequest(
+func fetchLatestCodebergRelease(ctx context.Context, request *releaseRequest) (*appRelease, error) {
+	httpRequest, err := http.NewRequestWithContext(
+		ctx,
 		"GET",
 		fmt.Sprintf(
 			"https://codeberg.org/api/v1/repos/%s/releases/latest",

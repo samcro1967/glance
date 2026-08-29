@@ -2,6 +2,7 @@ package glance
 
 import (
 	"context"
+	"errors"
 	"html/template"
 	"net/http"
 	"net/http/httptest"
@@ -205,5 +206,136 @@ func TestCustomAPIWidgetInitialFailureHasNoStaleFallback(t *testing.T) {
 
 	if widget.Error == nil {
 		t.Fatal("expected widget error after initial failure")
+	}
+}
+
+func TestFetchCustomAPIResponseCancellationStopsInFlightRequest(t *testing.T) {
+	requestStarted := make(chan struct{})
+	requestCancelled := make(chan struct{})
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(requestStarted)
+
+		select {
+		case <-r.Context().Done():
+			close(requestCancelled)
+		case <-time.After(time.Second):
+			t.Error("server request context was not cancelled")
+		}
+	}))
+	defer server.Close()
+
+	req := newTestCustomAPIRequest(t, server.URL)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := fetchCustomAPIResponse(ctx, req)
+		done <- err
+	}()
+
+	select {
+	case <-requestStarted:
+	case <-time.After(time.Second):
+		t.Fatal("request did not start")
+	}
+
+	cancel()
+
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("expected cancelled request to return an error")
+		}
+
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("expected context.Canceled, got %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("fetchCustomAPIResponse did not return after cancellation")
+	}
+
+	select {
+	case <-requestCancelled:
+	case <-time.After(time.Second):
+		t.Fatal("server did not observe request cancellation")
+	}
+}
+
+func TestFetchAndRenderCustomAPIRequestCancellationStopsSubrequests(t *testing.T) {
+	const requestCount = 3
+
+	requestStarted := make(chan struct{}, requestCount)
+	requestCancelled := make(chan struct{}, requestCount)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestStarted <- struct{}{}
+
+		select {
+		case <-r.Context().Done():
+			requestCancelled <- struct{}{}
+		case <-time.After(time.Second):
+			t.Error("server request context was not cancelled")
+		}
+	}))
+	defer server.Close()
+
+	primaryReq := newTestCustomAPIRequest(t, server.URL+"/primary")
+	subReqs := map[string]*CustomAPIRequest{
+		"first":  newTestCustomAPIRequest(t, server.URL+"/first"),
+		"second": newTestCustomAPIRequest(t, server.URL+"/second"),
+	}
+
+	compiledTemplate, err := template.New("").Funcs(customAPITemplateFuncs).Parse(
+		`{{ .JSON.String "value" }}`,
+	)
+	if err != nil {
+		t.Fatalf("compile template: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := fetchAndRenderCustomAPIRequest(
+			ctx,
+			primaryReq,
+			subReqs,
+			nil,
+			compiledTemplate,
+		)
+		done <- err
+	}()
+
+	for range requestCount {
+		select {
+		case <-requestStarted:
+		case <-time.After(time.Second):
+			t.Fatal("not all custom API requests started")
+		}
+	}
+
+	cancel()
+
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("expected cancelled refresh to return an error")
+		}
+
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("expected context.Canceled, got %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("fetchAndRenderCustomAPIRequest did not return after cancellation")
+	}
+
+	for range requestCount {
+		select {
+		case <-requestCancelled:
+		case <-time.After(time.Second):
+			t.Fatal("server did not observe cancellation for every request")
+		}
 	}
 }

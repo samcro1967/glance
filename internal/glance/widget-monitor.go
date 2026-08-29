@@ -47,7 +47,7 @@ func (widget *monitorWidget) update(ctx context.Context) {
 		requests[i] = widget.Sites[i].SiteStatusRequest
 	}
 
-	statuses, err := fetchStatusForSites(requests)
+	statuses, err := fetchStatusForSites(ctx, requests)
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
 		return
@@ -132,7 +132,7 @@ type siteStatus struct {
 	Error        error
 }
 
-func fetchSiteStatusTask(statusRequest *SiteStatusRequest) (siteStatus, error) {
+func fetchSiteStatusTask(ctx context.Context, statusRequest *SiteStatusRequest) (siteStatus, error) {
 	var url string
 	if statusRequest.CheckURL != "" {
 		url = statusRequest.CheckURL
@@ -141,10 +141,10 @@ func fetchSiteStatusTask(statusRequest *SiteStatusRequest) (siteStatus, error) {
 	}
 
 	timeout := ternary(statusRequest.Timeout > 0, time.Duration(statusRequest.Timeout), 3*time.Second)
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	requestCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	request, err := http.NewRequestWithContext(requestCtx, http.MethodGet, url, nil)
 	if err != nil {
 		return siteStatus{
 			Error: err,
@@ -182,8 +182,12 @@ func fetchSiteStatusTask(statusRequest *SiteStatusRequest) (siteStatus, error) {
 	return status, nil
 }
 
-func fetchStatusForSites(requests []*SiteStatusRequest) ([]siteStatus, error) {
-	job := newJob(fetchSiteStatusTask, requests).withWorkers(20)
+func fetchStatusForSites(ctx context.Context, requests []*SiteStatusRequest) ([]siteStatus, error) {
+	task := func(request *SiteStatusRequest) (siteStatus, error) {
+		return fetchSiteStatusTask(ctx, request)
+	}
+
+	job := newJob(task, requests).withWorkers(20).withContext(ctx)
 	results, _, err := workerPoolDo(job)
 	if err != nil {
 		return nil, err

@@ -80,7 +80,11 @@ func (widget *customAPIWidget) initialize() error {
 
 func (widget *customAPIWidget) update(ctx context.Context) {
 	compiledHTML, err := fetchAndRenderCustomAPIRequest(
-		widget.CustomAPIRequest, widget.Subrequests, widget.Options, widget.compiledTemplate,
+		ctx,
+		widget.CustomAPIRequest,
+		widget.Subrequests,
+		widget.Options,
+		widget.compiledTemplate,
 	)
 
 	if err != nil {
@@ -323,6 +327,7 @@ func fetchCustomAPIResponse(ctx context.Context, req *CustomAPIRequest) (*custom
 }
 
 func fetchAndRenderCustomAPIRequest(
+	ctx context.Context,
 	primaryReq *CustomAPIRequest,
 	subReqs map[string]*CustomAPIRequest,
 	options customAPIOptions,
@@ -333,13 +338,14 @@ func fetchAndRenderCustomAPIRequest(
 	var err error
 
 	if len(subReqs) == 0 {
-		// If there are no subrequests, we can fetch the primary request in a much simpler way
-		primaryData, err = fetchCustomAPIResponse(context.Background(), primaryReq)
+		// If there are no subrequests, we can fetch the primary request in a much simpler way.
+		primaryData, err = fetchCustomAPIResponse(ctx, primaryReq)
 	} else {
-		// If there are subrequests, we need to fetch them concurrently
-		// and cancel all requests if any of them fail. There's probably
-		// a more elegant way to do this, but this works for now.
-		ctx, cancel := context.WithCancel(context.Background())
+		// If there are subrequests, fetch them concurrently and cancel the
+		// remaining requests if any request fails. Deriving this context from
+		// the widget refresh context also allows shutdown and config reload to
+		// cancel the entire refresh.
+		requestCtx, cancel := context.WithCancel(ctx)
 		defer cancel()
 
 		var wg sync.WaitGroup
@@ -348,8 +354,10 @@ func fetchAndRenderCustomAPIRequest(
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+
 			var localErr error
-			primaryData, localErr = fetchCustomAPIResponse(ctx, primaryReq)
+			primaryData, localErr = fetchCustomAPIResponse(requestCtx, primaryReq)
+
 			mu.Lock()
 			if localErr != nil && err == nil {
 				err = localErr
@@ -360,11 +368,14 @@ func fetchAndRenderCustomAPIRequest(
 
 		for key, req := range subReqs {
 			wg.Add(1)
+
 			go func() {
 				defer wg.Done()
+
 				var localErr error
 				var data *customAPIResponseData
-				data, localErr = fetchCustomAPIResponse(ctx, req)
+				data, localErr = fetchCustomAPIResponse(requestCtx, req)
+
 				mu.Lock()
 				if localErr == nil {
 					subData[key] = data

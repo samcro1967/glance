@@ -38,6 +38,7 @@ func (widget *dockerContainersWidget) initialize() error {
 
 func (widget *dockerContainersWidget) update(ctx context.Context) {
 	containers, err := fetchDockerContainers(
+		ctx,
 		widget.SockPath,
 		widget.HideByDefault,
 		widget.Category,
@@ -155,6 +156,7 @@ func dockerContainerStateToStateIcon(container *dockerContainerJsonResponse) str
 }
 
 func fetchDockerContainers(
+	ctx context.Context,
 	socketPath string,
 	hideByDefault bool,
 	category string,
@@ -162,7 +164,13 @@ func fetchDockerContainers(
 	formatNames bool,
 	labelOverrides map[string]map[string]string,
 ) (dockerContainerList, error) {
-	containers, err := fetchDockerContainersFromSource(socketPath, category, runningOnly, labelOverrides)
+	containers, err := fetchDockerContainersFromSource(
+		ctx,
+		socketPath,
+		category,
+		runningOnly,
+		labelOverrides,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("fetching containers: %w", err)
 	}
@@ -283,6 +291,7 @@ func isDockerContainerHidden(container *dockerContainerJsonResponse, hideByDefau
 }
 
 func fetchDockerContainersFromSource(
+	ctx context.Context,
 	source string,
 	category string,
 	runningOnly bool,
@@ -310,10 +319,15 @@ func fetchDockerContainersFromSource(
 	}
 
 	fetchAll := ternary(runningOnly, "false", "true")
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	requestCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	request, err := http.NewRequestWithContext(ctx, "GET", requestBaseURL+"/containers/json?all="+fetchAll, nil)
+	request, err := http.NewRequestWithContext(
+		requestCtx,
+		"GET",
+		requestBaseURL+"/containers/json?all="+fetchAll,
+		nil,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
 	}
