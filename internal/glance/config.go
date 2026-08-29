@@ -141,8 +141,9 @@ type configColumnSemanticSources struct {
 }
 
 type configWidgetSemanticSources struct {
-	line    int
-	widgets []configWidgetSemanticSources
+	line     int
+	template int
+	widgets  []configWidgetSemanticSources
 }
 
 type widgetInitError struct {
@@ -558,7 +559,16 @@ func widgetInitializationDiagnostic(
 		return err
 	}
 
-	return semanticConfigDiagnostic(parsed, targetSource.line, err)
+	generatedLine := targetSource.line
+
+	var templateErr *customAPITemplateParseError
+	if errors.As(err, &templateErr) &&
+		templateErr.line > 0 &&
+		targetSource.template > 0 {
+		generatedLine = targetSource.template + templateErr.line
+	}
+
+	return semanticConfigDiagnostic(parsed, generatedLine, err)
 }
 
 var configIncludePattern = regexp.MustCompile(`(?m)^([ \t]*)(?:-[ \t]*)?(?:!|\$)include:[ \t]*(.+)$`)
@@ -856,9 +866,15 @@ func parseWidgetSemanticSources(node *yaml.Node) []configWidgetSemanticSources {
 	sources := make([]configWidgetSemanticSources, 0, len(node.Content))
 	for _, widgetNode := range node.Content {
 		source := configWidgetSemanticSources{line: widgetNode.Line}
+
+		if _, templateNode := yamlMappingValue(widgetNode, "template"); templateNode != nil {
+			source.template = templateNode.Line
+		}
+
 		if _, children := yamlMappingValue(widgetNode, "widgets"); children != nil {
 			source.widgets = parseWidgetSemanticSources(children)
 		}
+
 		sources = append(sources, source)
 	}
 

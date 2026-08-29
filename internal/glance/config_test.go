@@ -809,6 +809,182 @@ func TestNewConfigFromParsedYAMLWidgetInitializationDiagnostics(t *testing.T) {
 	}
 }
 
+func TestNewConfigFromParsedYAMLCustomAPITemplateDiagnostics(t *testing.T) {
+	tests := []struct {
+		name        string
+		files       map[string]string
+		wantFile    string
+		wantLine    int
+		wantMessage string
+	}{
+		{
+			name: "inline multiline template",
+			files: map[string]string{
+				"glance.yml": "pages:\n" +
+					"  - name: Home\n" +
+					"    columns:\n" +
+					"      - size: full\n" +
+					"        widgets:\n" +
+					"          - type: custom-api\n" +
+					"            template: |\n" +
+					"              first line\n" +
+					"              second line\n" +
+					"              {{ doesNotExist }}\n",
+			},
+			wantFile:    "glance.yml",
+			wantLine:    10,
+			wantMessage: `custom-api widget: parsing template: template: :3: function "doesNotExist" not defined`,
+		},
+		{
+			name: "included template",
+			files: map[string]string{
+				"glance.yml": "pages:\n" +
+					"  - name: Home\n" +
+					"    columns:\n" +
+					"      - size: full\n" +
+					"        widgets:\n" +
+					"          - type: custom-api\n" +
+					"            template: |\n" +
+					"              $include: template.yml\n",
+				"template.yml": "first line\n" +
+					"second line\n" +
+					"{{ doesNotExist }}\n",
+			},
+			wantFile:    "template.yml",
+			wantLine:    3,
+			wantMessage: `custom-api widget: parsing template: template: :3: function "doesNotExist" not defined`,
+		},
+		{
+			name: "nested included container template",
+			files: map[string]string{
+				"glance.yml": "pages:\n" +
+					"  - name: Home\n" +
+					"    columns:\n" +
+					"      - size: full\n" +
+					"        widgets:\n" +
+					"          $include: group.yml\n",
+				"group.yml": "- type: group\n" +
+					"  widgets:\n" +
+					"    - type: custom-api\n" +
+					"      template: |\n" +
+					"        $include: template.yml\n",
+				"template.yml": "first line\n" +
+					"{{ doesNotExist }}\n",
+			},
+			wantFile:    "template.yml",
+			wantLine:    2,
+			wantMessage: `group widget: custom-api widget: parsing template: template: :2: function "doesNotExist" not defined`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			for name, contents := range tt.files {
+				writeConfigTestFile(t, filepath.Join(dir, name), contents)
+			}
+
+			parsed, err := parseYAMLIncludesWithSources(filepath.Join(dir, "glance.yml"))
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			_, err = newConfigFromParsedYAML(parsed)
+			if err == nil {
+				t.Fatal("expected custom API template initialization error")
+			}
+
+			var diagnostic *configDiagnostic
+			if !errors.As(err, &diagnostic) {
+				t.Fatalf("error type = %T, want *configDiagnostic: %v", err, err)
+			}
+
+			wantFile := absConfigTestPath(t, filepath.Join(dir, tt.wantFile))
+			if diagnostic.File != wantFile {
+				t.Errorf("diagnostic file = %q, want %q", diagnostic.File, wantFile)
+			}
+			if diagnostic.Line != tt.wantLine {
+				t.Errorf("diagnostic line = %d, want %d", diagnostic.Line, tt.wantLine)
+			}
+			if diagnostic.Message != tt.wantMessage {
+				t.Errorf("diagnostic message = %q, want %q", diagnostic.Message, tt.wantMessage)
+			}
+
+			var initErr *widgetInitError
+			if !errors.As(err, &initErr) {
+				t.Fatalf("diagnostic does not unwrap to *widgetInitError: %v", err)
+			}
+			if initErr.widget == nil {
+				t.Fatal("widget initialization error has no failing widget")
+			}
+			if initErr.widget.GetType() != "custom-api" {
+				t.Errorf(
+					"failing widget type = %q, want %q",
+					initErr.widget.GetType(),
+					"custom-api",
+				)
+			}
+
+			var templateErr *customAPITemplateParseError
+			if !errors.As(err, &templateErr) {
+				t.Fatalf("diagnostic does not unwrap to *customAPITemplateParseError: %v", err)
+			}
+			if templateErr.line < 1 {
+				t.Errorf("template parse error line = %d, want positive line", templateErr.line)
+			}
+			if templateErr.Unwrap() == nil {
+				t.Fatal("template parse error does not preserve underlying cause")
+			}
+		})
+	}
+}
+
+func TestWidgetInitializationDiagnosticCustomAPITemplateFallback(t *testing.T) {
+	w := &customAPIWidget{}
+	w.Type = "custom-api"
+
+	original := errors.New("template parser failure")
+	templateErr := &customAPITemplateParseError{
+		line:  0,
+		cause: original,
+	}
+	formatted := formatWidgetInitError(templateErr, w)
+
+	parsed := &parsedYAMLConfig{
+		Sources: []configSourceLocation{
+			{File: "/config/glance.yml", Line: 1},
+			{File: "/config/widgets.yml", Line: 7},
+		},
+	}
+
+	got := widgetInitializationDiagnostic(
+		parsed,
+		formatted,
+		w,
+		configWidgetSemanticSources{
+			line:     2,
+			template: 2,
+		},
+	)
+
+	var diagnostic *configDiagnostic
+	if !errors.As(got, &diagnostic) {
+		t.Fatalf("error type = %T, want *configDiagnostic: %v", got, got)
+	}
+	if diagnostic.File != "/config/widgets.yml" || diagnostic.Line != 7 {
+		t.Errorf(
+			"diagnostic location = %s:%d, want %s:%d",
+			diagnostic.File,
+			diagnostic.Line,
+			"/config/widgets.yml",
+			7,
+		)
+	}
+	if !errors.Is(got, original) {
+		t.Error("template diagnostic does not unwrap to original cause")
+	}
+}
+
 func TestWidgetInitializationDiagnosticFallbackWithoutSource(t *testing.T) {
 	w := &weatherWidget{}
 	w.Type = "weather"

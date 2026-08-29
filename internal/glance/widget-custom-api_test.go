@@ -339,3 +339,84 @@ func TestFetchAndRenderCustomAPIRequestCancellationStopsSubrequests(t *testing.T
 		}
 	}
 }
+
+func TestParseCustomAPITemplateErrorLine(t *testing.T) {
+	tests := []struct {
+		name    string
+		message string
+		want    int
+	}{
+		{
+			name:    "first line",
+			message: "template: :1: unclosed action",
+			want:    1,
+		},
+		{
+			name:    "later line",
+			message: "template: :17: function \"missing\" not defined",
+			want:    17,
+		},
+		{
+			name:    "unrecognized format",
+			message: "some other template error",
+			want:    0,
+		},
+		{
+			name:    "zero line",
+			message: "template: :0: invalid",
+			want:    0,
+		},
+		{
+			name:    "negative line",
+			message: "template: :-1: invalid",
+			want:    0,
+		},
+		{
+			name:    "missing detail",
+			message: "template: :3:",
+			want:    0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := parseCustomAPITemplateErrorLine(tt.message); got != tt.want {
+				t.Fatalf(
+					"parseCustomAPITemplateErrorLine(%q) = %d, want %d",
+					tt.message,
+					got,
+					tt.want,
+				)
+			}
+		})
+	}
+}
+
+func TestCustomAPIWidgetTemplateParseErrorCarriesLineAndCause(t *testing.T) {
+	widget := &customAPIWidget{
+		CustomAPIRequest: &CustomAPIRequest{},
+		Template:         "first line\nsecond line\n{{ doesNotExist }}",
+	}
+
+	err := widget.initialize()
+	if err == nil {
+		t.Fatal("expected invalid custom API template to fail initialization")
+	}
+
+	var parseErr *customAPITemplateParseError
+	if !errors.As(err, &parseErr) {
+		t.Fatalf("expected customAPITemplateParseError, got %T: %v", err, err)
+	}
+
+	if parseErr.line != 3 {
+		t.Fatalf("template error line = %d, want 3", parseErr.line)
+	}
+
+	if parseErr.Unwrap() == nil {
+		t.Fatal("expected template parse error to preserve underlying cause")
+	}
+
+	if !strings.HasPrefix(err.Error(), "parsing template: template: :3:") {
+		t.Fatalf("unexpected error text: %q", err)
+	}
+}
