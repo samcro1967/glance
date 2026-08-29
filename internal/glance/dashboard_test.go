@@ -1,6 +1,8 @@
 package glance
 
 import (
+	"bytes"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -271,6 +273,70 @@ dashboards:
 	}
 }
 
+func TestNamedDashboardPageSlugCollisionIsIgnored(t *testing.T) {
+	yaml := dashboardTestYAML(`
+dashboards:
+  Default:
+    - home
+    - page2
+    - page3
+
+  Page2:
+    - shared
+    - page3
+
+  Personal:
+    - home
+    - page3
+`)
+
+	c := newDashboardTestConfig(t, yaml)
+
+	var logOutput bytes.Buffer
+	previousWriter := log.Writer()
+	log.SetOutput(&logOutput)
+	t.Cleanup(func() {
+		log.SetOutput(previousWriter)
+	})
+
+	app, err := newApplication(c)
+	if err != nil {
+		t.Fatalf("newApplication() error = %v", err)
+	}
+
+	if app.defaultDashboard == nil {
+		t.Fatal("Default dashboard should still be created")
+	}
+
+	if _, exists := app.slugToDashboard["page2"]; exists {
+		t.Fatal("dashboard whose slug conflicts with page slug should be ignored")
+	}
+
+	if _, exists := app.slugToDashboard["personal"]; !exists {
+		t.Fatal("non-conflicting dashboard should still be created")
+	}
+
+	if app.slugToPage["page2"] == nil {
+		t.Fatal("canonical page should remain available")
+	}
+
+	warning := logOutput.String()
+
+	if !strings.Contains(warning, `ignoring dashboard "Page2"`) {
+		t.Fatalf(
+			"log output = %q, want warning that Page2 dashboard was ignored",
+			warning,
+		)
+	}
+
+	if !strings.Contains(warning, `slug "page2" conflicts with page slug`) {
+		t.Fatalf(
+			"log output = %q, want page slug collision explanation",
+			warning,
+		)
+	}
+}
+
 func TestDefaultDashboardHomeUsesFirstAssignedPage(t *testing.T) {
 	app := newDashboardTestApplication(t, dashboardTestYAML(`
 dashboards:
@@ -506,54 +572,85 @@ dashboards:
 	}
 }
 
-func TestPageSlugCanMatchDashboardSlug(t *testing.T) {
+func TestDashboardPageSlugCollisionPreservesPageRoute(t *testing.T) {
 	app := newDashboardTestApplication(t, dashboardTestYAML(`
 dashboards:
   Default:
     - home
     - page2
+    - page3
 
   Page2:
     - shared
     - page3
+
+  Personal:
+    - home
+    - page3
 `))
 
-	// /page2 is the Page 2 page in the Default dashboard.
-	defaultReq := httptest.NewRequest(http.MethodGet, "/page2", nil)
-	defaultReq.SetPathValue("page", "page2")
-	defaultRec := httptest.NewRecorder()
+	handler := app.router()
 
-	app.handlePageRequest(defaultRec, defaultReq)
-
-	if defaultRec.Code != http.StatusOK {
-		t.Fatalf(
-			"GET /page2 status = %d, want %d",
-			defaultRec.Code,
-			http.StatusOK,
-		)
+	tests := []struct {
+		name        string
+		path        string
+		wantStatus  int
+		wantContent string
+	}{
+		{
+			name:        "canonical page remains available",
+			path:        "/page2",
+			wantStatus:  http.StatusOK,
+			wantContent: "Page 2",
+		},
+		{
+			name:       "conflicting dashboard home is unavailable",
+			path:       "/page2/",
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name:       "conflicting dashboard page is unavailable",
+			path:       "/page2/shared",
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name:        "other dashboard remains available",
+			path:        "/personal/",
+			wantStatus:  http.StatusOK,
+			wantContent: "Home",
+		},
+		{
+			name:        "other dashboard page remains available",
+			path:        "/personal/page3",
+			wantStatus:  http.StatusOK,
+			wantContent: "Page 3",
+		},
 	}
 
-	if !strings.Contains(defaultRec.Body.String(), "Page 2") {
-		t.Fatal("GET /page2 did not render the Default Page 2 page")
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+			rec := httptest.NewRecorder()
 
-	// /page2/ is the home of the Page2 named dashboard.
-	page2Dashboard := app.slugToDashboard["page2"]
-	dashboardReq := httptest.NewRequest(http.MethodGet, "/page2/", nil)
-	dashboardRec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
 
-	app.handleDashboardPageRequest(page2Dashboard, dashboardRec, dashboardReq)
+			if rec.Code != tt.wantStatus {
+				t.Fatalf(
+					"GET %s status = %d, want %d",
+					tt.path,
+					rec.Code,
+					tt.wantStatus,
+				)
+			}
 
-	if dashboardRec.Code != http.StatusOK {
-		t.Fatalf(
-			"GET /page2/ status = %d, want %d",
-			dashboardRec.Code,
-			http.StatusOK,
-		)
-	}
-
-	if !strings.Contains(dashboardRec.Body.String(), "Shared") {
-		t.Fatal("GET /page2/ did not render the named dashboard home")
+			if tt.wantContent != "" && !strings.Contains(rec.Body.String(), tt.wantContent) {
+				t.Fatalf(
+					"GET %s response does not contain %q",
+					tt.path,
+					tt.wantContent,
+				)
+			}
+		})
 	}
 }
 
@@ -568,7 +665,7 @@ dashboards:
     - home
     - page2
 
-  Page2:
+  Family:
     - shared
     - page3
 `))
@@ -594,12 +691,6 @@ dashboards:
 			wantContent: "Page 2",
 		},
 		{
-			name:        "same slug dashboard home",
-			path:        "/page2/",
-			wantStatus:  http.StatusOK,
-			wantContent: "Shared",
-		},
-		{
 			name:        "named dashboard home",
 			path:        "/personal/",
 			wantStatus:  http.StatusOK,
@@ -610,6 +701,18 @@ dashboards:
 			path:        "/personal/page2",
 			wantStatus:  http.StatusOK,
 			wantContent: "Page 2",
+		},
+		{
+			name:        "second named dashboard home",
+			path:        "/family/",
+			wantStatus:  http.StatusOK,
+			wantContent: "Shared",
+		},
+		{
+			name:        "second named dashboard page",
+			path:        "/family/page3",
+			wantStatus:  http.StatusOK,
+			wantContent: "Page 3",
 		},
 		{
 			name:       "page not assigned to named dashboard",

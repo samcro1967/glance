@@ -767,6 +767,10 @@ When `dashboards` is configured:
 - dashboard names must generate unique URL slugs;
 - dashboard slugs cannot conflict with reserved Glance routes.
 
+Named dashboard slugs also cannot conflict with page slugs. If a named dashboard generates the same slug as an existing page, that dashboard is ignored and a warning is logged. Glance continues running with the remaining valid dashboards and pages.
+
+For example, if a page uses the slug `personal`, a named dashboard that also generates the slug `personal` will be ignored. The existing `/personal` page route remains available.
+
 The order of pages in each dashboard determines both the navigation order and which page becomes that dashboard's home page.
 
 ### Columns
