@@ -1,6 +1,7 @@
 package glance
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -33,24 +34,24 @@ func Main() int {
 			return 1
 		}
 	case cliIntentConfigValidate:
-		contents, _, err := parseYAMLIncludes(options.configPath)
+		parsed, err := parseYAMLIncludesWithSources(options.configPath)
 		if err != nil {
 			fmt.Printf("Could not parse config file: %v\n", err)
 			return 1
 		}
 
-		if _, err := newConfigFromYAML(contents); err != nil {
-			fmt.Printf("Config file is invalid: %v\n", err)
+		if _, err := newConfigFromParsedYAML(parsed); err != nil {
+			printConfigValidationError(err)
 			return 1
 		}
 	case cliIntentConfigPrint:
-		contents, _, err := parseYAMLIncludes(options.configPath)
+		parsed, err := parseYAMLIncludesWithSources(options.configPath)
 		if err != nil {
 			fmt.Printf("Could not parse config file: %v\n", err)
 			return 1
 		}
 
-		fmt.Println(string(contents))
+		fmt.Println(string(parsed.Contents))
 	case cliIntentSensorsPrint:
 		return cliSensorsPrint()
 	case cliIntentMountpointInfo:
@@ -90,6 +91,51 @@ func Main() int {
 	return 0
 }
 
+func printConfigValidationError(err error) {
+	var diagnostic *configDiagnostic
+	if errors.As(err, &diagnostic) {
+		fmt.Println("Configuration is invalid:")
+		if diagnostic.File != "" {
+			fmt.Printf("  file: %s\n", diagnostic.File)
+		}
+		if diagnostic.Line > 0 {
+			fmt.Printf("  line: %d\n", diagnostic.Line)
+		}
+		fmt.Printf("  error: %s\n", diagnostic.Message)
+		return
+	}
+
+	fmt.Printf("Config file is invalid: %v\n", err)
+}
+
+func logConfigDiagnostic(level slog.Level, message string, err error) {
+	var diagnostic *configDiagnostic
+	attrs := make([]any, 0, 6)
+
+	if errors.As(err, &diagnostic) {
+		if diagnostic.File != "" {
+			attrs = append(attrs, "file", diagnostic.File)
+		}
+		if diagnostic.Line > 0 {
+			attrs = append(attrs, "line", diagnostic.Line)
+		}
+		attrs = append(attrs, "error", diagnostic.Message)
+	} else {
+		attrs = append(attrs, "error", err)
+	}
+
+	switch {
+	case level >= slog.LevelError:
+		slog.Error(message, attrs...)
+	case level >= slog.LevelWarn:
+		slog.Warn(message, attrs...)
+	case level >= slog.LevelInfo:
+		slog.Info(message, attrs...)
+	default:
+		slog.Debug(message, attrs...)
+	}
+}
+
 func serveApp(configPath string) error {
 	// TODO: refactor if this gets any more complex, the current implementation is
 	// difficult to reason about due to all of the callbacks and simultaneous operations,
@@ -98,22 +144,23 @@ func serveApp(configPath string) error {
 	hadValidConfigOnStartup := false
 	var stopServer func() error
 
-	onChange := func(newContents []byte) {
+	onChange := func(newParsed *parsedYAMLConfig) {
 		isReload := stopServer != nil
 
 		if isReload {
 			slog.Info("Configuration changed, reloading")
 		}
 
-		config, err := newConfigFromYAML(newContents)
+		config, err := newConfigFromParsedYAML(newParsed)
 		if err != nil {
 			if isReload {
-				slog.Warn(
+				logConfigDiagnostic(
+					slog.LevelWarn,
 					"Configuration reload rejected; keeping existing application",
-					"error", err,
+					err,
 				)
 			} else {
-				slog.Error("Configuration is invalid", "error", err)
+				logConfigDiagnostic(slog.LevelError, "Configuration is invalid", err)
 			}
 
 			if !hadValidConfigOnStartup {
@@ -166,12 +213,17 @@ func serveApp(configPath string) error {
 		slog.Error("Error watching configuration files", "error", err)
 	}
 
-	configContents, configIncludes, err := parseYAMLIncludes(configPath)
+	parsedConfig, err := parseYAMLIncludesWithSources(configPath)
 	if err != nil {
 		return fmt.Errorf("parsing config: %w", err)
 	}
 
-	stopWatching, err := configFilesWatcher(configPath, configContents, configIncludes, onChange, onErr)
+	stopWatching, err := configFilesWatcherWithSources(
+		configPath,
+		parsedConfig,
+		onChange,
+		onErr,
+	)
 	if err == nil {
 		defer stopWatching()
 	} else {
@@ -180,7 +232,7 @@ func serveApp(configPath string) error {
 			"error", err,
 		)
 
-		config, err := newConfigFromYAML(configContents)
+		config, err := newConfigFromParsedYAML(parsedConfig)
 		if err != nil {
 			return fmt.Errorf("validating config file: %w", err)
 		}

@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -92,8 +93,119 @@ type page struct {
 	mu                 sync.Mutex `yaml:"-"`
 }
 
+type configSourceLocation struct {
+	File string
+	Line int
+}
+
+type parsedYAMLConfig struct {
+	Contents []byte
+	Includes map[string]struct{}
+	Sources  []configSourceLocation
+}
+
+type configDiagnostic struct {
+	File    string
+	Line    int
+	Message string
+	cause   error
+}
+
+func (d *configDiagnostic) Error() string {
+	if d == nil {
+		return ""
+	}
+
+	if d.File != "" && d.Line > 0 {
+		return fmt.Sprintf("%s:%d: %s", d.File, d.Line, d.Message)
+	}
+	if d.File != "" {
+		return fmt.Sprintf("%s: %s", d.File, d.Message)
+	}
+	return d.Message
+}
+
+func (d *configDiagnostic) Unwrap() error {
+	if d == nil {
+		return nil
+	}
+	return d.cause
+}
+
+func (parsed *parsedYAMLConfig) sourceLocation(generatedLine int) (configSourceLocation, bool) {
+	if parsed == nil || generatedLine < 1 || generatedLine > len(parsed.Sources) {
+		return configSourceLocation{}, false
+	}
+
+	return parsed.Sources[generatedLine-1], true
+}
+
+func parseYAMLLinePrefix(message string) (int, string, bool) {
+	for _, prefix := range []string{"yaml: line ", "line "} {
+		if !strings.HasPrefix(message, prefix) {
+			continue
+		}
+
+		remainder := strings.TrimPrefix(message, prefix)
+		colon := strings.IndexByte(remainder, ':')
+		if colon <= 0 {
+			return 0, message, false
+		}
+
+		line, err := strconv.Atoi(remainder[:colon])
+		if err != nil || line < 1 {
+			return 0, message, false
+		}
+
+		detail := strings.TrimSpace(remainder[colon+1:])
+		if detail == "" {
+			return 0, message, false
+		}
+
+		return line, detail, true
+	}
+
+	return 0, message, false
+}
+
+func configDiagnosticFromYAMLError(parsed *parsedYAMLConfig, err error) error {
+	if err == nil {
+		return nil
+	}
+
+	if typeErr, ok := err.(*yaml.TypeError); ok && len(typeErr.Errors) == 1 {
+		if generatedLine, message, ok := parseYAMLLinePrefix(typeErr.Errors[0]); ok {
+			if source, found := parsed.sourceLocation(generatedLine); found {
+				return &configDiagnostic{
+					File:    source.File,
+					Line:    source.Line,
+					Message: message,
+					cause:   err,
+				}
+			}
+		}
+	}
+
+	if generatedLine, message, ok := parseYAMLLinePrefix(err.Error()); ok {
+		if source, found := parsed.sourceLocation(generatedLine); found {
+			return &configDiagnostic{
+				File:    source.File,
+				Line:    source.Line,
+				Message: message,
+				cause:   err,
+			}
+		}
+	}
+
+	return err
+}
+
 func newConfigFromYAML(contents []byte) (*config, error) {
-	contents, err := parseConfigVariables(contents)
+	return newConfigFromParsedYAML(&parsedYAMLConfig{Contents: contents})
+}
+
+func newConfigFromParsedYAML(parsed *parsedYAMLConfig) (*config, error) {
+	contents, err := parseConfigVariables(parsed.Contents)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +215,7 @@ func newConfigFromYAML(contents []byte) (*config, error) {
 
 	err = yaml.Unmarshal(contents, config)
 	if err != nil {
-		return nil, err
+		return nil, configDiagnosticFromYAMLError(parsed, err)
 	}
 
 	if err = isConfigStateValid(config); err != nil {
@@ -297,39 +409,64 @@ func formatWidgetInitError(err error, w widget) error {
 var configIncludePattern = regexp.MustCompile(`(?m)^([ \t]*)(?:-[ \t]*)?(?:!|\$)include:[ \t]*(.+)$`)
 
 func parseYAMLIncludes(mainFilePath string) ([]byte, map[string]struct{}, error) {
-	return recursiveParseYAMLIncludes(mainFilePath, nil, 0)
+	parsed, err := parseYAMLIncludesWithSources(mainFilePath)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return parsed.Contents, parsed.Includes, nil
+}
+
+func parseYAMLIncludesWithSources(mainFilePath string) (*parsedYAMLConfig, error) {
+	return recursiveParseYAMLIncludesWithSources(mainFilePath, nil, 0)
 }
 
 func recursiveParseYAMLIncludes(mainFilePath string, includes map[string]struct{}, depth int) ([]byte, map[string]struct{}, error) {
+	parsed, err := recursiveParseYAMLIncludesWithSources(mainFilePath, includes, depth)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return parsed.Contents, parsed.Includes, nil
+}
+
+func recursiveParseYAMLIncludesWithSources(mainFilePath string, includes map[string]struct{}, depth int) (*parsedYAMLConfig, error) {
 	if depth > CONFIG_INCLUDE_RECURSION_DEPTH_LIMIT {
-		return nil, nil, fmt.Errorf("recursion depth limit of %d reached", CONFIG_INCLUDE_RECURSION_DEPTH_LIMIT)
+		return nil, fmt.Errorf("recursion depth limit of %d reached", CONFIG_INCLUDE_RECURSION_DEPTH_LIMIT)
 	}
 
 	mainFileContents, err := os.ReadFile(mainFilePath)
 	if err != nil {
-		return nil, nil, fmt.Errorf("reading %s: %w", mainFilePath, err)
+		return nil, fmt.Errorf("reading %s: %w", mainFilePath, err)
 	}
 
 	mainFileAbsPath, err := filepath.Abs(mainFilePath)
 	if err != nil {
-		return nil, nil, fmt.Errorf("getting absolute path of %s: %w", mainFilePath, err)
+		return nil, fmt.Errorf("getting absolute path of %s: %w", mainFilePath, err)
 	}
 	mainFileDir := filepath.Dir(mainFileAbsPath)
 
 	if includes == nil {
 		includes = make(map[string]struct{})
 	}
-	var includesLastErr error
 
-	mainFileContents = configIncludePattern.ReplaceAllFunc(mainFileContents, func(match []byte) []byte {
-		if includesLastErr != nil {
-			return nil
+	lines := bytes.Split(mainFileContents, []byte("\n"))
+	expandedLines := make([][]byte, 0, len(lines))
+	sources := make([]configSourceLocation, 0, len(lines))
+
+	for lineIndex, line := range lines {
+		matches := configIncludePattern.FindSubmatch(line)
+		if len(matches) == 0 {
+			expandedLines = append(expandedLines, line)
+			sources = append(sources, configSourceLocation{
+				File: mainFileAbsPath,
+				Line: lineIndex + 1,
+			})
+			continue
 		}
 
-		matches := configIncludePattern.FindSubmatch(match)
-		if len(matches) != 3 {
-			includesLastErr = fmt.Errorf("invalid include match: %v", matches)
-			return nil
+		if len(matches) != 3 || !bytes.Equal(matches[0], line) {
+			return nil, fmt.Errorf("invalid include match in %s at line %d", mainFileAbsPath, lineIndex+1)
 		}
 
 		indent := string(matches[1])
@@ -338,32 +475,49 @@ func recursiveParseYAMLIncludes(mainFilePath string, includes map[string]struct{
 			includeFilePath = filepath.Join(mainFileDir, includeFilePath)
 		}
 
-		var fileContents []byte
-		var err error
-
-		includes[includeFilePath] = struct{}{}
-
-		fileContents, includes, err = recursiveParseYAMLIncludes(includeFilePath, includes, depth+1)
+		includeFileAbsPath, err := filepath.Abs(includeFilePath)
 		if err != nil {
-			includesLastErr = err
-			return nil
+			return nil, fmt.Errorf(
+				"resolving include %s:%d: getting absolute path of %s: %w",
+				mainFileAbsPath, lineIndex+1, includeFilePath, err,
+			)
 		}
 
-		return []byte(prefixStringLines(indent, string(fileContents)))
-	})
+		includes[includeFileAbsPath] = struct{}{}
 
-	if includesLastErr != nil {
-		return nil, nil, includesLastErr
+		included, err := recursiveParseYAMLIncludesWithSources(includeFileAbsPath, includes, depth+1)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"resolving include %s:%d: %w",
+				mainFileAbsPath, lineIndex+1, err,
+			)
+		}
+
+		includedLines := bytes.Split(included.Contents, []byte("\n"))
+		if len(includedLines) != len(included.Sources) {
+			return nil, fmt.Errorf(
+				"resolving include %s:%d: source map contains %d entries for %d generated lines",
+				mainFileAbsPath, lineIndex+1, len(included.Sources), len(includedLines),
+			)
+		}
+
+		for i := range includedLines {
+			expandedLines = append(expandedLines, []byte(indent+string(includedLines[i])))
+			sources = append(sources, included.Sources[i])
+		}
 	}
 
-	return mainFileContents, includes, nil
+	return &parsedYAMLConfig{
+		Contents: bytes.Join(expandedLines, []byte("\n")),
+		Includes: includes,
+		Sources:  sources,
+	}, nil
 }
 
-func configFilesWatcher(
+func configFilesWatcherWithSources(
 	mainFilePath string,
-	lastContents []byte,
-	lastIncludes map[string]struct{},
-	onChange func(newContents []byte),
+	lastParsed *parsedYAMLConfig,
+	onChange func(newParsed *parsedYAMLConfig),
 	onErr func(error),
 ) (func() error, error) {
 	mainFileAbsPath, err := filepath.Abs(mainFilePath)
@@ -372,7 +526,7 @@ func configFilesWatcher(
 	}
 
 	// TODO: refactor, flaky
-	lastIncludes[mainFileAbsPath] = struct{}{}
+	lastParsed.Includes[mainFileAbsPath] = struct{}{}
 
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -399,33 +553,35 @@ func configFilesWatcher(
 		}
 	}
 
-	updateWatchedFiles(nil, lastIncludes)
+	updateWatchedFiles(nil, lastParsed.Includes)
 
-	// needed for lastContents and lastIncludes because they get updated in multiple goroutines
+	// needed for lastParsed because it gets updated in multiple goroutines
 	mu := sync.Mutex{}
 
 	parseAndCompareBeforeCallback := func() {
-		currentContents, currentIncludes, err := parseYAMLIncludes(mainFilePath)
+		currentParsed, err := parseYAMLIncludesWithSources(mainFilePath)
 		if err != nil {
 			onErr(fmt.Errorf("parsing main file contents for comparison: %w", err))
 			return
 		}
 
 		// TODO: refactor, flaky
-		currentIncludes[mainFileAbsPath] = struct{}{}
+		currentParsed.Includes[mainFileAbsPath] = struct{}{}
 
 		mu.Lock()
 		defer mu.Unlock()
 
-		if !maps.Equal(currentIncludes, lastIncludes) {
-			updateWatchedFiles(lastIncludes, currentIncludes)
-			lastIncludes = currentIncludes
+		if !maps.Equal(currentParsed.Includes, lastParsed.Includes) {
+			updateWatchedFiles(lastParsed.Includes, currentParsed.Includes)
 		}
 
-		if !bytes.Equal(lastContents, currentContents) {
-			lastContents = currentContents
-			onChange(currentContents)
+		if !bytes.Equal(lastParsed.Contents, currentParsed.Contents) {
+			lastParsed = currentParsed
+			onChange(currentParsed)
+			return
 		}
+
+		lastParsed.Includes = currentParsed.Includes
 	}
 
 	const debounceDuration = 500 * time.Millisecond
@@ -443,7 +599,7 @@ func configFilesWatcher(
 		mu.Lock()
 		defer mu.Unlock()
 		fileAbsPath, _ := filepath.Abs(filePath)
-		delete(lastIncludes, fileAbsPath)
+		delete(lastParsed.Includes, fileAbsPath)
 	}
 
 	go func() {
@@ -491,7 +647,7 @@ func configFilesWatcher(
 		}
 	}()
 
-	onChange(lastContents)
+	onChange(lastParsed)
 
 	return func() error {
 		if debounceTimer != nil {
@@ -500,6 +656,26 @@ func configFilesWatcher(
 
 		return watcher.Close()
 	}, nil
+}
+
+func configFilesWatcher(
+	mainFilePath string,
+	lastContents []byte,
+	lastIncludes map[string]struct{},
+	onChange func(newContents []byte),
+	onErr func(error),
+) (func() error, error) {
+	return configFilesWatcherWithSources(
+		mainFilePath,
+		&parsedYAMLConfig{
+			Contents: lastContents,
+			Includes: lastIncludes,
+		},
+		func(newParsed *parsedYAMLConfig) {
+			onChange(newParsed.Contents)
+		},
+		onErr,
+	)
 }
 
 // TODO: Refactor, we currently validate in two different places, this being
