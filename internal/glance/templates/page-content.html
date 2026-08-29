@@ -5,7 +5,7 @@
 {{ if .Page.HeadWidgets }}
 <div class="head-widgets">
     {{- range .Page.HeadWidgets }}
-    {{- .Render }}
+    {{- renderWidget . }}
     {{- end }}
 </div>
 {{ end }}
@@ -14,7 +14,7 @@
 {{- range .Page.Columns }}
     <div class="page-column page-column-{{ .Size }}">
         {{- range .Widgets }}
-        {{- .Render }}
+        {{- renderWidget . }}
         {{- end }}
     </div>
 {{- end }}

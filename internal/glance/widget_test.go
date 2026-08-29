@@ -152,3 +152,159 @@ func TestRefreshWidgetIfNeededDoesNotSerializeDifferentWidgets(t *testing.T) {
 		t.Fatalf("second widget update count = %d, want 1", got)
 	}
 }
+
+type renderSynchronizationTestWidget struct {
+	widgetBase
+
+	updateStart chan struct{}
+	updateBlock chan struct{}
+	renderStart chan struct{}
+	renderBlock chan struct{}
+
+	updateOnce sync.Once
+	renderOnce sync.Once
+}
+
+func newRenderSynchronizationTestWidget() *renderSynchronizationTestWidget {
+	widget := &renderSynchronizationTestWidget{
+		updateStart: make(chan struct{}),
+		updateBlock: make(chan struct{}),
+		renderStart: make(chan struct{}),
+		renderBlock: make(chan struct{}),
+	}
+
+	widget.Type = "render-synchronization-test"
+	widget.withCacheDuration(time.Hour)
+
+	return widget
+}
+
+func (widget *renderSynchronizationTestWidget) initialize() error {
+	return nil
+}
+
+func (widget *renderSynchronizationTestWidget) update(ctx context.Context) {
+	widget.updateOnce.Do(func() {
+		close(widget.updateStart)
+	})
+
+	select {
+	case <-widget.updateBlock:
+	case <-ctx.Done():
+		return
+	}
+
+	widget.scheduleNextUpdate()
+}
+
+func (widget *renderSynchronizationTestWidget) Render() template.HTML {
+	widget.renderOnce.Do(func() {
+		close(widget.renderStart)
+	})
+
+	<-widget.renderBlock
+
+	return ""
+}
+
+func TestRenderWidgetWaitsForActiveRefresh(t *testing.T) {
+	widget := newRenderSynchronizationTestWidget()
+	now := time.Now()
+
+	refreshDone := make(chan struct{})
+	go func() {
+		defer close(refreshDone)
+		refreshWidgetIfNeeded(context.Background(), widget, &now)
+	}()
+
+	select {
+	case <-widget.updateStart:
+	case <-time.After(time.Second):
+		t.Fatal("refresh did not start")
+	}
+
+	renderDone := make(chan struct{})
+	go func() {
+		defer close(renderDone)
+		renderWidget(widget)
+	}()
+
+	select {
+	case <-widget.renderStart:
+		t.Fatal("render started while refresh still held the widget lock")
+	case <-time.After(25 * time.Millisecond):
+	}
+
+	close(widget.updateBlock)
+
+	select {
+	case <-refreshDone:
+	case <-time.After(time.Second):
+		t.Fatal("refresh did not complete")
+	}
+
+	select {
+	case <-widget.renderStart:
+	case <-time.After(time.Second):
+		t.Fatal("render did not start after refresh completed")
+	}
+
+	close(widget.renderBlock)
+
+	select {
+	case <-renderDone:
+	case <-time.After(time.Second):
+		t.Fatal("render did not complete")
+	}
+}
+
+func TestRefreshWidgetWaitsForActiveRender(t *testing.T) {
+	widget := newRenderSynchronizationTestWidget()
+	now := time.Now()
+
+	renderDone := make(chan struct{})
+	go func() {
+		defer close(renderDone)
+		renderWidget(widget)
+	}()
+
+	select {
+	case <-widget.renderStart:
+	case <-time.After(time.Second):
+		t.Fatal("render did not start")
+	}
+
+	refreshDone := make(chan struct{})
+	go func() {
+		defer close(refreshDone)
+		refreshWidgetIfNeeded(context.Background(), widget, &now)
+	}()
+
+	select {
+	case <-widget.updateStart:
+		t.Fatal("refresh started while render still held the widget lock")
+	case <-time.After(25 * time.Millisecond):
+	}
+
+	close(widget.renderBlock)
+
+	select {
+	case <-renderDone:
+	case <-time.After(time.Second):
+		t.Fatal("render did not complete")
+	}
+
+	select {
+	case <-widget.updateStart:
+	case <-time.After(time.Second):
+		t.Fatal("refresh did not start after render completed")
+	}
+
+	close(widget.updateBlock)
+
+	select {
+	case <-refreshDone:
+	case <-time.After(time.Second):
+		t.Fatal("refresh did not complete")
+	}
+}

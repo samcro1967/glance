@@ -5,7 +5,7 @@
 {{ define "widget-content" }}
 <div class="masonry" data-max-columns="{{ .MaxColumns }}">
 {{ range .Widgets }}
-    {{ .Render }}
+    {{ renderWidget . }}
 {{ end }}
 </div>
 {{ end }}

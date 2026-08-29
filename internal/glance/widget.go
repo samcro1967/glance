@@ -154,6 +154,13 @@ func refreshWidgetIfNeeded(ctx context.Context, widget widget, now *time.Time) {
 	widget.update(ctx)
 }
 
+func renderWidget(widget widget) template.HTML {
+	widget.lockRefresh()
+	defer widget.unlockRefresh()
+
+	return widget.Render()
+}
+
 type cacheType int
 
 const (
