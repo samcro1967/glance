@@ -758,8 +758,12 @@ func configFilesWatcherWithSources(
 	}
 
 	const debounceDuration = 500 * time.Millisecond
+	var debounceMu sync.Mutex
 	var debounceTimer *time.Timer
 	debouncedParseAndCompareBeforeCallback := func() {
+		debounceMu.Lock()
+		defer debounceMu.Unlock()
+
 		if debounceTimer != nil {
 			debounceTimer.Stop()
 			debounceTimer.Reset(debounceDuration)
@@ -823,9 +827,11 @@ func configFilesWatcherWithSources(
 	onChange(lastParsed)
 
 	return func() error {
+		debounceMu.Lock()
 		if debounceTimer != nil {
 			debounceTimer.Stop()
 		}
+		debounceMu.Unlock()
 
 		return watcher.Close()
 	}, nil
