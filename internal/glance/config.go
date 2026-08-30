@@ -1203,24 +1203,39 @@ func isConfigStateValidWithSources(
 			}
 			columnLine := semanticSourceLine(columnSource.line, pageSource.columns, pageLine)
 
-			if column.Size != "small" && column.Size != "full" {
+			if column.Size != "small" && column.Size != "medium" && column.Size != "full" {
 				return diagnostic(
 					semanticSourceLine(columnSource.size, columnLine),
-					fmt.Errorf("column %d of %s: size can only be either small or full", j+1, pageDescription),
+					fmt.Errorf("column %d of %s: size can only be either small, medium or full", j+1, pageDescription),
 				)
 			}
 
-			columnSizesCount[page.Columns[j].Size]++
+			columnSizesCount[column.Size]++
 		}
 
 		full := columnSizesCount["full"]
+		medium := columnSizesCount["medium"]
 
-		if full > 2 || full == 0 {
+		if medium == 0 {
+			if full > 2 || full == 0 {
+				return diagnostic(
+					semanticSourceLine(pageSource.columns, pageLine),
+					fmt.Errorf("%s must have either 1 or 2 full width columns", pageDescription),
+				)
+			}
+			continue
+		}
+
+		threeMediumLayout := len(page.Columns) == 3 && medium == 3
+		mediumFullLayout := len(page.Columns) == 2 && medium == 1 && full == 1
+
+		if !threeMediumLayout && !mediumFullLayout {
 			return diagnostic(
 				semanticSourceLine(pageSource.columns, pageLine),
-				fmt.Errorf("%s must have either 1 or 2 full width columns", pageDescription),
+				fmt.Errorf("%s has an invalid column layout", pageDescription),
 			)
 		}
+
 	}
 
 	return nil

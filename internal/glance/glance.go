@@ -240,6 +240,15 @@ func newApplication(c *config) (*application, error) {
 				widget.setProviders(providers)
 			}
 		}
+
+		if page.PrimaryColumnIndex == -1 {
+			for c := range page.Columns {
+				if page.Columns[c].Size == "medium" {
+					page.PrimaryColumnIndex = int8(c)
+					break
+				}
+			}
+		}
 	}
 
 	if len(config.Dashboards.keys) > 0 {
