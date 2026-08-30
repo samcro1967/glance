@@ -6,10 +6,17 @@ import (
 	"html/template"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
 )
+
+type customAPIRoundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (f customAPIRoundTripperFunc) RoundTrip(request *http.Request) (*http.Response, error) {
+	return f(request)
+}
 
 func newTestCustomAPIRequest(t *testing.T, url string) *CustomAPIRequest {
 	t.Helper()
@@ -64,6 +71,48 @@ func TestFetchCustomAPIResponseNon2xxJSONRemainsAvailable(t *testing.T) {
 
 	if got := data.JSON.String("message"); got != "not found" {
 		t.Fatalf("expected JSON body to remain available, got %q", got)
+	}
+}
+
+func TestFetchCustomAPIResponseSanitizesTransportErrorURL(t *testing.T) {
+	const (
+		requestURL = "https://example.invalid/data?token=fake-secret-value"
+		secret     = "fake-secret-value"
+	)
+
+	originalTransport := defaultHTTPClient.Transport
+	defaultHTTPClient.Transport = customAPIRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		return nil, &url.Error{
+			Op:  "Get",
+			URL: request.URL.String(),
+			Err: errors.New("synthetic transport failure"),
+		}
+	})
+	t.Cleanup(func() {
+		defaultHTTPClient.Transport = originalTransport
+	})
+
+	req := newTestCustomAPIRequest(t, requestURL)
+
+	_, err := fetchCustomAPIResponse(context.Background(), req)
+	if err == nil {
+		t.Fatal("expected transport failure")
+	}
+
+	if !strings.Contains(err.Error(), "synthetic transport failure") {
+		t.Fatalf("expected actionable transport cause, got %q", err)
+	}
+
+	if strings.Contains(err.Error(), secret) {
+		t.Fatalf("transport error exposed secret query value: %q", err)
+	}
+
+	if strings.Contains(err.Error(), requestURL) {
+		t.Fatalf("transport error exposed request URL: %q", err)
+	}
+
+	if strings.Contains(err.Error(), "token=") {
+		t.Fatalf("transport error exposed sensitive query parameter: %q", err)
 	}
 }
 
