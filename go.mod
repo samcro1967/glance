@@ -4,7 +4,7 @@ go 1.26.6
 
 require (
 	github.com/fsnotify/fsnotify v1.10.1
-	github.com/mmcdole/gofeed v1.4.1
+	github.com/mmcdole/gofeed v1.4.2
 	github.com/refraction-networking/utls v1.8.2
 	github.com/shirou/gopsutil/v4 v4.26.7
 	github.com/tidwall/gjson v1.19.0
