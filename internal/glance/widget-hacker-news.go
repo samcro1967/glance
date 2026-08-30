@@ -43,7 +43,7 @@ func (widget *hackerNewsWidget) initialize() error {
 }
 
 func (widget *hackerNewsWidget) update(ctx context.Context) {
-	posts, err := fetchHackerNewsPosts(widget.SortBy, 40, widget.CommentsUrlTemplate)
+	posts, err := fetchHackerNewsPosts(ctx, widget.SortBy, 40, widget.CommentsUrlTemplate)
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
 		return
@@ -74,9 +74,10 @@ type hackerNewsPostResponseJson struct {
 	TimePosted   int64  `json:"time"`
 }
 
-func fetchHackerNewsPostIds(sort string) ([]int, error) {
-	request, err := http.NewRequest(
-		"GET",
+func fetchHackerNewsPostIds(ctx context.Context, sort string) ([]int, error) {
+	request, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
 		fmt.Sprintf("https://hacker-news.firebaseio.com/v0/%sstories.json", sort),
 		nil,
 	)
@@ -100,12 +101,13 @@ func fetchHackerNewsPostIds(sort string) ([]int, error) {
 	return response, nil
 }
 
-func fetchHackerNewsPostsFromIds(postIds []int, commentsUrlTemplate string) (forumPostList, error) {
+func fetchHackerNewsPostsFromIds(ctx context.Context, postIds []int, commentsUrlTemplate string) (forumPostList, error) {
 	requests := make([]*http.Request, 0, len(postIds))
 
 	for _, id := range postIds {
-		request, err := http.NewRequest(
-			"GET",
+		request, err := http.NewRequestWithContext(
+			ctx,
+			http.MethodGet,
 			fmt.Sprintf("https://hacker-news.firebaseio.com/v0/item/%d.json", id),
 			nil,
 		)
@@ -123,7 +125,7 @@ func fetchHackerNewsPostsFromIds(postIds []int, commentsUrlTemplate string) (for
 	}
 
 	task := decodeJsonFromRequestTask[hackerNewsPostResponseJson](defaultHTTPClient)
-	job := newJob(task, requests).withWorkers(30)
+	job := newJob(task, requests).withWorkers(30).withContext(ctx)
 	results, errs, err := workerPoolDo(job)
 	if err != nil {
 		return nil, fmt.Errorf("%w: fetching Hacker News posts: %w", errNoContent, err)
@@ -186,8 +188,8 @@ func fetchHackerNewsPostsFromIds(postIds []int, commentsUrlTemplate string) (for
 	return posts, nil
 }
 
-func fetchHackerNewsPosts(sort string, limit int, commentsUrlTemplate string) (forumPostList, error) {
-	postIds, err := fetchHackerNewsPostIds(sort)
+func fetchHackerNewsPosts(ctx context.Context, sort string, limit int, commentsUrlTemplate string) (forumPostList, error) {
+	postIds, err := fetchHackerNewsPostIds(ctx, sort)
 	if err != nil {
 		return nil, err
 	}
@@ -196,5 +198,5 @@ func fetchHackerNewsPosts(sort string, limit int, commentsUrlTemplate string) (f
 		postIds = postIds[:limit]
 	}
 
-	return fetchHackerNewsPostsFromIds(postIds, commentsUrlTemplate)
+	return fetchHackerNewsPostsFromIds(ctx, postIds, commentsUrlTemplate)
 }

@@ -39,7 +39,7 @@ func (widget *twitchGamesWidget) initialize() error {
 }
 
 func (widget *twitchGamesWidget) update(ctx context.Context) {
-	categories, err := fetchTopGamesFromTwitch(widget.Exclude, widget.Limit)
+	categories, err := fetchTopGamesFromTwitch(ctx, widget.Exclude, widget.Limit)
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
 		return
@@ -78,9 +78,9 @@ const twitchDirectoriesOperationRequestBody = `[
 {"operationName": "BrowsePage_AllDirectories","variables": {"limit": %d,"options": {"sort": "VIEWER_COUNT","tags": []}},"extensions": {"persistedQuery": {"version": 1,"sha256Hash": "2f67f71ba89f3c0ed26a141ec00da1defecb2303595f5cda4298169549783d9e"}}}
 ]`
 
-func fetchTopGamesFromTwitch(exclude []string, limit int) ([]twitchCategory, error) {
+func fetchTopGamesFromTwitch(ctx context.Context, exclude []string, limit int) ([]twitchCategory, error) {
 	reader := strings.NewReader(fmt.Sprintf(twitchDirectoriesOperationRequestBody, len(exclude)+limit))
-	request, err := http.NewRequest("POST", twitchGqlEndpoint, reader)
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, twitchGqlEndpoint, reader)
 	if err != nil {
 		return nil, fmt.Errorf("creating Twitch top games request: %w", err)
 	}

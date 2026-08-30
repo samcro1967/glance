@@ -46,7 +46,7 @@ func (widget *lobstersWidget) initialize() error {
 }
 
 func (widget *lobstersWidget) update(ctx context.Context) {
-	posts, err := fetchLobstersPosts(widget.CustomURL, widget.InstanceURL, widget.SortBy, widget.Tags)
+	posts, err := fetchLobstersPosts(ctx, widget.CustomURL, widget.InstanceURL, widget.SortBy, widget.Tags)
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
 		return
@@ -75,8 +75,8 @@ type lobstersPostResponseJson struct {
 
 type lobstersFeedResponseJson []lobstersPostResponseJson
 
-func fetchLobstersPostsFromFeed(feedUrl string) (forumPostList, error) {
-	request, err := http.NewRequest("GET", feedUrl, nil)
+func fetchLobstersPostsFromFeed(ctx context.Context, feedUrl string) (forumPostList, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, feedUrl, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating Lobsters feed request: %w", err)
 	}
@@ -110,7 +110,7 @@ func fetchLobstersPostsFromFeed(feedUrl string) (forumPostList, error) {
 	return posts, nil
 }
 
-func fetchLobstersPosts(customURL string, instanceURL string, sortBy string, tags []string) (forumPostList, error) {
+func fetchLobstersPosts(ctx context.Context, customURL string, instanceURL string, sortBy string, tags []string) (forumPostList, error) {
 	var feedUrl string
 
 	if customURL != "" {
@@ -136,7 +136,7 @@ func fetchLobstersPosts(customURL string, instanceURL string, sortBy string, tag
 		}
 	}
 
-	posts, err := fetchLobstersPostsFromFeed(feedUrl)
+	posts, err := fetchLobstersPostsFromFeed(ctx, feedUrl)
 	if err != nil {
 		return nil, err
 	}

@@ -90,14 +90,15 @@ func (widget *dnsStatsWidget) update(ctx context.Context) {
 
 	switch widget.Service {
 	case dnsServiceAdguard:
-		stats, err = fetchAdguardStats(widget.URL, widget.AllowInsecure, widget.Username, widget.Password, widget.HideGraph)
+		stats, err = fetchAdguardStats(ctx, widget.URL, widget.AllowInsecure, widget.Username, widget.Password, widget.HideGraph)
 	case dnsServicePihole:
-		stats, err = fetchPihole5Stats(widget.URL, widget.AllowInsecure, widget.Token, widget.HideGraph)
+		stats, err = fetchPihole5Stats(ctx, widget.URL, widget.AllowInsecure, widget.Token, widget.HideGraph)
 	case dnsServiceTechnitium:
-		stats, err = fetchTechnitiumStats(widget.URL, widget.AllowInsecure, widget.Token, widget.HideGraph)
+		stats, err = fetchTechnitiumStats(ctx, widget.URL, widget.AllowInsecure, widget.Token, widget.HideGraph)
 	case dnsServicePiholeV6:
 		var newSessionID string
 		stats, newSessionID, err = fetchPiholeStats(
+			ctx,
 			widget.URL,
 			widget.AllowInsecure,
 			widget.Password,
@@ -158,10 +159,10 @@ type adguardStatsResponse struct {
 	TopBlockedDomains []map[string]int `json:"top_blocked_domains"`
 }
 
-func fetchAdguardStats(instanceURL string, allowInsecure bool, username, password string, noGraph bool) (*dnsStats, error) {
+func fetchAdguardStats(ctx context.Context, instanceURL string, allowInsecure bool, username, password string, noGraph bool) (*dnsStats, error) {
 	requestURL := strings.TrimRight(instanceURL, "/") + "/control/stats"
 
-	request, err := http.NewRequest("GET", requestURL, nil)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating AdGuard stats request: %w", err)
 	}
@@ -311,7 +312,7 @@ func (p *pihole5TopBlockedDomains) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func fetchPihole5Stats(instanceURL string, allowInsecure bool, token string, noGraph bool) (*dnsStats, error) {
+func fetchPihole5Stats(ctx context.Context, instanceURL string, allowInsecure bool, token string, noGraph bool) (*dnsStats, error) {
 	if token == "" {
 		return nil, errors.New("missing API token")
 	}
@@ -319,7 +320,7 @@ func fetchPihole5Stats(instanceURL string, allowInsecure bool, token string, noG
 	requestURL := strings.TrimRight(instanceURL, "/") +
 		"/admin/api.php?summaryRaw&topItems&overTimeData10mins&auth=" + token
 
-	request, err := http.NewRequest("GET", requestURL, nil)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating Pi-hole stats request: %w", err)
 	}
@@ -410,6 +411,7 @@ func fetchPihole5Stats(instanceURL string, allowInsecure bool, token string, noG
 }
 
 func fetchPiholeStats(
+	ctx context.Context,
 	instanceURL string,
 	allowInsecure bool,
 	password string,
@@ -421,7 +423,7 @@ func fetchPiholeStats(
 	var client = ternary(allowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
 
 	fetchNewSessionID := func() error {
-		newSessionID, err := fetchPiholeSessionID(instanceURL, client, password)
+		newSessionID, err := fetchPiholeSessionID(ctx, instanceURL, client, password)
 		if err != nil {
 			return err
 		}
@@ -434,7 +436,7 @@ func fetchPiholeStats(
 			return nil, "", fmt.Errorf("fetching session ID: %w", err)
 		}
 	} else {
-		isValid, err := checkPiholeSessionIDIsValid(instanceURL, client, sessionID)
+		isValid, err := checkPiholeSessionIDIsValid(ctx, instanceURL, client, sessionID)
 		if err != nil {
 			return nil, "", fmt.Errorf("checking session ID: %w", err)
 		}
@@ -447,7 +449,7 @@ func fetchPiholeStats(
 	}
 
 	var wg sync.WaitGroup
-	ctx, cancel := context.WithCancel(context.Background())
+	requestCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	type statsResponseJson struct {
@@ -461,7 +463,7 @@ func fetchPiholeStats(
 		} `json:"gravity"`
 	}
 
-	statsRequest, err := http.NewRequestWithContext(ctx, "GET", instanceURL+"/api/stats/summary", nil)
+	statsRequest, err := http.NewRequestWithContext(requestCtx, http.MethodGet, instanceURL+"/api/stats/summary", nil)
 	if err != nil {
 		return nil, "", fmt.Errorf("creating stats request: %w", err)
 	}
@@ -491,7 +493,7 @@ func fetchPiholeStats(
 	var seriesErr error
 
 	if includeGraph {
-		seriesRequest, err := http.NewRequestWithContext(ctx, "GET", instanceURL+"/api/history", nil)
+		seriesRequest, err := http.NewRequestWithContext(requestCtx, http.MethodGet, instanceURL+"/api/history", nil)
 		if err != nil {
 			return nil, "", fmt.Errorf("creating graph request: %w", err)
 		}
@@ -518,7 +520,7 @@ func fetchPiholeStats(
 	var topDomainsErr error
 
 	if includeTopDomains {
-		topDomainsRequest, err := http.NewRequestWithContext(ctx, "GET", instanceURL+"/api/stats/top_domains?blocked=true", nil)
+		topDomainsRequest, err := http.NewRequestWithContext(requestCtx, http.MethodGet, instanceURL+"/api/stats/top_domains?blocked=true", nil)
 		if err != nil {
 			return nil, "", fmt.Errorf("creating top domains request: %w", err)
 		}
@@ -653,10 +655,10 @@ func fetchPiholeStats(
 	return stats, sessionID, nil
 }
 
-func fetchPiholeSessionID(instanceURL string, client *http.Client, password string) (string, error) {
+func fetchPiholeSessionID(ctx context.Context, instanceURL string, client *http.Client, password string) (string, error) {
 	requestBody := []byte(`{"password":"` + password + `"}`)
 
-	request, err := http.NewRequest("POST", instanceURL+"/api/auth", bytes.NewBuffer(requestBody))
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, instanceURL+"/api/auth", bytes.NewBuffer(requestBody))
 	if err != nil {
 		return "", fmt.Errorf("creating authentication request: %w", err)
 	}
@@ -694,8 +696,8 @@ func fetchPiholeSessionID(instanceURL string, client *http.Client, password stri
 	return jsonResponse.Session.SID, nil
 }
 
-func checkPiholeSessionIDIsValid(instanceURL string, client *http.Client, sessionID string) (bool, error) {
-	request, err := http.NewRequest("GET", instanceURL+"/api/auth", nil)
+func checkPiholeSessionIDIsValid(ctx context.Context, instanceURL string, client *http.Client, sessionID string) (bool, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, instanceURL+"/api/auth", nil)
 	if err != nil {
 		return false, fmt.Errorf("creating session ID check request: %w", err)
 	}
@@ -735,14 +737,14 @@ type technitiumStatsResponse struct {
 	} `json:"response"`
 }
 
-func fetchTechnitiumStats(instanceUrl string, allowInsecure bool, token string, noGraph bool) (*dnsStats, error) {
+func fetchTechnitiumStats(ctx context.Context, instanceUrl string, allowInsecure bool, token string, noGraph bool) (*dnsStats, error) {
 	if token == "" {
 		return nil, errors.New("missing API token")
 	}
 
 	requestURL := strings.TrimRight(instanceUrl, "/") + "/api/dashboard/stats/get?token=" + token + "&type=LastDay"
 
-	request, err := http.NewRequest("GET", requestURL, nil)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating Technitium stats request: %w", err)
 	}
