@@ -1,3 +1,5 @@
+SHELL := /bin/bash
+
 .PHONY: help deps test test-race test-count test-race-count build fmt-check diff-check staged-check check coverage vuln status staged-diff upstream-status pr-view pr-runs pr-merge ci-watch ci-view verify-main deploy-status deploy
 
 COUNT ?= 10
