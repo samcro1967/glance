@@ -329,22 +329,22 @@ func fetchDockerContainersFromSource(
 		nil,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("creating request: %w", err)
+		return nil, fmt.Errorf("creating Docker request: %w", err)
 	}
 
 	response, err := client.Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("sending request to socket: %w", err)
+		return nil, fmt.Errorf("sending Docker request: %w", safeHTTPTransportError(err))
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("non-200 response status: %s", response.Status)
+		return nil, fmt.Errorf("Docker API request: %w", unexpectedHTTPStatusError(response))
 	}
 
 	var containers []dockerContainerJsonResponse
 	if err := json.NewDecoder(response.Body).Decode(&containers); err != nil {
-		return nil, fmt.Errorf("decoding response: %w", err)
+		return nil, fmt.Errorf("decoding Docker response: %w", err)
 	}
 
 	for i := range containers {
