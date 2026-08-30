@@ -731,7 +731,12 @@ func configFilesWatcherWithSources(
 	// needed for lastParsed because it gets updated in multiple goroutines
 	mu := sync.Mutex{}
 
+	callbackMu := sync.Mutex{}
+
 	parseAndCompareBeforeCallback := func() {
+		callbackMu.Lock()
+		defer callbackMu.Unlock()
+
 		currentParsed, err := parseYAMLIncludesWithSources(mainFilePath)
 		if err != nil {
 			onErr(fmt.Errorf("parsing main file contents for comparison: %w", err))
@@ -760,9 +765,15 @@ func configFilesWatcherWithSources(
 	const debounceDuration = 500 * time.Millisecond
 	var debounceMu sync.Mutex
 	var debounceTimer *time.Timer
+	watcherStopped := false
+
 	debouncedParseAndCompareBeforeCallback := func() {
 		debounceMu.Lock()
 		defer debounceMu.Unlock()
+
+		if watcherStopped {
+			return
+		}
 
 		if debounceTimer != nil {
 			debounceTimer.Stop()
@@ -828,12 +839,18 @@ func configFilesWatcherWithSources(
 
 	return func() error {
 		debounceMu.Lock()
+		watcherStopped = true
 		if debounceTimer != nil {
 			debounceTimer.Stop()
 		}
 		debounceMu.Unlock()
 
-		return watcher.Close()
+		watcherErr := watcher.Close()
+
+		callbackMu.Lock()
+		callbackMu.Unlock()
+
+		return watcherErr
 	}, nil
 }
 

@@ -168,3 +168,44 @@ func TestServerBindFailureStopsWidgetRefreshScheduler(t *testing.T) {
 		// The scheduler observed cancellation before starting the widget.
 	}
 }
+
+func TestServerStopBeforeStart(t *testing.T) {
+	listener, port := reserveServerTestPort(t)
+	if err := listener.Close(); err != nil {
+		t.Fatalf("release test port: %v", err)
+	}
+
+	testWidget := newServerLifecycleTestWidget()
+	app := newServerLifecycleTestApplication(t, port, testWidget)
+
+	start, stop := app.server()
+
+	if err := stop(); err != nil {
+		t.Fatalf("stop server before start: %v", err)
+	}
+
+	startDone := make(chan error, 1)
+	go func() {
+		startDone <- start()
+	}()
+
+	select {
+	case err := <-startDone:
+		if err != nil {
+			t.Fatalf("server start after stop returned error: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("server start after stop did not return")
+	}
+
+	select {
+	case <-testWidget.started:
+		select {
+		case <-testWidget.cancelled:
+		case <-time.After(time.Second):
+			t.Fatal("scheduler started after stop but did not observe cancellation")
+		}
+	default:
+		// The scheduler observed cancellation before starting the widget.
+	}
+}
