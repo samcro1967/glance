@@ -184,8 +184,11 @@ pages:
 Choose one of the following methods:
 
 <details>
-<summary><strong>Docker compose using provided directory structure (recommended)</strong></summary>
+<summary><strong>Docker compose using upstream directory structure</strong></summary>
 <br>
+
+> [!NOTE]
+> This convenience template is maintained by the upstream Glance project and uses the upstream `glanceapp/glance` container image by default. To use this fork, change the `image` value in the generated `docker-compose.yml` to `ghcr.io/samcro1967/glance:latest` before starting the container.
 
 Create a new directory called `glance` as well as the template files within it by running:
 
@@ -223,7 +226,7 @@ docker compose logs
 </details>
 
 <details>
-<summary><strong>Docker compose manual</strong></summary>
+<summary><strong>Docker compose manual (recommended)</strong></summary>
 <br>
 
 Create a `docker-compose.yml` file with the following contents:
@@ -240,10 +243,10 @@ services:
       - 8080:8080
 ```
 
-Then, create a new directory called `config` and download the example starting [`glance.yml`](https://github.com/glanceapp/glance/blob/main/docs/glance.yml) file into it by running:
+Then, create a new directory called `config` and download the example starting [`glance.yml`](docs/glance.yml) file from this fork into it by running:
 
 ```bash
-mkdir config && wget -O config/glance.yml https://raw.githubusercontent.com/glanceapp/glance/refs/heads/main/docs/glance.yml
+mkdir config && wget -O config/glance.yml https://raw.githubusercontent.com/samcro1967/glance/refs/heads/main/docs/glance.yml
 ```
 
 Feel free to edit the `glance.yml` file to your liking, and when ready run:
@@ -265,27 +268,11 @@ docker logs glance
 <summary><strong>Manual binary installation</strong></summary>
 <br>
 
-Precompiled binaries are available for Linux, Windows and macOS (x86, x86_64, ARM and ARM64 architectures).
+This fork is currently distributed as a container image through GitHub Container Registry. Precompiled binary releases are not currently published by this fork.
 
-### Linux
+If you require a standalone binary, you can build this fork from source using the Go toolchain. Alternatively, the [upstream Glance project](https://github.com/glanceapp/glance/releases/latest) publishes precompiled binaries for Linux, Windows and macOS. Be aware that upstream binaries do not include the additional functionality documented in the [About this fork](#about-this-fork) section.
 
-Visit the [latest release page](https://github.com/glanceapp/glance/releases/latest) for available binaries. You can place the binary in `/opt/glance/` and have it start with your server via a [systemd service](https://linuxhandbook.com/create-systemd-services/). By default, when running the binary, it will look for a `glance.yml` file in the directory it's placed in. To specify a different path for the config file, use the `--config` option:
-
-```bash
-/opt/glance/glance --config /etc/glance.yml
-```
-
-To grab a starting template for the config file, run:
-
-```bash
-wget https://raw.githubusercontent.com/glanceapp/glance/refs/heads/main/docs/glance.yml
-```
-
-### Windows
-
-Download and extract the executable from the [latest release](https://github.com/glanceapp/glance/releases/latest) (most likely the file called `glance-windows-amd64.zip` if you're on a 64-bit system) and place it in a folder of your choice. Then, create a new text file called `glance.yml` in the same folder and paste the content from [here](https://raw.githubusercontent.com/glanceapp/glance/refs/heads/main/docs/glance.yml) in it. You should then be able to run the executable and access the dashboard by visiting `http://localhost:8080` in your browser.
-
-
+A starting configuration for this fork is available in [`docs/glance.yml`](docs/glance.yml).
 
 <hr>
 </details>
@@ -294,10 +281,11 @@ Download and extract the executable from the [latest release](https://github.com
 <summary><strong>Other</strong></summary>
 <br>
 
-Glance can also be installed through the following 3rd party channels:
+The following third-party installation channels are available for upstream Glance. They may not install this fork or include its additional functionality:
+
 * [Proxmox VE Helper Script](https://community-scripts.org/scripts/glance?id=glance)
 * [NixOS package](https://search.nixos.org/packages?channel=unstable&show=glance)
-* [Hostinger](https://www.hostinger.com/vps/docker/glance)
+* [Hostinger](https://www.hostinger.com/vps/docker/glance/)
 * [Coolify.io](https://coolify.io/docs/services/glance/)
 
 <hr>
@@ -378,15 +366,9 @@ Yes, the title of all widgets can be changed by specifying the `title` property 
 
 ## Feature requests
 
-New feature suggestions are always welcome and will be considered, though please keep in mind that some of them may be out of scope for what the project is trying to achieve (or is reasonably capable of). If you have an idea for a new feature and would like to share it, you can do so [here](https://github.com/glanceapp/glance/issues/new?template=feature_request.yml).
+Issues and feature requests related to functionality specific to this fork can be submitted to the [fork's issue tracker](https://github.com/samcro1967/glance/issues).
 
-Feature requests are tagged with one of the following:
-
-* [Roadmap](https://github.com/glanceapp/glance/labels/roadmap) - will be implemented in a future release
-* [Backlog](https://github.com/glanceapp/glance/labels/backlog) - may be implemented in the future but needs further feedback or interest from the community
-* [Icebox](https://github.com/glanceapp/glance/labels/icebox) - no plans to implement as it doesn't currently align with the project's goals or capabilities, may be revised at a later date
-
-<br>
+For requests concerning upstream Glance rather than fork-specific functionality, use the [upstream Glance issue tracker](https://github.com/glanceapp/glance/issues).
 
 ## Building from source
 
