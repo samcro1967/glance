@@ -3,10 +3,162 @@ package glance
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
+
+func TestReleasesWidgetInitializeDefaults(t *testing.T) {
+	widget := &releasesWidget{}
+
+	if err := widget.initialize(); err != nil {
+		t.Fatalf("unexpected initialization error: %v", err)
+	}
+
+	if widget.Title != "Releases" {
+		t.Fatalf("title = %q, want %q", widget.Title, "Releases")
+	}
+
+	if widget.cacheDuration != 2*time.Hour {
+		t.Fatalf(
+			"cache duration = %s, want %s",
+			widget.cacheDuration,
+			2*time.Hour,
+		)
+	}
+
+	if widget.Limit != 10 {
+		t.Fatalf("limit = %d, want 10", widget.Limit)
+	}
+
+	if widget.CollapseAfter != 5 {
+		t.Fatalf("collapse after = %d, want 5", widget.CollapseAfter)
+	}
+}
+
+func TestReleasesWidgetInitializePreservesConfiguredValues(t *testing.T) {
+	widget := &releasesWidget{
+		Limit:         25,
+		CollapseAfter: -1,
+	}
+
+	if err := widget.initialize(); err != nil {
+		t.Fatalf("unexpected initialization error: %v", err)
+	}
+
+	if widget.Limit != 25 {
+		t.Fatalf("limit = %d, want 25", widget.Limit)
+	}
+
+	if widget.CollapseAfter != -1 {
+		t.Fatalf("collapse after = %d, want -1", widget.CollapseAfter)
+	}
+}
+
+func TestReleasesWidgetInitializeNormalizesInvalidValues(t *testing.T) {
+	widget := &releasesWidget{
+		Limit:         -5,
+		CollapseAfter: -2,
+	}
+
+	if err := widget.initialize(); err != nil {
+		t.Fatalf("unexpected initialization error: %v", err)
+	}
+
+	if widget.Limit != 10 {
+		t.Fatalf("limit = %d, want 10", widget.Limit)
+	}
+
+	if widget.CollapseAfter != 5 {
+		t.Fatalf("collapse after = %d, want 5", widget.CollapseAfter)
+	}
+}
+
+func TestReleasesWidgetInitializeAssignsProviderTokens(t *testing.T) {
+	widget := &releasesWidget{
+		Token:       "github-token",
+		GitLabToken: "gitlab-token",
+		Repositories: []*releaseRequest{
+			{
+				Repository: "example/github",
+				source:     releaseSourceGithub,
+			},
+			{
+				Repository: "example/gitlab",
+				source:     releaseSourceGitlab,
+			},
+			{
+				Repository: "example/codeberg",
+				source:     releaseSourceCodeberg,
+			},
+			{
+				Repository: "example/docker",
+				source:     releaseSourceDockerHub,
+			},
+		},
+	}
+
+	if err := widget.initialize(); err != nil {
+		t.Fatalf("unexpected initialization error: %v", err)
+	}
+
+	if widget.Repositories[0].token == nil {
+		t.Fatal("GitHub repository token was not assigned")
+	}
+	if *widget.Repositories[0].token != "github-token" {
+		t.Fatalf(
+			"GitHub repository token = %q, want %q",
+			*widget.Repositories[0].token,
+			"github-token",
+		)
+	}
+
+	if widget.Repositories[1].token == nil {
+		t.Fatal("GitLab repository token was not assigned")
+	}
+	if *widget.Repositories[1].token != "gitlab-token" {
+		t.Fatalf(
+			"GitLab repository token = %q, want %q",
+			*widget.Repositories[1].token,
+			"gitlab-token",
+		)
+	}
+
+	if widget.Repositories[2].token != nil {
+		t.Fatal("Codeberg repository unexpectedly received a token")
+	}
+
+	if widget.Repositories[3].token != nil {
+		t.Fatal("Docker Hub repository unexpectedly received a token")
+	}
+}
+
+func TestReleasesWidgetInitializeLeavesTokensUnsetWhenNotConfigured(t *testing.T) {
+	widget := &releasesWidget{
+		Repositories: []*releaseRequest{
+			{
+				Repository: "example/github",
+				source:     releaseSourceGithub,
+			},
+			{
+				Repository: "example/gitlab",
+				source:     releaseSourceGitlab,
+			},
+		},
+	}
+
+	if err := widget.initialize(); err != nil {
+		t.Fatalf("unexpected initialization error: %v", err)
+	}
+
+	for i, request := range widget.Repositories {
+		if request.token != nil {
+			t.Fatalf("repository %d unexpectedly received a token", i)
+		}
+	}
+}
 
 func TestFetchLatestReleasesCancellationPreservesClassificationAndCause(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -109,27 +261,27 @@ func TestReleaseRequestUnmarshalPreservesSupportedSources(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			var request releaseRequest
 
-			if err := yaml.Unmarshal([]byte(test.value), &request); err != nil {
+			if err := yaml.Unmarshal([]byte(tt.value), &request); err != nil {
 				t.Fatalf("unmarshalling release request: %v", err)
 			}
 
-			if request.source != test.wantSource {
+			if request.source != tt.wantSource {
 				t.Fatalf(
 					"source = %q, want %q",
 					request.source,
-					test.wantSource,
+					tt.wantSource,
 				)
 			}
 
-			if request.Repository != test.wantRepo {
+			if request.Repository != tt.wantRepo {
 				t.Fatalf(
 					"repository = %q, want %q",
 					request.Repository,
-					test.wantRepo,
+					tt.wantRepo,
 				)
 			}
 		})
@@ -166,5 +318,115 @@ include-prereleases: true
 
 	if !request.IncludePreleases {
 		t.Fatal("include-prereleases = false, want true")
+	}
+}
+
+func TestReleaseRequestUnmarshalRejectsMissingRepository(t *testing.T) {
+	var request releaseRequest
+
+	err := yaml.Unmarshal([]byte("{}"), &request)
+	if err == nil {
+		t.Fatal("expected missing repository error")
+	}
+
+	if !strings.Contains(err.Error(), "repository is required") {
+		t.Fatalf(
+			"error = %q, want repository-required diagnostic",
+			err,
+		)
+	}
+}
+
+func TestReleaseRequestUnmarshalRejectsInvalidSource(t *testing.T) {
+	var request releaseRequest
+
+	err := yaml.Unmarshal([]byte("unsupported:example/project"), &request)
+	if err == nil {
+		t.Fatal("expected invalid source error")
+	}
+
+	if !strings.Contains(err.Error(), "invalid source") {
+		t.Fatalf("error = %q, want invalid-source diagnostic", err)
+	}
+}
+
+func TestAppReleaseListSortByNewest(t *testing.T) {
+	oldest := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+	middle := time.Date(2026, time.February, 1, 0, 0, 0, 0, time.UTC)
+	newest := time.Date(2026, time.March, 1, 0, 0, 0, 0, time.UTC)
+
+	releases := appReleaseList{
+		{
+			Name:         "middle",
+			TimeReleased: middle,
+		},
+		{
+			Name:         "oldest",
+			TimeReleased: oldest,
+		},
+		{
+			Name:         "newest",
+			TimeReleased: newest,
+		},
+	}
+
+	got := releases.sortByNewest()
+
+	wantNames := []string{"newest", "middle", "oldest"}
+
+	for i, want := range wantNames {
+		if got[i].Name != want {
+			t.Fatalf(
+				"release %d name = %q, want %q",
+				i,
+				got[i].Name,
+				want,
+			)
+		}
+	}
+}
+
+func TestFetchLatestReleaseTaskRejectsUnsupportedSource(t *testing.T) {
+	release, err := fetchLatestReleaseTask(
+		context.Background(),
+		&releaseRequest{
+			Repository: "example/project",
+			source:     releaseSource("unsupported"),
+		},
+	)
+
+	if err == nil {
+		t.Fatal("expected unsupported source error")
+	}
+
+	if err.Error() != "unsupported source" {
+		t.Fatalf("error = %q, want %q", err, "unsupported source")
+	}
+
+	if release != nil {
+		t.Fatalf("release = %#v, want nil", release)
+	}
+}
+
+func TestFetchLatestDockerHubReleaseRejectsInvalidRepository(t *testing.T) {
+	release, err := fetchLatestDockerHubRelease(
+		context.Background(),
+		&releaseRequest{
+			Repository: "one/two/three",
+			source:     releaseSourceDockerHub,
+		},
+	)
+
+	if err == nil {
+		t.Fatal("expected invalid repository error")
+	}
+
+	const want = "invalid repository name: one/two/three"
+	if err.Error() != want {
+		t.Fatalf("error = %q, want %q", err, want)
+	}
+
+	if release != nil {
+		t.Fatalf("release = %#v, want nil", release)
 	}
 }
