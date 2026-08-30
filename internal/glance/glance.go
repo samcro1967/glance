@@ -433,8 +433,7 @@ func (a *application) renderPage(
 	var responseBytes bytes.Buffer
 	err := pageTemplate.Execute(&responseBytes, data)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
+		writeInternalServerError(w, "Failed to render page", err)
 		return
 	}
 
@@ -558,8 +557,7 @@ func (a *application) handlePageContentRequest(w http.ResponseWriter, r *http.Re
 	}()
 
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
+		writeInternalServerError(w, "Failed to render page content", err)
 		return
 	}
 

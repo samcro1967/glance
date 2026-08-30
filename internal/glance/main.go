@@ -280,6 +280,21 @@ func serveUpdateNoticeServer(handler http.Handler) error {
 	return nil
 }
 
+func loadUpdateNoticePage() ([]byte, error) {
+	templateFile, err := templateFS.Open("v0.7-update-notice-page.html")
+	if err != nil {
+		return nil, fmt.Errorf("opening configuration migration notice: %w", err)
+	}
+	defer templateFile.Close()
+
+	bodyContents, err := io.ReadAll(templateFile)
+	if err != nil {
+		return nil, fmt.Errorf("reading configuration migration notice: %w", err)
+	}
+
+	return bodyContents, nil
+}
+
 func serveUpdateNoticeIfConfigLocationNotMigrated(configPath string) bool {
 	if !isRunningInsideDockerContainer() {
 		return false
@@ -294,8 +309,11 @@ func serveUpdateNoticeIfConfigLocationNotMigrated(configPath string) bool {
 		return false
 	}
 
-	templateFile, _ := templateFS.Open("v0.7-update-notice-page.html")
-	bodyContents, _ := io.ReadAll(templateFile)
+	bodyContents, err := loadUpdateNoticePage()
+	if err != nil {
+		fmt.Printf("Failed to load configuration migration notice: %v\n", err)
+		return true
+	}
 
 	fmt.Println("!!! WARNING !!!")
 	fmt.Println("The default location of glance.yml in the Docker image has changed starting from v0.7.0.")
@@ -304,9 +322,9 @@ func serveUpdateNoticeIfConfigLocationNotMigrated(configPath string) bool {
 	mux := http.NewServeMux()
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusServiceUnavailable)
 		w.Header().Set("Content-Type", "text/html")
-		w.Write([]byte(bodyContents))
+		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write(bodyContents)
 	})
 
 	if err := serveUpdateNoticeServer(mux); err != nil {
