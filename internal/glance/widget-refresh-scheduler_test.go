@@ -39,6 +39,46 @@ func TestRefreshDueWidgetsSkipsWidgetThatIsNotDue(t *testing.T) {
 	}
 }
 
+func TestRefreshDueWidgetsSkipsBusyWidgetWithoutBlockingAvailableWidget(t *testing.T) {
+	busyWidget := newRefreshTestWidget()
+	availableWidget := newRefreshTestWidget()
+	close(availableWidget.updateBlock)
+
+	busyWidget.lockRefresh()
+	defer busyWidget.unlockRefresh()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+
+		refreshDueWidgets(
+			context.Background(),
+			[]widget{busyWidget, availableWidget},
+			1,
+		)
+	}()
+
+	select {
+	case <-availableWidget.updateStart:
+	case <-time.After(time.Second):
+		t.Fatal("available widget refresh was blocked by busy widget")
+	}
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("refreshDueWidgets did not complete while busy widget remained locked")
+	}
+
+	if got := busyWidget.updateCount.Load(); got != 0 {
+		t.Fatalf("busy widget update count = %d, want 0", got)
+	}
+
+	if got := availableWidget.updateCount.Load(); got != 1 {
+		t.Fatalf("available widget update count = %d, want 1", got)
+	}
+}
+
 type schedulerConcurrencyTestWidget struct {
 	widgetBase
 
