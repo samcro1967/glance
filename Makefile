@@ -1,4 +1,4 @@
-.PHONY: help deps test test-race test-count test-race-count build fmt-check diff-check staged-check check coverage vuln status staged-diff upstream-status pr-view pr-runs ci-watch ci-view verify-main
+.PHONY: help deps test test-race test-count test-race-count build fmt-check diff-check staged-check check coverage vuln status staged-diff upstream-status pr-view pr-runs pr-merge ci-watch ci-view verify-main
 
 COUNT ?= 10
 COVERAGE_FILE ?= coverage.out
@@ -35,10 +35,13 @@ help:
 	@echo "  make upstream-status         Refresh and compare main with remotes"
 	@echo "  make verify-main             Verify post-merge main repository state"
 	@echo
-	@echo "GitHub inspection:"
+	@echo "GitHub pull requests:"
 	@echo "  make pr-view PR=55           Show a pull request"
 	@echo "  make pr-runs                 Show recent validation runs for current branch"
 	@echo "  make pr-runs BRANCH=main     Show recent validation runs for a branch"
+	@echo "  make pr-merge PR=55          Merge a pull request and delete its remote branch"
+	@echo
+	@echo "GitHub Actions:"
 	@echo "  make ci-watch RUN=12345      Watch a GitHub Actions run"
 	@echo "  make ci-view RUN=12345       Show a GitHub Actions run result"
 
@@ -139,6 +142,16 @@ pr-runs:
 		--branch "$(BRANCH)" \
 		--limit 5 \
 		--json databaseId,headSha,status,conclusion,createdAt,displayTitle
+
+pr-merge:
+	@if [ -z "$(PR)" ]; then \
+		echo "PR is required. Example: make pr-merge PR=55"; \
+		exit 2; \
+	fi
+	@gh pr merge "$(PR)" \
+		--repo "$(REPO)" \
+		--merge \
+		--delete-branch
 
 ci-watch:
 	@if [ -z "$(RUN)" ]; then \
