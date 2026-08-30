@@ -256,8 +256,10 @@ func fetchAdguardStats(ctx context.Context, instanceURL string, allowInsecure bo
 		}
 	}
 
-	for i := range dnsStatsBars {
-		stats.Series[i].PercentTotal = int(float64(stats.Series[i].Queries) / float64(maxQueriesInSeries) * 100)
+	if maxQueriesInSeries > 0 {
+		for i := range dnsStatsBars {
+			stats.Series[i].PercentTotal = int(float64(stats.Series[i].Queries) / float64(maxQueriesInSeries) * 100)
+		}
 	}
 
 	return stats, nil
@@ -342,10 +344,15 @@ func fetchPihole5Stats(ctx context.Context, instanceURL string, allowInsecure bo
 		domains := make([]dnsStatsBlockedDomain, 0, len(responseJson.TopBlockedDomains))
 
 		for domain, count := range responseJson.TopBlockedDomains {
-			domains = append(domains, dnsStatsBlockedDomain{
-				Domain:         domain,
-				PercentBlocked: int(float64(count) / float64(responseJson.BlockedQueries) * 100),
-			})
+			blockedDomain := dnsStatsBlockedDomain{
+				Domain: domain,
+			}
+
+			if responseJson.BlockedQueries > 0 {
+				blockedDomain.PercentBlocked = int(float64(count) / float64(responseJson.BlockedQueries) * 100)
+			}
+
+			domains = append(domains, blockedDomain)
 		}
 
 		sort.Slice(domains, func(a, b int) bool {
@@ -403,8 +410,10 @@ func fetchPihole5Stats(ctx context.Context, instanceURL string, allowInsecure bo
 		}
 	}
 
-	for i := range dnsStatsBars {
-		stats.Series[i].PercentTotal = int(float64(stats.Series[i].Queries) / float64(maxQueriesInSeries) * 100)
+	if maxQueriesInSeries > 0 {
+		for i := range dnsStatsBars {
+			stats.Series[i].PercentTotal = int(float64(stats.Series[i].Queries) / float64(maxQueriesInSeries) * 100)
+		}
 	}
 
 	return stats, nil
@@ -618,8 +627,10 @@ func fetchPiholeStats(
 				}
 			}
 
-			for i := range dnsStatsBars {
-				stats.Series[i].PercentTotal = int(float64(stats.Series[i].Queries) / float64(maxQueriesInSeries) * 100)
+			if maxQueriesInSeries > 0 {
+				for i := range dnsStatsBars {
+					stats.Series[i].PercentTotal = int(float64(stats.Series[i].Queries) / float64(maxQueriesInSeries) * 100)
+				}
 			}
 		}
 	}
@@ -629,10 +640,15 @@ func fetchPiholeStats(
 
 		for i := range topDomainsResponse.Domains {
 			d := &topDomainsResponse.Domains[i]
-			domains = append(domains, dnsStatsBlockedDomain{
-				Domain:         d.Domain,
-				PercentBlocked: int(float64(d.Count) / float64(statsResponse.Queries.Blocked) * 100),
-			})
+			blockedDomain := dnsStatsBlockedDomain{
+				Domain: d.Domain,
+			}
+
+			if statsResponse.Queries.Blocked > 0 {
+				blockedDomain.PercentBlocked = int(float64(d.Count) / float64(statsResponse.Queries.Blocked) * 100)
+			}
+
+			domains = append(domains, blockedDomain)
 		}
 
 		sort.Slice(domains, func(a, b int) bool {
@@ -845,8 +861,10 @@ func fetchTechnitiumStats(ctx context.Context, instanceUrl string, allowInsecure
 		}
 	}
 
-	for i := 0; i < dnsStatsBars; i++ {
-		stats.Series[i].PercentTotal = int(float64(stats.Series[i].Queries) / float64(maxQueriesInSeries) * 100)
+	if maxQueriesInSeries > 0 {
+		for i := 0; i < dnsStatsBars; i++ {
+			stats.Series[i].PercentTotal = int(float64(stats.Series[i].Queries) / float64(maxQueriesInSeries) * 100)
+		}
 	}
 
 	return stats, nil
