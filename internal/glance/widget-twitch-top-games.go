@@ -80,15 +80,20 @@ const twitchDirectoriesOperationRequestBody = `[
 
 func fetchTopGamesFromTwitch(exclude []string, limit int) ([]twitchCategory, error) {
 	reader := strings.NewReader(fmt.Sprintf(twitchDirectoriesOperationRequestBody, len(exclude)+limit))
-	request, _ := http.NewRequest("POST", twitchGqlEndpoint, reader)
+	request, err := http.NewRequest("POST", twitchGqlEndpoint, reader)
+	if err != nil {
+		return nil, fmt.Errorf("creating Twitch top games request: %w", err)
+	}
+
 	request.Header.Add("Client-ID", twitchGqlClientId)
+
 	response, err := decodeJsonFromRequest[[]twitchDirectoriesOperationResponse](defaultHTTPClient, request)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching Twitch top games: %w", err)
 	}
 
 	if len(response) == 0 {
-		return nil, errors.New("no categories could be retrieved")
+		return nil, errors.New("no Twitch top game categories could be retrieved")
 	}
 
 	edges := (response)[0].Data.DirectoriesWithTags.Edges

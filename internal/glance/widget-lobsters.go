@@ -2,6 +2,7 @@ package glance
 
 import (
 	"context"
+	"fmt"
 	"html/template"
 	"net/http"
 	"strings"
@@ -77,12 +78,12 @@ type lobstersFeedResponseJson []lobstersPostResponseJson
 func fetchLobstersPostsFromFeed(feedUrl string) (forumPostList, error) {
 	request, err := http.NewRequest("GET", feedUrl, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating Lobsters feed request: %w", err)
 	}
 
 	feed, err := decodeJsonFromRequest[lobstersFeedResponseJson](defaultHTTPClient, request)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching Lobsters posts: %w", err)
 	}
 
 	posts := make(forumPostList, 0, len(feed))
@@ -103,7 +104,7 @@ func fetchLobstersPostsFromFeed(feedUrl string) (forumPostList, error) {
 	}
 
 	if len(posts) == 0 {
-		return nil, errNoContent
+		return nil, fmt.Errorf("%w: Lobsters feed returned no posts", errNoContent)
 	}
 
 	return posts, nil
