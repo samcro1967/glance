@@ -12,6 +12,23 @@ const (
 	widgetRefreshConcurrency  = 8
 )
 
+func refreshDueWidgetIfAvailable(
+	ctx context.Context,
+	widget widget,
+	now *time.Time,
+) {
+	if !widget.tryLockRefresh() {
+		return
+	}
+	defer widget.unlockRefresh()
+
+	if !widget.requiresUpdate(now) {
+		return
+	}
+
+	widget.update(ctx)
+}
+
 func refreshDueWidgets(
 	ctx context.Context,
 	refreshWidgets []widget,
@@ -44,7 +61,7 @@ func refreshDueWidgets(
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			refreshWidgetIfNeeded(ctx, widget, &now)
+			refreshDueWidgetIfAvailable(ctx, widget, &now)
 		}(candidate)
 	}
 

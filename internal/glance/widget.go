@@ -140,6 +140,7 @@ type widget interface {
 	handleRequest(w http.ResponseWriter, r *http.Request)
 	setHideHeader(bool)
 	lockRefresh()
+	tryLockRefresh() bool
 	unlockRefresh()
 }
 
@@ -209,6 +210,10 @@ func (w *widgetBase) requiresUpdate(now *time.Time) bool {
 
 func (w *widgetBase) lockRefresh() {
 	w.refreshMu.Lock()
+}
+
+func (w *widgetBase) tryLockRefresh() bool {
+	return w.refreshMu.TryLock()
 }
 
 func (w *widgetBase) unlockRefresh() {
