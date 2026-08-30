@@ -1,4 +1,4 @@
-.PHONY: help deps test test-race test-count test-race-count build fmt-check diff-check staged-check check coverage vuln status staged-diff upstream-status pr-view pr-runs pr-merge ci-watch ci-view verify-main
+.PHONY: help deps test test-race test-count test-race-count build fmt-check diff-check staged-check check coverage vuln status staged-diff upstream-status pr-view pr-runs pr-merge ci-watch ci-view verify-main deploy-status deploy
 
 COUNT ?= 10
 COVERAGE_FILE ?= coverage.out
@@ -6,6 +6,14 @@ BASE_REF ?= origin/main
 REPO ?= samcro1967/glance
 PR_WORKFLOW ?= 345456314
 BRANCH ?= $(shell git branch --show-current 2>/dev/null)
+
+DEPLOY_IMAGE ?= ghcr.io/samcro1967/glance:latest
+DEPLOY_CONTAINER ?= glance
+DEPLOY_SERVICE ?= glance
+DEPLOY_DIR ?= /home/osuhickeys/Documents/Docker
+DEPLOY_URL ?= http://127.0.0.1:8092/
+DEPLOY_RETRIES ?= 6
+DEPLOY_RETRY_DELAY ?= 2
 
 help:
 	@echo "Available targets:"
@@ -44,6 +52,10 @@ help:
 	@echo "GitHub Actions:"
 	@echo "  make ci-watch RUN=12345      Watch a GitHub Actions run"
 	@echo "  make ci-view RUN=12345       Show a GitHub Actions run result"
+	@echo
+	@echo "Production:"
+	@echo "  make deploy-status           Compare source, GHCR, and production revisions"
+	@echo "  make deploy                  Pull, verify, and deploy current main to production"
 
 deps:
 	go mod download
@@ -192,3 +204,105 @@ verify-main:
 	@echo
 	@echo "=== MAIN VS UPSTREAM ==="
 	@git rev-list --left-right --count upstream/main...main
+
+deploy-status:
+	@echo "=== SOURCE ==="
+	@echo "Branch=$$(git branch --show-current)"
+	@echo "Revision=$$(git rev-parse HEAD)"
+	@echo
+	@echo "=== LOCAL GHCR IMAGE ==="
+	@if docker image inspect "$(DEPLOY_IMAGE)" >/dev/null 2>&1; then \
+		docker image inspect "$(DEPLOY_IMAGE)" \
+			--format 'Revision={{index .Config.Labels "org.opencontainers.image.revision"}} Image={{.Id}} Created={{.Created}}'; \
+	else \
+		echo "Image $(DEPLOY_IMAGE) is not available locally."; \
+	fi
+	@echo
+	@echo "=== PRODUCTION ==="
+	@if docker inspect "$(DEPLOY_CONTAINER)" >/dev/null 2>&1; then \
+		docker inspect "$(DEPLOY_CONTAINER)" \
+			--format 'Revision={{index .Config.Labels "org.opencontainers.image.revision"}} Image={{.Image}} Started={{.State.StartedAt}}'; \
+	else \
+		echo "Container $(DEPLOY_CONTAINER) does not exist."; \
+	fi
+
+deploy:
+	@set -euo pipefail; \
+	echo "=== PRE-DEPLOY VALIDATION ==="; \
+	branch="$$(git branch --show-current)"; \
+	if [ "$$branch" != "main" ]; then \
+		echo "Deployment requires branch main; current branch is $$branch."; \
+		exit 1; \
+	fi; \
+	if [ -n "$$(git status --porcelain)" ]; then \
+		echo "Deployment requires a clean working tree."; \
+		git status --short; \
+		exit 1; \
+	fi; \
+	echo "Refreshing origin..."; \
+	git fetch origin --prune; \
+	local_revision="$$(git rev-parse HEAD)"; \
+	origin_revision="$$(git rev-parse origin/main)"; \
+	if [ "$$local_revision" != "$$origin_revision" ]; then \
+		echo "Local main does not match origin/main."; \
+		echo "Local:  $$local_revision"; \
+		echo "Origin: $$origin_revision"; \
+		exit 1; \
+	fi; \
+	echo "Source revision: $$local_revision"; \
+	echo; \
+	echo "=== PULL IMAGE ==="; \
+	docker pull "$(DEPLOY_IMAGE)"; \
+	image_revision="$$(docker image inspect "$(DEPLOY_IMAGE)" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"; \
+	image_id="$$(docker image inspect "$(DEPLOY_IMAGE)" --format '{{.Id}}')"; \
+	echo "Image revision: $$image_revision"; \
+	echo "Image ID:       $$image_id"; \
+	if [ "$$image_revision" != "$$local_revision" ]; then \
+		echo "Refusing deployment: GHCR latest does not match local main."; \
+		echo "Source: $$local_revision"; \
+		echo "Image:  $$image_revision"; \
+		exit 1; \
+	fi; \
+	echo; \
+	echo "=== DEPLOY ==="; \
+	cd "$(DEPLOY_DIR)"; \
+	docker compose up -d --no-deps "$(DEPLOY_SERVICE)"; \
+	echo; \
+	echo "=== VERIFY CONTAINER ==="; \
+	container_revision="$$(docker inspect "$(DEPLOY_CONTAINER)" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"; \
+	container_image="$$(docker inspect "$(DEPLOY_CONTAINER)" --format '{{.Image}}')"; \
+	echo "Container revision: $$container_revision"; \
+	echo "Container image:    $$container_image"; \
+	if [ "$$container_revision" != "$$local_revision" ]; then \
+		echo "Deployment verification failed: container revision does not match source."; \
+		exit 1; \
+	fi; \
+	if [ "$$container_image" != "$$image_id" ]; then \
+		echo "Deployment verification failed: container image does not match pulled image."; \
+		exit 1; \
+	fi; \
+	echo; \
+	echo "=== HTTP CHECK ==="; \
+	http_ok=0; \
+	for i in $$(seq 1 "$(DEPLOY_RETRIES)"); do \
+		code="$$(curl -sS -o /dev/null -w '%{http_code}' "$(DEPLOY_URL)" 2>/dev/null || true)"; \
+		if [ "$$code" = "200" ] || [ "$$code" = "302" ]; then \
+			echo "Glance HTTP: $$code"; \
+			http_ok=1; \
+			break; \
+		fi; \
+		echo "Glance HTTP: $${code:-not ready}; retrying..."; \
+		sleep "$(DEPLOY_RETRY_DELAY)"; \
+	done; \
+	if [ "$$http_ok" -ne 1 ]; then \
+		echo "Deployment verification failed: Glance did not become HTTP-ready."; \
+		docker logs "$(DEPLOY_CONTAINER)" --since 2m 2>&1 | tail -50 || true; \
+		exit 1; \
+	fi; \
+	echo; \
+	echo "=== RECENT LOGS ==="; \
+	docker logs "$(DEPLOY_CONTAINER)" --since 2m 2>&1 | tail -50 || true; \
+	echo; \
+	echo "=== DEPLOYMENT COMPLETE ==="; \
+	echo "Revision=$$container_revision"; \
+	echo "Image=$$container_image"
