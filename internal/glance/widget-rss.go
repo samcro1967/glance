@@ -6,7 +6,6 @@ import (
 	"html"
 	"html/template"
 	"io"
-	"log/slog"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -159,10 +158,11 @@ func (widget *rssWidget) fetchItemsFromFeeds(ctx context.Context) (rssFeedItemLi
 	job := newJob(task, requests).withWorkers(30).withContext(ctx)
 	feeds, errs, err := workerPoolDo(job)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", errNoContent, err)
+		return nil, fmt.Errorf("%w: fetching RSS feeds: %w", errNoContent, err)
 	}
 
 	failed := 0
+	var firstFailure error
 	entries := make(rssFeedItemList, 0, len(feeds)*10)
 	seen := make(map[string]struct{})
 
@@ -170,19 +170,8 @@ func (widget *rssWidget) fetchItemsFromFeeds(ctx context.Context) (rssFeedItemLi
 		if errs[i] != nil {
 			failed++
 
-			if requests[i].Title != "" {
-				slog.Error(
-					"Failed to get RSS feed",
-					"feed", i+1,
-					"title", requests[i].Title,
-					"error", errs[i],
-				)
-			} else {
-				slog.Error(
-					"Failed to get RSS feed",
-					"feed", i+1,
-					"error", errs[i],
-				)
+			if firstFailure == nil {
+				firstFailure = errs[i]
 			}
 
 			continue
@@ -198,11 +187,23 @@ func (widget *rssWidget) fetchItemsFromFeeds(ctx context.Context) (rssFeedItemLi
 	}
 
 	if failed == len(requests) {
-		return nil, errNoContent
+		return nil, contentFetchError(
+			errNoContent,
+			failed,
+			len(requests),
+			"RSS feeds",
+			firstFailure,
+		)
 	}
 
 	if failed > 0 {
-		return entries, fmt.Errorf("%w: missing %d RSS feeds", errPartialContent, failed)
+		return entries, contentFetchError(
+			errPartialContent,
+			failed,
+			len(requests),
+			"RSS feeds",
+			firstFailure,
+		)
 	}
 
 	return entries, nil
@@ -211,7 +212,7 @@ func (widget *rssWidget) fetchItemsFromFeeds(ctx context.Context) (rssFeedItemLi
 func (widget *rssWidget) fetchItemsFromFeedTask(ctx context.Context, request rssFeedRequest) ([]rssFeedItem, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", request.URL, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating RSS request: %w", err)
 	}
 
 	req.Header.Add("User-Agent", glanceUserAgentString)
@@ -234,7 +235,10 @@ func (widget *rssWidget) fetchItemsFromFeedTask(ctx context.Context, request rss
 
 	resp, err := defaultHTTPClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf(
+			"sending RSS request: %w",
+			safeHTTPTransportError(err),
+		)
 	}
 	defer resp.Body.Close()
 
@@ -243,17 +247,17 @@ func (widget *rssWidget) fetchItemsFromFeedTask(ctx context.Context, request rss
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
+		return nil, unexpectedHTTPStatusError(resp)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("reading RSS response: %w", err)
 	}
 
 	feed, err := feedParser.ParseString(string(body))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parsing RSS response: %w", err)
 	}
 
 	if request.Limit > 0 && len(feed.Items) > request.Limit {

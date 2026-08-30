@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"log/slog"
 	"net/http"
 	"net/url"
 	"sort"
@@ -161,17 +160,22 @@ func fetchLatestReleases(ctx context.Context, requests []*releaseRequest) (appRe
 	job := newJob(task, requests).withWorkers(20).withContext(ctx)
 	results, errs, err := workerPoolDo(job)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: fetching releases: %w", errNoContent, err)
 	}
 
 	var failed int
+	var firstFailure error
 
 	releases := make(appReleaseList, 0, len(requests))
 
 	for i := range results {
 		if errs[i] != nil {
 			failed++
-			slog.Error("Failed to fetch release", "source", requests[i].source, "repository", requests[i].Repository, "error", errs[i])
+
+			if firstFailure == nil {
+				firstFailure = errs[i]
+			}
+
 			continue
 		}
 
@@ -179,13 +183,25 @@ func fetchLatestReleases(ctx context.Context, requests []*releaseRequest) (appRe
 	}
 
 	if failed == len(requests) {
-		return nil, errNoContent
+		return nil, contentFetchError(
+			errNoContent,
+			failed,
+			len(requests),
+			"releases",
+			firstFailure,
+		)
 	}
 
 	releases.sortByNewest()
 
 	if failed > 0 {
-		return releases, fmt.Errorf("%w: could not get %d releases", errPartialContent, failed)
+		return releases, contentFetchError(
+			errPartialContent,
+			failed,
+			len(requests),
+			"releases",
+			firstFailure,
+		)
 	}
 
 	return releases, nil

@@ -2,9 +2,9 @@ package glance
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"html/template"
-	"log/slog"
 	"math"
 	"net/http"
 	"sort"
@@ -126,7 +126,7 @@ func fetchMarketsDataFromYahoo(ctx context.Context, marketRequests []marketReque
 	requests := make([]*http.Request, 0, len(marketRequests))
 
 	for i := range marketRequests {
-		request, _ := http.NewRequestWithContext(
+		request, err := http.NewRequestWithContext(
 			ctx,
 			"GET",
 			fmt.Sprintf(
@@ -135,6 +135,16 @@ func fetchMarketsDataFromYahoo(ctx context.Context, marketRequests []marketReque
 			),
 			nil,
 		)
+		if err != nil {
+			return nil, contentFetchError(
+				errNoContent,
+				1,
+				len(marketRequests),
+				"markets",
+				fmt.Errorf("creating market request: %w", err),
+			)
+		}
+
 		setBrowserUserAgentHeader(request)
 		requests = append(requests, request)
 	}
@@ -146,16 +156,21 @@ func fetchMarketsDataFromYahoo(ctx context.Context, marketRequests []marketReque
 
 	responses, errs, err := workerPoolDo(job)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", errNoContent, err)
+		return nil, fmt.Errorf("%w: fetching market data: %w", errNoContent, err)
 	}
 
 	markets := make(marketList, 0, len(responses))
-	var failed int
+	failed := 0
+	var firstFailure error
 
 	for i := range responses {
 		if errs[i] != nil {
 			failed++
-			slog.Error("Failed to fetch market data", "symbol", marketRequests[i].Symbol, "error", errs[i])
+
+			if firstFailure == nil {
+				firstFailure = errs[i]
+			}
+
 			continue
 		}
 
@@ -163,7 +178,11 @@ func fetchMarketsDataFromYahoo(ctx context.Context, marketRequests []marketReque
 
 		if len(response.Chart.Result) == 0 {
 			failed++
-			slog.Error("Market response contains no data", "symbol", marketRequests[i].Symbol)
+
+			if firstFailure == nil {
+				firstFailure = errors.New("market response contains no data")
+			}
+
 			continue
 		}
 
@@ -201,11 +220,23 @@ func fetchMarketsDataFromYahoo(ctx context.Context, marketRequests []marketReque
 	}
 
 	if len(markets) == 0 {
-		return nil, errNoContent
+		return nil, contentFetchError(
+			errNoContent,
+			failed,
+			len(marketRequests),
+			"markets",
+			firstFailure,
+		)
 	}
 
 	if failed > 0 {
-		return markets, fmt.Errorf("%w: could not fetch data for %d market(s)", errPartialContent, failed)
+		return markets, contentFetchError(
+			errPartialContent,
+			failed,
+			len(marketRequests),
+			"markets",
+			firstFailure,
+		)
 	}
 
 	return markets, nil

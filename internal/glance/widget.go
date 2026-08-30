@@ -353,6 +353,7 @@ func (w *widgetBase) canContinueUpdateAfterHandlingErr(err error) bool {
 				"widget_id", w.ID,
 				"type", w.Type,
 				"title", w.Title,
+				"cause", err,
 				"retry_attempt", w.updateRetriedTimes,
 				"next_update", w.nextUpdate,
 			)

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"html/template"
-	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -76,39 +75,72 @@ type hackerNewsPostResponseJson struct {
 }
 
 func fetchHackerNewsPostIds(sort string) ([]int, error) {
-	request, _ := http.NewRequest("GET", fmt.Sprintf("https://hacker-news.firebaseio.com/v0/%sstories.json", sort), nil)
+	request, err := http.NewRequest(
+		"GET",
+		fmt.Sprintf("https://hacker-news.firebaseio.com/v0/%sstories.json", sort),
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"%w: creating Hacker News post list request: %w",
+			errNoContent,
+			err,
+		)
+	}
+
 	response, err := decodeJsonFromRequest[[]int](defaultHTTPClient, request)
 	if err != nil {
-		return nil, fmt.Errorf("%w: could not fetch list of post IDs", errNoContent)
+		return nil, fmt.Errorf(
+			"%w: fetching Hacker News post IDs: %w",
+			errNoContent,
+			err,
+		)
 	}
 
 	return response, nil
 }
 
 func fetchHackerNewsPostsFromIds(postIds []int, commentsUrlTemplate string) (forumPostList, error) {
-	requests := make([]*http.Request, len(postIds))
+	requests := make([]*http.Request, 0, len(postIds))
 
-	for i, id := range postIds {
-		request, _ := http.NewRequest("GET", fmt.Sprintf("https://hacker-news.firebaseio.com/v0/item/%d.json", id), nil)
-		requests[i] = request
+	for _, id := range postIds {
+		request, err := http.NewRequest(
+			"GET",
+			fmt.Sprintf("https://hacker-news.firebaseio.com/v0/item/%d.json", id),
+			nil,
+		)
+		if err != nil {
+			return nil, contentFetchError(
+				errNoContent,
+				1,
+				len(postIds),
+				"Hacker News posts",
+				fmt.Errorf("creating Hacker News post request: %w", err),
+			)
+		}
+
+		requests = append(requests, request)
 	}
 
 	task := decodeJsonFromRequestTask[hackerNewsPostResponseJson](defaultHTTPClient)
 	job := newJob(task, requests).withWorkers(30)
 	results, errs, err := workerPoolDo(job)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: fetching Hacker News posts: %w", errNoContent, err)
 	}
 
 	posts := make(forumPostList, 0, len(postIds))
+	failed := 0
+	var firstFailure error
 
 	for i := range results {
 		if errs[i] != nil {
-			slog.Error(
-				"Failed to fetch or parse hacker news post",
-				"post_id", postIds[i],
-				"error", errs[i],
-			)
+			failed++
+
+			if firstFailure == nil {
+				firstFailure = errs[i]
+			}
+
 			continue
 		}
 
@@ -132,11 +164,23 @@ func fetchHackerNewsPostsFromIds(postIds []int, commentsUrlTemplate string) (for
 	}
 
 	if len(posts) == 0 {
-		return nil, errNoContent
+		return nil, contentFetchError(
+			errNoContent,
+			failed,
+			len(postIds),
+			"Hacker News posts",
+			firstFailure,
+		)
 	}
 
-	if len(posts) != len(postIds) {
-		return posts, fmt.Errorf("%w could not fetch some hacker news posts", errPartialContent)
+	if failed > 0 {
+		return posts, contentFetchError(
+			errPartialContent,
+			failed,
+			len(postIds),
+			"Hacker News posts",
+			firstFailure,
+		)
 	}
 
 	return posts, nil
