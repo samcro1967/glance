@@ -267,6 +267,19 @@ func reportExitError(exitChannel chan<- error, err error) {
 	}
 }
 
+func serveUpdateNoticeServer(handler http.Handler) error {
+	server := http.Server{
+		Addr:    ":8080",
+		Handler: handler,
+	}
+
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		return fmt.Errorf("serving configuration migration notice: %w", err)
+	}
+
+	return nil
+}
+
 func serveUpdateNoticeIfConfigLocationNotMigrated(configPath string) bool {
 	if !isRunningInsideDockerContainer() {
 		return false
@@ -296,11 +309,9 @@ func serveUpdateNoticeIfConfigLocationNotMigrated(configPath string) bool {
 		w.Write([]byte(bodyContents))
 	})
 
-	server := http.Server{
-		Addr:    ":8080",
-		Handler: mux,
+	if err := serveUpdateNoticeServer(mux); err != nil {
+		fmt.Printf("Failed to serve configuration migration notice: %v\n", err)
 	}
-	server.ListenAndServe()
 
 	return true
 }

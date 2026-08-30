@@ -2,6 +2,9 @@ package glance
 
 import (
 	"errors"
+	"net"
+	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -16,5 +19,26 @@ func TestStartServerAndReportReturnsStartupError(t *testing.T) {
 	err := <-exitChannel
 	if !errors.Is(err, startErr) {
 		t.Fatalf("expected startup error to be reported, got %v", err)
+	}
+}
+
+func TestServeUpdateNoticeServerReportsBindFailure(t *testing.T) {
+	listener, err := net.Listen("tcp", ":8080")
+	if err != nil {
+		t.Skipf("could not reserve port 8080 for migration notice server test: %v", err)
+	}
+	defer listener.Close()
+
+	err = serveUpdateNoticeServer(http.NewServeMux())
+	if err == nil {
+		t.Fatal("expected migration notice server bind failure")
+	}
+
+	if !strings.Contains(err.Error(), "serving configuration migration notice") {
+		t.Fatalf("error = %q, want migration notice context", err)
+	}
+
+	if !strings.Contains(err.Error(), "address already in use") {
+		t.Fatalf("error = %q, want address already in use", err)
 	}
 }
