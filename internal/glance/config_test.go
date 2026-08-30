@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -1467,5 +1468,116 @@ func TestConfigFilesWatcherCleanupWithPendingDebounce(t *testing.T) {
 		if err := stop(); err != nil {
 			t.Fatalf("stopping watcher: %v", err)
 		}
+	}
+}
+
+func TestConfigFilesWatcherStopDuringActiveCallback(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "glance.yml")
+
+	writeConfigTestFile(t, mainPath, "page:\n  name: Home\n")
+
+	parsed, err := parseYAMLIncludesWithSources(mainPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	initialChange := make(chan struct{})
+	activeChange := make(chan struct{})
+	releaseActiveChange := make(chan struct{})
+	activeChangeFinished := make(chan struct{})
+	watcherErr := make(chan error, 1)
+
+	var callbackCount int
+	var callbackMu sync.Mutex
+
+	stop, err := configFilesWatcherWithSources(
+		mainPath,
+		parsed,
+		func(newParsed *parsedYAMLConfig) {
+			callbackMu.Lock()
+			callbackCount++
+			currentCount := callbackCount
+			callbackMu.Unlock()
+
+			if currentCount == 1 {
+				close(initialChange)
+				return
+			}
+
+			if currentCount == 2 {
+				close(activeChange)
+				<-releaseActiveChange
+				close(activeChangeFinished)
+			}
+		},
+		func(err error) {
+			select {
+			case watcherErr <- err:
+			default:
+			}
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case <-initialChange:
+	case err := <-watcherErr:
+		_ = stop()
+		t.Fatalf("watcher error before initial callback: %v", err)
+	case <-time.After(time.Second):
+		_ = stop()
+		t.Fatal("timed out waiting for initial callback")
+	}
+
+	writeConfigTestFile(t, mainPath, "page:\n  name: Updated\n")
+
+	select {
+	case <-activeChange:
+	case err := <-watcherErr:
+		_ = stop()
+		t.Fatalf("watcher error before active callback: %v", err)
+	case <-time.After(2 * time.Second):
+		_ = stop()
+		t.Fatal("timed out waiting for active callback")
+	}
+
+	stopDone := make(chan error, 1)
+	go func() {
+		stopDone <- stop()
+	}()
+
+	select {
+	case err := <-stopDone:
+		close(releaseActiveChange)
+
+		if err != nil {
+			t.Fatalf("stopping watcher: %v", err)
+		}
+
+		t.Fatal("stop returned while configuration callback was still active")
+
+	case <-time.After(100 * time.Millisecond):
+		// Expected lifecycle behavior: stop should wait for an already active
+		// configuration callback to finish.
+	}
+
+	close(releaseActiveChange)
+
+	select {
+	case <-activeChangeFinished:
+	case <-time.After(time.Second):
+		t.Fatal("active configuration callback did not finish")
+	}
+
+	select {
+	case err := <-stopDone:
+		if err != nil {
+			t.Fatalf("stopping watcher: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("stop did not return after active callback finished")
 	}
 }
