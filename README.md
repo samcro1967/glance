@@ -20,29 +20,143 @@
 
 This repository is a fork of [Glance](https://github.com/glanceapp/glance) maintained by [samcro1967](https://github.com/samcro1967/glance).
 
-It tracks the upstream Glance project while incorporating additional functionality not currently available in the upstream release.
+It tracks the upstream Glance project while incorporating additional functionality, reliability fixes, operational hardening, expanded regression testing, and deployment tooling not currently available in the upstream release.
+
+The goal of the fork is to remain compatible with upstream Glance where practical while providing additional functionality and addressing reliability or operational issues encountered in production use. Changes incorporated from existing upstream pull requests are identified below where applicable.
 
 ### Changes from upstream
 
 - **Stack widget** — Adds the `stack` widget from upstream [PR #765](https://github.com/glanceapp/glance/pull/765), allowing multiple widgets to be stacked vertically and treated as a single widget.
 - **Nested groups** — Allows `group` widgets to contain other `group` widgets, enabling multiple levels of tabbed navigation.
+- **Named dashboards** — Allows configured pages to be organized into multiple independently addressable dashboards with dashboard-specific navigation. Pages are defined once and can be shared across dashboards while retaining the same underlying widget state, caching, and update lifecycle. When dashboards are configured, the application logo provides a dashboard switcher for quickly moving between dashboards, with the current dashboard indicated in the menu. Named dashboards whose generated slugs conflict with existing page slugs are ignored with a warning, allowing the remaining dashboards and pages to continue operating normally. Existing configurations without `dashboards` continue to use the standard Glance page and logo behavior.
+- **Medium page columns** — Adds a `medium` page column size for proportional desktop layouts. Three `medium` columns create an equal three-column layout, while `medium` + `full` creates an approximately one-third/two-thirds layout and can be reversed as `full` + `medium`. Existing `small` and `full` layouts remain unchanged, and medium columns use the standard one-column-at-a-time navigation on mobile.
 - **Custom API timeouts** — Adds configurable request timeouts to `custom-api` widgets based on upstream [PR #997](https://github.com/glanceapp/glance/pull/997), with independent timeout settings for primary requests and subrequests.
 - **Custom API stale fallback** — Preserves the last successfully rendered `custom-api` content when a refresh fails, displays a visible stale indicator with the age of the last successful update, and automatically clears the stale state after a successful refresh.
+- **Automatic widget recovery** — Adds server-side background refresh and recovery for updateable widgets. Expired or previously failed widgets are retried automatically without requiring a page to be open or manually refreshed. Refreshes are synchronized per widget to prevent duplicate concurrent updates while preserving parallel updates across different widgets, use bounded concurrency and progressive retry backoff after failures, and are cancelled cleanly during shutdown and configuration reloads. Normal successful refresh timing continues to respect each widget's configured cache duration. The `custom-api` widget additionally preserves its last successfully rendered content while a refresh is failing.
 - **HTTP server startup failure handling** — Incorporates upstream [PR #1047](https://github.com/glanceapp/glance/pull/1047), causing Glance to exit with a nonzero status when the HTTP server fails to start instead of remaining running in a broken state. This allows container restart policies and external monitoring to correctly detect and respond to startup failures.
 - **Mountpoint CLI fix** — Incorporates upstream [PR #1065](https://github.com/glanceapp/glance/pull/1065), fixing the `mountpoint:info <path>` command so it can be invoked as documented instead of being rejected as an unknown command.
 - **IPv6 Docker remote sources** — Incorporates upstream [PR #1064](https://github.com/glanceapp/glance/pull/1064), correctly formatting IPv6 addresses used by remote Docker sources while preserving TCP, HTTP, HTTPS, explicit-port, and default-port behavior.
 - **YAML comment variable parsing** — Incorporates upstream [PR #965](https://github.com/glanceapp/glance/pull/965), preventing configuration variables inside YAML comments from being expanded while correctly preserving hashes inside quoted values and handling escaped or doubled quotes.
 - **Search autofocus fix** — Incorporates upstream [PR #885](https://github.com/glanceapp/glance/pull/885), ensuring search widgets configured with `autofocus` reliably receive focus after dynamic initialization, including in browsers such as Firefox.
-- **Automatic widget recovery** — Adds server-side background refresh and recovery for updateable widgets. Expired or previously failed widgets are retried automatically without requiring a page to be open or manually refreshed. Refreshes are synchronized per widget to prevent duplicate concurrent updates while preserving parallel updates across different widgets, use bounded concurrency and progressive retry backoff after failures, and are cancelled cleanly during shutdown and configuration reloads. Normal successful refresh timing continues to respect each widget's configured cache duration. The `custom-api` widget additionally preserves its last successfully rendered content while a refresh is failing.
 - **Structured operational logging and diagnostics** — Adds structured lifecycle, failure, recovery, and configuration diagnostics for improved container and service observability. Glance logs meaningful application, HTTP server, and background refresh scheduler lifecycle events; reports widget failure or degraded transitions with actionable causes without repeatedly logging the same failed state; and records when affected widgets recover. Configuration errors include source-aware file and line information where available, including included YAML files, semantic configuration errors, widget initialization failures, configuration variables, and Custom API template errors. HTTP and provider diagnostics are sanitized to avoid exposing configured URLs, query strings, response bodies, authentication credentials, tokens, cookies, and other potentially sensitive values. Internal template-rendering failures are logged server-side while clients receive a generic HTTP 500 response.
-- **Configuration watcher reliability** — Fixes a concurrency race in configuration file watching when a pending debounce timer overlaps watcher cleanup during shutdown or configuration reload. Debounce timer ownership is synchronized so watcher resources can be cleaned up safely without racing an outstanding configuration-change notification.
+- **Configuration watcher reliability** — Hardens configuration file watching and reload behavior against concurrent shutdown and configuration-change activity. Debounce timer ownership is synchronized to prevent races between pending configuration notifications and watcher cleanup. Watcher shutdown also prevents new debounce work and waits for an already-running configuration callback to finish before returning, preventing configuration callbacks from continuing to mutate application state after watcher shutdown or during application teardown.
+- **Runtime lifecycle hardening** — Expands synchronization and regression protection around application startup, shutdown, configuration reloads, background refresh scheduling, and watcher cleanup. Background scheduler cancellation propagates cleanly to active work and shutdown waits for scheduler workers to finish. Configuration watcher cleanup waits for active callbacks, and server lifecycle behavior is protected for cases including shutdown before startup and HTTP bind failures.
 - **DNS statistics zero-value handling** — Prevents invalid percentage values when DNS providers return zero queries or zero blocked queries. Graph normalization and blocked-domain percentages safely remain at zero when their denominator is zero, covering AdGuard Home, Pi-hole v5, Pi-hole v6, and Technitium DNS Server.
-- **Automated testing and validation** — Substantially expands automated regression coverage for fork functionality, including configuration diagnostics, dashboard routing, widget refresh synchronization and recovery, failure/degraded/recovery transitions, provider error handling, transport-error sanitization, Custom API behavior, Docker and provider diagnostics, HTTP error boundaries, and application startup and migration handling. Pull requests are automatically validated with the Go test suite, race detector, and build checks. A repository `Makefile` provides standardized development, validation, and repository inspection commands, including `make test`, `make test-race`, repeated test and race-test runs, `make build`, changed-file Go formatting validation, working-tree and staged whitespace validation, coverage reporting, dependency downloads, Go vulnerability analysis, repository and upstream status checks, staged diff inspection, pull request inspection, and GitHub Actions run inspection and monitoring. `make check` runs the standard local pre-PR validation suite.
-- **Named dashboards** — Allows configured pages to be organized into multiple independently addressable dashboards with dashboard-specific navigation. Pages are defined once and can be shared across dashboards while retaining the same underlying widget state, caching, and update lifecycle. When dashboards are configured, the application logo provides a dashboard switcher for quickly moving between dashboards, with the current dashboard indicated in the menu. Named dashboards whose generated slugs conflict with existing page slugs are ignored with a warning, allowing the remaining dashboards and pages to continue operating normally. Existing configurations without `dashboards` continue to use the standard Glance page and logo behavior.
-- **Medium page columns** — Adds a `medium` page column size for proportional desktop layouts. Three `medium` columns create an equal three-column layout, while `medium` + `full` creates an approximately one-third/two-thirds layout and can be reversed as `full` + `medium`. Existing `small` and `full` layouts remain unchanged, and medium columns use the standard one-column-at-a-time navigation on mobile.
-- **Container image** — Automatically builds and publishes this fork from the `main` branch to GitHub Container Registry:
-  - `ghcr.io/samcro1967/glance:latest`
-  - `ghcr.io/samcro1967/glance:sha-<commit>`
+
+### Testing and regression protection
+
+The fork includes substantially expanded automated regression coverage intended both to protect fork-specific behavior and to make future upstream synchronization safer.
+
+Regression coverage includes configuration parsing and diagnostics; configuration watcher concurrency and shutdown; application and HTTP server lifecycle behavior; dashboard routing; widget refresh synchronization, recovery, caching, and cancellation; healthy, failed, degraded, stale, and recovered transitions; Custom API requests, templates, timeouts, stale fallback, and errors; Docker and provider behavior; malformed or incomplete external responses; transport failures; diagnostic sanitization; HTTP error boundaries; DNS zero-value calculations; application initialization and migration; and regression tests for defects discovered while stabilizing the fork.
+
+The test suite contains more than 300 tests and currently exercises approximately 80% of the Go codebase. Coverage is used as a measurement rather than as a goal by itself. Testing is concentrated on behavior where regressions, malformed external data, concurrency, lifecycle transitions, provider failures, and upstream changes present meaningful risk.
+
+Concurrency-sensitive behavior is validated with Go's race detector. During stabilization, important suites were also executed repeatedly with both normal and race-enabled test runs to expose intermittent concurrency or lifecycle failures.
+
+Several production defects were discovered through this process, reproduced with regression tests, and then fixed. Those tests remain in the suite to protect against recurrence.
+
+### Development and CI validation
+
+Changes to the fork are developed on focused branches and merged into the protected `main` branch through pull requests.
+
+Pull requests are automatically validated with the complete Go test suite, the Go race detector, a complete Go build, and whitespace validation.
+
+The repository `Makefile` provides standardized commands for development, validation, repository inspection, GitHub pull request operations, CI monitoring, and production deployment.
+
+Common targets include:
+
+```text
+make test
+make test-race
+make test-count COUNT=10
+make test-race-count COUNT=10
+make build
+make fmt-check
+make diff-check
+make staged-check
+make check
+make coverage
+make vuln
+make status
+make staged-diff
+make upstream-status
+make verify-main
+make pr-view PR=<number>
+make pr-runs
+make pr-merge PR=<number>
+make ci-watch RUN=<id>
+make ci-view RUN=<id>
+make deploy-status
+make deploy
+```
+
+`make check` runs the standard local pre-pull-request validation suite. Repeated test targets are available for concurrency-sensitive or high-risk changes where a single successful test execution may not provide sufficient confidence.
+
+### Security and dependency maintenance
+
+The fork includes additional security and dependency maintenance beyond functional changes.
+
+- Go and project dependencies are periodically reviewed and updated.
+- GitHub Actions dependencies are maintained alongside application dependencies.
+- `govulncheck` is used to identify reachable Go vulnerabilities.
+- Container builds upgrade available Alpine packages during the image build so published images receive current package-level security fixes available from the configured Alpine repositories.
+- Operational and provider diagnostics are intentionally sanitized to avoid logging authentication credentials, authorization headers, cookies, tokens, configured URLs containing sensitive query parameters, response bodies, or similar potentially sensitive information.
+- Error responses exposed to HTTP clients avoid disclosing internal template-rendering details while retaining actionable server-side diagnostics.
+
+Security scanning can still report vulnerabilities for which an upstream package or distribution fix is not yet available. The presence of such a report does not imply that the fork contains a project-level fix for the underlying third-party vulnerability.
+
+### Container images
+
+The `main` branch is automatically built and published to GitHub Container Registry.
+
+Available image tags include:
+
+```text
+ghcr.io/samcro1967/glance:latest
+ghcr.io/samcro1967/glance:sha-<commit>
+```
+
+Published images contain OCI revision metadata identifying the source commit from which the image was built.
+
+### Production deployment safeguards
+
+The repository includes Makefile-based deployment tooling intended to make deployments reproducible and to prevent a stale or unexpected container image from being deployed.
+
+`make deploy-status` performs a read-only comparison of the current source branch and revision, the locally available GHCR image and its source revision, and the currently running production container and its source revision.
+
+`make deploy` performs a guarded production deployment. Before changing the running service it:
+
+1. requires deployment from `main`;
+2. requires a clean source working tree;
+3. refreshes `origin` and requires local `main` to exactly match `origin/main`;
+4. pulls `ghcr.io/samcro1967/glance:latest`;
+5. reads the image's OCI source revision;
+6. requires the image revision to exactly match the source repository's current `HEAD`; and
+7. refuses to recreate the production service if those revisions differ.
+
+After the image passes validation, the deployment recreates only the Glance Compose service and verifies that the running container reports the expected source revision, uses the exact validated image, the local Glance HTTP endpoint becomes ready, and recent container logs are available for immediate inspection.
+
+This revision check intentionally prevents deployment during the interval between merging a change to `main` and completion of the corresponding GitHub Container Registry build.
+
+### Upstream compatibility and maintenance
+
+The fork continues to track the upstream Glance repository.
+
+Upstream changes are reviewed before integration rather than being automatically applied to production. The expanded regression and race-test suites make it easier to evaluate future upstream changes while protecting fork-specific functionality and previously fixed defects.
+
+Where functionality in this fork originates from an existing upstream pull request, the corresponding upstream pull request is identified in this README. Other changes were developed specifically for this fork based on functionality or reliability requirements encountered while operating it.
+
+The fork intentionally avoids unnecessary divergence from upstream. Production changes are made when they provide required functionality, address an observed defect, improve operational reliability, or provide meaningful regression protection. Areas that are functioning correctly are generally left unchanged rather than modified solely to increase test coverage or introduce speculative abstractions.
+
+### Current stability
+
+The fork has undergone a focused stabilization effort covering configuration handling, application lifecycle behavior, widget refresh and recovery, provider failure handling, concurrency, shutdown and reload behavior, diagnostics, security, regression testing, CI validation, and production deployment.
+
+The stabilization process included targeted race-detector testing and repeated execution of concurrency-sensitive tests. Multiple defects discovered during this work were first reproduced through regression tests and then corrected, leaving those tests in place to protect against recurrence.
+
+The codebase is now treated as a production baseline rather than an active stabilization project. Future changes are expected to focus on required functionality, observed production defects, worthwhile upstream changes, dependency and security maintenance, and regression protection for newly discovered issues.
+
+The intent is to keep the fork maintainable and transparent while minimizing unnecessary divergence from upstream.
 
 See the [configuration documentation](docs/configuration.md#configuring-glance) for details on using the additional widgets and functionality.
 
