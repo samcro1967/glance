@@ -39,7 +39,7 @@ func (widget *twitchChannelsWidget) initialize() error {
 }
 
 func (widget *twitchChannelsWidget) update(ctx context.Context) {
-	channels, err := fetchChannelsFromTwitch(widget.ChannelsRequest)
+	channels, err := fetchChannelsFromTwitch(ctx, widget.ChannelsRequest)
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
 		return
@@ -129,13 +129,13 @@ const twitchChannelStatusOperationRequestBody = `[
 // what the limit is for max operations per request and batch operations in
 // multiple requests if number of channels exceeds allowed limit.
 
-func fetchChannelFromTwitchTask(channel string) (twitchChannel, error) {
+func fetchChannelFromTwitchTask(ctx context.Context, channel string) (twitchChannel, error) {
 	result := twitchChannel{
 		Login: strings.ToLower(channel),
 	}
 
 	reader := strings.NewReader(fmt.Sprintf(twitchChannelStatusOperationRequestBody, channel, channel))
-	request, err := http.NewRequest("POST", twitchGqlEndpoint, reader)
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, twitchGqlEndpoint, reader)
 	if err != nil {
 		return result, fmt.Errorf("creating Twitch channel request: %w", err)
 	}
@@ -206,10 +206,14 @@ func fetchChannelFromTwitchTask(channel string) (twitchChannel, error) {
 	return result, nil
 }
 
-func fetchChannelsFromTwitch(channelLogins []string) (twitchChannelList, error) {
+func fetchChannelsFromTwitch(ctx context.Context, channelLogins []string) (twitchChannelList, error) {
 	result := make(twitchChannelList, 0, len(channelLogins))
 
-	job := newJob(fetchChannelFromTwitchTask, channelLogins).withWorkers(10)
+	task := func(channel string) (twitchChannel, error) {
+		return fetchChannelFromTwitchTask(ctx, channel)
+	}
+
+	job := newJob(task, channelLogins).withWorkers(10).withContext(ctx)
 	channels, errs, err := workerPoolDo(job)
 	if err != nil {
 		return result, fmt.Errorf("%w: fetching Twitch channels: %w", errNoContent, err)

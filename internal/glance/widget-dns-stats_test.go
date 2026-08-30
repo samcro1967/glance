@@ -1,12 +1,14 @@
 package glance
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 )
 
 type dnsStatsRoundTripperFunc func(*http.Request) (*http.Response, error)
@@ -31,7 +33,7 @@ func TestFetchPiholeSessionIDTransportErrorDoesNotExposeRequestURL(t *testing.T)
 		}),
 	}
 
-	_, err := fetchPiholeSessionID(baseURL, client, password)
+	_, err := fetchPiholeSessionID(context.Background(), baseURL, client, password)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -76,6 +78,7 @@ func TestFetchPiholeSessionIDAuthenticationFailureDoesNotExposeResponseMessage(t
 	}
 
 	_, err := fetchPiholeSessionID(
+		context.Background(),
 		"https://example.com",
 		client,
 		password,
@@ -125,6 +128,7 @@ func TestFetchPiholeSessionIDEmptySessionDoesNotExposeResponseMessage(t *testing
 	}
 
 	_, err := fetchPiholeSessionID(
+		context.Background(),
 		"https://example.com",
 		client,
 		password,
@@ -150,5 +154,101 @@ func TestFetchPiholeSessionIDEmptySessionDoesNotExposeResponseMessage(t *testing
 			message,
 			expected,
 		)
+	}
+}
+
+func TestFetchPiholeSessionIDCancellation(t *testing.T) {
+	requestStarted := make(chan struct{})
+	requestCanceled := make(chan struct{})
+
+	client := &http.Client{
+		Transport: dnsStatsRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+			close(requestStarted)
+			<-request.Context().Done()
+			close(requestCanceled)
+			return nil, request.Context().Err()
+		}),
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	result := make(chan error, 1)
+	go func() {
+		_, err := fetchPiholeSessionID(ctx, "https://example.com", client, "password")
+		result <- err
+	}()
+
+	select {
+	case <-requestStarted:
+	case <-time.After(time.Second):
+		t.Fatal("Pi-hole authentication request did not start")
+	}
+
+	cancel()
+
+	select {
+	case err := <-result:
+		if err == nil {
+			t.Fatal("expected canceled Pi-hole authentication request to return an error")
+		}
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("expected context cancellation error, got %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Pi-hole authentication request did not stop after context cancellation")
+	}
+
+	select {
+	case <-requestCanceled:
+	case <-time.After(time.Second):
+		t.Fatal("Pi-hole authentication transport did not observe cancellation")
+	}
+}
+
+func TestCheckPiholeSessionIDIsValidCancellation(t *testing.T) {
+	requestStarted := make(chan struct{})
+	requestCanceled := make(chan struct{})
+
+	client := &http.Client{
+		Transport: dnsStatsRoundTripperFunc(func(request *http.Request) (*http.Response, error) {
+			close(requestStarted)
+			<-request.Context().Done()
+			close(requestCanceled)
+			return nil, request.Context().Err()
+		}),
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	result := make(chan error, 1)
+	go func() {
+		_, err := checkPiholeSessionIDIsValid(ctx, "https://example.com", client, "session-id")
+		result <- err
+	}()
+
+	select {
+	case <-requestStarted:
+	case <-time.After(time.Second):
+		t.Fatal("Pi-hole session validation request did not start")
+	}
+
+	cancel()
+
+	select {
+	case err := <-result:
+		if err == nil {
+			t.Fatal("expected canceled Pi-hole session validation request to return an error")
+		}
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("expected context cancellation error, got %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Pi-hole session validation request did not stop after context cancellation")
+	}
+
+	select {
+	case <-requestCanceled:
+	case <-time.After(time.Second):
+		t.Fatal("Pi-hole session validation transport did not observe cancellation")
 	}
 }

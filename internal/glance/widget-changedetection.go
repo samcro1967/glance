@@ -42,7 +42,7 @@ func (widget *changeDetectionWidget) initialize() error {
 
 func (widget *changeDetectionWidget) update(ctx context.Context) {
 	if len(widget.WatchUUIDs) == 0 {
-		uuids, err := fetchWatchUUIDsFromChangeDetection(widget.InstanceURL, string(widget.Token))
+		uuids, err := fetchWatchUUIDsFromChangeDetection(ctx, widget.InstanceURL, string(widget.Token))
 
 		if !widget.canContinueUpdateAfterHandlingErr(err) {
 			return
@@ -51,7 +51,7 @@ func (widget *changeDetectionWidget) update(ctx context.Context) {
 		widget.WatchUUIDs = uuids
 	}
 
-	watches, err := fetchWatchesFromChangeDetection(widget.InstanceURL, widget.WatchUUIDs, string(widget.Token))
+	watches, err := fetchWatchesFromChangeDetection(ctx, widget.InstanceURL, widget.WatchUUIDs, string(widget.Token))
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
 		return
@@ -94,8 +94,13 @@ type changeDetectionResponseJson struct {
 	PreviousHash string `json:"previous_md5"`
 }
 
-func fetchWatchUUIDsFromChangeDetection(instanceURL string, token string) ([]string, error) {
-	request, err := http.NewRequest("GET", fmt.Sprintf("%s/api/v1/watch", instanceURL), nil)
+func fetchWatchUUIDsFromChangeDetection(ctx context.Context, instanceURL string, token string) ([]string, error) {
+	request, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
+		fmt.Sprintf("%s/api/v1/watch", instanceURL),
+		nil,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("creating change detection watch list request: %w", err)
 	}
@@ -118,7 +123,7 @@ func fetchWatchUUIDsFromChangeDetection(instanceURL string, token string) ([]str
 	return uuids, nil
 }
 
-func fetchWatchesFromChangeDetection(instanceURL string, requestedWatchIDs []string, token string) (changeDetectionWatchList, error) {
+func fetchWatchesFromChangeDetection(ctx context.Context, instanceURL string, requestedWatchIDs []string, token string) (changeDetectionWatchList, error) {
 	watches := make(changeDetectionWatchList, 0, len(requestedWatchIDs))
 
 	if len(requestedWatchIDs) == 0 {
@@ -128,8 +133,9 @@ func fetchWatchesFromChangeDetection(instanceURL string, requestedWatchIDs []str
 	requests := make([]*http.Request, 0, len(requestedWatchIDs))
 
 	for _, watchID := range requestedWatchIDs {
-		request, err := http.NewRequest(
-			"GET",
+		request, err := http.NewRequestWithContext(
+			ctx,
+			http.MethodGet,
 			fmt.Sprintf("%s/api/v1/watch/%s", instanceURL, watchID),
 			nil,
 		)
@@ -151,7 +157,7 @@ func fetchWatchesFromChangeDetection(instanceURL string, requestedWatchIDs []str
 	}
 
 	task := decodeJsonFromRequestTask[changeDetectionResponseJson](defaultHTTPClient)
-	job := newJob(task, requests).withWorkers(15)
+	job := newJob(task, requests).withWorkers(15).withContext(ctx)
 	responses, errs, err := workerPoolDo(job)
 	if err != nil {
 		return nil, fmt.Errorf("%w: fetching change detection watches: %w", errNoContent, err)

@@ -2,6 +2,7 @@ package glance
 
 import (
 	"context"
+	"fmt"
 	"html/template"
 	"log/slog"
 	"net/http"
@@ -39,7 +40,7 @@ func (widget *serverStatsWidget) initialize() error {
 	return nil
 }
 
-func (widget *serverStatsWidget) update(context.Context) {
+func (widget *serverStatsWidget) update(ctx context.Context) {
 	// Refactor later, most of it may change depending on feedback
 	var wg sync.WaitGroup
 
@@ -61,7 +62,7 @@ func (widget *serverStatsWidget) update(context.Context) {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				info, err := fetchRemoteServerInfo(serv)
+				info, err := fetchRemoteServerInfo(ctx, serv)
 				if err != nil {
 					if serv.Name != "" {
 						slog.Warn(
@@ -112,11 +113,20 @@ type serverStatsRequest struct {
 	// Provider                   string              `yaml:"provider"`
 }
 
-func fetchRemoteServerInfo(infoReq *serverStatsRequest) (*sysinfo.SystemInfo, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(infoReq.Timeout))
+func fetchRemoteServerInfo(ctx context.Context, infoReq *serverStatsRequest) (*sysinfo.SystemInfo, error) {
+	requestCtx, cancel := context.WithTimeout(ctx, time.Duration(infoReq.Timeout))
 	defer cancel()
 
-	request, _ := http.NewRequestWithContext(ctx, "GET", infoReq.URL+"/api/sysinfo/all", nil)
+	request, err := http.NewRequestWithContext(
+		requestCtx,
+		http.MethodGet,
+		infoReq.URL+"/api/sysinfo/all",
+		nil,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("creating remote system info request: %w", err)
+	}
+
 	if infoReq.Token != "" {
 		request.Header.Set("Authorization", "Bearer "+infoReq.Token)
 	}

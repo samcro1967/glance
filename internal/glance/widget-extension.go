@@ -42,7 +42,7 @@ func (widget *extensionWidget) initialize() error {
 }
 
 func (widget *extensionWidget) update(ctx context.Context) {
-	extension, err := fetchExtension(extensionRequestOptions{
+	extension, err := fetchExtension(ctx, extensionRequestOptions{
 		URL:                 widget.URL,
 		FallbackContentType: widget.FallbackContentType,
 		Parameters:          widget.Parameters,
@@ -115,8 +115,8 @@ func convertExtensionContent(options extensionRequestOptions, content []byte, co
 	}
 }
 
-func fetchExtension(options extensionRequestOptions) (extension, error) {
-	request, err := http.NewRequest("GET", options.URL, nil)
+func fetchExtension(ctx context.Context, options extensionRequestOptions) (extension, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, options.URL, nil)
 	if err != nil {
 		return extension{}, fmt.Errorf("%w: creating extension request: %w", errNoContent, err)
 	}
@@ -129,7 +129,7 @@ func fetchExtension(options extensionRequestOptions) (extension, error) {
 		request.Header.Add(key, value)
 	}
 
-	response, err := http.DefaultClient.Do(request)
+	response, err := defaultHTTPClient.Do(request)
 	if err != nil {
 		return extension{}, fmt.Errorf(
 			"%w: extension request failed: %w",
@@ -137,7 +137,6 @@ func fetchExtension(options extensionRequestOptions) (extension, error) {
 			safeHTTPTransportError(err),
 		)
 	}
-
 	defer response.Body.Close()
 
 	body, err := io.ReadAll(response.Body)
