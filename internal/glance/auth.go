@@ -334,8 +334,7 @@ func (a *application) handleLoginPageRequest(w http.ResponseWriter, r *http.Requ
 	var responseBytes bytes.Buffer
 	err := loginPageTemplate.Execute(&responseBytes, data)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(err.Error()))
+		writeInternalServerError(w, "Failed to render login page", err)
 		return
 	}
 

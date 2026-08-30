@@ -42,3 +42,14 @@ func TestServeUpdateNoticeServerReportsBindFailure(t *testing.T) {
 		t.Fatalf("error = %q, want address already in use", err)
 	}
 }
+
+func TestLoadUpdateNoticePage(t *testing.T) {
+	body, err := loadUpdateNoticePage()
+	if err != nil {
+		t.Fatalf("loading configuration migration notice: %v", err)
+	}
+
+	if len(body) == 0 {
+		t.Fatal("configuration migration notice is empty")
+	}
+}

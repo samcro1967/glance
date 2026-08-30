@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
+	"log/slog"
 	"math"
 	"net/http"
 	"net/url"
@@ -155,6 +156,11 @@ func fileServerWithCache(fs http.FileSystem, cacheDuration time.Duration) http.H
 		w.Header().Set("Cache-Control", cacheControlValue)
 		server.ServeHTTP(w, r)
 	})
+}
+
+func writeInternalServerError(w http.ResponseWriter, logMessage string, err error) {
+	slog.Error(logMessage, "error", err)
+	http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 }
 
 func executeTemplateToString(t *template.Template, data any) (string, error) {
