@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -1405,5 +1406,66 @@ func TestIsConfigStateValidColumnLayouts(t *testing.T) {
 				)
 			}
 		})
+	}
+}
+
+func TestConfigFilesWatcherCleanupWithPendingDebounce(t *testing.T) {
+	const iterations = 20
+
+	for i := 0; i < iterations; i++ {
+		dir := t.TempDir()
+		mainPath := filepath.Join(dir, "glance.yml")
+
+		initialContents := "page:\n  name: Home\n"
+		writeConfigTestFile(t, mainPath, initialContents)
+
+		parsed, err := parseYAMLIncludesWithSources(mainPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		initialChange := make(chan struct{}, 1)
+		watcherErr := make(chan error, 1)
+
+		stop, err := configFilesWatcherWithSources(
+			mainPath,
+			parsed,
+			func(newParsed *parsedYAMLConfig) {
+				select {
+				case initialChange <- struct{}{}:
+				default:
+				}
+			},
+			func(err error) {
+				select {
+				case watcherErr <- err:
+				default:
+				}
+			},
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		select {
+		case <-initialChange:
+		case err := <-watcherErr:
+			_ = stop()
+			t.Fatalf("watcher error before initial callback: %v", err)
+		case <-time.After(time.Second):
+			_ = stop()
+			t.Fatal("timed out waiting for initial callback")
+		}
+
+		writeConfigTestFile(t, mainPath, "page:\n  name: Updated\n")
+
+		// The watcher debounces writes for 500 ms. Stopping shortly after
+		// the write exercises cleanup while the debounce timer may be
+		// created or pending.
+		time.Sleep(25 * time.Millisecond)
+
+		if err := stop(); err != nil {
+			t.Fatalf("stopping watcher: %v", err)
+		}
 	}
 }
