@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"log/slog"
 	"net/http"
 	"sort"
 	"strings"
@@ -136,7 +135,11 @@ func fetchChannelFromTwitchTask(channel string) (twitchChannel, error) {
 	}
 
 	reader := strings.NewReader(fmt.Sprintf(twitchChannelStatusOperationRequestBody, channel, channel))
-	request, _ := http.NewRequest("POST", twitchGqlEndpoint, reader)
+	request, err := http.NewRequest("POST", twitchGqlEndpoint, reader)
+	if err != nil {
+		return result, fmt.Errorf("creating Twitch channel request: %w", err)
+	}
+
 	request.Header.Add("Client-ID", twitchGqlClientId)
 
 	response, err := decodeJsonFromRequest[[]twitchOperationResponse](defaultHTTPClient, request)
@@ -188,12 +191,10 @@ func fetchChannelFromTwitchTask(channel string) (twitchChannel, error) {
 				result.Category = streamMetadata.UserOrNull.Stream.Game.Name
 				result.CategorySlug = streamMetadata.UserOrNull.Stream.Game.Slug
 			}
-			startedAt, err := time.Parse("2006-01-02T15:04:05Z", streamMetadata.UserOrNull.Stream.StartedAt)
 
+			startedAt, err := time.Parse("2006-01-02T15:04:05Z", streamMetadata.UserOrNull.Stream.StartedAt)
 			if err == nil {
 				result.LiveSince = startedAt
-			} else {
-				slog.Warn("Failed to parse Twitch stream started at", "error", err, "started_at", streamMetadata.UserOrNull.Stream.StartedAt)
 			}
 		}
 	} else {
@@ -211,15 +212,20 @@ func fetchChannelsFromTwitch(channelLogins []string) (twitchChannelList, error) 
 	job := newJob(fetchChannelFromTwitchTask, channelLogins).withWorkers(10)
 	channels, errs, err := workerPoolDo(job)
 	if err != nil {
-		return result, err
+		return result, fmt.Errorf("%w: fetching Twitch channels: %w", errNoContent, err)
 	}
 
-	var failed int
+	failed := 0
+	var firstFailure error
 
 	for i := range channels {
 		if errs[i] != nil {
 			failed++
-			slog.Error("Failed to fetch Twitch channel", "channel", channelLogins[i], "error", errs[i])
+
+			if firstFailure == nil {
+				firstFailure = errs[i]
+			}
+
 			continue
 		}
 
@@ -227,11 +233,23 @@ func fetchChannelsFromTwitch(channelLogins []string) (twitchChannelList, error) 
 	}
 
 	if failed == len(channelLogins) {
-		return result, errNoContent
+		return result, contentFetchError(
+			errNoContent,
+			failed,
+			len(channelLogins),
+			"Twitch channels",
+			firstFailure,
+		)
 	}
 
 	if failed > 0 {
-		return result, fmt.Errorf("%w: failed to fetch %d channels", errPartialContent, failed)
+		return result, contentFetchError(
+			errPartialContent,
+			failed,
+			len(channelLogins),
+			"Twitch channels",
+			firstFailure,
+		)
 	}
 
 	return result, nil

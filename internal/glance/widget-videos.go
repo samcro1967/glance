@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"html/template"
-	"log/slog"
 	"net/http"
 	"net/url"
 	"sort"
@@ -171,7 +170,19 @@ func (w *videosWidget) fetchYoutubeChannelUploads(
 			feedURL = "https://www.youtube.com/feeds/videos.xml?channel_id=" + id
 		}
 
-		request, _ := http.NewRequestWithContext(ctx, "GET", feedURL, nil)
+		request, err := http.NewRequestWithContext(ctx, "GET", feedURL, nil)
+		if err != nil {
+			cached, ok := w.cachedVideoLists.Load(id)
+			if ok {
+				return cached.(cachedEntry[videoList]).value, fmt.Errorf(
+					"creating YouTube feed request: %w",
+					err,
+				)
+			}
+
+			return list, fmt.Errorf("creating YouTube feed request: %w", err)
+		}
+
 		response, err := decodeXmlFromRequest[youtubeFeedResponseXml](defaultHTTPClient, request)
 		if err != nil {
 			cached, ok := w.cachedVideoLists.Load(id)
@@ -215,16 +226,20 @@ func (w *videosWidget) fetchYoutubeChannelUploads(
 	job := newJob(task, channelOrPlaylistIDs).withWorkers(30).withContext(ctx)
 	lists, errs, err := workerPoolDo(job)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", errNoContent, err)
+		return nil, fmt.Errorf("%w: fetching YouTube feeds: %w", errNoContent, err)
 	}
 
 	videos := make(videoList, 0, len(channelOrPlaylistIDs)*15)
-	var failed int
+	failed := 0
+	var firstFailure error
 
 	for i := range lists {
 		if errs[i] != nil {
 			failed++
-			slog.Error("Failed to fetch youtube feed", "channel", channelOrPlaylistIDs[i], "error", errs[i])
+
+			if firstFailure == nil {
+				firstFailure = errs[i]
+			}
 		}
 
 		// We still append the list even if it failed, because we may have a cached version of the list
@@ -232,13 +247,25 @@ func (w *videosWidget) fetchYoutubeChannelUploads(
 	}
 
 	if len(videos) == 0 {
-		return nil, errNoContent
+		return nil, contentFetchError(
+			errNoContent,
+			failed,
+			len(channelOrPlaylistIDs),
+			"YouTube feeds",
+			firstFailure,
+		)
 	}
 
 	videos.sortByNewest()
 
 	if failed > 0 {
-		return videos, fmt.Errorf("%w: missing videos from %d channels", errPartialContent, failed)
+		return videos, contentFetchError(
+			errPartialContent,
+			failed,
+			len(channelOrPlaylistIDs),
+			"YouTube feeds",
+			firstFailure,
+		)
 	}
 
 	return videos, nil

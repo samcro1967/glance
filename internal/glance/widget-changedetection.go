@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"html/template"
-	"log/slog"
 	"net/http"
 	"sort"
 	"strings"
@@ -96,7 +95,10 @@ type changeDetectionResponseJson struct {
 }
 
 func fetchWatchUUIDsFromChangeDetection(instanceURL string, token string) ([]string, error) {
-	request, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/v1/watch", instanceURL), nil)
+	request, err := http.NewRequest("GET", fmt.Sprintf("%s/api/v1/watch", instanceURL), nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating change detection watch list request: %w", err)
+	}
 
 	if token != "" {
 		request.Header.Add("x-api-key", token)
@@ -104,7 +106,7 @@ func fetchWatchUUIDsFromChangeDetection(instanceURL string, token string) ([]str
 
 	uuidsMap, err := decodeJsonFromRequest[map[string]struct{}](defaultHTTPClient, request)
 	if err != nil {
-		return nil, fmt.Errorf("could not fetch list of watch UUIDs: %v", err)
+		return nil, fmt.Errorf("fetching change detection watch list: %w", err)
 	}
 
 	uuids := make([]string, 0, len(uuidsMap))
@@ -123,35 +125,49 @@ func fetchWatchesFromChangeDetection(instanceURL string, requestedWatchIDs []str
 		return watches, nil
 	}
 
-	requests := make([]*http.Request, len(requestedWatchIDs))
+	requests := make([]*http.Request, 0, len(requestedWatchIDs))
 
-	for i, repository := range requestedWatchIDs {
-		request, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/v1/watch/%s", instanceURL, repository), nil)
+	for _, watchID := range requestedWatchIDs {
+		request, err := http.NewRequest(
+			"GET",
+			fmt.Sprintf("%s/api/v1/watch/%s", instanceURL, watchID),
+			nil,
+		)
+		if err != nil {
+			return nil, contentFetchError(
+				errNoContent,
+				1,
+				len(requestedWatchIDs),
+				"change detection watches",
+				fmt.Errorf("creating change detection watch request: %w", err),
+			)
+		}
 
 		if token != "" {
 			request.Header.Add("x-api-key", token)
 		}
 
-		requests[i] = request
+		requests = append(requests, request)
 	}
 
 	task := decodeJsonFromRequestTask[changeDetectionResponseJson](defaultHTTPClient)
 	job := newJob(task, requests).withWorkers(15)
 	responses, errs, err := workerPoolDo(job)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: fetching change detection watches: %w", errNoContent, err)
 	}
 
-	var failed int
+	failed := 0
+	var firstFailure error
 
 	for i := range responses {
 		if errs[i] != nil {
 			failed++
-			slog.Error(
-				"Failed to fetch or parse change detection watch",
-				"watch_id", requestedWatchIDs[i],
-				"error", errs[i],
-			)
+
+			if firstFailure == nil {
+				firstFailure = errs[i]
+			}
+
 			continue
 		}
 
@@ -188,13 +204,25 @@ func fetchWatchesFromChangeDetection(instanceURL string, requestedWatchIDs []str
 	}
 
 	if len(watches) == 0 {
-		return nil, errNoContent
+		return nil, contentFetchError(
+			errNoContent,
+			failed,
+			len(requestedWatchIDs),
+			"change detection watches",
+			firstFailure,
+		)
 	}
 
 	watches.sortByNewest()
 
 	if failed > 0 {
-		return watches, fmt.Errorf("%w: could not get %d watches", errPartialContent, failed)
+		return watches, contentFetchError(
+			errPartialContent,
+			failed,
+			len(requestedWatchIDs),
+			"change detection watches",
+			firstFailure,
+		)
 	}
 
 	return watches, nil

@@ -10,6 +10,7 @@ import (
 	"io"
 	"math/rand/v2"
 	"net/http"
+	"net/url"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -59,34 +60,79 @@ func setBrowserUserAgentHeader(request *http.Request) {
 	request.Header.Set("User-Agent", getBrowserUserAgentHeader())
 }
 
+func unexpectedHTTPStatusError(response *http.Response) error {
+	if response == nil {
+		return errors.New("unexpected HTTP response")
+	}
+
+	if response.Status != "" {
+		return fmt.Errorf("unexpected HTTP status %s", response.Status)
+	}
+
+	return fmt.Errorf("unexpected HTTP status %d", response.StatusCode)
+}
+
+func safeHTTPTransportError(err error) error {
+	for {
+		var urlErr *url.Error
+		if !errors.As(err, &urlErr) || urlErr.Err == nil {
+			return err
+		}
+
+		err = urlErr.Err
+	}
+}
+
+func contentFetchError(
+	classification error,
+	failed int,
+	total int,
+	resource string,
+	cause error,
+) error {
+	if cause == nil {
+		return fmt.Errorf(
+			"%w: failed %d of %d %s",
+			classification,
+			failed,
+			total,
+			resource,
+		)
+	}
+
+	return fmt.Errorf(
+		"%w: failed %d of %d %s; first failure: %w",
+		classification,
+		failed,
+		total,
+		resource,
+		cause,
+	)
+}
+
 func decodeJsonFromRequest[T any](client requestDoer, request *http.Request) (T, error) {
 	var result T
 
 	response, err := client.Do(request)
 	if err != nil {
-		return result, err
+		return result, fmt.Errorf(
+			"sending HTTP request: %w",
+			safeHTTPTransportError(err),
+		)
 	}
 	defer response.Body.Close()
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
-		return result, err
+		return result, fmt.Errorf("reading HTTP response: %w", err)
 	}
 
 	if response.StatusCode != http.StatusOK {
-		truncatedBody, _ := limitStringLength(string(body), 256)
-
-		return result, fmt.Errorf(
-			"unexpected status code %d from %s, response: %s",
-			response.StatusCode,
-			request.URL,
-			truncatedBody,
-		)
+		return result, unexpectedHTTPStatusError(response)
 	}
 
-	err = json.Unmarshal(body, &result)
-	if err != nil {
-		return result, err
+	if err := json.Unmarshal(body, &result); err != nil {
+		return result, fmt.Errorf("decoding JSON response: %w", err)
 	}
 
 	return result, nil
@@ -104,29 +150,24 @@ func decodeXmlFromRequest[T any](client requestDoer, request *http.Request) (T, 
 
 	response, err := client.Do(request)
 	if err != nil {
-		return result, err
+		return result, fmt.Errorf(
+			"sending HTTP request: %w",
+			safeHTTPTransportError(err),
+		)
 	}
 	defer response.Body.Close()
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
-		return result, err
+		return result, fmt.Errorf("reading HTTP response: %w", err)
 	}
 
 	if response.StatusCode != http.StatusOK {
-		truncatedBody, _ := limitStringLength(string(body), 256)
-
-		return result, fmt.Errorf(
-			"unexpected status code %d for %s, response: %s",
-			response.StatusCode,
-			request.URL,
-			truncatedBody,
-		)
+		return result, unexpectedHTTPStatusError(response)
 	}
 
-	err = xml.Unmarshal(body, &result)
-	if err != nil {
-		return result, err
+	if err := xml.Unmarshal(body, &result); err != nil {
+		return result, fmt.Errorf("decoding XML response: %w", err)
 	}
 
 	return result, nil

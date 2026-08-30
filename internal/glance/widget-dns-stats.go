@@ -163,7 +163,7 @@ func fetchAdguardStats(instanceURL string, allowInsecure bool, username, passwor
 
 	request, err := http.NewRequest("GET", requestURL, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating AdGuard stats request: %w", err)
 	}
 
 	request.SetBasicAuth(username, password)
@@ -171,7 +171,7 @@ func fetchAdguardStats(instanceURL string, allowInsecure bool, username, passwor
 	var client = ternary(allowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
 	responseJson, err := decodeJsonFromRequest[adguardStatsResponse](client, request)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching AdGuard stats: %w", err)
 	}
 
 	var topBlockedDomainsCount = min(len(responseJson.TopBlockedDomains), 5)
@@ -321,13 +321,13 @@ func fetchPihole5Stats(instanceURL string, allowInsecure bool, token string, noG
 
 	request, err := http.NewRequest("GET", requestURL, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating Pi-hole stats request: %w", err)
 	}
 
 	var client = ternary(allowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
 	responseJson, err := decodeJsonFromRequest[pihole5StatsResponse](client, request)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching Pi-hole stats: %w", err)
 	}
 
 	stats := &dnsStats{
@@ -431,20 +431,17 @@ func fetchPiholeStats(
 
 	if sessionID == "" {
 		if err := fetchNewSessionID(); err != nil {
-			slog.Error("Failed to fetch Pihole v6 session ID", "error", err)
-			return nil, "", fmt.Errorf("fetching session ID: %v", err)
+			return nil, "", fmt.Errorf("fetching session ID: %w", err)
 		}
 	} else {
 		isValid, err := checkPiholeSessionIDIsValid(instanceURL, client, sessionID)
 		if err != nil {
-			slog.Error("Failed to check Pihole v6 session ID validity", "error", err)
-			return nil, "", fmt.Errorf("checking session ID: %v", err)
+			return nil, "", fmt.Errorf("checking session ID: %w", err)
 		}
 
 		if !isValid {
 			if err := fetchNewSessionID(); err != nil {
-				slog.Error("Failed to renew Pihole v6 session ID", "error", err)
-				return nil, "", fmt.Errorf("renewing session ID: %v", err)
+				return nil, "", fmt.Errorf("renewing session ID: %w", err)
 			}
 		}
 	}
@@ -464,7 +461,10 @@ func fetchPiholeStats(
 		} `json:"gravity"`
 	}
 
-	statsRequest, _ := http.NewRequestWithContext(ctx, "GET", instanceURL+"/api/stats/summary", nil)
+	statsRequest, err := http.NewRequestWithContext(ctx, "GET", instanceURL+"/api/stats/summary", nil)
+	if err != nil {
+		return nil, "", fmt.Errorf("creating stats request: %w", err)
+	}
 	statsRequest.Header.Set("x-ftl-sid", sessionID)
 
 	var statsResponse statsResponseJson
@@ -491,7 +491,10 @@ func fetchPiholeStats(
 	var seriesErr error
 
 	if includeGraph {
-		seriesRequest, _ := http.NewRequestWithContext(ctx, "GET", instanceURL+"/api/history", nil)
+		seriesRequest, err := http.NewRequestWithContext(ctx, "GET", instanceURL+"/api/history", nil)
+		if err != nil {
+			return nil, "", fmt.Errorf("creating graph request: %w", err)
+		}
 		seriesRequest.Header.Set("x-ftl-sid", sessionID)
 
 		wg.Add(1)
@@ -515,7 +518,10 @@ func fetchPiholeStats(
 	var topDomainsErr error
 
 	if includeTopDomains {
-		topDomainsRequest, _ := http.NewRequestWithContext(ctx, "GET", instanceURL+"/api/stats/top_domains?blocked=true", nil)
+		topDomainsRequest, err := http.NewRequestWithContext(ctx, "GET", instanceURL+"/api/stats/top_domains?blocked=true", nil)
+		if err != nil {
+			return nil, "", fmt.Errorf("creating top domains request: %w", err)
+		}
 		topDomainsRequest.Header.Set("x-ftl-sid", sessionID)
 
 		wg.Add(1)
@@ -526,20 +532,34 @@ func fetchPiholeStats(
 	}
 
 	wg.Wait()
-	partialContent := false
 
 	if statsErr != nil {
-		return nil, "", fmt.Errorf("fetching stats: %v", statsErr)
+		return nil, "", fmt.Errorf("fetching stats: %w", statsErr)
 	}
 
-	if includeGraph && seriesErr != nil {
-		slog.Error("Failed to fetch Pihole v6 graph data", "error", seriesErr)
-		partialContent = true
+	partialFailures := 0
+	partialTotal := 0
+	var firstPartialFailure error
+
+	if includeGraph {
+		partialTotal++
+
+		if seriesErr != nil {
+			partialFailures++
+			firstPartialFailure = fmt.Errorf("fetching graph data: %w", seriesErr)
+		}
 	}
 
-	if includeTopDomains && topDomainsErr != nil {
-		slog.Error("Failed to fetch Pihole v6 top domains", "error", topDomainsErr)
-		partialContent = true
+	if includeTopDomains {
+		partialTotal++
+
+		if topDomainsErr != nil {
+			partialFailures++
+
+			if firstPartialFailure == nil {
+				firstPartialFailure = fmt.Errorf("fetching top domains: %w", topDomainsErr)
+			}
+		}
 	}
 
 	stats := &dnsStats{
@@ -551,12 +571,14 @@ func fetchPiholeStats(
 
 	if includeGraph && seriesErr == nil {
 		if len(seriesResponse.History) != 145 {
-			slog.Error(
-				"Pihole v6 graph data has unexpected length",
-				"length", len(seriesResponse.History),
-				"expected", 145,
-			)
-			partialContent = true
+			partialFailures++
+
+			if firstPartialFailure == nil {
+				firstPartialFailure = fmt.Errorf(
+					"graph data has unexpected length %d, expected 145",
+					len(seriesResponse.History),
+				)
+			}
 		} else {
 			// The API from v5 used to return 144 data points, but v6 returns 145.
 			// We only show data from the last 24 hours hours, Pihole returns data
@@ -573,18 +595,22 @@ func fetchPiholeStats(
 			for i := range dnsStatsBars {
 				queries := 0
 				blocked := 0
+
 				for j := range dataPointsPerBar {
 					index := i*dataPointsPerBar + j
 					queries += history[index].Total
 					blocked += history[index].Blocked
 				}
+
 				if queries > maxQueriesInSeries {
 					maxQueriesInSeries = queries
 				}
+
 				stats.Series[i] = dnsStatsSeries{
 					Queries: queries,
 					Blocked: blocked,
 				}
+
 				if queries > 0 {
 					stats.Series[i].PercentBlocked = int(float64(blocked) / float64(queries) * 100)
 				}
@@ -598,6 +624,7 @@ func fetchPiholeStats(
 
 	if includeTopDomains && topDomainsErr == nil && len(topDomainsResponse.Domains) > 0 {
 		domains := make([]dnsStatsBlockedDomain, 0, len(topDomainsResponse.Domains))
+
 		for i := range topDomainsResponse.Domains {
 			d := &topDomainsResponse.Domains[i]
 			domains = append(domains, dnsStatsBlockedDomain{
@@ -609,10 +636,21 @@ func fetchPiholeStats(
 		sort.Slice(domains, func(a, b int) bool {
 			return domains[a].PercentBlocked > domains[b].PercentBlocked
 		})
+
 		stats.TopBlockedDomains = domains[:min(len(domains), 5)]
 	}
 
-	return stats, sessionID, ternary(partialContent, errPartialContent, nil)
+	if partialFailures > 0 {
+		return stats, sessionID, contentFetchError(
+			errPartialContent,
+			partialFailures,
+			partialTotal,
+			"Pi-hole optional sections",
+			firstPartialFailure,
+		)
+	}
+
+	return stats, sessionID, nil
 }
 
 func fetchPiholeSessionID(instanceURL string, client *http.Client, password string) (string, error) {
@@ -620,44 +658,37 @@ func fetchPiholeSessionID(instanceURL string, client *http.Client, password stri
 
 	request, err := http.NewRequest("POST", instanceURL+"/api/auth", bytes.NewBuffer(requestBody))
 	if err != nil {
-		return "", fmt.Errorf("creating authentication request: %v", err)
+		return "", fmt.Errorf("creating authentication request: %w", err)
 	}
 	request.Header.Set("Content-Type", "application/json")
 
 	response, err := client.Do(request)
 	if err != nil {
-		return "", fmt.Errorf("sending authentication request: %v", err)
+		return "", fmt.Errorf("sending authentication request: %w", safeHTTPTransportError(err))
 	}
 	defer response.Body.Close()
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
-		return "", fmt.Errorf("reading authentication response: %v", err)
+		return "", fmt.Errorf("reading authentication response: %w", err)
 	}
 
 	var jsonResponse struct {
 		Session struct {
-			SID     string `json:"sid"`
-			Message string `json:"message"`
+			SID string `json:"sid"`
 		} `json:"session"`
 	}
 
 	if err := json.Unmarshal(body, &jsonResponse); err != nil {
-		return "", fmt.Errorf("parsing authentication response: %v", err)
+		return "", fmt.Errorf("parsing authentication response: %w", err)
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return "", fmt.Errorf(
-			"authentication request returned status %s with message '%s'",
-			response.Status, jsonResponse.Session.Message,
-		)
+		return "", unexpectedHTTPStatusError(response)
 	}
 
 	if jsonResponse.Session.SID == "" {
-		return "", fmt.Errorf(
-			"authentication response returned empty session ID, status code %d, message '%s'",
-			response.StatusCode, jsonResponse.Session.Message,
-		)
+		return "", errors.New("authentication response returned empty session ID")
 	}
 
 	return jsonResponse.Session.SID, nil
@@ -666,18 +697,18 @@ func fetchPiholeSessionID(instanceURL string, client *http.Client, password stri
 func checkPiholeSessionIDIsValid(instanceURL string, client *http.Client, sessionID string) (bool, error) {
 	request, err := http.NewRequest("GET", instanceURL+"/api/auth", nil)
 	if err != nil {
-		return false, fmt.Errorf("creating session ID check request: %v", err)
+		return false, fmt.Errorf("creating session ID check request: %w", err)
 	}
 	request.Header.Set("x-ftl-sid", sessionID)
 
 	response, err := client.Do(request)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("sending session ID check request: %w", safeHTTPTransportError(err))
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK && response.StatusCode != http.StatusUnauthorized {
-		return false, fmt.Errorf("session ID check request returned status %s", response.Status)
+		return false, unexpectedHTTPStatusError(response)
 	}
 
 	return response.StatusCode == http.StatusOK, nil
@@ -713,7 +744,7 @@ func fetchTechnitiumStats(instanceUrl string, allowInsecure bool, token string, 
 
 	request, err := http.NewRequest("GET", requestURL, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating Technitium stats request: %w", err)
 	}
 
 	var client requestDoer
@@ -725,7 +756,7 @@ func fetchTechnitiumStats(instanceUrl string, allowInsecure bool, token string, 
 
 	responseJson, err := decodeJsonFromRequest[technitiumStatsResponse](client, request)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching Technitium stats: %w", err)
 	}
 
 	var topBlockedDomainsCount = min(len(responseJson.Response.TopBlockedDomains), 5)

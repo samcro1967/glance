@@ -182,7 +182,7 @@ func (widget *redditWidget) fetchSubredditPosts(ctx context.Context) (forumPostL
 
 		if app.accessToken == "" || time.Now().Add(time.Minute).After(app.tokenExpiresAt) {
 			if err := widget.fetchNewAppAccessToken(ctx); err != nil {
-				return nil, fmt.Errorf("fetching new app access token: %v", err)
+				return nil, fmt.Errorf("fetching new app access token: %w", err)
 			}
 		}
 
@@ -215,24 +215,23 @@ func (widget *redditWidget) fetchSubredditPosts(ctx context.Context) (forumPostL
 
 	request, err := http.NewRequestWithContext(ctx, "GET", requestURL, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating Reddit request: %w", err)
 	}
 	request.Header = headers
 
 	loid, err := getRedditLoidCookie()
 	if err != nil {
-		slog.Error("Failed to fetch Reddit LOID cookie", "error", err)
-		return nil, errors.New("could not solve reddit challenge")
+		return nil, fmt.Errorf("solving Reddit challenge: %w", err)
 	}
 	request.AddCookie(&http.Cookie{Name: "loid", Value: loid})
 
 	responseJson, err := decodeJsonFromRequest[subredditResponseJson](client, request)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching Reddit posts: %w", err)
 	}
 
 	if len(responseJson.Data.Children) == 0 {
-		return nil, fmt.Errorf("no posts found")
+		return nil, errors.New("no posts found")
 	}
 
 	posts := make(forumPostList, 0, len(responseJson.Data.Children))
@@ -303,7 +302,7 @@ func (widget *redditWidget) fetchNewAppAccessToken(ctx context.Context) error {
 		body,
 	)
 	if err != nil {
-		return fmt.Errorf("creating request for app access token: %v", err)
+		return fmt.Errorf("creating request for app access token: %w", err)
 	}
 
 	app := &widget.AppAuth
@@ -404,28 +403,28 @@ func fetchRedditLoidCookie() (string, error) {
 
 	response, err := redditHTTPClient.Do(request)
 	if err != nil {
-		return "", err
+		return "", safeHTTPTransportError(err)
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("unexpected status code %d when requesting challenge page", response.StatusCode)
+		return "", unexpectedHTTPStatusError(response)
 	}
 
 	challengeBody, err := io.ReadAll(response.Body)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("reading Reddit challenge response: %w", err)
 	}
 
 	challengeMatches := redditChallengePattern.FindSubmatch(challengeBody)
 	tokenMatches := redditTokenPattern.FindSubmatch(challengeBody)
 
 	if challengeMatches == nil {
-		return "", fmt.Errorf("no JS challenge found")
+		return "", errors.New("no JS challenge found")
 	}
 
 	if tokenMatches == nil {
-		return "", fmt.Errorf("no token found in challenge page")
+		return "", errors.New("no token found in challenge page")
 	}
 
 	challengeStr := string(challengeMatches[1])
@@ -446,12 +445,12 @@ func fetchRedditLoidCookie() (string, error) {
 
 	response, err = redditHTTPClient.Do(request)
 	if err != nil {
-		return "", err
+		return "", safeHTTPTransportError(err)
 	}
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("unexpected status code %d when submitting challenge solution", response.StatusCode)
+		return "", unexpectedHTTPStatusError(response)
 	}
 
 	for _, cookie := range response.Cookies() {
@@ -460,5 +459,5 @@ func fetchRedditLoidCookie() (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("no loid cookie found")
+	return "", errors.New("no loid cookie found")
 }

@@ -116,7 +116,11 @@ func convertExtensionContent(options extensionRequestOptions, content []byte, co
 }
 
 func fetchExtension(options extensionRequestOptions) (extension, error) {
-	request, _ := http.NewRequest("GET", options.URL, nil)
+	request, err := http.NewRequest("GET", options.URL, nil)
+	if err != nil {
+		return extension{}, fmt.Errorf("%w: creating extension request: %w", errNoContent, err)
+	}
+
 	if len(options.Parameters) > 0 {
 		request.URL.RawQuery = options.Parameters.toQueryString()
 	}
@@ -127,7 +131,11 @@ func fetchExtension(options extensionRequestOptions) (extension, error) {
 
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
-		return extension{}, fmt.Errorf("%w: request failed: %w", errNoContent, err)
+		return extension{}, fmt.Errorf(
+			"%w: extension request failed: %w",
+			errNoContent,
+			safeHTTPTransportError(err),
+		)
 	}
 
 	defer response.Body.Close()

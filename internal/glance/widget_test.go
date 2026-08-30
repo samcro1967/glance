@@ -201,6 +201,10 @@ func TestWidgetRefreshFailureLogsTransitionOnce(t *testing.T) {
 		t.Fatalf("missing widget title: %q", firstLog)
 	}
 
+	if !strings.Contains(firstLog, `cause="temporary failure"`) {
+		t.Fatalf("missing refresh failure cause: %q", firstLog)
+	}
+
 	if !strings.Contains(firstLog, "retry_attempt=1") {
 		t.Fatalf("missing retry attempt: %q", firstLog)
 	}
@@ -209,8 +213,8 @@ func TestWidgetRefreshFailureLogsTransitionOnce(t *testing.T) {
 		t.Fatalf("missing next update: %q", firstLog)
 	}
 
-	if strings.Contains(firstLog, err.Error()) {
-		t.Fatalf("transition warning should not duplicate underlying error: %q", firstLog)
+	if strings.Count(firstLog, err.Error()) != 1 {
+		t.Fatalf("refresh failure cause should appear exactly once: %q", firstLog)
 	}
 
 	logOutput.Reset()
@@ -276,6 +280,10 @@ func TestWidgetRefreshRecoveryLogsTransition(t *testing.T) {
 		t.Fatalf("missing widget title: %q", recoveryLog)
 	}
 
+	if strings.Contains(recoveryLog, "cause=") {
+		t.Fatalf("recovery log should not contain a cause: %q", recoveryLog)
+	}
+
 	logOutput.Reset()
 
 	if !widget.canContinueUpdateAfterHandlingErr(nil) {
@@ -330,6 +338,49 @@ func TestWidgetPartialRefreshLogsDegradedAndRecovery(t *testing.T) {
 		t.Fatalf("missing widget ID: %q", degradedLog)
 	}
 
+	if !strings.Contains(degradedLog, "type=test-widget") {
+		t.Fatalf("missing widget type: %q", degradedLog)
+	}
+
+	if !strings.Contains(degradedLog, `title="Partial Test"`) {
+		t.Fatalf("missing widget title: %q", degradedLog)
+	}
+
+	expectedCause := fmt.Sprintf("cause=%q", partialErr.Error())
+	if !strings.Contains(degradedLog, expectedCause) {
+		t.Fatalf("missing partial refresh cause %q: %q", partialErr.Error(), degradedLog)
+	}
+
+	if strings.Count(degradedLog, partialErr.Error()) != 1 {
+		t.Fatalf("partial refresh cause should appear exactly once: %q", degradedLog)
+	}
+
+	logOutput.Reset()
+
+	if !widget.canContinueUpdateAfterHandlingErr(partialErr) {
+		t.Fatal("repeated partial-content refresh should continue update")
+	}
+
+	if logOutput.Len() != 0 {
+		t.Fatalf("repeated partial failure emitted another transition warning: %q", logOutput.String())
+	}
+
+	if widget.updateRetriedTimes != 2 {
+		t.Fatalf("retry attempts = %d, want 2", widget.updateRetriedTimes)
+	}
+
+	if widget.Error != nil {
+		t.Fatalf("repeated partial-content refresh should not set widget error: %v", widget.Error)
+	}
+
+	if widget.Notice == nil {
+		t.Fatal("repeated partial-content refresh should retain widget notice")
+	}
+
+	if !errors.Is(widget.Notice, errPartialContent) {
+		t.Fatalf("widget notice should preserve partial-content classification: %v", widget.Notice)
+	}
+
 	logOutput.Reset()
 
 	if !widget.canContinueUpdateAfterHandlingErr(nil) {
@@ -344,8 +395,40 @@ func TestWidgetPartialRefreshLogsDegradedAndRecovery(t *testing.T) {
 		t.Fatalf("widget notice should clear after recovery: %v", widget.Notice)
 	}
 
-	if !strings.Contains(logOutput.String(), `level=INFO msg="Widget recovered"`) {
-		t.Fatalf("missing recovery log after partial-content failure: %q", logOutput.String())
+	if widget.updateRetriedTimes != 0 {
+		t.Fatalf("retry attempts = %d, want 0 after recovery", widget.updateRetriedTimes)
+	}
+
+	recoveryLog := logOutput.String()
+
+	if !strings.Contains(recoveryLog, `level=INFO msg="Widget recovered"`) {
+		t.Fatalf("missing recovery log after partial-content failure: %q", recoveryLog)
+	}
+
+	if !strings.Contains(recoveryLog, "widget_id=44") {
+		t.Fatalf("missing widget ID in recovery log: %q", recoveryLog)
+	}
+
+	if !strings.Contains(recoveryLog, "type=test-widget") {
+		t.Fatalf("missing widget type in recovery log: %q", recoveryLog)
+	}
+
+	if !strings.Contains(recoveryLog, `title="Partial Test"`) {
+		t.Fatalf("missing widget title in recovery log: %q", recoveryLog)
+	}
+
+	if strings.Contains(recoveryLog, "cause=") {
+		t.Fatalf("recovery log should not contain a cause: %q", recoveryLog)
+	}
+
+	logOutput.Reset()
+
+	if !widget.canContinueUpdateAfterHandlingErr(nil) {
+		t.Fatal("subsequent successful refresh should continue update")
+	}
+
+	if logOutput.Len() != 0 {
+		t.Fatalf("healthy refresh emitted transition log: %q", logOutput.String())
 	}
 }
 

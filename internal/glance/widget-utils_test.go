@@ -2,11 +2,310 @@ package glance
 
 import (
 	"context"
+	"encoding/json"
+	"encoding/xml"
 	"errors"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 )
+
+type testRequestDoer func(*http.Request) (*http.Response, error)
+
+func (doer testRequestDoer) Do(request *http.Request) (*http.Response, error) {
+	return doer(request)
+}
+
+func TestContentFetchErrorPreservesPartialContentClassificationAndCause(t *testing.T) {
+	cause := errors.New("provider unavailable")
+
+	err := contentFetchError(
+		errPartialContent,
+		2,
+		5,
+		"RSS feeds",
+		cause,
+	)
+
+	if !errors.Is(err, errPartialContent) {
+		t.Fatalf("partial-content classification was not preserved: %v", err)
+	}
+
+	if !errors.Is(err, cause) {
+		t.Fatalf("underlying cause was not preserved: %v", err)
+	}
+
+	expected := "failed to retrieve some of the content: failed 2 of 5 RSS feeds; first failure: provider unavailable"
+	if err.Error() != expected {
+		t.Fatalf("unexpected error:\n got: %q\nwant: %q", err.Error(), expected)
+	}
+}
+
+func TestContentFetchErrorPreservesNoContentClassificationAndCause(t *testing.T) {
+	cause := context.DeadlineExceeded
+
+	err := contentFetchError(
+		errNoContent,
+		3,
+		3,
+		"releases",
+		cause,
+	)
+
+	if !errors.Is(err, errNoContent) {
+		t.Fatalf("no-content classification was not preserved: %v", err)
+	}
+
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("underlying cause was not preserved: %v", err)
+	}
+
+	expected := "failed to retrieve any content: failed 3 of 3 releases; first failure: context deadline exceeded"
+	if err.Error() != expected {
+		t.Fatalf("unexpected error:\n got: %q\nwant: %q", err.Error(), expected)
+	}
+}
+
+func TestContentFetchErrorWithoutCause(t *testing.T) {
+	err := contentFetchError(
+		errPartialContent,
+		1,
+		4,
+		"markets",
+		nil,
+	)
+
+	if !errors.Is(err, errPartialContent) {
+		t.Fatalf("partial-content classification was not preserved: %v", err)
+	}
+
+	expected := "failed to retrieve some of the content: failed 1 of 4 markets"
+	if err.Error() != expected {
+		t.Fatalf("unexpected error:\n got: %q\nwant: %q", err.Error(), expected)
+	}
+}
+
+func TestDecodeJsonFromRequestHTTPStatusDoesNotExposeRequestOrResponse(t *testing.T) {
+	const (
+		secretURL      = "https://example.com/data?token=super-secret-token"
+		secretResponse = `{"secret":"super-secret-response"}`
+	)
+
+	request, err := http.NewRequest(http.MethodGet, secretURL, nil)
+	if err != nil {
+		t.Fatalf("creating request: %v", err)
+	}
+
+	client := testRequestDoer(func(*http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusUnauthorized,
+			Status:     "401 Unauthorized",
+			Body:       io.NopCloser(strings.NewReader(secretResponse)),
+		}, nil
+	})
+
+	_, err = decodeJsonFromRequest[map[string]any](client, request)
+	if err == nil {
+		t.Fatal("expected HTTP status error")
+	}
+
+	message := err.Error()
+
+	if message != "unexpected HTTP status 401 Unauthorized" {
+		t.Fatalf("unexpected error: %q", message)
+	}
+
+	if strings.Contains(message, "super-secret-token") {
+		t.Fatalf("error exposed request query secret: %q", message)
+	}
+
+	if strings.Contains(message, "super-secret-response") {
+		t.Fatalf("error exposed response body: %q", message)
+	}
+
+	if strings.Contains(message, secretURL) {
+		t.Fatalf("error exposed request URL: %q", message)
+	}
+}
+
+func TestDecodeXmlFromRequestHTTPStatusDoesNotExposeRequestOrResponse(t *testing.T) {
+	const (
+		secretURL      = "https://example.com/feed?api_key=super-secret-key"
+		secretResponse = `<response><secret>super-secret-response</secret></response>`
+	)
+
+	request, err := http.NewRequest(http.MethodGet, secretURL, nil)
+	if err != nil {
+		t.Fatalf("creating request: %v", err)
+	}
+
+	client := testRequestDoer(func(*http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusTooManyRequests,
+			Status:     "429 Too Many Requests",
+			Body:       io.NopCloser(strings.NewReader(secretResponse)),
+		}, nil
+	})
+
+	_, err = decodeXmlFromRequest[struct{}](client, request)
+	if err == nil {
+		t.Fatal("expected HTTP status error")
+	}
+
+	message := err.Error()
+
+	if message != "unexpected HTTP status 429 Too Many Requests" {
+		t.Fatalf("unexpected error: %q", message)
+	}
+
+	if strings.Contains(message, "super-secret-key") {
+		t.Fatalf("error exposed request query secret: %q", message)
+	}
+
+	if strings.Contains(message, "super-secret-response") {
+		t.Fatalf("error exposed response body: %q", message)
+	}
+
+	if strings.Contains(message, secretURL) {
+		t.Fatalf("error exposed request URL: %q", message)
+	}
+}
+
+func TestDecodeJsonFromRequestPreservesTransportError(t *testing.T) {
+	transportErr := errors.New("transport failure")
+
+	request, err := http.NewRequest(
+		http.MethodGet,
+		"https://example.com/data?token=super-secret-token",
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("creating request: %v", err)
+	}
+
+	client := testRequestDoer(func(*http.Request) (*http.Response, error) {
+		return nil, transportErr
+	})
+
+	_, err = decodeJsonFromRequest[struct{}](client, request)
+	if err == nil {
+		t.Fatal("expected transport error")
+	}
+
+	if !errors.Is(err, transportErr) {
+		t.Fatalf("transport error was not preserved: %v", err)
+	}
+
+	if err.Error() != "sending HTTP request: transport failure" {
+		t.Fatalf("unexpected error: %q", err)
+	}
+
+	if strings.Contains(err.Error(), "super-secret-token") {
+		t.Fatalf("error exposed request query secret: %q", err)
+	}
+}
+
+func TestDecodeJsonFromRequestTransportURLErrorDoesNotExposeURL(t *testing.T) {
+	const secretURL = "https://example.com/data?token=super-secret-token"
+
+	transportCause := errors.New("connection refused")
+
+	request, err := http.NewRequest(http.MethodGet, secretURL, nil)
+	if err != nil {
+		t.Fatalf("creating request: %v", err)
+	}
+
+	client := testRequestDoer(func(*http.Request) (*http.Response, error) {
+		return nil, &url.Error{
+			Op:  "Get",
+			URL: secretURL,
+			Err: transportCause,
+		}
+	})
+
+	_, err = decodeJsonFromRequest[struct{}](client, request)
+	if err == nil {
+		t.Fatal("expected transport error")
+	}
+
+	if !errors.Is(err, transportCause) {
+		t.Fatalf("transport cause was not preserved: %v", err)
+	}
+
+	if strings.Contains(err.Error(), secretURL) {
+		t.Fatalf("transport error exposed request URL: %q", err)
+	}
+
+	if strings.Contains(err.Error(), "super-secret-token") {
+		t.Fatalf("transport error exposed request query secret: %q", err)
+	}
+
+	if !strings.Contains(err.Error(), "connection refused") {
+		t.Fatalf("transport error lost useful cause: %q", err)
+	}
+}
+
+func TestDecodeJsonFromRequestPreservesDecodeError(t *testing.T) {
+	request, err := http.NewRequest(http.MethodGet, "https://example.com/data", nil)
+	if err != nil {
+		t.Fatalf("creating request: %v", err)
+	}
+
+	client := testRequestDoer(func(*http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Status:     "200 OK",
+			Body:       io.NopCloser(strings.NewReader(`{"broken":`)),
+		}, nil
+	})
+
+	_, err = decodeJsonFromRequest[map[string]any](client, request)
+	if err == nil {
+		t.Fatal("expected JSON decode error")
+	}
+
+	if !strings.HasPrefix(err.Error(), "decoding JSON response: ") {
+		t.Fatalf("unexpected error: %q", err)
+	}
+
+	var syntaxErr *json.SyntaxError
+	if !errors.As(err, &syntaxErr) {
+		t.Fatalf("JSON syntax error was not preserved: %v", err)
+	}
+}
+
+func TestDecodeXmlFromRequestPreservesDecodeError(t *testing.T) {
+	request, err := http.NewRequest(http.MethodGet, "https://example.com/feed", nil)
+	if err != nil {
+		t.Fatalf("creating request: %v", err)
+	}
+
+	client := testRequestDoer(func(*http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Status:     "200 OK",
+			Body:       io.NopCloser(strings.NewReader(`<feed><item></feed>`)),
+		}, nil
+	})
+
+	_, err = decodeXmlFromRequest[struct{}](client, request)
+	if err == nil {
+		t.Fatal("expected XML decode error")
+	}
+
+	if !strings.HasPrefix(err.Error(), "decoding XML response: ") {
+		t.Fatalf("unexpected error: %q", err)
+	}
+
+	var syntaxErr *xml.SyntaxError
+	if !errors.As(err, &syntaxErr) {
+		t.Fatalf("XML syntax error was not preserved: %v", err)
+	}
+}
 
 func TestWorkerPoolDoProcessesAllItems(t *testing.T) {
 	task := func(input int) (int, error) {

@@ -127,10 +127,14 @@ func fetchRepositoryDetailsFromGithub(
 		nil,
 	)
 	if err != nil {
-		return repository{}, fmt.Errorf("%w: could not create request with repository: %v", errNoContent, err)
+		return repository{}, fmt.Errorf(
+			"%w: creating repository details request: %w",
+			errNoContent,
+			err,
+		)
 	}
 
-	PRsRequest, _ := http.NewRequestWithContext(
+	PRsRequest, err := http.NewRequestWithContext(
 		ctx,
 		"GET",
 		fmt.Sprintf(
@@ -140,8 +144,15 @@ func fetchRepositoryDetailsFromGithub(
 		),
 		nil,
 	)
+	if err != nil {
+		return repository{}, fmt.Errorf(
+			"%w: creating repository pull requests request: %w",
+			errNoContent,
+			err,
+		)
+	}
 
-	issuesRequest, _ := http.NewRequestWithContext(
+	issuesRequest, err := http.NewRequestWithContext(
 		ctx,
 		"GET",
 		fmt.Sprintf(
@@ -151,8 +162,15 @@ func fetchRepositoryDetailsFromGithub(
 		),
 		nil,
 	)
+	if err != nil {
+		return repository{}, fmt.Errorf(
+			"%w: creating repository issues request: %w",
+			errNoContent,
+			err,
+		)
+	}
 
-	CommitsRequest, _ := http.NewRequestWithContext(
+	commitsRequest, err := http.NewRequestWithContext(
 		ctx,
 		"GET",
 		fmt.Sprintf(
@@ -162,13 +180,20 @@ func fetchRepositoryDetailsFromGithub(
 		),
 		nil,
 	)
+	if err != nil {
+		return repository{}, fmt.Errorf(
+			"%w: creating repository commits request: %w",
+			errNoContent,
+			err,
+		)
+	}
 
 	if token != "" {
-		token = fmt.Sprintf("Bearer %s", token)
-		repositoryRequest.Header.Add("Authorization", token)
-		PRsRequest.Header.Add("Authorization", token)
-		issuesRequest.Header.Add("Authorization", token)
-		CommitsRequest.Header.Add("Authorization", token)
+		authorization := fmt.Sprintf("Bearer %s", token)
+		repositoryRequest.Header.Add("Authorization", authorization)
+		PRsRequest.Header.Add("Authorization", authorization)
+		issuesRequest.Header.Add("Authorization", authorization)
+		commitsRequest.Header.Add("Authorization", authorization)
 	}
 
 	var repositoryResponse githubRepositoryResponseJson
@@ -178,55 +203,59 @@ func fetchRepositoryDetailsFromGithub(
 	var issuesResponse githubTicketResponseJson
 	var issuesErr error
 	var commitsResponse []gitHubCommitResponseJson
-	var CommitsErr error
+	var commitsErr error
 	var wg sync.WaitGroup
 
 	wg.Add(1)
-	go (func() {
+	go func() {
 		defer wg.Done()
 		repositoryResponse, detailsErr = decodeJsonFromRequest[githubRepositoryResponseJson](
 			defaultHTTPClient,
 			repositoryRequest,
 		)
-	})()
+	}()
 
 	if maxPRs > 0 {
 		wg.Add(1)
-		go (func() {
+		go func() {
 			defer wg.Done()
 			PRsResponse, PRsErr = decodeJsonFromRequest[githubTicketResponseJson](
 				defaultHTTPClient,
 				PRsRequest,
 			)
-		})()
+		}()
 	}
 
 	if maxIssues > 0 {
 		wg.Add(1)
-		go (func() {
+		go func() {
 			defer wg.Done()
 			issuesResponse, issuesErr = decodeJsonFromRequest[githubTicketResponseJson](
 				defaultHTTPClient,
 				issuesRequest,
 			)
-		})()
+		}()
 	}
 
 	if maxCommits > 0 {
 		wg.Add(1)
-		go (func() {
+		go func() {
 			defer wg.Done()
-			commitsResponse, CommitsErr = decodeJsonFromRequest[[]gitHubCommitResponseJson](
+			commitsResponse, commitsErr = decodeJsonFromRequest[[]gitHubCommitResponseJson](
 				defaultHTTPClient,
-				CommitsRequest,
+				commitsRequest,
 			)
-		})()
+		}()
 	}
 
 	wg.Wait()
 
 	if detailsErr != nil {
-		return repository{}, fmt.Errorf("%w: could not get repository details: %s", errNoContent, detailsErr)
+		return repository{}, fmt.Errorf(
+			"%w: fetching repository details: %w",
+			errNoContent,
+			detailsErr,
+		)
 	}
 
 	details := repository{
@@ -238,11 +267,19 @@ func fetchRepositoryDetailsFromGithub(
 		Commits:      make([]githubCommitDetails, 0, len(commitsResponse)),
 	}
 
-	err = nil
+	failed := 0
+	total := 0
+	var firstFailure error
 
 	if maxPRs > 0 {
+		total++
+
 		if PRsErr != nil {
-			err = fmt.Errorf("%w: could not get PRs: %s", errPartialContent, PRsErr)
+			failed++
+
+			if firstFailure == nil {
+				firstFailure = fmt.Errorf("fetching pull requests: %w", PRsErr)
+			}
 		} else {
 			details.OpenPullRequests = PRsResponse.Count
 
@@ -257,9 +294,14 @@ func fetchRepositoryDetailsFromGithub(
 	}
 
 	if maxIssues > 0 {
+		total++
+
 		if issuesErr != nil {
-			// TODO: fix, overwriting the previous error
-			err = fmt.Errorf("%w: could not get issues: %s", errPartialContent, issuesErr)
+			failed++
+
+			if firstFailure == nil {
+				firstFailure = fmt.Errorf("fetching issues: %w", issuesErr)
+			}
 		} else {
 			details.OpenIssues = issuesResponse.Count
 
@@ -274,8 +316,14 @@ func fetchRepositoryDetailsFromGithub(
 	}
 
 	if maxCommits > 0 {
-		if CommitsErr != nil {
-			err = fmt.Errorf("%w: could not get commits: %s", errPartialContent, CommitsErr)
+		total++
+
+		if commitsErr != nil {
+			failed++
+
+			if firstFailure == nil {
+				firstFailure = fmt.Errorf("fetching commits: %w", commitsErr)
+			}
 		} else {
 			for i := range commitsResponse {
 				details.Commits = append(details.Commits, githubCommitDetails{
@@ -288,5 +336,15 @@ func fetchRepositoryDetailsFromGithub(
 		}
 	}
 
-	return details, err
+	if failed > 0 {
+		return details, contentFetchError(
+			errPartialContent,
+			failed,
+			total,
+			"repository sections",
+			firstFailure,
+		)
+	}
+
+	return details, nil
 }
