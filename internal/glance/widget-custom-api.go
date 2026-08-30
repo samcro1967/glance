@@ -317,7 +317,7 @@ func fetchCustomAPIResponse(ctx context.Context, req *CustomAPIRequest) (*custom
 
 	resp, err := client.Do(req.httpRequest.WithContext(ctx))
 	if err != nil {
-		return nil, err
+		return nil, safeHTTPTransportError(err)
 	}
 	defer resp.Body.Close()
 
