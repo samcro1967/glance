@@ -660,7 +660,7 @@ func TestNewConfigFromParsedYAMLSemanticDiagnostics(t *testing.T) {
 			},
 			wantFile:    "columns.yml",
 			wantLine:    1,
-			wantMessage: `column 1 of page "News": size can only be either small or full`,
+			wantMessage: `column 1 of page "News": size can only be either small, medium or full`,
 		},
 		{
 			name: "page width property",
@@ -1245,5 +1245,165 @@ func TestNewConfigFromParsedYAMLUnknownWidgetTypeDiagnostic(t *testing.T) {
 			diagnostic.Message,
 			"unknown widget type: does-not-exist",
 		)
+	}
+}
+
+func TestIsConfigStateValidColumnLayouts(t *testing.T) {
+	tests := []struct {
+		name      string
+		width     string
+		sizes     []string
+		wantError string
+	}{
+		// Existing valid layouts.
+		{
+			name:  "single full",
+			sizes: []string{"full"},
+		},
+		{
+			name:  "two full",
+			sizes: []string{"full", "full"},
+		},
+		{
+			name:  "full then small",
+			sizes: []string{"full", "small"},
+		},
+		{
+			name:  "small then full",
+			sizes: []string{"small", "full"},
+		},
+		{
+			name:  "small full small",
+			sizes: []string{"small", "full", "small"},
+		},
+
+		// New valid medium layouts.
+		{
+			name:  "three medium",
+			sizes: []string{"medium", "medium", "medium"},
+		},
+		{
+			name:  "medium then full",
+			sizes: []string{"medium", "full"},
+		},
+		{
+			name:  "full then medium",
+			sizes: []string{"full", "medium"},
+		},
+
+		// Medium + full remains valid on slim pages because it contains
+		// only two columns. Three medium columns remain subject to the
+		// existing slim two-column limit.
+		{
+			name:  "slim medium then full",
+			width: "slim",
+			sizes: []string{"medium", "full"},
+		},
+		{
+			name:  "slim full then medium",
+			width: "slim",
+			sizes: []string{"full", "medium"},
+		},
+
+		// Invalid standalone/incomplete medium layouts.
+		{
+			name:      "single medium",
+			sizes:     []string{"medium"},
+			wantError: `page "Home" has an invalid column layout`,
+		},
+		{
+			name:      "two medium",
+			sizes:     []string{"medium", "medium"},
+			wantError: `page "Home" has an invalid column layout`,
+		},
+
+		// Invalid medium/small combinations.
+		{
+			name:      "medium then small",
+			sizes:     []string{"medium", "small"},
+			wantError: `page "Home" has an invalid column layout`,
+		},
+		{
+			name:      "small then medium",
+			sizes:     []string{"small", "medium"},
+			wantError: `page "Home" has an invalid column layout`,
+		},
+		{
+			name:      "small medium small",
+			sizes:     []string{"small", "medium", "small"},
+			wantError: `page "Home" has an invalid column layout`,
+		},
+
+		// Mixed three-column medium/full layouts are intentionally not
+		// supported in the first implementation.
+		{
+			name:      "medium full medium",
+			sizes:     []string{"medium", "full", "medium"},
+			wantError: `page "Home" has an invalid column layout`,
+		},
+		{
+			name:      "medium medium full",
+			sizes:     []string{"medium", "medium", "full"},
+			wantError: `page "Home" has an invalid column layout`,
+		},
+		{
+			name:      "full medium medium",
+			sizes:     []string{"full", "medium", "medium"},
+			wantError: `page "Home" has an invalid column layout`,
+		},
+
+		// Existing page-width column limits still apply.
+		{
+			name:      "slim three medium",
+			width:     "slim",
+			sizes:     []string{"medium", "medium", "medium"},
+			wantError: `page "Home" is slim and cannot have more than 2 columns`,
+		},
+
+		// Unknown sizes should continue to receive the more specific
+		// column-size diagnostic rather than a generic layout error.
+		{
+			name:      "unknown size",
+			sizes:     []string{"enormous"},
+			wantError: `column 1 of page "Home": size can only be either small, medium or full`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config{}
+			cfg.Pages = make([]page, 1)
+			cfg.Pages[0].Title = "Home"
+			cfg.Pages[0].Width = tt.width
+			cfg.Pages[0].Columns = make([]struct {
+				Size    string  `yaml:"size"`
+				Widgets widgets `yaml:"widgets"`
+			}, len(tt.sizes))
+
+			for i, size := range tt.sizes {
+				cfg.Pages[0].Columns[i].Size = size
+			}
+
+			err := isConfigStateValid(cfg)
+
+			if tt.wantError == "" {
+				if err != nil {
+					t.Fatalf("isConfigStateValid() error = %v, want nil", err)
+				}
+				return
+			}
+
+			if err == nil {
+				t.Fatalf("isConfigStateValid() error = nil, want %q", tt.wantError)
+			}
+
+			if err.Error() != tt.wantError {
+				t.Errorf(
+					"isConfigStateValid() error = %q, want %q",
+					err.Error(),
+					tt.wantError,
+				)
+			}
+		})
 	}
 }

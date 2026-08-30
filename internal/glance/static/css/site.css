@@ -20,7 +20,8 @@
     font-size: var(--font-size-h4);
 }
 
-.page-column-full .size-title-dynamic {
+.page-column-full .size-title-dynamic,
+.page-column-medium .size-title-dynamic {
     font-size: var(--font-size-h3);
 }
 
@@ -135,6 +136,11 @@ body {
 .page-column-small {
     width: 300px;
     flex-shrink: 0;
+}
+
+.page-column-medium {
+    width: 50%;
+    min-width: 0;
 }
 
 .page-column-full {

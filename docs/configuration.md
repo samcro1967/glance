@@ -794,7 +794,15 @@ For example, if a page uses the slug `personal`, a named dashboard that also gen
 The order of pages in each dashboard determines both the navigation order and which page becomes that dashboard's home page.
 
 ### Columns
-Columns are defined for each page using a `columns` property. There are two types of columns - `full` and `small`, which refers to their width. A small column takes up a fixed amount of width (300px) and a full column takes up the all of the remaining width. You can have up to 3 columns per page and you must have either 1 or 2 full columns. Example:
+Columns are defined for each page using a `columns` property. There are three column sizes: `full`, `medium` and `small`.
+
+A `small` column has a fixed width of 300px. A `full` column takes up the remaining available width. A `medium` column is used for proportional layouts: three `medium` columns divide the available width evenly, while a `medium` column paired with a `full` column uses approximately one third and two thirds of the available width, respectively.
+
+Pages can have up to 3 columns. Traditional layouts using only `small` and `full` columns must contain either 1 or 2 `full` columns. When using `medium`, the supported layouts are three `medium` columns, or one `medium` column paired with one `full` column in either order.
+
+When the page is displayed using the mobile layout, one column is shown at a time regardless of its configured size.
+
+Example:
 
 ```yaml
 pages:
@@ -814,7 +822,9 @@ pages:
 | size | string | yes |
 | widgets | array | no |
 
-Here are some of the possible column configurations:
+The `size` property accepts `small`, `medium` or `full`.
+
+Here are some of the possible traditional column configurations:
 
 ![column configuration small-full-small](images/column-configuration-1.png)
 
@@ -828,7 +838,7 @@ columns:
     widgets: ...
 ```
 
-![column configuration small-full-small](images/column-configuration-2.png)
+![column configuration full-small](images/column-configuration-2.png)
 
 ```yaml
 columns:
@@ -838,13 +848,45 @@ columns:
     widgets: ...
 ```
 
-![column configuration small-full-small](images/column-configuration-3.png)
+![column configuration full-full](images/column-configuration-3.png)
 
 ```yaml
 columns:
   - size: full
     widgets: ...
   - size: full
+    widgets: ...
+```
+
+Three equal-width columns can be configured using `medium`:
+
+```yaml
+columns:
+  - size: medium
+    widgets: ...
+  - size: medium
+    widgets: ...
+  - size: medium
+    widgets: ...
+```
+
+A one-third/two-thirds layout can be configured with `medium` and `full`:
+
+```yaml
+columns:
+  - size: medium
+    widgets: ...
+  - size: full
+    widgets: ...
+```
+
+The order can be reversed to place the wider column first:
+
+```yaml
+columns:
+  - size: full
+    widgets: ...
+  - size: medium
     widgets: ...
 ```
 

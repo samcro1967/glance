@@ -275,3 +275,87 @@ func TestCollectRefreshWidgetsRecursesThroughNestedContainers(t *testing.T) {
 		t.Fatal("collectRefreshWidgets() did not return the nested leaf")
 	}
 }
+
+func TestApplicationPrimaryColumnSelection(t *testing.T) {
+	tests := []struct {
+		name      string
+		columns   string
+		wantIndex int8
+	}{
+		{
+			name: "single full",
+			columns: `
+      - size: full
+        widgets: []
+`,
+			wantIndex: 0,
+		},
+		{
+			name: "small then full",
+			columns: `
+      - size: small
+        widgets: []
+      - size: full
+        widgets: []
+`,
+			wantIndex: 1,
+		},
+		{
+			name: "two full uses first full",
+			columns: `
+      - size: full
+        widgets: []
+      - size: full
+        widgets: []
+`,
+			wantIndex: 0,
+		},
+		{
+			name: "medium then full uses full",
+			columns: `
+      - size: medium
+        widgets: []
+      - size: full
+        widgets: []
+`,
+			wantIndex: 1,
+		},
+		{
+			name: "full then medium uses full",
+			columns: `
+      - size: full
+        widgets: []
+      - size: medium
+        widgets: []
+`,
+			wantIndex: 0,
+		},
+		{
+			name: "three medium uses first medium",
+			columns: `
+      - size: medium
+        widgets: []
+      - size: medium
+        widgets: []
+      - size: medium
+        widgets: []
+`,
+			wantIndex: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app := newGlanceTestApplication(t, `
+pages:
+  - name: Home
+    columns:
+`+tt.columns)
+
+			got := app.Config.Pages[0].PrimaryColumnIndex
+			if got != tt.wantIndex {
+				t.Fatalf("PrimaryColumnIndex = %d, want %d", got, tt.wantIndex)
+			}
+		})
+	}
+}
