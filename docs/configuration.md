@@ -41,6 +41,7 @@
   - [Calendar (legacy)](#calendar-legacy)
   - [ChangeDetection.io](#changedetectionio)
   - [Clock](#clock)
+  - [Analog Clock](#analog-clock)
   - [Markets](#markets)
   - [Twitch Channels](#twitch-channels)
   - [Twitch Top Games](#twitch-top-games)
@@ -3047,6 +3048,57 @@ A timezone identifier such as `Europe/London`, `America/New_York`, etc. The full
 ##### `label`
 Optionally, override the display value for the timezone to something more meaningful such as "Home", "Work" or anything else.
 
+### Analog Clock
+Display an analog clock showing the current time. Optionally, display the date, AM/PM indicator, numerical dial markers, and clocks for additional timezones.
+
+Example:
+
+```yaml
+- type: analog-clock
+  hide-am-pm-indicator: false
+  hide-date: false
+  dial-markers: NumericalFull
+  timezones:
+    - timezone: Europe/Paris
+      label: Paris
+    - timezone: America/New_York
+      label: New York
+    - timezone: Asia/Tokyo
+      label: Tokyo
+```
+
+#### Properties
+
+| Name | Type | Required | Default |
+| ---- | ---- | -------- | ------- |
+| hide-am-pm-indicator | boolean | no | false |
+| hide-date | boolean | no | false |
+| dial-markers | string | no | NumericalFull |
+| timezones | array | no | |
+
+##### `hide-am-pm-indicator`
+Whether to hide the AM/PM indicator from the clock face.
+
+##### `hide-date`
+Whether to hide the date from the clock face.
+
+##### `dial-markers`
+Controls the numerical markers displayed around the clock face. Possible values are `NumericalFull`, `NumericalMinimal`, and `None`.
+
+`NumericalFull` displays all twelve hour numbers, `NumericalMinimal` displays only 12, 3, 6, and 9, and `None` hides the numerical markers.
+
+#### Properties for each timezone
+
+| Name | Type | Required | Default |
+| ---- | ---- | -------- | ------- |
+| timezone | string | yes | |
+| label | string | no | |
+
+##### `timezone`
+A timezone identifier such as `Europe/London`, `America/New_York`, etc.
+
+##### `label`
+Optionally, override the display value for the timezone with a more meaningful label such as "Home" or "Work".
 
 ### Calendar
 Display a calendar.

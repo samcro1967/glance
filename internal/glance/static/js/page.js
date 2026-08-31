@@ -657,6 +657,74 @@ function setupClocks() {
     updateClocks();
 }
 
+function setupAnalogClocks() {
+    const clocks = document.getElementsByClassName('analog-clock');
+
+    if (clocks.length == 0) {
+        return;
+    }
+
+    const updateCallbacks = [];
+
+    function createAnalogClockUpdater(faceContainer) {
+        const face = faceContainer.querySelector('.analog-clock-face');
+        const hourHand = face.querySelector('.analog-clock-hour-hand');
+        const minuteHand = face.querySelector('.analog-clock-minute-hand');
+        const secondHand = face.querySelector('.analog-clock-second-hand');
+        const amPmElement = face.querySelector('[data-am-pm]');
+        const dateElement = face.querySelector('[data-date]');
+        const timezone = faceContainer.dataset.timeInZone;
+
+        return (now) => {
+            let date = now;
+
+            if (timezone) {
+                date = timeInZone(now, timezone).time;
+            }
+
+            const seconds = date.getSeconds();
+            const minutes = date.getMinutes();
+            const hours = date.getHours();
+
+            const hourRotation = ((hours % 12) * 30) + (minutes * 0.5) - 90;
+            const minuteRotation = (minutes * 6) + (seconds * 0.1) - 90;
+            const secondRotation = (seconds * 6) - 90;
+
+            hourHand.style.transform = `rotate(${hourRotation}deg)`;
+            minuteHand.style.transform = `rotate(${minuteRotation}deg)`;
+            secondHand.style.transform = `rotate(${secondRotation}deg)`;
+
+            if (amPmElement) {
+                amPmElement.textContent = hours < 12 ? 'AM' : 'PM';
+            }
+
+            if (dateElement) {
+                dateElement.textContent = `${date.getDate()} ${monthNames[date.getMonth()].slice(0, 3)}`;
+            }
+        };
+    }
+
+    for (var i = 0; i < clocks.length; i++) {
+        const faceContainers = clocks[i].querySelectorAll('[data-analog-clock-face]');
+
+        for (var z = 0; z < faceContainers.length; z++) {
+            updateCallbacks.push(createAnalogClockUpdater(faceContainers[z]));
+        }
+    }
+
+    const updateAnalogClocks = () => {
+        const now = new Date();
+
+        for (var i = 0; i < updateCallbacks.length; i++) {
+            updateCallbacks[i](now);
+        }
+
+        setTimeout(updateAnalogClocks, 1000 - now.getMilliseconds());
+    };
+
+    updateAnalogClocks();
+}
+
 async function setupCalendars() {
     const elems = document.getElementsByClassName("calendar");
     if (elems.length == 0) return;
@@ -780,7 +848,8 @@ async function setupPage() {
 
     try {
         setupPopovers();
-        setupClocks()
+        setupClocks();
+        setupAnalogClocks();
         await setupCalendars();
         await setupTodos();
         setupCarousels();
