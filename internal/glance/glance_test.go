@@ -400,3 +400,47 @@ pages:
 		)
 	}
 }
+
+func TestVersionedAssetPath(t *testing.T) {
+	// Use the zero time value so the expected version query string is
+	// deterministic and does not depend on when the test is executed.
+	app := &application{}
+
+	tests := []struct {
+		name    string
+		baseURL string
+		asset   string
+		want    string
+	}{
+		{
+			name:    "root deployment",
+			baseURL: "",
+			asset:   "manifest.json",
+			want:    "/manifest.json?v=-62135596800",
+		},
+		{
+			name:    "deployment with base URL",
+			baseURL: "/glance",
+			asset:   "manifest.json",
+			want:    "/glance/manifest.json?v=-62135596800",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// BaseURL is changed for each case on the same lightweight
+			// application because VersionedAssetPath has no side effects.
+			app.Config.Server.BaseURL = test.baseURL
+
+			got := app.VersionedAssetPath(test.asset)
+			if got != test.want {
+				t.Fatalf(
+					"VersionedAssetPath(%q) = %q, want %q",
+					test.asset,
+					got,
+					test.want,
+				)
+			}
+		})
+	}
+}
