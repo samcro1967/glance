@@ -16,6 +16,7 @@ func TestRefreshDueWidgetsRefreshesDueWidget(t *testing.T) {
 		context.Background(),
 		[]widget{testWidget},
 		1,
+		nil,
 	)
 
 	if got := testWidget.updateCount.Load(); got != 1 {
@@ -32,6 +33,7 @@ func TestRefreshDueWidgetsSkipsWidgetThatIsNotDue(t *testing.T) {
 		context.Background(),
 		[]widget{testWidget},
 		1,
+		nil,
 	)
 
 	if got := testWidget.updateCount.Load(); got != 0 {
@@ -55,6 +57,7 @@ func TestRefreshDueWidgetsSkipsBusyWidgetWithoutBlockingAvailableWidget(t *testi
 			context.Background(),
 			[]widget{busyWidget, availableWidget},
 			1,
+			nil,
 		)
 	}()
 
@@ -76,6 +79,79 @@ func TestRefreshDueWidgetsSkipsBusyWidgetWithoutBlockingAvailableWidget(t *testi
 
 	if got := availableWidget.updateCount.Load(); got != 1 {
 		t.Fatalf("available widget update count = %d, want 1", got)
+	}
+}
+
+func TestRefreshDueWidgetsPublishesUpdatedWidget(t *testing.T) {
+	testWidget := newRefreshTestWidget()
+	testWidget.setID(42)
+	close(testWidget.updateBlock)
+
+	broker := newLiveUpdateBroker()
+	subscription, unsubscribe := broker.subscribe()
+	defer unsubscribe()
+
+	refreshDueWidgets(
+		context.Background(),
+		[]widget{testWidget},
+		1,
+		broker,
+	)
+
+	waitForLiveUpdate(t, subscription)
+
+	widgetIDs := subscription.takePending()
+	if len(widgetIDs) != 1 || widgetIDs[0] != 42 {
+		t.Fatalf("published widget IDs = %v, want [42]", widgetIDs)
+	}
+}
+
+func TestRefreshDueWidgetsDoesNotPublishWidgetThatIsNotDue(t *testing.T) {
+	testWidget := newRefreshTestWidget()
+	testWidget.setID(42)
+	testWidget.scheduleNextUpdate()
+	close(testWidget.updateBlock)
+
+	broker := newLiveUpdateBroker()
+	subscription, unsubscribe := broker.subscribe()
+	defer unsubscribe()
+
+	refreshDueWidgets(
+		context.Background(),
+		[]widget{testWidget},
+		1,
+		broker,
+	)
+
+	select {
+	case <-subscription.ready:
+		t.Fatal("received live update for widget that was not refreshed")
+	case <-time.After(25 * time.Millisecond):
+	}
+}
+
+func TestRefreshDueWidgetsDoesNotPublishBusyWidget(t *testing.T) {
+	testWidget := newRefreshTestWidget()
+	testWidget.setID(42)
+
+	broker := newLiveUpdateBroker()
+	subscription, unsubscribe := broker.subscribe()
+	defer unsubscribe()
+
+	testWidget.lockRefresh()
+	defer testWidget.unlockRefresh()
+
+	refreshDueWidgets(
+		context.Background(),
+		[]widget{testWidget},
+		1,
+		broker,
+	)
+
+	select {
+	case <-subscription.ready:
+		t.Fatal("received live update for busy widget that was not refreshed")
+	case <-time.After(25 * time.Millisecond):
 	}
 }
 
@@ -167,6 +243,7 @@ func TestRefreshDueWidgetsBoundsConcurrency(t *testing.T) {
 			context.Background(),
 			refreshWidgets,
 			concurrency,
+			nil,
 		)
 	}()
 
@@ -210,6 +287,7 @@ func TestRefreshDueWidgetsStopsSchedulingAfterCancellation(t *testing.T) {
 			ctx,
 			[]widget{first, second},
 			1,
+			nil,
 		)
 	}()
 
@@ -247,6 +325,7 @@ func TestWidgetRefreshSchedulerStopsWhenCancelled(t *testing.T) {
 			[]widget{newRefreshTestWidget()},
 			time.Hour,
 			1,
+			nil,
 		)
 	}()
 
@@ -275,6 +354,7 @@ func TestWidgetRefreshSchedulerRefreshesImmediately(t *testing.T) {
 			[]widget{testWidget},
 			time.Hour,
 			1,
+			nil,
 		)
 	}()
 

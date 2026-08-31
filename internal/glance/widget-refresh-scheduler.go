@@ -16,6 +16,7 @@ func refreshDueWidgetIfAvailable(
 	ctx context.Context,
 	widget widget,
 	now *time.Time,
+	liveUpdates *liveUpdateBroker,
 ) {
 	if !widget.tryLockRefresh() {
 		return
@@ -27,12 +28,17 @@ func refreshDueWidgetIfAvailable(
 	}
 
 	widget.update(ctx)
+
+	if liveUpdates != nil {
+		liveUpdates.publish(widget.GetID())
+	}
 }
 
 func refreshDueWidgets(
 	ctx context.Context,
 	refreshWidgets []widget,
 	concurrency int,
+	liveUpdates *liveUpdateBroker,
 ) {
 	if len(refreshWidgets) == 0 || concurrency <= 0 {
 		return
@@ -61,7 +67,7 @@ func refreshDueWidgets(
 			defer wg.Done()
 			defer func() { <-sem }()
 
-			refreshDueWidgetIfAvailable(ctx, widget, &now)
+			refreshDueWidgetIfAvailable(ctx, widget, &now, liveUpdates)
 		}(candidate)
 	}
 
@@ -73,6 +79,7 @@ func runWidgetRefreshScheduler(
 	refreshWidgets []widget,
 	scanInterval time.Duration,
 	concurrency int,
+	liveUpdates *liveUpdateBroker,
 ) {
 	if len(refreshWidgets) == 0 || concurrency <= 0 {
 		return
@@ -90,7 +97,7 @@ func runWidgetRefreshScheduler(
 	)
 	defer slog.Info("Widget refresh scheduler stopped")
 
-	refreshDueWidgets(ctx, refreshWidgets, concurrency)
+	refreshDueWidgets(ctx, refreshWidgets, concurrency, liveUpdates)
 
 	ticker := time.NewTicker(scanInterval)
 	defer ticker.Stop()
@@ -100,7 +107,7 @@ func runWidgetRefreshScheduler(
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			refreshDueWidgets(ctx, refreshWidgets, concurrency)
+			refreshDueWidgets(ctx, refreshWidgets, concurrency, liveUpdates)
 		}
 	}
 }

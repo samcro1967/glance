@@ -56,6 +56,7 @@ type application struct {
 	defaultDashboard *dashboard
 	widgetByID       map[uint64]widget
 	refreshWidgets   []widget
+	liveUpdates      *liveUpdateBroker
 
 	RequiresAuth           bool
 	authSecretKey          []byte
@@ -101,6 +102,7 @@ func newApplication(c *config) (*application, error) {
 		slugToPage:      make(map[string]*page),
 		slugToDashboard: make(map[string]*dashboard),
 		widgetByID:      make(map[uint64]widget),
+		liveUpdates:     newLiveUpdateBroker(),
 	}
 	config := &app.Config
 
@@ -324,6 +326,9 @@ func newApplication(c *config) (*application, error) {
 		refreshSources = append(refreshSources, page.BottomWidgets...)
 	}
 	app.refreshWidgets = collectRefreshWidgets(refreshSources)
+	for _, widget := range app.refreshWidgets {
+		app.widgetByID[widget.GetID()] = widget
+	}
 
 	config.Server.BaseURL = strings.TrimRight(config.Server.BaseURL, "/")
 	config.Theme.CustomCSSFile = app.resolveUserDefinedAssetPath(config.Theme.CustomCSSFile)
@@ -655,6 +660,27 @@ func (a *application) handleNotFound(
 	w.Write(responseBytes.Bytes())
 }
 
+func (a *application) handleWidgetContentRequest(w http.ResponseWriter, r *http.Request) {
+	if a.handleUnauthorizedResponse(w, r, showUnauthorizedJSON) {
+		return
+	}
+
+	widgetID, err := strconv.ParseUint(r.PathValue("widget"), 10, 64)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	widget, exists := a.widgetByID[widgetID]
+	if !exists {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write([]byte(renderWidget(widget)))
+}
+
 func (a *application) handleWidgetRequest(w http.ResponseWriter, r *http.Request) {
 	// TODO: this requires a rework of the widget update logic so that rather
 	// than locking the entire page we lock individual widgets
@@ -729,6 +755,8 @@ func (a *application) router() http.Handler {
 		mux.HandleFunc("POST /api/set-theme/{key}", a.handleThemeChangeRequest)
 	}
 
+	mux.HandleFunc("GET /api/widgets/{widget}/content/{$}", a.handleWidgetContentRequest)
+	mux.HandleFunc("GET /api/live-updates", a.handleLiveUpdatesRequest)
 	mux.HandleFunc("/api/widgets/{widget}/{path...}", a.handleWidgetRequest)
 	mux.HandleFunc("GET /api/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -805,10 +833,12 @@ func (a *application) server() (func() error, func() error) {
 				a.refreshWidgets,
 				widgetRefreshScanInterval,
 				widgetRefreshConcurrency,
+				a.liveUpdates,
 			)
 		}()
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			a.liveUpdates.close()
 			stopScheduler()
 			schedulerWG.Wait()
 			return err
@@ -821,6 +851,7 @@ func (a *application) server() (func() error, func() error) {
 
 	stop := func() error {
 		slog.Info("Server stopping")
+		a.liveUpdates.close()
 
 		stopScheduler()
 
