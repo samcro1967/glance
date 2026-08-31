@@ -229,3 +229,188 @@ func TestPriorityRSSFeedItemImageURLPrecedence(t *testing.T) {
 		)
 	}
 }
+
+func TestPriorityRSSDescriptionStripsHTMLComments(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "full content marker",
+			input: "Before <!--FULLCONTENT--> After",
+			want:  "Before After",
+		},
+		{
+			name:  "more marker",
+			input: "Before <!-- more --> After",
+			want:  "Before After",
+		},
+		{
+			name: "multiline comment",
+			input: `Before <!--
+internal metadata
+more metadata
+--> After`,
+			want: "Before After",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := sanitizeFeedDescription(tt.input); got != tt.want {
+				t.Fatalf(
+					"sanitizeFeedDescription() = %q, want %q",
+					got,
+					tt.want,
+				)
+			}
+		})
+	}
+}
+
+func TestPriorityRSSItemLinkResolution(t *testing.T) {
+	tests := []struct {
+		name     string
+		itemLink string
+		feedLink string
+		feedURL  string
+		want     string
+	}{
+		{
+			name:     "absolute https",
+			itemLink: "https://example.com/posts/one",
+			feedLink: "https://example.com/feed.xml",
+			feedURL:  "https://fallback.example.com/feed.xml",
+			want:     "https://example.com/posts/one",
+		},
+		{
+			name:     "absolute http",
+			itemLink: "http://example.com/posts/one",
+			feedLink: "https://example.com/feed.xml",
+			feedURL:  "https://fallback.example.com/feed.xml",
+			want:     "http://example.com/posts/one",
+		},
+		{
+			name:     "root relative",
+			itemLink: "/posts/one",
+			feedLink: "https://example.com/feed.xml",
+			feedURL:  "https://fallback.example.com/feed.xml",
+			want:     "https://example.com/posts/one",
+		},
+		{
+			name:     "path relative",
+			itemLink: "one",
+			feedLink: "https://example.com/posts/feed.xml",
+			feedURL:  "https://fallback.example.com/feed.xml",
+			want:     "https://example.com/posts/one",
+		},
+		{
+			name:     "fallback to request URL",
+			itemLink: "/posts/one",
+			feedLink: "",
+			feedURL:  "https://fallback.example.com/feed.xml",
+			want:     "https://fallback.example.com/posts/one",
+		},
+		{
+			name:     "unsafe scheme",
+			itemLink: "javascript:alert(1)",
+			feedLink: "https://example.com/feed.xml",
+			feedURL:  "https://fallback.example.com/feed.xml",
+			want:     "",
+		},
+		{
+			name:     "malformed URL",
+			itemLink: "https://[::1",
+			feedLink: "https://example.com/feed.xml",
+			feedURL:  "https://fallback.example.com/feed.xml",
+			want:     "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := resolveRSSURL(
+				tt.itemLink,
+				tt.feedLink,
+				tt.feedURL,
+			)
+			if got != tt.want {
+				t.Fatalf(
+					"resolveRSSURL() = %q, want %q",
+					got,
+					tt.want,
+				)
+			}
+		})
+	}
+}
+
+func TestPriorityRSSUnsafeItemLinkDoesNotRenderZgotmplZ(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/rss+xml")
+		_, _ = w.Write([]byte(`<?xml version="1.0"?>
+<rss version="2.0">
+<channel>
+<title>Unsafe Feed</title>
+<link>https://example.com/</link>
+<item>
+<title>Unsafe Item</title>
+<link>javascript:alert(1)</link>
+<description>Unsafe link regression</description>
+</item>
+</channel>
+</rss>`))
+	}))
+	defer server.Close()
+
+	widget := &rssWidget{}
+	if err := widget.initialize(); err != nil {
+		t.Fatal(err)
+	}
+
+	items, err := widget.fetchItemsFromFeedTask(
+		t.Context(),
+		rssFeedRequest{URL: server.URL},
+	)
+	if err != nil {
+		t.Fatalf("fetchItemsFromFeedTask: %v", err)
+	}
+
+	if len(items) != 1 {
+		t.Fatalf("items = %d, want 1", len(items))
+	}
+
+	if items[0].Link != "" {
+		t.Fatalf("unsafe item link = %q, want empty", items[0].Link)
+	}
+
+	widget.Items = items
+	rendered := string(widget.Render())
+
+	if strings.Contains(rendered, "ZgotmplZ") {
+		t.Fatalf("rendered RSS contains ZgotmplZ: %s", rendered)
+	}
+
+	if strings.Contains(rendered, "javascript:") {
+		t.Fatalf("rendered RSS contains unsafe scheme: %s", rendered)
+	}
+}
+
+func TestPriorityRSSItemLinkPrefixValidation(t *testing.T) {
+	valid := resolveRSSURL(
+		"https://proxy.example/?url=" +
+			"https://example.com/post",
+	)
+	if valid != "https://proxy.example/?url=https://example.com/post" {
+		t.Fatalf("valid prefixed link = %q", valid)
+	}
+
+	unsafe := resolveRSSURL(
+		"javascript:" +
+			"https://example.com/post",
+	)
+	if unsafe != "" {
+		t.Fatalf("unsafe prefixed link = %q, want empty", unsafe)
+	}
+}

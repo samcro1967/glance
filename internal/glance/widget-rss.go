@@ -274,26 +274,9 @@ func (widget *rssWidget) fetchItemsFromFeedTask(ctx context.Context, request rss
 		}
 
 		if request.ItemLinkPrefix != "" {
-			rssItem.Link = request.ItemLinkPrefix + item.Link
-		} else if strings.HasPrefix(item.Link, "http://") || strings.HasPrefix(item.Link, "https://") {
-			rssItem.Link = item.Link
+			rssItem.Link = resolveRSSURL(request.ItemLinkPrefix + item.Link)
 		} else {
-			parsedUrl, err := url.Parse(feed.Link)
-			if err != nil {
-				parsedUrl, err = url.Parse(request.URL)
-			}
-
-			if err == nil {
-				var link string
-
-				if len(item.Link) > 0 && item.Link[0] == '/' {
-					link = item.Link
-				} else {
-					link = "/" + item.Link
-				}
-
-				rssItem.Link = parsedUrl.Scheme + "://" + parsedUrl.Host + link
-			}
+			rssItem.Link = resolveRSSURL(item.Link, feed.Link, request.URL)
 		}
 
 		if item.Title != "" {
@@ -459,6 +442,8 @@ func recursiveFindThumbnailInExtensions(extensions map[string][]gofeedext.Extens
 	return ""
 }
 
+var htmlCommentPattern = regexp.MustCompile(`(?s)<!--.*?-->`)
+
 var htmlTagsWithAttributesPattern = regexp.MustCompile(`<\/?[a-zA-Z0-9-]+ *(?:[a-zA-Z-]+=(?:"|').*?(?:"|') ?)* *\/?>`)
 
 func sanitizeFeedDescription(description string) string {
@@ -466,6 +451,7 @@ func sanitizeFeedDescription(description string) string {
 		return ""
 	}
 
+	description = htmlCommentPattern.ReplaceAllString(description, "")
 	description = strings.ReplaceAll(description, "\n", " ")
 	description = htmlTagsWithAttributesPattern.ReplaceAllString(description, "")
 	description = sequentialWhitespacePattern.ReplaceAllString(description, " ")
