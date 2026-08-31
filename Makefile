@@ -1,12 +1,13 @@
 SHELL := /bin/bash
 
-.PHONY: help deps test test-race test-count test-race-count build fmt-check diff-check staged-check check coverage vuln status staged-diff upstream-status pr-view pr-runs pr-merge ci-watch ci-view verify-main deploy-status deploy
+.PHONY: help deps test test-race test-count test-race-count build fmt-check diff-check staged-check check coverage vuln status staged-diff upstream-status pr-view pr-runs pr-merge post-merge image-runs ci-watch ci-view verify-main deploy-status deploy
 
 COUNT ?= 10
 COVERAGE_FILE ?= coverage.out
 BASE_REF ?= origin/main
 REPO ?= samcro1967/glance
 PR_WORKFLOW ?= 345456314
+IMAGE_WORKFLOW ?= 344869583
 BRANCH ?= $(shell git branch --show-current 2>/dev/null)
 
 DEPLOY_IMAGE ?= ghcr.io/samcro1967/glance:latest
@@ -50,8 +51,10 @@ help:
 	@echo "  make pr-runs                 Show recent validation runs for current branch"
 	@echo "  make pr-runs BRANCH=main     Show recent validation runs for a branch"
 	@echo "  make pr-merge PR=55          Merge a pull request and delete its remote branch"
+	@echo "  make post-merge PR=55        Update main and remove the merged local branch"
 	@echo
 	@echo "GitHub Actions:"
+	@echo "  make image-runs              Show recent main container image builds"
 	@echo "  make ci-watch RUN=12345      Watch a GitHub Actions run"
 	@echo "  make ci-view RUN=12345       Show a GitHub Actions run result"
 	@echo
@@ -166,6 +169,50 @@ pr-merge:
 		--repo "$(REPO)" \
 		--merge \
 		--delete-branch
+
+post-merge:
+	@set -euo pipefail; \
+	if [ -z "$(PR)" ]; then \
+		echo "PR is required. Example: make post-merge PR=55"; \
+		exit 2; \
+	fi; \
+	if [ -n "$$(git status --porcelain)" ]; then \
+		echo "Post-merge cleanup requires a clean working tree."; \
+		git status --short; \
+		exit 1; \
+	fi; \
+	echo "=== PR #$(PR) ==="; \
+	pr_state="$$(gh pr view "$(PR)" --repo "$(REPO)" --json state --jq '.state')"; \
+	head_branch="$$(gh pr view "$(PR)" --repo "$(REPO)" --json headRefName --jq '.headRefName')"; \
+	if [ "$$pr_state" != "MERGED" ]; then \
+		echo "PR #$(PR) is not merged; current state is $$pr_state."; \
+		exit 1; \
+	fi; \
+	echo "State=$$pr_state"; \
+	echo "Head=$$head_branch"; \
+	echo; \
+	echo "=== UPDATE LOCAL MAIN ==="; \
+	git switch main; \
+	git pull --ff-only origin main; \
+	echo; \
+	echo "=== LOCAL BRANCH CLEANUP ==="; \
+	if [ "$$head_branch" = "main" ]; then \
+		echo "PR head branch is main; refusing to delete it."; \
+	elif git show-ref --verify --quiet "refs/heads/$$head_branch"; then \
+		git branch -d "$$head_branch"; \
+	else \
+		echo "Local branch $$head_branch does not exist; nothing to delete."; \
+	fi; \
+	echo; \
+	$(MAKE) verify-main
+
+image-runs:
+	@gh run list \
+		--repo "$(REPO)" \
+		--workflow "$(IMAGE_WORKFLOW)" \
+		--branch main \
+		--limit 5 \
+		--json databaseId,headSha,status,conclusion,createdAt,displayTitle
 
 ci-watch:
 	@if [ -z "$(RUN)" ]; then \
