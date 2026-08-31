@@ -6,11 +6,18 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps test test-race test-count test-race-count build fmt-check diff-check staged-check check coverage vuln status staged-diff upstream-status pr-view pr-runs pr-merge post-merge image-runs ci-watch ci-view verify-main deploy-status deploy
+.PHONY: help deps build test-instance-start test-instance-status test-instance-stop test test-race test-count test-race-count fmt-check diff-check staged-check check coverage vuln status staged-diff upstream-status pr-view pr-runs pr-merge post-merge image-runs ci-watch ci-view verify-main deploy-status deploy
 
 COUNT ?= 10
 COVERAGE_FILE ?= coverage.out
 BASE_REF ?= origin/main
+
+TEST_PORT ?= 18080
+TEST_BINARY ?= .glance-test
+TEST_CONFIG ?= glance-test.yml
+TEST_PID_FILE ?= .glance-test.pid
+TEST_LOG ?= .glance-test.log
+TEST_URL ?= http://127.0.0.1:$(TEST_PORT)
 REPO ?= samcro1967/glance
 PR_WORKFLOW ?= 345456314
 IMAGE_WORKFLOW ?= 344869583
@@ -30,6 +37,9 @@ help:
 	@echo "Development:"
 	@echo "  make deps                    Download Go module dependencies"
 	@echo "  make build                   Build all Go packages"
+	@echo "  make test-instance-start     Start isolated Glance on port $(TEST_PORT)"
+	@echo "  make test-instance-status    Show isolated Glance status"
+	@echo "  make test-instance-stop      Stop isolated Glance and clean artifacts"
 	@echo
 	@echo "Testing:"
 	@echo "  make test                    Run the Go test suite"
@@ -361,3 +371,111 @@ deploy:
 	echo "=== DEPLOYMENT COMPLETE ==="; \
 	echo "Revision=$$container_revision"; \
 	echo "Image=$$container_image"
+
+test-instance-start:
+	@set -euo pipefail; \
+	if [ -f "$(TEST_PID_FILE)" ]; then \
+		pid="$$(cat "$(TEST_PID_FILE)")"; \
+		if kill -0 "$$pid" 2>/dev/null; then \
+			echo "Test instance is already running with PID $$pid."; \
+			echo "URL=$(TEST_URL)"; \
+			exit 1; \
+		fi; \
+		rm -f "$(TEST_PID_FILE)"; \
+	fi; \
+	echo "=== BUILD TEST BINARY ==="; \
+	go build -o "$(TEST_BINARY)" .; \
+	echo; \
+	echo "=== CREATE TEST CONFIG ==="; \
+	printf '%s\n' \
+		'server:' \
+		'  host: 0.0.0.0' \
+		'  port: $(TEST_PORT)' \
+		'' \
+		'branding:' \
+		'  app-name: "Glance Test"' \
+		'' \
+		'theme:' \
+		'  light: false' \
+		'' \
+		'pages:' \
+		'  - name: Home' \
+		'    slug: home' \
+		'    columns:' \
+		'      - size: full' \
+		'        widgets:' \
+		'          - type: html' \
+		'            source: "<p>Home test page</p>"' \
+		'' \
+		'  - name: News' \
+		'    slug: news' \
+		'    columns:' \
+		'      - size: full' \
+		'        widgets:' \
+		'          - type: html' \
+		'            source: "<p>News test page</p>"' \
+		> "$(TEST_CONFIG)"; \
+	echo; \
+	echo "=== VALIDATE TEST CONFIG ==="; \
+	"./$(TEST_BINARY)" --config "$(TEST_CONFIG)" config:validate; \
+	echo; \
+	echo "=== START TEST INSTANCE ==="; \
+	"./$(TEST_BINARY)" --config "$(TEST_CONFIG)" > "$(TEST_LOG)" 2>&1 & \
+	pid="$$!"; \
+	echo "$$pid" > "$(TEST_PID_FILE)"; \
+	ready=0; \
+	for i in $$(seq 1 10); do \
+		code="$$(curl -sS -o /dev/null -w '%{http_code}' "$(TEST_URL)/" 2>/dev/null || true)"; \
+		if [ "$$code" = "200" ]; then \
+			ready=1; \
+			break; \
+		fi; \
+		if ! kill -0 "$$pid" 2>/dev/null; then \
+			break; \
+		fi; \
+		sleep 1; \
+	done; \
+	if [ "$$ready" -ne 1 ]; then \
+		echo "Test instance failed to become ready."; \
+		cat "$(TEST_LOG)" || true; \
+		kill "$$pid" 2>/dev/null || true; \
+		rm -f "$(TEST_PID_FILE)"; \
+		exit 1; \
+	fi; \
+	echo "Test instance started."; \
+	echo "PID=$$pid"; \
+	echo "URL=$(TEST_URL)"
+
+test-instance-status:
+	@set -euo pipefail; \
+	if [ ! -f "$(TEST_PID_FILE)" ]; then \
+		echo "Test instance is not running."; \
+		exit 1; \
+	fi; \
+	pid="$$(cat "$(TEST_PID_FILE)")"; \
+	if ! kill -0 "$$pid" 2>/dev/null; then \
+		echo "Test instance PID $$pid is not running."; \
+		exit 1; \
+	fi; \
+	code="$$(curl -sS -o /dev/null -w '%{http_code}' "$(TEST_URL)/" 2>/dev/null || true)"; \
+	echo "PID=$$pid"; \
+	echo "URL=$(TEST_URL)"; \
+	echo "HTTP=$${code:-unavailable}"
+
+test-instance-stop:
+	@set -euo pipefail; \
+	if [ -f "$(TEST_PID_FILE)" ]; then \
+		pid="$$(cat "$(TEST_PID_FILE)")"; \
+		if kill -0 "$$pid" 2>/dev/null; then \
+			echo "Stopping test instance PID $$pid..."; \
+			kill "$$pid"; \
+			for i in $$(seq 1 10); do \
+				if ! kill -0 "$$pid" 2>/dev/null; then \
+					break; \
+				fi; \
+				sleep 1; \
+			done; \
+		fi; \
+	fi; \
+	rm -f "$(TEST_PID_FILE)" "$(TEST_BINARY)" "$(TEST_CONFIG)" "$(TEST_LOG)"; \
+	echo "Test instance stopped and artifacts removed."
