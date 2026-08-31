@@ -22,7 +22,7 @@ This repository is a fork of [Glance](https://github.com/glanceapp/glance) maint
 
 It tracks the upstream Glance project while incorporating additional functionality, reliability fixes, operational hardening, expanded regression testing, and deployment tooling not currently available in the upstream release.
 
-The goal of the fork is to remain compatible with upstream Glance where practical while providing additional functionality and addressing reliability or operational issues encountered in production use. Changes incorporated from existing upstream pull requests are identified below where applicable.
+The goal of the fork is to remain compatible with upstream Glance where practical while providing additional functionality and addressing reliability or operational issues encountered in production use. Changes incorporated from existing upstream pull requests or other Glance-derived projects are identified below where applicable.
 
 ### Changes from upstream
 
@@ -48,6 +48,7 @@ The goal of the fork is to remain compatible with upstream Glance where practica
 - **DNS statistics zero-value handling** — Prevents invalid percentage values when DNS providers return zero queries or zero blocked queries. Graph normalization and blocked-domain percentages safely remain at zero when their denominator is zero, covering AdGuard Home, Pi-hole v5, Pi-hole v6, and Technitium DNS Server.
 - **Themed page-not-found response** — Addresses upstream [issue #1062](https://github.com/glanceapp/glance/issues/1062) by replacing the plain-text response for unknown page URLs with a themed Glance 404 page that preserves HTTP 404 semantics and provides links to the configured pages available in the current dashboard. Dashboard paths and configured base URLs are preserved, while API page-content requests continue to return a plain HTTP 404.
 - **RSS parsing and rendering hardening** — Improves RSS title and image parsing based on upstream [PR #1044](https://github.com/glanceapp/glance/pull/1044) and addresses upstream [issue #1011](https://github.com/glanceapp/glance/issues/1011), including HTML title sanitization, image discovery from item metadata and feed content, and safe resolution of relative image URLs. Also addresses upstream [issue #919](https://github.com/glanceapp/glance/issues/919) by removing embedded HTML comments from feed descriptions, and [issue #962](https://github.com/glanceapp/glance/issues/962) by validating and resolving RSS item links before rendering so malformed or unsafe URLs cannot produce Go template `ZgotmplZ` output.
+- **GitHub release fetching optimization** — Optimizes GitHub release requests for repositories configured with `include-prereleases: true` by requesting only the single release that Glance consumes instead of GitHub's default page of results, reducing response size and processing overhead without changing release selection behavior. Based on [Dynacat PR #97](https://github.com/Panonim/dynacat/pull/97).
 
 ### Testing and regression protection
 
@@ -155,7 +156,7 @@ The fork continues to track the upstream Glance repository.
 
 Upstream changes are reviewed before integration rather than being automatically applied to production. The expanded regression and race-test suites make it easier to evaluate future upstream changes while protecting fork-specific functionality and previously fixed defects.
 
-Where functionality in this fork originates from an existing upstream pull request, the corresponding upstream pull request is identified in this README. Other changes were developed specifically for this fork based on functionality or reliability requirements encountered while operating it.
+Where functionality in this fork originates from an existing upstream pull request or another Glance-derived project, the corresponding source is identified in this README. Other changes were developed specifically for this fork based on functionality or reliability requirements encountered while operating it.
 
 The fork intentionally avoids unnecessary divergence from upstream. Production changes are made when they provide required functionality, address an observed defect, improve operational reliability, or provide meaningful regression protection. Areas that are functioning correctly are generally left unchanged rather than modified solely to increase test coverage or introduce speculative abstractions.
 
@@ -452,7 +453,8 @@ The most common cause of this is having a `pages` key in your `glance.yml` and t
 ## FAQ
 <details>
 <summary><strong>Does the information on the page update automatically?</strong></summary>
-Updateable widgets are refreshed and recovered server-side when their cached data expires, even when no page is open. A browser page refresh may still be required to display newly fetched server-side content. Some client-side information also updates dynamically where it makes sense, such as the clock widget and relative times.
+
+Updateable widgets are refreshed and recovered server-side when their cached data expires, even when no page is open. When a page is open, refreshed widget content is automatically delivered to the browser without requiring a full page reload. Some client-side information also updates dynamically where it makes sense, such as the clock widget and relative times.
 </details>
 
 <details>

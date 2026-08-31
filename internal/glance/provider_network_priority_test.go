@@ -69,8 +69,39 @@ func TestPriorityReleaseProviderResponsesAndAuthentication(t *testing.T) {
 	}
 }
 
+func TestPriorityGithubPrereleaseRequestsSingleRelease(t *testing.T) {
+	usePriorityTransport(t, func(r *http.Request) (*http.Response, error) {
+		if r.URL.EscapedPath() != "/repos/example/project/releases" {
+			t.Fatalf("path = %q, want %q", r.URL.EscapedPath(), "/repos/example/project/releases")
+		}
+		if r.URL.Query().Get("per_page") != "1" {
+			t.Fatalf("per_page = %q, want %q", r.URL.Query().Get("per_page"), "1")
+		}
+		return priorityJSONResponse(
+			r,
+			`[{"tag_name":"v2.0.0-beta.1","published_at":"2026-08-30T12:00:00Z","html_url":"https://example.invalid/release"}]`,
+		), nil
+	})
+
+	got, err := fetchLatestGithubRelease(
+		context.Background(),
+		&releaseRequest{Repository: "example/project", IncludePreleases: true},
+	)
+	if err != nil {
+		t.Fatalf("fetch prerelease: %v", err)
+	}
+	if got.Version != "v2.0.0-beta.1" {
+		t.Fatalf("version = %q, want %q", got.Version, "v2.0.0-beta.1")
+	}
+}
+
 func TestPriorityGithubPrereleaseEmptyResponseIsRejected(t *testing.T) {
-	usePriorityTransport(t, func(r *http.Request) (*http.Response, error) { return priorityJSONResponse(r, `[]`), nil })
+	usePriorityTransport(t, func(r *http.Request) (*http.Response, error) {
+		if r.URL.Query().Get("per_page") != "1" {
+			t.Fatalf("per_page = %q, want %q", r.URL.Query().Get("per_page"), "1")
+		}
+		return priorityJSONResponse(r, `[]`), nil
+	})
 	got, err := fetchLatestGithubRelease(context.Background(), &releaseRequest{Repository: "example/project", IncludePreleases: true})
 	if err == nil || !strings.Contains(err.Error(), "no releases found") {
 		t.Fatalf("error = %v", err)
