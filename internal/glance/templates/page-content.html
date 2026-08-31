@@ -19,3 +19,11 @@
     </div>
 {{- end }}
 </div>
+
+{{ if .Page.BottomWidgets }}
+<div class="bottom-widgets">
+    {{- range .Page.BottomWidgets }}
+    {{- renderWidget . }}
+    {{- end }}
+</div>
+{{ end }}

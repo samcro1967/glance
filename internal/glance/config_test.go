@@ -856,6 +856,16 @@ func TestNewConfigFromParsedYAMLWidgetInitializationDiagnostics(t *testing.T) {
 			wantMessage: "weather widget: location is required",
 		},
 		{
+			name: "included bottom widget",
+			files: map[string]string{
+				"glance.yml":  "pages:\n  - name: Home\n    columns:\n      - size: full\n    bottom-widgets:\n      $include: widgets.yml\n",
+				"widgets.yml": "- type: weather\n",
+			},
+			wantFile:    "widgets.yml",
+			wantLine:    1,
+			wantMessage: "weather widget: location is required",
+		},
+		{
 			name: "included column widget",
 			files: map[string]string{
 				"glance.yml":  "pages:\n  - name: Home\n    columns:\n      - size: full\n        widgets:\n          $include: widgets.yml\n",

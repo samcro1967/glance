@@ -158,6 +158,9 @@ pages:
               - type: videos
                 channels:
                   - UC_x5XG1OV2P6uZZ5FSM9Ttw
+
+    bottom-widgets:
+      - type: hacker-news
 `)
 
 	gotTypes := make([]string, 0, len(app.refreshWidgets))
@@ -172,6 +175,7 @@ pages:
 		"releases",
 		"reddit",
 		"videos",
+		"hacker-news",
 	}
 
 	if len(gotTypes) != len(wantTypes) {
@@ -357,5 +361,42 @@ pages:
 				t.Fatalf("PrimaryColumnIndex = %d, want %d", got, tt.wantIndex)
 			}
 		})
+	}
+}
+
+func TestApplicationRegistersBottomWidgetsByID(t *testing.T) {
+	app := newGlanceTestApplication(t, `
+pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets: []
+
+    bottom-widgets:
+      - type: hacker-news
+`)
+
+	if len(app.Config.Pages[0].BottomWidgets) != 1 {
+		t.Fatalf(
+			"BottomWidgets length = %d, want 1",
+			len(app.Config.Pages[0].BottomWidgets),
+		)
+	}
+
+	bottomWidget := app.Config.Pages[0].BottomWidgets[0]
+	widgetID := bottomWidget.GetID()
+
+	registered, exists := app.widgetByID[widgetID]
+	if !exists {
+		t.Fatalf("widgetByID does not contain bottom widget ID %d", widgetID)
+	}
+
+	if registered != bottomWidget {
+		t.Fatalf(
+			"widgetByID[%d] = %T, want exact bottom widget %T",
+			widgetID,
+			registered,
+			bottomWidget,
+		)
 	}
 }
