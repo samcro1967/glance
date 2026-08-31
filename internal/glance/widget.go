@@ -32,6 +32,8 @@ func newWidget(widgetType string) (widget, error) {
 		w = &oldCalendarWidget{}
 	case "clock":
 		w = &clockWidget{}
+	case "analog-clock":
+		w = &analogClockWidget{}
 	case "weather":
 		w = &weatherWidget{}
 	case "bookmarks":

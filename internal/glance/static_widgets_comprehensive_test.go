@@ -9,7 +9,7 @@ import (
 )
 
 func TestComprehensiveNewWidgetAllKnownTypes(t *testing.T) {
-	types := []string{"calendar", "calendar-legacy", "clock", "weather", "bookmarks", "iframe", "html", "hacker-news", "releases", "videos", "markets", "stocks", "reddit", "rss", "monitor", "twitch-top-games", "twitch-channels", "lobsters", "change-detection", "repository", "search", "extension", "group", "dns-stats", "split-column", "custom-api", "docker-containers", "server-stats", "to-do", "stack"}
+	types := []string{"calendar", "calendar-legacy", "clock", "analog-clock", "weather", "bookmarks", "iframe", "html", "hacker-news", "releases", "videos", "markets", "stocks", "reddit", "rss", "monitor", "twitch-top-games", "twitch-channels", "lobsters", "change-detection", "repository", "search", "extension", "group", "dns-stats", "split-column", "custom-api", "docker-containers", "server-stats", "to-do", "stack"}
 	seen := map[uint64]bool{}
 	for _, typ := range types {
 		t.Run(typ, func(t *testing.T) {
@@ -90,6 +90,96 @@ func TestComprehensiveClockWidget(t *testing.T) {
 		Timezone string `yaml:"timezone"`
 		Label    string `yaml:"label"`
 	}{Timezone: "Invalid/Nowhere"})
+	if err := invalid.initialize(); err == nil {
+		t.Fatal("expected invalid timezone")
+	}
+}
+
+func TestComprehensiveAnalogClockWidget(t *testing.T) {
+	w := &analogClockWidget{}
+	if err := w.initialize(); err != nil {
+		t.Fatal(err)
+	}
+
+	if w.DialMarkers != "NumericalFull" || w.Title != "Clock" {
+		t.Fatal("analog clock defaults failed")
+	}
+
+	rendered := string(w.Render())
+	if !strings.Contains(rendered, `analog-clock-marker-1">`) ||
+		!strings.Contains(rendered, `analog-clock-marker-12">`) ||
+		!strings.Contains(rendered, "data-am-pm") ||
+		!strings.Contains(rendered, "data-date") {
+		t.Fatal("analog clock default markup missing expected elements")
+	}
+
+	minimal := &analogClockWidget{
+		DialMarkers:       "NumericalMinimal",
+		HideAmPmIndicator: true,
+		HideDate:          true,
+		Timezones: []analogClockTimezone{
+			{Timezone: "UTC", Label: "Universal"},
+		},
+	}
+	if err := minimal.initialize(); err != nil {
+		t.Fatal(err)
+	}
+
+	minimalRendered := string(minimal.Render())
+	if strings.Contains(minimalRendered, `analog-clock-marker-1">`) ||
+		!strings.Contains(minimalRendered, `analog-clock-marker-3">`) ||
+		!strings.Contains(minimalRendered, `analog-clock-marker-6">`) ||
+		!strings.Contains(minimalRendered, `analog-clock-marker-9">`) ||
+		!strings.Contains(minimalRendered, `analog-clock-marker-12">`) ||
+		strings.Contains(minimalRendered, "data-am-pm") ||
+		strings.Contains(minimalRendered, "data-date") ||
+		!strings.Contains(minimalRendered, `data-time-in-zone="UTC"`) ||
+		!strings.Contains(minimalRendered, "Universal") {
+		t.Fatal("analog clock minimal/hidden/timezone markup incorrect")
+	}
+
+	none := &analogClockWidget{DialMarkers: "None"}
+	if err := none.initialize(); err != nil {
+		t.Fatal(err)
+	}
+
+	if strings.Contains(string(none.Render()), "analog-clock-markers") {
+		t.Fatal("analog clock with no dial markers rendered marker markup")
+	}
+
+	fallback := &analogClockWidget{
+		Timezones: []analogClockTimezone{
+			{Timezone: "UTC"},
+		},
+	}
+	if err := fallback.initialize(); err != nil {
+		t.Fatal(err)
+	}
+
+	fallbackRendered := string(fallback.Render())
+	if !strings.Contains(fallbackRendered, `data-time-in-zone="UTC"`) ||
+		!strings.Contains(fallbackRendered, "UTC") {
+		t.Fatal("analog clock timezone fallback label missing")
+	}
+
+	if err := (&analogClockWidget{DialMarkers: "Invalid"}).initialize(); err == nil {
+		t.Fatal("expected invalid dial markers error")
+	}
+
+	missing := &analogClockWidget{
+		Timezones: []analogClockTimezone{
+			{Label: "bad"},
+		},
+	}
+	if err := missing.initialize(); err == nil {
+		t.Fatal("expected missing timezone")
+	}
+
+	invalid := &analogClockWidget{
+		Timezones: []analogClockTimezone{
+			{Timezone: "Invalid/Nowhere"},
+		},
+	}
 	if err := invalid.initialize(); err == nil {
 		t.Fatal("expected invalid timezone")
 	}

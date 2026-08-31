@@ -1,0 +1,63 @@
+{{ template "widget-base.html" . }}
+
+{{ define "analog-clock-face" }}
+<div class="analog-clock-face">
+    <div class="analog-clock-hand analog-clock-hour-hand"></div>
+    <div class="analog-clock-hand analog-clock-minute-hand"></div>
+    <div class="analog-clock-hand analog-clock-second-hand"></div>
+
+    {{ if ne .DialMarkers "None" }}
+    <div class="analog-clock-markers">
+        {{ if eq .DialMarkers "NumericalFull" }}
+        <span class="analog-clock-marker analog-clock-marker-1">1</span>
+        <span class="analog-clock-marker analog-clock-marker-2">2</span>
+        {{ end }}
+        <span class="analog-clock-marker analog-clock-marker-3">3</span>
+        {{ if eq .DialMarkers "NumericalFull" }}
+        <span class="analog-clock-marker analog-clock-marker-4">4</span>
+        <span class="analog-clock-marker analog-clock-marker-5">5</span>
+        {{ end }}
+        <span class="analog-clock-marker analog-clock-marker-6">6</span>
+        {{ if eq .DialMarkers "NumericalFull" }}
+        <span class="analog-clock-marker analog-clock-marker-7">7</span>
+        <span class="analog-clock-marker analog-clock-marker-8">8</span>
+        {{ end }}
+        <span class="analog-clock-marker analog-clock-marker-9">9</span>
+        {{ if eq .DialMarkers "NumericalFull" }}
+        <span class="analog-clock-marker analog-clock-marker-10">10</span>
+        <span class="analog-clock-marker analog-clock-marker-11">11</span>
+        {{ end }}
+        <span class="analog-clock-marker analog-clock-marker-12">12</span>
+    </div>
+    {{ end }}
+
+    {{ if not .HideAmPmIndicator }}
+    <div class="analog-clock-am-pm" data-am-pm></div>
+    {{ end }}
+
+    {{ if not .HideDate }}
+    <div class="analog-clock-date" data-date></div>
+    {{ end }}
+
+    <div class="analog-clock-center"></div>
+</div>
+{{ end }}
+
+{{ define "widget-content" }}
+<div class="analog-clock">
+    <div class="analog-clock-list">
+        <div class="analog-clock-item" data-analog-clock-face>
+            {{ template "analog-clock-face" . }}
+        </div>
+
+        {{ range .Timezones }}
+        <div class="analog-clock-item" data-analog-clock-face data-time-in-zone="{{ .Timezone }}">
+            {{ template "analog-clock-face" $ }}
+            <div class="analog-clock-label text-truncate">
+                {{ if ne .Label "" }}{{ .Label }}{{ else }}{{ .Timezone }}{{ end }}
+            </div>
+        </div>
+        {{ end }}
+    </div>
+</div>
+{{ end }}

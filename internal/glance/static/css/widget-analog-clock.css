@@ -1,0 +1,157 @@
+.analog-clock {
+    --analog-clock-size: 160px;
+    --analog-clock-marker-radius: 60px;
+}
+
+.analog-clock-list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 1.5rem;
+}
+
+.analog-clock-item {
+    width: var(--analog-clock-size);
+    text-align: center;
+}
+
+.analog-clock-face {
+    position: relative;
+    width: var(--analog-clock-size);
+    height: var(--analog-clock-size);
+    margin-inline: auto;
+    border: 4px solid var(--color-text-subdue);
+    border-radius: 50%;
+}
+
+.analog-clock-hand {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform-origin: 0 50%;
+    border-radius: 999px;
+}
+
+.analog-clock-hour-hand {
+    width: 30%;
+    height: 4px;
+    background: var(--color-text-highlight);
+}
+
+.analog-clock-minute-hand {
+    width: 40%;
+    height: 3px;
+    background: var(--color-text-base);
+}
+
+.analog-clock-second-hand {
+    width: 44%;
+    height: 2px;
+    background: var(--color-primary);
+}
+
+.analog-clock-center {
+    position: absolute;
+    z-index: 2;
+    top: 50%;
+    left: 50%;
+    width: 8px;
+    height: 8px;
+    background: var(--color-text-highlight);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.analog-clock-markers {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+.analog-clock-marker {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    color: var(--color-text-base);
+    font-size: 1.2rem;
+    font-weight: 600;
+    line-height: 20px;
+    text-align: center;
+}
+
+.analog-clock-marker-12 {
+    transform: translate(-50%, -50%) rotate(-90deg) translate(var(--analog-clock-marker-radius)) rotate(90deg);
+}
+
+.analog-clock-marker-1 {
+    transform: translate(-50%, -50%) rotate(-60deg) translate(var(--analog-clock-marker-radius)) rotate(60deg);
+}
+
+.analog-clock-marker-2 {
+    transform: translate(-50%, -50%) rotate(-30deg) translate(var(--analog-clock-marker-radius)) rotate(30deg);
+}
+
+.analog-clock-marker-3 {
+    transform: translate(-50%, -50%) translateX(var(--analog-clock-marker-radius));
+}
+
+.analog-clock-marker-4 {
+    transform: translate(-50%, -50%) rotate(30deg) translate(var(--analog-clock-marker-radius)) rotate(-30deg);
+}
+
+.analog-clock-marker-5 {
+    transform: translate(-50%, -50%) rotate(60deg) translate(var(--analog-clock-marker-radius)) rotate(-60deg);
+}
+
+.analog-clock-marker-6 {
+    transform: translate(-50%, -50%) rotate(90deg) translate(var(--analog-clock-marker-radius)) rotate(-90deg);
+}
+
+.analog-clock-marker-7 {
+    transform: translate(-50%, -50%) rotate(120deg) translate(var(--analog-clock-marker-radius)) rotate(-120deg);
+}
+
+.analog-clock-marker-8 {
+    transform: translate(-50%, -50%) rotate(150deg) translate(var(--analog-clock-marker-radius)) rotate(-150deg);
+}
+
+.analog-clock-marker-9 {
+    transform: translate(-50%, -50%) rotate(180deg) translate(var(--analog-clock-marker-radius)) rotate(-180deg);
+}
+
+.analog-clock-marker-10 {
+    transform: translate(-50%, -50%) rotate(210deg) translate(var(--analog-clock-marker-radius)) rotate(-210deg);
+}
+
+.analog-clock-marker-11 {
+    transform: translate(-50%, -50%) rotate(240deg) translate(var(--analog-clock-marker-radius)) rotate(-240deg);
+}
+
+.analog-clock-am-pm {
+    position: absolute;
+    top: 38px;
+    left: 50%;
+    color: var(--color-text-subdue);
+    font-size: 1rem;
+    line-height: 1;
+    transform: translateX(-50%);
+}
+
+.analog-clock-date {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    color: var(--color-text-subdue);
+    font-size: 1rem;
+    line-height: 1;
+    white-space: nowrap;
+    transform: translateX(-50%);
+}
+
+.analog-clock-label {
+    margin-top: 0.8rem;
+    color: var(--color-text-base);
+}
