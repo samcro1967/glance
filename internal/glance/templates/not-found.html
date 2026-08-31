@@ -1,0 +1,42 @@
+{{ template "document.html" . }}
+
+{{ define "document-title" }}Page not found{{ end }}
+
+{{ define "document-body" }}
+<div class="flex flex-column body-content">
+    <div class="content-bounds grow">
+        <main class="page center-vertically">
+            <div class="widget">
+                <div class="widget-content-frame padding-widget">
+                    <div class="flex flex-column gap-15">
+                        <div>
+                            <div class="size-h1 color-highlight">404</div>
+                            <h1 class="size-h2">Page not found</h1>
+                        </div>
+
+                        <p class="color-paragraph">
+                            The page you're looking for doesn't exist.
+                        </p>
+
+                        {{ if .NavigationPages }}
+                        <div class="flex flex-column gap-10">
+                            <div class="size-h3">Available pages</div>
+                            <div class="flex flex-wrap gap-10">
+                                {{ range .NavigationPages }}
+                                <a
+                                    class="size-h3 color-primary"
+                                    href="{{ $.App.Config.Server.BaseURL }}{{ $.DashboardPath }}/{{ .Slug }}"
+                                >{{ .Title }}</a>
+                                {{ end }}
+                            </div>
+                        </div>
+                        {{ end }}
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    {{ template "footer.html" . }}
+</div>
+{{ end }}

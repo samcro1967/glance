@@ -19,6 +19,7 @@ import (
 
 var (
 	pageTemplate        = mustParseTemplate("page.html", "document.html", "footer.html")
+	notFoundTemplate    = mustParseTemplate("not-found.html", "document.html", "footer.html")
 	pageContentTemplate = mustParseTemplate("page-content.html")
 	manifestTemplate    = mustParseTemplate("manifest.json")
 )
@@ -466,7 +467,7 @@ func (a *application) handlePageRequest(w http.ResponseWriter, r *http.Request) 
 	if a.defaultDashboard == nil {
 		page, exists := a.slugToPage[r.PathValue("page")]
 		if !exists {
-			a.handleNotFound(w, r)
+			a.handleNotFound(w, r, pagePointers(a.Config.Pages), nil, "")
 			return
 		}
 
@@ -496,7 +497,7 @@ func (a *application) handlePageRequest(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if page == nil {
-		a.handleNotFound(w, r)
+		a.handleNotFound(w, r, a.defaultDashboard.Pages, a.defaultDashboard, "")
 		return
 	}
 
@@ -530,7 +531,7 @@ func (a *application) handleDashboardPageRequest(
 	}
 
 	if page == nil {
-		a.handleNotFound(w, r)
+		a.handleNotFound(w, r, dashboard.Pages, dashboard, "/"+dashboard.Slug)
 		return
 	}
 
@@ -555,7 +556,7 @@ func pagePointers(pages []page) []*page {
 func (a *application) handlePageContentRequest(w http.ResponseWriter, r *http.Request) {
 	page, exists := a.slugToPage[r.PathValue("page")]
 	if !exists {
-		a.handleNotFound(w, r)
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
@@ -624,10 +625,34 @@ func (a *application) addressOfRequest(r *http.Request) string {
 	return lastIP
 }
 
-func (a *application) handleNotFound(w http.ResponseWriter, _ *http.Request) {
-	// TODO: add proper not found page
+func (a *application) handleNotFound(
+	w http.ResponseWriter,
+	r *http.Request,
+	navigationPages []*page,
+	dashboard *dashboard,
+	dashboardPath string,
+) {
+	if a.handleUnauthorizedResponse(w, r, redirectToLogin) {
+		return
+	}
+
+	data := templateData{
+		App:             a,
+		NavigationPages: navigationPages,
+		Dashboards:      a.dashboards,
+		Dashboard:       dashboard,
+		DashboardPath:   dashboardPath,
+	}
+	a.populateTemplateRequestData(&data.Request, r)
+
+	var responseBytes bytes.Buffer
+	if err := notFoundTemplate.Execute(&responseBytes, data); err != nil {
+		writeInternalServerError(w, "Failed to render not found page", err)
+		return
+	}
+
 	w.WriteHeader(http.StatusNotFound)
-	w.Write([]byte("Page not found"))
+	w.Write(responseBytes.Bytes())
 }
 
 func (a *application) handleWidgetRequest(w http.ResponseWriter, r *http.Request) {
