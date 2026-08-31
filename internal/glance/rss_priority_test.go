@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/mmcdole/gofeed"
 )
 
 func TestPriorityRSSInitializeDetailedAndBounds(t *testing.T) {
@@ -115,5 +117,115 @@ func TestPriorityRSSFeedTaskHonorsCustomHeadersAndItemPrefix(t *testing.T) {
 	}
 	if !strings.Contains(items[0].Title, "Hello") {
 		t.Fatalf("title = %q", items[0].Title)
+	}
+}
+
+func TestPriorityRSSTitleSanitization(t *testing.T) {
+	got := sanitizeFeedTitle(`<strong>Breaking&nbsp;News</strong> &amp; Updates`)
+	if got != "Breaking\u00a0News & Updates" {
+		t.Fatalf("sanitize title = %q", got)
+	}
+}
+
+func TestPriorityRSSResolveURL(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		base  string
+		want  string
+	}{
+		{
+			name:  "absolute https",
+			value: "https://cdn.example.com/image.jpg",
+			base:  "https://example.com/feed",
+			want:  "https://cdn.example.com/image.jpg",
+		},
+		{
+			name:  "root relative",
+			value: "/images/item.jpg",
+			base:  "https://example.com/posts/feed.xml",
+			want:  "https://example.com/images/item.jpg",
+		},
+		{
+			name:  "path relative",
+			value: "images/item.jpg",
+			base:  "https://example.com/posts/feed.xml",
+			want:  "https://example.com/posts/images/item.jpg",
+		},
+		{
+			name:  "unsupported scheme",
+			value: "javascript:alert(1)",
+			base:  "https://example.com/feed",
+			want:  "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := resolveRSSURL(tt.value, tt.base); got != tt.want {
+				t.Fatalf("resolveRSSURL() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPriorityRSSFindImageInHTML(t *testing.T) {
+	got := findImageInHTML(
+		`<p>Hello</p><img alt="Example" src="/images/post.jpg?x=1&amp;y=2">`,
+	)
+	if got != "/images/post.jpg?x=1&y=2" {
+		t.Fatalf("image = %q", got)
+	}
+
+	if got := findImageInHTML("<p>No image</p>"); got != "" {
+		t.Fatalf("image = %q, want empty", got)
+	}
+}
+
+func TestPriorityRSSFeedItemImageURL(t *testing.T) {
+	item := &gofeed.Item{
+		Content: `<p>Body</p><img src="/content.jpg">`,
+		Image:   &gofeed.Image{URL: "javascript:bad"},
+	}
+	feed := &gofeed.Feed{
+		Link:  "https://example.com/posts/",
+		Image: &gofeed.Image{URL: "/feed.jpg"},
+	}
+
+	got := feedItemImageURL(
+		item,
+		feed,
+		"https://fallback.example.com/feed.xml",
+	)
+	if got != "https://example.com/content.jpg" {
+		t.Fatalf(
+			"image = %q, want %q",
+			got,
+			"https://example.com/content.jpg",
+		)
+	}
+}
+
+func TestPriorityRSSFeedItemImageURLPrecedence(t *testing.T) {
+	item := &gofeed.Item{
+		Content: `<img src="/content.jpg">`,
+		Image:   &gofeed.Image{URL: "/item.jpg"},
+	}
+	feed := &gofeed.Feed{
+		Link:  "https://example.com/posts/",
+		Image: &gofeed.Image{URL: "/feed.jpg"},
+	}
+
+	got := feedItemImageURL(
+		item,
+		feed,
+		"https://fallback.example.com/feed.xml",
+	)
+	if got != "https://example.com/item.jpg" {
+		t.Fatalf(
+			"image = %q, want item image %q",
+			got,
+			"https://example.com/item.jpg",
+		)
 	}
 }

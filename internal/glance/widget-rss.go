@@ -297,7 +297,7 @@ func (widget *rssWidget) fetchItemsFromFeedTask(ctx context.Context, request rss
 		}
 
 		if item.Title != "" {
-			rssItem.Title = html.UnescapeString(item.Title)
+			rssItem.Title = sanitizeFeedTitle(item.Title)
 		} else {
 			rssItem.Title = shortenFeedDescriptionLen(item.Description, 100)
 		}
@@ -332,17 +332,7 @@ func (widget *rssWidget) fetchItemsFromFeedTask(ctx context.Context, request rss
 			rssItem.ChannelName = feed.Title
 		}
 
-		if item.Image != nil {
-			rssItem.ImageURL = item.Image.URL
-		} else if url := findThumbnailInItemExtensions(item); url != "" {
-			rssItem.ImageURL = url
-		} else if feed.Image != nil {
-			if len(feed.Image.URL) > 0 && feed.Image.URL[0] == '/' {
-				rssItem.ImageURL = strings.TrimRight(feed.Link, "/") + feed.Image.URL
-			} else {
-				rssItem.ImageURL = feed.Image.URL
-			}
-		}
+		rssItem.ImageURL = feedItemImageURL(item, feed, request.URL)
 
 		if item.PublishedParsed != nil {
 			rssItem.PublishedAt = *item.PublishedParsed
@@ -374,6 +364,79 @@ func findThumbnailInItemExtensions(item *gofeed.Item) string {
 	}
 
 	return recursiveFindThumbnailInExtensions(media)
+}
+
+func sanitizeFeedTitle(title string) string {
+	return sanitizeFeedDescription(title)
+}
+
+func feedItemImageURL(item *gofeed.Item, feed *gofeed.Feed, feedURL string) string {
+	candidates := make([]string, 0, 4)
+
+	if item.Image != nil && item.Image.URL != "" {
+		candidates = append(candidates, item.Image.URL)
+	}
+
+	if thumbnail := findThumbnailInItemExtensions(item); thumbnail != "" {
+		candidates = append(candidates, thumbnail)
+	}
+
+	if contentImage := findImageInHTML(item.Content); contentImage != "" {
+		candidates = append(candidates, contentImage)
+	}
+
+	if feed.Image != nil && feed.Image.URL != "" {
+		candidates = append(candidates, feed.Image.URL)
+	}
+
+	for _, candidate := range candidates {
+		if resolved := resolveRSSURL(candidate, feed.Link, feedURL); resolved != "" {
+			return resolved
+		}
+	}
+
+	return ""
+}
+
+func resolveRSSURL(value string, bases ...string) string {
+	parsed, err := url.Parse(strings.TrimSpace(value))
+	if err != nil || parsed.String() == "" {
+		return ""
+	}
+
+	if parsed.IsAbs() {
+		if parsed.Scheme != "http" && parsed.Scheme != "https" {
+			return ""
+		}
+
+		return parsed.String()
+	}
+
+	for _, base := range bases {
+		parsedBase, err := url.Parse(base)
+		if err != nil || !parsedBase.IsAbs() {
+			continue
+		}
+
+		if parsedBase.Scheme != "http" && parsedBase.Scheme != "https" {
+			continue
+		}
+
+		return parsedBase.ResolveReference(parsed).String()
+	}
+
+	return ""
+}
+
+var firstHTMLImagePattern = regexp.MustCompile(`(?i)<img[^>]+src=["']([^"']+)["']`)
+
+func findImageInHTML(content string) string {
+	match := firstHTMLImagePattern.FindStringSubmatch(content)
+	if len(match) != 2 {
+		return ""
+	}
+
+	return html.UnescapeString(match[1])
 }
 
 func recursiveFindThumbnailInExtensions(extensions map[string][]gofeedext.Extension) string {
