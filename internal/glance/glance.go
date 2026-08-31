@@ -227,6 +227,12 @@ func newApplication(c *config) (*application, error) {
 			widget.setProviders(providers)
 		}
 
+		for i := range page.BottomWidgets {
+			widget := page.BottomWidgets[i]
+			app.widgetByID[widget.GetID()] = widget
+			widget.setProviders(providers)
+		}
+
 		for c := range page.Columns {
 			column := &page.Columns[c]
 
@@ -313,6 +319,8 @@ func newApplication(c *config) (*application, error) {
 		for c := range page.Columns {
 			refreshSources = append(refreshSources, page.Columns[c].Widgets...)
 		}
+
+		refreshSources = append(refreshSources, page.BottomWidgets...)
 	}
 	app.refreshWidgets = collectRefreshWidgets(refreshSources)
 
@@ -374,6 +382,11 @@ func (p *page) updateOutdatedWidgets() {
 			wg.Add(1)
 			go refreshWidget(p.Columns[c].Widgets[w])
 		}
+	}
+
+	for w := range p.BottomWidgets {
+		wg.Add(1)
+		go refreshWidget(p.BottomWidgets[w])
 	}
 
 	wg.Wait()

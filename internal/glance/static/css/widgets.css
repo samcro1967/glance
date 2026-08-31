@@ -49,6 +49,10 @@
     margin-bottom: var(--widget-gap);
 }
 
+.bottom-widgets {
+    margin-top: var(--widget-gap);
+}
+
 .widget-content {
     container-type: inline-size;
     container-name: widget;

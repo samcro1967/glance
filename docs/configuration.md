@@ -565,6 +565,7 @@ When [named dashboards](#named-dashboards) are configured, pages are still defin
 | hide-desktop-navigation | boolean | no | false |
 | show-mobile-header | boolean | no | false |
 | head-widgets | array | no | |
+| bottom-widgets | array | no | |
 | columns | array | yes | |
 
 #### `name`
@@ -637,6 +638,33 @@ pages:
         widgets:
           - type: weather
             location: London, United Kingdom
+```
+
+#### `bottom-widgets`
+
+Bottom widgets will be shown at the bottom of the page, below the columns, and take up the combined width of all columns. As with `head-widgets`, you can specify any widget, though widgets designed for wider layouts will generally work best.
+
+Example:
+
+```yaml
+pages:
+  - name: Home
+    columns:
+      - size: small
+        widgets:
+          - type: calendar
+      - size: full
+        widgets:
+          - type: hacker-news
+      - size: small
+        widgets:
+          - type: weather
+            location: London, United Kingdom
+
+    bottom-widgets:
+      - type: videos
+        channels:
+          - UC_x5XG1OV2P6uZZ5FSM9Ttw
 ```
 
 ### Named dashboards

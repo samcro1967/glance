@@ -85,6 +85,7 @@ type page struct {
 	HideDesktopNavigation  bool    `yaml:"hide-desktop-navigation"`
 	CenterVertically       bool    `yaml:"center-vertically"`
 	HeadWidgets            widgets `yaml:"head-widgets"`
+	BottomWidgets          widgets `yaml:"bottom-widgets"`
 	Columns                []struct {
 		Size    string  `yaml:"size"`
 		Widgets widgets `yaml:"widgets"`
@@ -130,6 +131,7 @@ type configPageSemanticSources struct {
 	width                  int
 	desktopNavigationWidth int
 	headWidgets            []configWidgetSemanticSources
+	bottomWidgets          []configWidgetSemanticSources
 	columns                int
 	column                 []configColumnSemanticSources
 }
@@ -297,6 +299,19 @@ func newConfigFromParsedYAML(parsed *parsedYAMLConfig) (*config, error) {
 					formatted,
 					candidate,
 					widgetSourceAt(pageSource.headWidgets, w),
+				)
+			}
+		}
+
+		for w := range config.Pages[p].BottomWidgets {
+			candidate := config.Pages[p].BottomWidgets[w]
+			if err := candidate.initialize(); err != nil {
+				formatted := formatWidgetInitError(err, candidate)
+				return nil, widgetInitializationDiagnostic(
+					parsed,
+					formatted,
+					candidate,
+					widgetSourceAt(pageSource.bottomWidgets, w),
 				)
 			}
 		}
@@ -980,6 +995,9 @@ func parseConfigSemanticSources(contents []byte) (*configSemanticSources, error)
 				}
 				if _, headWidgets := yamlMappingValue(pageNode, "head-widgets"); headWidgets != nil {
 					pageSource.headWidgets = parseWidgetSemanticSources(headWidgets)
+				}
+				if _, bottomWidgets := yamlMappingValue(pageNode, "bottom-widgets"); bottomWidgets != nil {
+					pageSource.bottomWidgets = parseWidgetSemanticSources(bottomWidgets)
 				}
 				if columnsKey, columns := yamlMappingValue(pageNode, "columns"); columns != nil {
 					pageSource.columns = columnsKey.Line
