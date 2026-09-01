@@ -3,7 +3,6 @@
 <p align="center">
   <a href="#installation">Install</a> •
   <a href="docs/configuration.md#configuring-glance">Configuration</a> •
-  <a href="https://discord.com/invite/7KQ7Xa9kJd">Discord</a> •
   <a href="https://github.com/sponsors/glanceapp">Sponsor</a>
 </p>
 <p align="center">
