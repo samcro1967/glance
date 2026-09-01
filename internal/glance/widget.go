@@ -30,6 +30,8 @@ func newWidget(widgetType string) (widget, error) {
 		w = &calendarWidget{}
 	case "calendar-legacy":
 		w = &oldCalendarWidget{}
+	case "ics-events":
+		w = &icsEventsWidget{}
 	case "clock":
 		w = &clockWidget{}
 	case "analog-clock":

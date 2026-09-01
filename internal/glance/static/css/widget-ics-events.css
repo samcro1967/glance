@@ -1,0 +1,29 @@
+.ics-events {
+    display: flex;
+    flex-direction: column;
+    gap: 1.2rem;
+}
+
+.ics-event-date {
+    margin-bottom: 0.6rem;
+}
+
+.ics-event-row {
+    display: flex;
+    gap: 1.2rem;
+    align-items: flex-start;
+}
+
+.ics-event-time {
+    flex: 0 0 6.5rem;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.ics-event-details {
+    flex: 1;
+}
+
+.ics-event-title {
+    font-size: var(--font-size-h4);
+}

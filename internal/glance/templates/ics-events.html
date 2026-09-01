@@ -1,0 +1,31 @@
+{{ template "widget-base.html" . }}
+
+{{ define "widget-content" }}
+<div class="ics-events list collapsible-container" data-collapse-after="{{ .CollapseAfter }}">
+    {{ range .Events }}
+    <div class="ics-event">
+        {{ if .ShowDateLabel }}
+        <div class="ics-event-date uppercase color-primary size-h5">{{ .DateLabel }}</div>
+        {{ end }}
+        <div class="ics-event-row">
+            <div class="ics-event-time color-subdue">{{ .TimeLabel }}</div>
+            <div class="ics-event-details min-width-0">
+                {{ if .URL }}
+                <a class="ics-event-title block text-truncate color-highlight" href="{{ .URL | safeURL }}" target="_blank" rel="noreferrer">{{ .Title }}</a>
+                {{ else }}
+                <div class="ics-event-title text-truncate color-highlight">{{ .Title }}</div>
+                {{ end }}
+                {{ if or .Location .SourceTitle }}
+                <ul class="list-horizontal-text flex-nowrap">
+                    {{ if .Location }}<li class="text-truncate">{{ .Location }}</li>{{ end }}
+                    {{ if .SourceTitle }}<li class="text-truncate">{{ .SourceTitle }}</li>{{ end }}
+                </ul>
+                {{ end }}
+            </div>
+        </div>
+    </div>
+    {{ else }}
+    <div>{{ .NoEventsMessage }}</div>
+    {{ end }}
+</div>
+{{ end }}
