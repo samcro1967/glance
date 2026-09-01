@@ -3,10 +3,12 @@ module github.com/samcro1967/glance
 go 1.26.6
 
 require (
+	github.com/arran4/golang-ical v0.3.6
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/mmcdole/gofeed v1.4.2
 	github.com/refraction-networking/utls v1.8.2
 	github.com/shirou/gopsutil/v4 v4.26.7
+	github.com/teambition/rrule-go v1.8.2
 	github.com/tidwall/gjson v1.19.0
 	golang.org/x/crypto v0.55.0
 	golang.org/x/net v0.58.0
