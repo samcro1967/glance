@@ -1,0 +1,5 @@
+{{ template "widget-base.html" . }}
+
+{{ define "widget-content" }}
+<div class="timer" data-timer-id="{{ .TimerID }}" data-hour-format="{{ .HourFormat }}"></div>
+{{ end }}

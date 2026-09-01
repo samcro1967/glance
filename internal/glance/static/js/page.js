@@ -773,6 +773,17 @@ async function setupCalendars() {
         calendar.default(elems[i]);
 }
 
+async function setupTimers() {
+    const elems = Array.from(document.getElementsByClassName("timer"));
+    if (elems.length == 0) return;
+
+    const timer = await import('./timer.js');
+
+    for (let i = 0; i < elems.length; i++) {
+        timer.default(elems[i]);
+    }
+}
+
 async function setupTodos() {
     const elems = Array.from(document.getElementsByClassName("todo"));
     if (elems.length == 0) return;
@@ -1018,6 +1029,7 @@ async function setupPage() {
         setupClocks();
         setupAnalogClocks();
         await setupCalendars();
+        await setupTimers();
         await setupTodos();
         setupCarousels();
         setupSearchBoxes();
