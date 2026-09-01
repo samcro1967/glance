@@ -91,7 +91,7 @@ func TestComprehensiveCustomIconField(t *testing.T) {
 	}{
 		{"https://example.invalid/icon.svg", "example.invalid", false}, {"auto-invert /icon.png", "/icon.png", true},
 		{"si:github", "simple-icons", true}, {"di:plex.png", "dashboard-icons/png/plex.png", false},
-		{"di:plex.bad", "dashboard-icons/svg/plex.svg", false}, {"mdi:home", "@mdi/svg", true}, {"sh:glance.png", "selfhst/icons/png/glance.png", false},
+		{"di:plex.bad", "dashboard-icons/svg/plex.svg", false}, {"mdi:home", "@mdi/svg", true}, {"sh:glance.png", "selfhst/icons@main/png/glance.png", false},
 		{"unknown:value", "unknown:value", false},
 	}
 	for _, tt := range tests {
