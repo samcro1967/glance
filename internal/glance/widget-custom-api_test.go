@@ -507,6 +507,43 @@ func TestCustomAPIStringTemplateFunctions(t *testing.T) {
 	}
 }
 
+func TestCustomAPISafeHTMLEscapingBoundary(t *testing.T) {
+	tests := []struct {
+		name     string
+		template string
+		want     string
+	}{
+		{
+			name:     "HTML is escaped by default",
+			template: `{{ "<script>alert(1)</script><strong>trusted</strong>" }}`,
+			want:     `&lt;script&gt;alert(1)&lt;/script&gt;&lt;strong&gt;trusted&lt;/strong&gt;`,
+		},
+		{
+			name:     "safeHTML preserves trusted HTML",
+			template: `{{ "<script>alert(1)</script><strong>trusted</strong>" | safeHTML }}`,
+			want:     `<script>alert(1)</script><strong>trusted</strong>`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			compiled, err := template.New("").Funcs(customAPITemplateFuncs).Parse(tt.template)
+			if err != nil {
+				t.Fatalf("parse template: %v", err)
+			}
+
+			var output strings.Builder
+			if err := compiled.Execute(&output, nil); err != nil {
+				t.Fatalf("execute template: %v", err)
+			}
+
+			if got := output.String(); got != tt.want {
+				t.Fatalf("output = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestCustomAPIDynamicRequestMethodAndBody(t *testing.T) {
 	newRequest := customAPITemplateFuncs["newRequest"].(func(string) *CustomAPIRequest)
 	withMethod := customAPITemplateFuncs["withMethod"].(func(string, *CustomAPIRequest) *CustomAPIRequest)
