@@ -1,4 +1,4 @@
-project_name: glanceapp/glance
+project_name: samcro1967/glance
 
 checksum:
   disable: true
@@ -24,7 +24,7 @@ builds:
       - goos: windows
         goarch: arm
     ldflags:
-      - -s -w -X github.com/glanceapp/glance/internal/glance.buildVersion={{ .Tag }}
+      - -s -w -X github.com/samcro1967/glance/internal/glance.buildVersion={{ .Tag }}
 
 archives:
   -

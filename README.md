@@ -24,6 +24,8 @@ It tracks the upstream Glance project while incorporating additional functionali
 
 The goal of the fork is to remain compatible with upstream Glance where practical while providing additional functionality and addressing reliability or operational issues encountered in production use. Changes incorporated from existing upstream pull requests or other Glance-derived projects are identified below where applicable.
 
+**Fork module identity** — Uses `github.com/samcro1967/glance` as the Go module and build identity while retaining `github.com/glanceapp/glance` as the upstream project for attribution and ongoing upstream synchronization.
+
 ### Changes from upstream
 
 - **Stack widget** — Adds the `stack` widget from upstream [PR #765](https://github.com/glanceapp/glance/pull/765), allowing multiple widgets to be stacked vertically and treated as a single widget.
