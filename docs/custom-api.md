@@ -466,6 +466,7 @@ The following helper functions provided by Glance are available:
 - `mod(a, b int) int`: Remainder after dividing a by b (a % b).
 - `formatApproxNumber(n int) string`: Formats a number to be more human-readable, e.g. 1000 -> 1k.
 - `formatNumber(n float|int) string`: Formats a number with commas, e.g. 1000 -> 1,000.
+- `safeHTML(str string) template.HTML`: Marks a string as trusted HTML so it is rendered without HTML escaping.
 - `trimPrefix(prefix string, str string) string`: Trims the prefix from a string.
 - `trimSuffix(suffix string, str string) string`: Trims the suffix from a string.
 - `trimSpace(str string) string`: Trims whitespace from a string on both ends.
@@ -490,6 +491,9 @@ The following helper functions provided by Glance are available:
 - `percentChange(current float, previous float) float`: Calculates the percentage change between two numbers.
 - `startOfDay(t time.Time) time.Time`: Returns the start of the day for a given time.
 - `endOfDay(t time.Time) time.Time`: Returns the end of the day for a given time.
+
+> [!WARNING]
+> Values rendered by Custom API templates are HTML-escaped by default. `safeHTML` bypasses that protection and should only be used with HTML from a source you trust. Untrusted HTML may contain scripts, event handlers, or other active content that executes in the browser.
 
 The following helper functions provided by Go's `text/template` are available:
 
