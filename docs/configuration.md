@@ -47,6 +47,7 @@
   - [Twitch Channels](#twitch-channels)
   - [Twitch Top Games](#twitch-top-games)
   - [iframe](#iframe)
+  - [Markdown](#markdown)
   - [HTML](#html)
 
 
@@ -3396,6 +3397,48 @@ The source of the iframe.
 
 ##### `height`
 The height of the iframe. The minimum allowed height is 50.
+
+### Markdown
+Render Markdown directly in a widget. Markdown can be provided inline or read from a file on the Glance filesystem.
+
+Inline example:
+
+```yaml
+- type: markdown
+  title: Notes
+  source: |
+    ## Hello
+
+    This is **Markdown**.
+```
+
+File example:
+
+```yaml
+- type: markdown
+  title: Notes
+  file: /config/notes.md
+  cache: 5m
+```
+
+#### Properties
+| Name | Type | Required | Default |
+| ---- | ---- | -------- | ------- |
+| source | string | yes* | |
+| file | string | yes* | |
+| cache | duration | no | 5m for file sources |
+
+\* Exactly one of `source` or `file` must be specified.
+
+##### `source`
+Inline Markdown content. Inline Markdown is rendered when the configuration is loaded and does not require periodic refreshes.
+
+##### `file`
+Path to a Markdown file accessible from inside the Glance container. File-backed Markdown is refreshed every 5 minutes by default. Use the standard `cache` property to change the refresh interval.
+
+If a file cannot be read during a refresh, the last successfully rendered content remains visible and the widget reports the refresh error through the normal Glance widget status.
+
+Markdown uses GitHub Flavored Markdown features including tables, strikethrough, autolinks and task lists. Raw HTML embedded in Markdown is not rendered, and potentially dangerous link destinations are not emitted as executable links. Use the [HTML](#html) widget when trusted arbitrary HTML is intentionally required.
 
 ### HTML
 Embed any HTML.

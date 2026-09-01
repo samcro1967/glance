@@ -1,0 +1,110 @@
+.markdown-content {
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.markdown-content > *:first-child {
+    margin-top: 0;
+}
+
+.markdown-content > *:last-child {
+    margin-bottom: 0;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+    color: var(--color-text-highlight);
+    margin: 1.4em 0 0.55em;
+    line-height: 1.25;
+}
+
+.markdown-content h1 { font-size: var(--font-size-h2); }
+.markdown-content h2 { font-size: var(--font-size-h3); }
+.markdown-content h3 { font-size: var(--font-size-h4); }
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 { font-size: var(--font-size-h5); }
+
+.markdown-content p,
+.markdown-content ul,
+.markdown-content ol,
+.markdown-content blockquote,
+.markdown-content pre,
+.markdown-content table {
+    margin: 0 0 1em;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+    padding-left: 2em;
+}
+
+.markdown-content ul { list-style: disc; }
+.markdown-content ol { list-style: decimal; }
+.markdown-content li + li { margin-top: 0.25em; }
+.markdown-content li > ul,
+.markdown-content li > ol { margin: 0.25em 0 0; }
+
+.markdown-content a {
+    color: var(--color-primary);
+    text-decoration: underline;
+    text-underline-offset: 0.15em;
+}
+
+.markdown-content blockquote {
+    padding-left: 1em;
+    border-left: 3px solid var(--color-primary);
+    color: var(--color-text-subdue);
+}
+
+.markdown-content code {
+    font-family: monospace;
+}
+
+.markdown-content :not(pre) > code {
+    padding: 0.1em 0.35em;
+    border-radius: var(--border-radius);
+    background: var(--color-widget-content-border);
+}
+
+.markdown-content pre {
+    overflow-x: auto;
+    padding: 1em;
+    border-radius: var(--border-radius);
+    background: var(--color-widget-content-border);
+}
+
+.markdown-content pre code {
+    white-space: pre;
+}
+
+.markdown-content table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.markdown-content th,
+.markdown-content td {
+    padding: 0.5em 0.7em;
+    border: 1px solid var(--color-widget-content-border);
+    text-align: left;
+}
+
+.markdown-content th {
+    color: var(--color-text-highlight);
+}
+
+.markdown-content img {
+    max-width: 100%;
+    height: auto;
+}
+
+.markdown-content hr {
+    margin: 1.25em 0;
+    border: 0;
+    border-top: 1px solid var(--color-widget-content-border);
+}
