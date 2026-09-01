@@ -6,7 +6,7 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps build test-instance-start test-instance-status test-instance-stop test test-race test-count test-race-count fmt-check diff-check staged-check check coverage vuln status staged-diff upstream-status pr-view pr-runs pr-merge post-merge image-runs ci-watch ci-view verify-main deploy-status deploy
+.PHONY: help deps build test-instance-start test-instance-status test-instance-stop test test-race test-count test-race-count fmt-check diff-check staged-check check coverage vuln status staged-diff upstream-status branch push pr-create pr-view pr-runs pr-merge post-merge image-runs ci-watch ci-view verify-main deploy-status deploy
 
 COUNT ?= 10
 COVERAGE_FILE ?= coverage.out
@@ -22,6 +22,7 @@ REPO ?= samcro1967/glance
 PR_WORKFLOW ?= 345456314
 IMAGE_WORKFLOW ?= 344869583
 BRANCH ?= $(shell git branch --show-current 2>/dev/null)
+NEW_BRANCH ?=
 
 DEPLOY_IMAGE ?= ghcr.io/samcro1967/glance:latest
 DEPLOY_CONTAINER ?= glance
@@ -61,8 +62,12 @@ help:
 	@echo "  make staged-diff             Show staged diff summary and contents"
 	@echo "  make upstream-status         Refresh and compare main with remotes"
 	@echo "  make verify-main             Verify post-merge main repository state"
+	@echo "  make branch NEW_BRANCH=name  Create a branch from clean, current main"
+	@echo "  make push                    Push current branch to origin and set upstream"
 	@echo
 	@echo "GitHub pull requests:"
+	@echo "  make pr-create TITLE='...' BODY_FILE=file"
+	@echo "                               Create a PR from the current pushed branch"
 	@echo "  make pr-view PR=55           Show a pull request"
 	@echo "  make pr-runs                 Show recent validation runs for current branch"
 	@echo "  make pr-runs BRANCH=main     Show recent validation runs for a branch"
@@ -154,6 +159,113 @@ upstream-status:
 	@echo
 	@echo "=== MAIN VS UPSTREAM ==="
 	@git rev-list --left-right --count upstream/main...main
+
+branch:
+	@set -euo pipefail; \
+	if [ -z "$(NEW_BRANCH)" ]; then \
+		echo "NEW_BRANCH is required. Example: make branch NEW_BRANCH=feature/example"; \
+		exit 2; \
+	fi; \
+	current="$$(git branch --show-current)"; \
+	if [ "$$current" != "main" ]; then \
+		echo "Branch creation requires main; current branch is $$current."; \
+		exit 1; \
+	fi; \
+	if [ -n "$$(git status --porcelain)" ]; then \
+		echo "Branch creation requires a clean working tree."; \
+		git status --short; \
+		exit 1; \
+	fi; \
+	if git show-ref --verify --quiet "refs/heads/$(NEW_BRANCH)"; then \
+		echo "Local branch $(NEW_BRANCH) already exists."; \
+		exit 1; \
+	fi; \
+	echo "Refreshing origin..."; \
+	git fetch origin --prune; \
+	local_revision="$$(git rev-parse main)"; \
+	origin_revision="$$(git rev-parse origin/main)"; \
+	if [ "$$local_revision" != "$$origin_revision" ]; then \
+		echo "Local main does not match origin/main."; \
+		echo "Local:  $$local_revision"; \
+		echo "Origin: $$origin_revision"; \
+		exit 1; \
+	fi; \
+	echo "Creating branch $(NEW_BRANCH) from $$local_revision..."; \
+	git switch -c "$(NEW_BRANCH)"
+
+push:
+	@set -euo pipefail; \
+	branch="$$(git branch --show-current)"; \
+	if [ -z "$$branch" ]; then \
+		echo "Unable to determine current branch."; \
+		exit 1; \
+	fi; \
+	if [ "$$branch" = "main" ]; then \
+		echo "Refusing to push main with this target."; \
+		exit 1; \
+	fi; \
+	if [ -n "$$(git status --porcelain)" ]; then \
+		echo "Push requires a clean working tree."; \
+		git status --short; \
+		exit 1; \
+	fi; \
+	echo "Pushing $$branch to origin..."; \
+	git push -u origin "$$branch"
+
+pr-create:
+	@set -euo pipefail; \
+	if [ -z "$(TITLE)" ]; then \
+		echo "TITLE is required. Example: make pr-create TITLE='Add feature' BODY_FILE=/tmp/pr-body.md"; \
+		exit 2; \
+	fi; \
+	if [ -z "$(BODY_FILE)" ]; then \
+		echo "BODY_FILE is required. Example: make pr-create TITLE='Add feature' BODY_FILE=/tmp/pr-body.md"; \
+		exit 2; \
+	fi; \
+	if [ ! -f "$(BODY_FILE)" ]; then \
+		echo "BODY_FILE does not exist: $(BODY_FILE)"; \
+		exit 1; \
+	fi; \
+	branch="$$(git branch --show-current)"; \
+	if [ -z "$$branch" ]; then \
+		echo "Unable to determine current branch."; \
+		exit 1; \
+	fi; \
+	if [ "$$branch" = "main" ]; then \
+		echo "Refusing to create a pull request from main."; \
+		exit 1; \
+	fi; \
+	if [ -n "$$(git status --porcelain)" ]; then \
+		echo "PR creation requires a clean working tree."; \
+		git status --short; \
+		exit 1; \
+	fi; \
+	if ! git rev-parse --verify --quiet "@{upstream}" >/dev/null; then \
+		echo "Current branch has no upstream. Run make push first."; \
+		exit 1; \
+	fi; \
+	upstream="$$(git rev-parse --abbrev-ref '@{upstream}')"; \
+	if [ "$$upstream" != "origin/$$branch" ]; then \
+		echo "Current branch does not track origin/$$branch."; \
+		echo "Tracking: $$upstream"; \
+		exit 1; \
+	fi; \
+	local_revision="$$(git rev-parse HEAD)"; \
+	remote_revision="$$(git rev-parse '@{upstream}')"; \
+	if [ "$$local_revision" != "$$remote_revision" ]; then \
+		echo "Current branch does not match its remote."; \
+		echo "Local:  $$local_revision"; \
+		echo "Remote: $$remote_revision"; \
+		echo "Run make push first."; \
+		exit 1; \
+	fi; \
+	echo "Creating PR from $$branch to main..."; \
+	gh pr create \
+		--repo "$(REPO)" \
+		--base main \
+		--head "$$branch" \
+		--title "$(TITLE)" \
+		--body-file "$(BODY_FILE)"
 
 pr-view:
 	@if [ -z "$(PR)" ]; then \
