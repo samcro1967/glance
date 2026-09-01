@@ -1,4 +1,4 @@
-module github.com/glanceapp/glance
+module github.com/samcro1967/glance
 
 go 1.26.6
 
