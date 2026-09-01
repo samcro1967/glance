@@ -136,5 +136,7 @@ func fetchRemoteServerInfo(ctx context.Context, infoReq *serverStatsRequest) (*s
 		return nil, err
 	}
 
+	infoReq.SystemInfoRequest.Filter(info)
+
 	return info, nil
 }

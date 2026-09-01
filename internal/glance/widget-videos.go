@@ -2,6 +2,7 @@ package glance
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -184,6 +185,22 @@ func (w *videosWidget) fetchYoutubeChannelUploads(
 		}
 
 		response, err := decodeXmlFromRequest[youtubeFeedResponseXml](defaultHTTPClient, request)
+		if err != nil && !includeShorts && strings.HasPrefix(id, "UC") {
+			primaryErr := err
+			uploadsPlaylistID := strings.Replace(id, "UC", "UU", 1)
+			fallbackURL := "https://www.youtube.com/feeds/videos.xml?playlist_id=" + uploadsPlaylistID
+
+			fallbackRequest, fallbackRequestErr := http.NewRequestWithContext(ctx, "GET", fallbackURL, nil)
+			if fallbackRequestErr != nil {
+				err = errors.Join(primaryErr, fallbackRequestErr)
+			} else {
+				response, err = decodeXmlFromRequest[youtubeFeedResponseXml](defaultHTTPClient, fallbackRequest)
+				if err != nil {
+					err = errors.Join(primaryErr, err)
+				}
+			}
+		}
+
 		if err != nil {
 			cached, ok := w.cachedVideoLists.Load(id)
 			if ok {

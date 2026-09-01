@@ -296,3 +296,38 @@ func inferCPUTempSensor(sensors []sensors.TemperatureStat) *sensors.TemperatureS
 
 	return nil
 }
+
+// Filter applies mountpoint display configuration to already collected system
+// information. This is primarily used for remote system information, where the
+// mountpoints have already been collected by the remote agent.
+func (req *SystemInfoRequest) Filter(info *SystemInfo) {
+	if req == nil || info == nil {
+		return
+	}
+
+	filtered := make([]MountpointInfo, 0, len(info.Mountpoints))
+
+	for _, mountpoint := range info.Mountpoints {
+		mountpointRequest, configured := req.Mountpoints[mountpoint.Path]
+
+		isHidden := req.HideMountpointsByDefault
+		if configured && mountpointRequest.Hide != nil {
+			isHidden = *mountpointRequest.Hide
+		}
+		if isHidden {
+			continue
+		}
+
+		if configured && mountpointRequest.Name != "" {
+			mountpoint.Name = mountpointRequest.Name
+		}
+
+		filtered = append(filtered, mountpoint)
+	}
+
+	sort.Slice(filtered, func(i, j int) bool {
+		return filtered[i].UsedPercent > filtered[j].UsedPercent
+	})
+
+	info.Mountpoints = filtered
+}
