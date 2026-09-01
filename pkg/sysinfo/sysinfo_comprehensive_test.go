@@ -66,3 +66,86 @@ func TestCollectReturnsInitializedResult(t *testing.T) {
 	}
 	_ = errs // platform-dependent diagnostics are valid and intentionally not asserted.
 }
+
+func boolPointer(value bool) *bool {
+	return &value
+}
+
+func TestSystemInfoRequestFilterMountpoints(t *testing.T) {
+	info := &SystemInfo{
+		Mountpoints: []MountpointInfo{
+			{Path: "/", Name: "/", UsedPercent: 40},
+			{Path: "/mnt/data", Name: "/mnt/data", UsedPercent: 80},
+			{Path: "/boot", Name: "/boot", UsedPercent: 20},
+		},
+	}
+
+	request := &SystemInfoRequest{
+		HideMountpointsByDefault: true,
+		Mountpoints: map[string]MointpointRequest{
+			"/": {
+				Hide: boolPointer(false),
+			},
+			"/mnt/data": {
+				Name: "Data",
+				Hide: boolPointer(false),
+			},
+			"/boot": {
+				Hide: boolPointer(true),
+			},
+		},
+	}
+
+	request.Filter(info)
+
+	if len(info.Mountpoints) != 2 {
+		t.Fatalf("got %d mountpoints, want 2: %#v", len(info.Mountpoints), info.Mountpoints)
+	}
+
+	if info.Mountpoints[0].Path != "/mnt/data" {
+		t.Fatalf("first mountpoint path = %q, want %q", info.Mountpoints[0].Path, "/mnt/data")
+	}
+
+	if info.Mountpoints[0].Name != "Data" {
+		t.Fatalf("first mountpoint name = %q, want %q", info.Mountpoints[0].Name, "Data")
+	}
+
+	if info.Mountpoints[1].Path != "/" {
+		t.Fatalf("second mountpoint path = %q, want %q", info.Mountpoints[1].Path, "/")
+	}
+}
+
+func TestSystemInfoRequestFilterExplicitHide(t *testing.T) {
+	info := &SystemInfo{
+		Mountpoints: []MountpointInfo{
+			{Path: "/", Name: "/", UsedPercent: 40},
+			{Path: "/mnt/data", Name: "/mnt/data", UsedPercent: 80},
+		},
+	}
+
+	request := &SystemInfoRequest{
+		Mountpoints: map[string]MointpointRequest{
+			"/mnt/data": {
+				Hide: boolPointer(true),
+			},
+		},
+	}
+
+	request.Filter(info)
+
+	if len(info.Mountpoints) != 1 {
+		t.Fatalf("got %d mountpoints, want 1: %#v", len(info.Mountpoints), info.Mountpoints)
+	}
+
+	if info.Mountpoints[0].Path != "/" {
+		t.Fatalf("remaining mountpoint = %q, want %q", info.Mountpoints[0].Path, "/")
+	}
+}
+
+func TestSystemInfoRequestFilterNilInputs(t *testing.T) {
+	var request *SystemInfoRequest
+	request.Filter(&SystemInfo{})
+
+	request = &SystemInfoRequest{}
+	request.Filter(nil)
+}

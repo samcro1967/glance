@@ -2753,10 +2753,14 @@ The name of the server which will be displayed on the widget. If not provided it
 ###### `hide-swap`
 Whether to hide the swap usage.
 
-##### Properties for the `local` server
+##### Additional properties for the `local` server
 | Name | Type | Required | Default |
 | ---- | ---- | -------- | ------- |
 | cpu-temp-sensor | string | no |  |
+
+##### Mountpoint properties for both `local` and `remote` servers
+| Name | Type | Required | Default |
+| ---- | ---- | -------- | ------- |
 | hide-mountpoints-by-default | boolean | no | false |
 | mountpoints | map\[string\]object | no |  |
 
@@ -2781,7 +2785,7 @@ If set to `true` you'll have to manually make each mountpoint visible by adding 
 This is useful if you're running Glance inside of a container which usually mounts a lot of irrelevant filesystems.
 
 ###### `mountpoints`
-A map of mountpoints to display disk usage for. The key is the path to the mountpoint and the value is an object with optional properties. Example:
+A map of mountpoints to display disk usage for. The key is the path to the mountpoint and the value is an object with optional properties. For remote servers, these settings filter and rename mountpoints reported by the remote agent; they cannot add paths that the agent did not report. Example:
 
 ```yaml
 mountpoints:
