@@ -9,7 +9,7 @@ import (
 )
 
 func TestComprehensiveNewWidgetAllKnownTypes(t *testing.T) {
-	types := []string{"calendar", "calendar-legacy", "ics-events", "clock", "analog-clock", "weather", "bookmarks", "iframe", "markdown", "html", "hacker-news", "releases", "videos", "markets", "stocks", "reddit", "rss", "monitor", "twitch-top-games", "twitch-channels", "lobsters", "change-detection", "repository", "search", "extension", "group", "dns-stats", "split-column", "custom-api", "docker-containers", "server-stats", "to-do", "stack"}
+	types := []string{"calendar", "calendar-legacy", "ics-events", "clock", "analog-clock", "weather", "bookmarks", "iframe", "markdown", "html", "hacker-news", "releases", "videos", "markets", "stocks", "reddit", "rss", "monitor", "twitch-top-games", "twitch-channels", "lobsters", "change-detection", "repository", "search", "extension", "group", "dns-stats", "split-column", "custom-api", "docker-containers", "server-stats", "timer", "to-do", "stack"}
 	seen := map[uint64]bool{}
 	for _, typ := range types {
 		t.Run(typ, func(t *testing.T) {
@@ -185,7 +185,7 @@ func TestComprehensiveAnalogClockWidget(t *testing.T) {
 	}
 }
 
-func TestComprehensiveHTMLIframeTodoWidgets(t *testing.T) {
+func TestComprehensiveHTMLIframeTimerTodoWidgets(t *testing.T) {
 	htmlw := &htmlWidget{Source: template.HTML("<strong>safe</strong>")}
 	if err := htmlw.initialize(); err != nil {
 		t.Fatal(err)
@@ -217,6 +217,33 @@ func TestComprehensiveHTMLIframeTodoWidgets(t *testing.T) {
 	if normal.Height != 400 {
 		t.Fatal("configured height changed")
 	}
+	timer := &timerWidget{TimerID: "home"}
+	if err := timer.initialize(); err != nil {
+		t.Fatal(err)
+	}
+	if timer.Title != "Timers" || timer.HourFormat != "12h" || len(timer.Render()) == 0 {
+		t.Fatal("timer initialization/render failed")
+	}
+	if !strings.Contains(string(timer.Render()), `data-timer-id="home"`) ||
+		!strings.Contains(string(timer.Render()), `data-hour-format="12h"`) {
+		t.Fatal("timer render missing client configuration")
+	}
+
+	timer24 := &timerWidget{TimerID: "work", HourFormat: "24h"}
+	if err := timer24.initialize(); err != nil {
+		t.Fatal(err)
+	}
+	if timer24.HourFormat != "24h" ||
+		!strings.Contains(string(timer24.Render()), `data-timer-id="work"`) ||
+		!strings.Contains(string(timer24.Render()), `data-hour-format="24h"`) {
+		t.Fatal("configured timer initialization/render failed")
+	}
+
+	invalidTimer := &timerWidget{HourFormat: "13h"}
+	if err := invalidTimer.initialize(); err == nil {
+		t.Fatal("expected invalid timer hour-format error")
+	}
+
 	todo := &todoWidget{TodoID: "home"}
 	if err := todo.initialize(); err != nil {
 		t.Fatal(err)

@@ -1,0 +1,171 @@
+.timer-add {
+    color: var(--color-text-subdue);
+    transition: color .2s;
+}
+
+.timer-add:hover,
+.timer-add:focus-visible {
+    color: var(--color-primary);
+}
+
+.timer-form {
+    display: grid;
+    max-width: 70rem;
+    grid-template-columns: minmax(18rem, 1fr) 15rem 11rem auto;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--color-widget-content-border);
+    border-radius: var(--border-radius);
+}
+
+.timer-form-name,
+.timer-form-date,
+.timer-form-time {
+    min-width: 0;
+    width: 100%;
+    padding: 0.7rem 0.8rem;
+    color: var(--color-text-highlight);
+    background: var(--color-background);
+    border: 1px solid var(--color-widget-content-border);
+    border-radius: var(--border-radius);
+    outline: none;
+}
+
+.timer-form-name:focus,
+.timer-form-date:focus,
+.timer-form-time:focus {
+    border-color: var(--color-primary);
+}
+
+.timer-form-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 1.2rem;
+    white-space: nowrap;
+}
+
+.timer-form-cancel {
+    color: var(--color-text-subdue);
+}
+
+.timer-form-save {
+    color: var(--color-primary);
+}
+
+.timer-form-save:disabled {
+    color: var(--color-text-subdue);
+    cursor: default;
+    opacity: 0.5;
+}
+
+.timer-items {
+    margin-top: 1rem;
+}
+
+.timer-items:empty {
+    margin-top: 0;
+}
+
+.timer-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.7rem 0;
+    transform-origin: center;
+}
+
+.timer-item + .timer-item {
+    border-top: 1px solid var(--color-widget-content-border);
+}
+
+.timer-item-main {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+    cursor: pointer;
+}
+
+.timer-item-title {
+    color: var(--color-text-base);
+    transition: color .2s;
+}
+
+.timer-item-main:hover .timer-item-title,
+.timer-item-main:focus-visible .timer-item-title {
+    color: var(--color-text-highlight);
+}
+
+.timer-item-target {
+    margin-top: 0.2rem;
+    font-size: var(--font-size-h6);
+}
+
+.timer-item-countdown {
+    color: var(--color-text-highlight);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.timer-item-expired .timer-item-title,
+.timer-item-expired .timer-item-countdown {
+    color: var(--color-text-subdue);
+}
+
+.timer-item-drag-handle {
+    position: absolute;
+    z-index: 1;
+    top: -0.3rem;
+    inset-inline: 0;
+    height: 0.8rem;
+    cursor: grab;
+}
+
+.timer-item.is-being-dragged .timer-item-drag-handle {
+    top: -1rem;
+    height: 2rem;
+}
+
+.timer-item-delete {
+    width: 1.5rem;
+    height: 1.5rem;
+    color: var(--color-text-subdue);
+    opacity: 1;
+    transition: opacity .2s, color .2s;
+}
+
+.timer-item.is-being-dragged .timer-item-delete {
+    opacity: 0;
+}
+
+.timer-item-delete:hover,
+.timer-item-delete:focus-visible {
+    color: var(--color-negative);
+}
+
+@media (max-width: 900px) {
+    .timer-form {
+        grid-template-columns: minmax(12rem, 1fr) 14rem 10rem;
+    }
+
+    .timer-form-actions {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 550px) {
+    .timer-form {
+        grid-template-columns: 1fr;
+    }
+
+    .timer-form-actions {
+        grid-column: auto;
+    }
+
+    .timer-item {
+        gap: 0.7rem;
+    }
+}
