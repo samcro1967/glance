@@ -6,4 +6,6 @@ Security updates will be applied to the latest as well as previous minor version
 
 ## Reporting a Vulnerability
 
-Please report any suspected security vulnerabilities to [glanceapp@duck.com](mailto:glanceapp@duck.com) and do not disclose them publicly. You should receive a response within a few days and if confirmed the issue will be resolved as soon as possible.
+Please report suspected security vulnerabilities using GitHub's private vulnerability reporting for this repository. Do not disclose suspected vulnerabilities publicly.
+
+Use the **Security** tab on this repository and select **Report a vulnerability** to submit a private report to the repository maintainer.
