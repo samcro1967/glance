@@ -10,6 +10,7 @@ require (
 	github.com/shirou/gopsutil/v4 v4.26.7
 	github.com/teambition/rrule-go v1.8.2
 	github.com/tidwall/gjson v1.19.0
+	github.com/yuin/goldmark v1.8.5
 	golang.org/x/crypto v0.55.0
 	golang.org/x/net v0.58.0
 	golang.org/x/text v0.41.0

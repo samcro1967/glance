@@ -9,7 +9,7 @@ import (
 )
 
 func TestComprehensiveNewWidgetAllKnownTypes(t *testing.T) {
-	types := []string{"calendar", "calendar-legacy", "ics-events", "clock", "analog-clock", "weather", "bookmarks", "iframe", "html", "hacker-news", "releases", "videos", "markets", "stocks", "reddit", "rss", "monitor", "twitch-top-games", "twitch-channels", "lobsters", "change-detection", "repository", "search", "extension", "group", "dns-stats", "split-column", "custom-api", "docker-containers", "server-stats", "to-do", "stack"}
+	types := []string{"calendar", "calendar-legacy", "ics-events", "clock", "analog-clock", "weather", "bookmarks", "iframe", "markdown", "html", "hacker-news", "releases", "videos", "markets", "stocks", "reddit", "rss", "monitor", "twitch-top-games", "twitch-channels", "lobsters", "change-detection", "repository", "search", "extension", "group", "dns-stats", "split-column", "custom-api", "docker-containers", "server-stats", "to-do", "stack"}
 	seen := map[uint64]bool{}
 	for _, typ := range types {
 		t.Run(typ, func(t *testing.T) {
