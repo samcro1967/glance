@@ -378,7 +378,31 @@ In some instances, you may need to make two consecutive API calls, where you use
     {{ $something.JSON.String "title" }}
 ```
 
-Here, `$theID` gets retrieved from the result of the first API call and used in the second API call. The `newRequest` function creates a new request, and the `getResponse` function executes it. You can also use `withParameter` and `withHeader` to optionally add parameters and headers to the request, or `withAllowInsecure` to skip TLS certificate verification, e.g. `newRequest "https://self-signed.example.com" | withAllowInsecure true | getResponse`.
+Here, `$theID` gets retrieved from the result of the first API call and used in the second API call. The `newRequest` function creates a new request, and the `getResponse` function executes it.
+
+The following functions are available for building dynamic HTTP requests:
+
+- `newRequest(url string) Request`: Creates a new request. Requests without a body default to `GET`.
+- `withMethod(method string, request Request) Request`: Sets the HTTP method. Methods are normalized to uppercase when the request is initialized.
+- `withHeader(key string, value string, request Request) Request`: Adds a request header.
+- `withParameter(key string, value string, request Request) Request`: Adds a query parameter.
+- `withStringBody(body string, request Request) Request`: Adds a string body. Requests with a body default to `POST` when no method is explicitly set.
+- `withAllowInsecure(value bool|string, request Request) Request`: Controls whether invalid or self-signed TLS certificates are accepted.
+- `getResponse(request Request) Response`: Executes the request and returns its response.
+
+These functions can be chained using Go template pipelines. For example, `newRequest "https://self-signed.example.com" | withAllowInsecure true | getResponse`.
+
+For example, a dynamic `PUT` request with a string body can be made like this:
+
+```go-html-template
+{{
+  $response := newRequest "https://api.example.com/resource"
+    | withMethod "PUT"
+    | withHeader "Content-Type" "application/json"
+    | withStringBody `{"enabled":true}`
+    | getResponse
+}}
+```
 
 If you need to make a request to a URL that requires dynamic parameters, you can omit the `url` property in the YAML and run the request entirely from within the template itself:
 

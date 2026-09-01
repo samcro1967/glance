@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"html/template"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -503,5 +504,99 @@ func TestCustomAPIStringTemplateFunctions(t *testing.T) {
 				t.Fatalf("output = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestCustomAPIDynamicRequestMethodAndBody(t *testing.T) {
+	newRequest := customAPITemplateFuncs["newRequest"].(func(string) *CustomAPIRequest)
+	withMethod := customAPITemplateFuncs["withMethod"].(func(string, *CustomAPIRequest) *CustomAPIRequest)
+	withStringBody := customAPITemplateFuncs["withStringBody"].(func(string, *CustomAPIRequest) *CustomAPIRequest)
+
+	tests := []struct {
+		name       string
+		build      func() *CustomAPIRequest
+		wantMethod string
+		wantBody   string
+	}{
+		{
+			name: "default get",
+			build: func() *CustomAPIRequest {
+				return newRequest("https://example.com")
+			},
+			wantMethod: http.MethodGet,
+		},
+		{
+			name: "string body defaults to post",
+			build: func() *CustomAPIRequest {
+				return withStringBody("payload", newRequest("https://example.com"))
+			},
+			wantMethod: http.MethodPost,
+			wantBody:   "payload",
+		},
+		{
+			name: "explicit put with body",
+			build: func() *CustomAPIRequest {
+				req := newRequest("https://example.com")
+				req = withMethod("PUT", req)
+				return withStringBody("payload", req)
+			},
+			wantMethod: http.MethodPut,
+			wantBody:   "payload",
+		},
+		{
+			name: "explicit delete without body",
+			build: func() *CustomAPIRequest {
+				return withMethod("DELETE", newRequest("https://example.com"))
+			},
+			wantMethod: http.MethodDelete,
+		},
+		{
+			name: "lowercase method normalized",
+			build: func() *CustomAPIRequest {
+				return withMethod("patch", newRequest("https://example.com"))
+			},
+			wantMethod: http.MethodPatch,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := tt.build()
+			if err := req.initialize(); err != nil {
+				t.Fatalf("initialize request: %v", err)
+			}
+
+			if got := req.httpRequest.Method; got != tt.wantMethod {
+				t.Fatalf("method = %q, want %q", got, tt.wantMethod)
+			}
+
+			if tt.wantBody != "" {
+				body, err := io.ReadAll(req.httpRequest.Body)
+				if err != nil {
+					t.Fatalf("read body: %v", err)
+				}
+				if got := string(body); got != tt.wantBody {
+					t.Fatalf("body = %q, want %q", got, tt.wantBody)
+				}
+			}
+		})
+	}
+}
+
+func TestCustomAPIWithMethodTemplatePipeline(t *testing.T) {
+	compiled, err := template.New("").Funcs(customAPITemplateFuncs).Parse(
+		`{{ $request := newRequest "https://example.com" | withMethod "PUT" | withStringBody "payload" }}{{ $request.Method }}`,
+	)
+	if err != nil {
+		t.Fatalf("parse template: %v", err)
+	}
+
+	var output strings.Builder
+	if err := compiled.Execute(&output, nil); err != nil {
+		t.Fatalf("execute template: %v", err)
+	}
+
+	if got := output.String(); got != "PUT" {
+		t.Fatalf("method = %q, want %q", got, "PUT")
 	}
 }
