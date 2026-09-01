@@ -629,6 +629,24 @@ var customAPITemplateFuncs = func() template.FuncMap {
 			return strings.TrimSuffix(s, suffix)
 		},
 		"trimSpace": strings.TrimSpace,
+		"toLower":   strings.ToLower,
+		"toUpper":   strings.ToUpper,
+		"equalFold": strings.EqualFold,
+		"contains": func(substr, s string) bool {
+			return strings.Contains(s, substr)
+		},
+		"hasPrefix": func(prefix, s string) bool {
+			return strings.HasPrefix(s, prefix)
+		},
+		"hasSuffix": func(suffix, s string) bool {
+			return strings.HasSuffix(s, suffix)
+		},
+		"split": func(sep, s string) []string {
+			return strings.Split(s, sep)
+		},
+		"join": func(sep string, items []string) string {
+			return strings.Join(items, sep)
+		},
 		"replaceAll": func(old, new, s string) string {
 			return strings.ReplaceAll(s, old, new)
 		},
