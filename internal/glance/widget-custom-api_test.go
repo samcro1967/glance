@@ -469,3 +469,39 @@ func TestCustomAPIWidgetTemplateParseErrorCarriesLineAndCause(t *testing.T) {
 		t.Fatalf("unexpected error text: %q", err)
 	}
 }
+
+func TestCustomAPIStringTemplateFunctions(t *testing.T) {
+	tests := []struct {
+		name     string
+		template string
+		want     string
+	}{
+		{name: "toLower", template: `{{ toLower "HELLO Über" }}`, want: "hello über"},
+		{name: "toUpper", template: `{{ toUpper "hello über" }}`, want: "HELLO ÜBER"},
+		{name: "equalFold", template: `{{ equalFold "Go" "gO" }}`, want: "true"},
+		{name: "equalFold unicode", template: `{{ equalFold "ÜBER" "über" }}`, want: "true"},
+		{name: "contains pipeline", template: `{{ "sports-feed" | contains "sports" }}`, want: "true"},
+		{name: "hasPrefix pipeline", template: `{{ "sports-feed" | hasPrefix "sports" }}`, want: "true"},
+		{name: "hasSuffix pipeline", template: `{{ "sports-feed" | hasSuffix "feed" }}`, want: "true"},
+		{name: "split and index", template: `{{ index ("one,two,three" | split ",") 1 }}`, want: "two"},
+		{name: "split and join pipeline", template: `{{ "one,two,three" | split "," | join " / " }}`, want: "one / two / three"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			compiled, err := template.New("").Funcs(customAPITemplateFuncs).Parse(tt.template)
+			if err != nil {
+				t.Fatalf("parse template: %v", err)
+			}
+
+			var output strings.Builder
+			if err := compiled.Execute(&output, nil); err != nil {
+				t.Fatalf("execute template: %v", err)
+			}
+
+			if got := output.String(); got != tt.want {
+				t.Fatalf("output = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

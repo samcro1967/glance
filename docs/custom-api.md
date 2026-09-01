@@ -445,6 +445,14 @@ The following helper functions provided by Glance are available:
 - `trimPrefix(prefix string, str string) string`: Trims the prefix from a string.
 - `trimSuffix(suffix string, str string) string`: Trims the suffix from a string.
 - `trimSpace(str string) string`: Trims whitespace from a string on both ends.
+- `toLower(str string) string`: Converts a string to lowercase.
+- `toUpper(str string) string`: Converts a string to uppercase.
+- `equalFold(a, b string) bool`: Reports whether two strings are equal under Unicode case-folding.
+- `contains(substr string, str string) bool`: Reports whether a string contains the given substring.
+- `hasPrefix(prefix string, str string) bool`: Reports whether a string begins with the given prefix.
+- `hasSuffix(suffix string, str string) bool`: Reports whether a string ends with the given suffix.
+- `split(separator string, str string) []string`: Splits a string around each occurrence of the separator.
+- `join(separator string, strings []string) string`: Joins strings using the given separator.
 - `replaceAll(old string, new string, str string) string`: Replaces all occurrences of a string in a string.
 - `replaceMatches(pattern string, replacement string, str string) string`: Replaces all occurrences of a regular expression in a string.
 - `findMatch(pattern string, str string) string`: Finds the first match of a regular expression in a string.
@@ -470,6 +478,9 @@ The following helper functions provided by Go's `text/template` are available:
 - `and(args ...bool) bool`: Returns true if **all** arguments are true; accepts two or more boolean values.
 - `or(args ...bool) bool`: Returns true if **any** argument is true; accepts two or more boolean values.
 - `not(a bool) bool`: Returns the opposite of the value.
-- `index(a any, b int) any`: Returns the value at the specified index of an array.
-- `len(a any) int`: Returns the length of an array.
-- `printf(format string, a ...any) string`: Returns a formatted string.
+- `index(item any, indexes ...any) any`: Returns the result of indexing an array, slice, map, or other indexable value.
+- `slice(item any, indexes ...int) any`: Returns a slice of an array, slice, or string using Go slice syntax.
+- `len(item any) int`: Returns the length of an item.
+- `print(args ...any) string`: Formats arguments using Go's default formatting.
+- `printf(format string, args ...any) string`: Formats arguments according to a format specifier.
+- `println(args ...any) string`: Formats arguments using Go's default formatting and appends a newline.
