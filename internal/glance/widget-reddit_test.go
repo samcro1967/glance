@@ -328,3 +328,73 @@ func TestRedditWidgetParseCustomCommentsURLReplacesRepeatedPlaceholders(t *testi
 		t.Fatalf("custom comments URL = %q, want %q", got, want)
 	}
 }
+
+func TestParseRedditChallengeForm(t *testing.T) {
+	body := []byte(`
+		<script>
+			document.addEventListener("DOMContentLoaded", async function() {
+				var n = await(async e=>e+e)("abc123");
+			});
+		</script>
+		<form hidden method="GET" action="/">
+			<input type="hidden" name="solution" />
+			<input type="hidden" name="js_challenge" value="1"/>
+			<input type="hidden" name="jsc_token" value="token-value"/>
+			<input type="hidden" name="jsc_orig_r" value=""/>
+		</form>
+	`)
+
+	challenge, token, origR, err := parseRedditChallengeForm(body)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if challenge != "abc123" {
+		t.Fatalf("challenge = %q, want %q", challenge, "abc123")
+	}
+
+	if token != "token-value" {
+		t.Fatalf("token = %q, want %q", token, "token-value")
+	}
+
+	if origR != "" {
+		t.Fatalf("jsc_orig_r = %q, want empty", origR)
+	}
+}
+
+func TestParseRedditChallengeFormMissingFields(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want string
+	}{
+		{
+			name: "challenge",
+			body: `<input name="jsc_token" value="token"><input name="jsc_orig_r" value="">`,
+			want: "no JS challenge found",
+		},
+		{
+			name: "token",
+			body: `await(async e=>e+e)("abc123")<input name="jsc_orig_r" value="">`,
+			want: "no jsc_token found in challenge page",
+		},
+		{
+			name: "original return",
+			body: `await(async e=>e+e)("abc123")<input name="jsc_token" value="token">`,
+			want: "no jsc_orig_r found in challenge page",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, _, _, err := parseRedditChallengeForm([]byte(tt.body))
+			if err == nil {
+				t.Fatal("expected error")
+			}
+
+			if err.Error() != tt.want {
+				t.Fatalf("error = %q, want %q", err, tt.want)
+			}
+		})
+	}
+}
