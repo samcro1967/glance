@@ -138,6 +138,14 @@ func logConfigDiagnostic(level slog.Level, message string, err error) {
 }
 
 func serveApp(configPath string) error {
+	slog.Info(
+		"Application starting",
+		"version", buildVersion,
+		"revision", shortBuildRevision(buildRevision),
+		"repository", "https://github.com/samcro1967/glance",
+		"config", configPath,
+	)
+
 	// TODO: refactor if this gets any more complex, the current implementation is
 	// difficult to reason about due to all of the callbacks and simultaneous operations,
 	// use a single goroutine and a channel to initiate synchronous changes to the server
