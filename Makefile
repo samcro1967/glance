@@ -6,7 +6,7 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps build test-instance-start test-instance-status test-instance-stop test test-race test-count test-race-count fmt-check diff-check staged-check check coverage vuln status staged-diff upstream-status branch push pr-create promote-create sync-dev-create pr-view pr-runs pr-merge post-merge image-runs ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy
+.PHONY: help deps build test-instance-start test-instance-status test-instance-stop test test-race test-count test-race-count fmt-check diff-check staged-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch push pr-create promote-create sync-dev-create pr-view pr-runs pr-merge post-merge image-runs ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy
 
 COUNT ?= 10
 COVERAGE_FILE ?= coverage.out
@@ -69,6 +69,7 @@ help:
 	@echo "  make status                  Show branch, latest commit, and status"
 	@echo "  make staged-diff             Show staged diff summary and contents"
 	@echo "  make upstream-status         Refresh and compare dev/main with remotes"
+	@echo "  make upstream-dev-status     Inspect differences with upstream dev"
 	@echo "  make verify-dev              Verify dev repository state"
 	@echo "  make verify-main             Verify main repository state"
 	@echo "  make branch NEW_BRANCH=name  Create a feature branch from clean, current dev"
@@ -183,6 +184,18 @@ upstream-status:
 	@echo
 	@echo "=== MAIN VS UPSTREAM ==="
 	@git rev-list --left-right --count upstream/main...$(STABLE_BRANCH)
+
+upstream-dev-status:
+	@echo "=== REFRESH UPSTREAM ==="
+	@git fetch upstream --prune
+	@echo
+	@echo "=== FORK DEV VS UPSTREAM DEV ==="
+	@git rev-list --left-right --count upstream/$(DEV_BRANCH)...$(DEV_BRANCH)
+	@echo
+	@echo "=== UPSTREAM DEV ONLY ==="
+	@git --no-pager log --oneline --decorate $(DEV_BRANCH)..upstream/$(DEV_BRANCH)
+	@echo
+	@echo "Inspection only; upstream/$(DEV_BRANCH) is not automatically merged into fork $(DEV_BRANCH)."
 
 branch:
 	@set -euo pipefail; \
