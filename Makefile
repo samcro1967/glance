@@ -192,8 +192,21 @@ upstream-dev-status:
 	@echo "=== FORK DEV VS UPSTREAM DEV ==="
 	@git rev-list --left-right --count upstream/$(DEV_BRANCH)...$(DEV_BRANCH)
 	@echo
-	@echo "=== UPSTREAM DEV ONLY ==="
-	@git --no-pager log --oneline --decorate $(DEV_BRANCH)..upstream/$(DEV_BRANCH)
+	@echo "=== UPSTREAM DEV PATCH STATUS ==="
+	@set -euo pipefail; \
+	total=$$(git rev-list --count $(DEV_BRANCH)..upstream/$(DEV_BRANCH)); \
+	incorporated=$$(git cherry $(DEV_BRANCH) upstream/$(DEV_BRANCH) | grep -c "^- " || true); \
+	actionable=$$(git cherry $(DEV_BRANCH) upstream/$(DEV_BRANCH) | grep -c "^+ " || true); \
+	echo "Upstream-only commits:     $$total"; \
+	echo "Already incorporated:     $$incorporated"; \
+	echo "Require review:           $$actionable"; \
+	echo; \
+	if [ "$$actionable" -eq 0 ]; then \
+		echo "STATUS: No new upstream dev patches require review."; \
+	else \
+		echo "=== PATCHES REQUIRING REVIEW ==="; \
+		git cherry -v $(DEV_BRANCH) upstream/$(DEV_BRANCH) | grep "^+ " || true; \
+	fi
 	@echo
 	@echo "Inspection only; upstream/$(DEV_BRANCH) is not automatically merged into fork $(DEV_BRANCH)."
 
