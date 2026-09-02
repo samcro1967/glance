@@ -44,9 +44,10 @@ type dashboard struct {
 }
 
 type application struct {
-	Version   string
-	CreatedAt time.Time
-	Config    config
+	Version       string
+	ShortRevision string
+	CreatedAt     time.Time
+	Config        config
 
 	releaseStatus  releaseStatusCache
 	parsedManifest []byte
@@ -64,6 +65,14 @@ type application struct {
 	usernameHashToUsername map[string]string
 	authAttemptsMu         sync.Mutex
 	failedAuthAttempts     map[string]*failedAuthAttempt
+}
+
+func shortBuildRevision(revision string) string {
+	if len(revision) <= 7 {
+		return revision
+	}
+
+	return revision[:7]
 }
 
 func (a *application) shouldCheckForkReleaseStatus() bool {
@@ -108,6 +117,7 @@ func collectRefreshWidgets(source widgets) []widget {
 func newApplication(c *config) (*application, error) {
 	app := &application{
 		Version:         buildVersion,
+		ShortRevision:   shortBuildRevision(buildRevision),
 		CreatedAt:       time.Now(),
 		Config:          *c,
 		slugToPage:      make(map[string]*page),

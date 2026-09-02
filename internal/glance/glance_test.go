@@ -18,6 +18,27 @@ func newGlanceTestApplication(t *testing.T, yaml string) *application {
 	return app
 }
 
+func TestShortBuildRevision(t *testing.T) {
+	tests := []struct {
+		name     string
+		revision string
+		want     string
+	}{
+		{name: "empty", revision: "", want: ""},
+		{name: "short", revision: "abc123", want: "abc123"},
+		{name: "seven characters", revision: "8534072", want: "8534072"},
+		{name: "full SHA", revision: "8534072e8ac3f0aac221a3c4f41897efdd2653bc", want: "8534072"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := shortBuildRevision(test.revision); got != test.want {
+				t.Fatalf("shortBuildRevision(%q) = %q, want %q", test.revision, got, test.want)
+			}
+		})
+	}
+}
+
 func TestDefaultDarkPresetIsNotInjectedWhenNotConfigured(t *testing.T) {
 	app := newGlanceTestApplication(t, `
 theme:

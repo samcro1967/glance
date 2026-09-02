@@ -51,6 +51,27 @@ func TestFooterReleaseStatusDev(t *testing.T) {
 	}
 }
 
+func TestFooterReleaseStatusDevWithRevision(t *testing.T) {
+	app := &application{
+		Version:       "dev",
+		ShortRevision: "8534072",
+	}
+
+	rendered := renderFooterForTest(t, app)
+
+	if !strings.Contains(rendered, "(dev 8534072)") {
+		t.Fatalf("footer does not contain development revision: %q", rendered)
+	}
+
+	if strings.Contains(rendered, "Latest") {
+		t.Fatalf("development footer contains latest status: %q", rendered)
+	}
+
+	if strings.Contains(rendered, "Update available") {
+		t.Fatalf("development footer contains update status: %q", rendered)
+	}
+}
+
 func TestFooterReleaseStatusLatest(t *testing.T) {
 	app := &application{
 		Version: testInstalledForkVersion,
