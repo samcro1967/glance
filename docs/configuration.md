@@ -25,6 +25,7 @@
   - [Search](#search-widget)
   - [Group](#group)
   - [Stack](#stack)
+  - [Status Bar](#status-bar)
   - [Split Column](#split-column)
   - [Custom API](#custom-api)
   - [Extension](#extension)
@@ -1638,6 +1639,80 @@ Example:
 ```
 
 In this example, the group has two tabs: `News` and `Social`. Selecting `News` displays both the Hacker News and Lobsters widgets vertically, while selecting `Social` displays both Reddit widgets vertically.
+
+### Status Bar
+Display compact information from supported existing widgets in a full-width status bar.
+
+A status bar can only be placed directly in a page's `head-widgets` or `bottom-widgets`. It cannot be placed in a column or nested inside another widget such as a `group`, `stack`, `split-column`, or another `status-bar`.
+
+A page can contain one or multiple status bars in `head-widgets`, one or multiple status bars in `bottom-widgets`, or status bars in both sections.
+
+Supported child widget types are:
+
+* `weather`
+* `markets`
+* `rss`
+
+Child widgets are configured through the `widgets` property using their normal widget configuration. They retain their existing provider fetching, caching, refresh, recovery, error handling, limits, sorting, and link behavior, but are displayed using a compact status-bar presentation rather than their normal full widget layout.
+
+Example:
+
+```yaml
+pages:
+  - name: Home
+    head-widgets:
+      - type: status-bar
+        mode: ticker
+        widgets:
+          - type: weather
+            location: London, United Kingdom
+            units: metric
+
+          - type: markets
+            markets:
+              - symbol: SPY
+                name: S&P 500
+              - symbol: BTC-USD
+                name: Bitcoin
+
+          - type: rss
+            limit: 3
+            feeds:
+              - url: https://example.com/feed.xml
+                title: News
+
+    columns:
+      - size: full
+        widgets:
+          - type: hacker-news
+```
+
+#### Properties
+
+| Name | Type | Required | Default |
+| ---- | ---- | -------- | ------- |
+| mode | string | no | ticker |
+| widgets | array | yes | |
+
+##### `mode`
+
+Controls how the compact items are laid out.
+
+* `ticker` continuously scrolls the items horizontally. Scrolling pauses while the status bar is hovered or focused. When reduced motion is requested by the browser or operating system, the items are displayed statically instead.
+* `wrap` displays the items statically and allows them to wrap onto additional lines when necessary.
+
+Possible values are `ticker` and `wrap`.
+
+##### `widgets`
+
+An array of supported Glance widgets to display in compact form. Each child uses the normal configuration for its widget type.
+
+The status bar intentionally provides an alternate presentation of existing widgets rather than a separate data-source system. Weather uses the configured location and units, Markets preserves configured symbols, names, sorting and links, and RSS preserves its configured feeds, limits, ordering and article links.
+
+Where equivalent underlying resources are requested by multiple configured widgets, Glance shares the applicable fetched resource work while keeping each widget's configuration and presentation independent.
+
+Presentation-specific options of a child widget that apply only to its normal full layout do not change the status bar's compact renderer.
+
 
 ### Split Column
 Splits a full sized column in half, allowing you to place widgets side by side horizontally. This is converted to a single column on mobile devices or if not enough width is available. Widgets are defined using a `widgets` property exactly as you would on a page column.

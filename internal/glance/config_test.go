@@ -1591,3 +1591,59 @@ func TestConfigFilesWatcherStopDuringActiveCallback(t *testing.T) {
 		t.Fatal("stop did not return after active callback finished")
 	}
 }
+
+func TestStatusBarPlacement(t *testing.T) {
+	tests := []struct {
+		name      string
+		yaml      string
+		wantError string
+	}{
+		{
+			name: "head widgets allowed",
+			yaml: "pages:\n  - name: Home\n    head-widgets:\n      - type: status-bar\n        widgets:\n          - type: rss\n            feeds:\n              - url: https://example.com/feed.xml\n    columns:\n      - size: full\n",
+		},
+		{
+			name: "bottom widgets allowed",
+			yaml: "pages:\n  - name: Home\n    columns:\n      - size: full\n    bottom-widgets:\n      - type: status-bar\n        widgets:\n          - type: rss\n            feeds:\n              - url: https://example.com/feed.xml\n",
+		},
+		{
+			name:      "column rejected",
+			yaml:      "pages:\n  - name: Home\n    columns:\n      - size: full\n        widgets:\n          - type: status-bar\n            widgets:\n              - type: rss\n                feeds:\n                  - url: https://example.com/feed.xml\n",
+			wantError: "status-bar widget can only be used directly in head-widgets or bottom-widgets",
+		},
+		{
+			name:      "nested head rejected",
+			yaml:      "pages:\n  - name: Home\n    head-widgets:\n      - type: group\n        widgets:\n          - type: status-bar\n            widgets:\n              - type: rss\n                feeds:\n                  - url: https://example.com/feed.xml\n    columns:\n      - size: full\n",
+			wantError: "status-bar widget can only be used directly in head-widgets or bottom-widgets",
+		},
+		{
+			name:      "nested bottom rejected",
+			yaml:      "pages:\n  - name: Home\n    columns:\n      - size: full\n    bottom-widgets:\n      - type: group\n        widgets:\n          - type: status-bar\n            widgets:\n              - type: rss\n                feeds:\n                  - url: https://example.com/feed.xml\n",
+			wantError: "status-bar widget can only be used directly in head-widgets or bottom-widgets",
+		},
+		{
+			name:      "nested column rejected",
+			yaml:      "pages:\n  - name: Home\n    columns:\n      - size: full\n        widgets:\n          - type: group\n            widgets:\n              - type: status-bar\n                widgets:\n                  - type: rss\n                    feeds:\n                      - url: https://example.com/feed.xml\n",
+			wantError: "status-bar widget can only be used directly in head-widgets or bottom-widgets",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := newConfigFromYAML([]byte(tt.yaml))
+			if tt.wantError == "" {
+				if err != nil {
+					t.Fatalf("newConfigFromYAML() error = %v, want nil", err)
+				}
+				return
+			}
+
+			if err == nil {
+				t.Fatalf("newConfigFromYAML() error = nil, want %q", tt.wantError)
+			}
+			if err.Error() != tt.wantError {
+				t.Errorf("newConfigFromYAML() error = %q, want %q", err.Error(), tt.wantError)
+			}
+		})
+	}
+}

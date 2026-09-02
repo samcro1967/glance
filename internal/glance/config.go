@@ -1055,6 +1055,28 @@ func semanticSourceLine(lines ...int) int {
 	return 0
 }
 
+func validateStatusBarPlacement(widgetList widgets, widgetSources []configWidgetSemanticSources, allowDirect bool) (int, error) {
+	for i := range widgetList {
+		candidate := widgetList[i]
+		source := widgetSourceAt(widgetSources, i)
+
+		if candidate.GetType() == "status-bar" && !allowDirect {
+			return source.line, errors.New("status-bar widget can only be used directly in head-widgets or bottom-widgets")
+		}
+
+		container, ok := candidate.(widgetContainer)
+		if !ok {
+			continue
+		}
+
+		if line, err := validateStatusBarPlacement(container.childWidgets(), source.widgets, false); err != nil {
+			return semanticSourceLine(line, source.line), err
+		}
+	}
+
+	return 0, nil
+}
+
 func configPageDescription(page *page, index int) string {
 	if page != nil && strings.TrimSpace(page.Title) != "" {
 		return fmt.Sprintf("page %q", page.Title)
@@ -1187,6 +1209,14 @@ func isConfigStateValidWithSources(
 		}
 		pageLine := semanticSourceLine(pageSource.line, pagesLine)
 
+		if line, err := validateStatusBarPlacement(page.HeadWidgets, pageSource.headWidgets, true); err != nil {
+			return diagnostic(semanticSourceLine(line, pageLine), err)
+		}
+
+		if line, err := validateStatusBarPlacement(page.BottomWidgets, pageSource.bottomWidgets, true); err != nil {
+			return diagnostic(semanticSourceLine(line, pageLine), err)
+		}
+
 		if page.Title == "" {
 			return diagnostic(
 				semanticSourceLine(pageSource.name, pageLine),
@@ -1243,6 +1273,10 @@ func isConfigStateValidWithSources(
 				columnSource = pageSource.column[j]
 			}
 			columnLine := semanticSourceLine(columnSource.line, pageSource.columns, pageLine)
+
+			if line, err := validateStatusBarPlacement(column.Widgets, columnSource.widgets, false); err != nil {
+				return diagnostic(semanticSourceLine(line, columnLine), err)
+			}
 
 			if column.Size != "small" && column.Size != "medium" && column.Size != "full" {
 				return diagnostic(
