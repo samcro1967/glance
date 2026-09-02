@@ -641,22 +641,35 @@ release: release-check
 	echo "The tag push will invoke the GitHub Actions GoReleaser workflow."
 
 deploy-status:
-	@echo "=== SOURCE ==="
-	@echo "Branch=$$(git branch --show-current)"
-	@echo "Revision=$$(git rev-parse HEAD)"
-	@echo
-	@echo "=== LOCAL GHCR IMAGE ==="
-	@if docker image inspect "$(DEPLOY_IMAGE)" >/dev/null 2>&1; then \
-		docker image inspect "$(DEPLOY_IMAGE)" \
-			--format 'Revision={{index .Config.Labels "org.opencontainers.image.revision"}} Image={{.Id}} Created={{.Created}}'; \
+	@set -euo pipefail; \
+	echo "=== SOURCE ==="; \
+	branch="$$(git branch --show-current)"; \
+	local_revision="$$(git rev-parse HEAD)"; \
+	release_tag="$$(git tag --points-at HEAD --list 'v*-$(FORK_RELEASE_ID).r*' --sort=-version:refname | head -1)"; \
+	echo "Branch=$$branch"; \
+	echo "Revision=$$local_revision"; \
+	echo "Release=$${release_tag:-none}"; \
+	echo; \
+	echo "=== DEPLOY IMAGE ==="; \
+	if docker image inspect "$(DEPLOY_IMAGE)" >/dev/null 2>&1; then \
+		image_id="$$(docker image inspect "$(DEPLOY_IMAGE)" --format '{{.Id}}')"; \
+		image_created="$$(docker image inspect "$(DEPLOY_IMAGE)" --format '{{.Created}}')"; \
+		image_version="$$(docker run --rm --entrypoint /app/glance "$(DEPLOY_IMAGE)" --version 2>/dev/null || true)"; \
+		echo "Version=$${image_version:-unknown}"; \
+		echo "Image=$$image_id"; \
+		echo "Created=$$image_created"; \
 	else \
 		echo "Image $(DEPLOY_IMAGE) is not available locally."; \
-	fi
-	@echo
-	@echo "=== PRODUCTION ==="
-	@if docker inspect "$(DEPLOY_CONTAINER)" >/dev/null 2>&1; then \
-		docker inspect "$(DEPLOY_CONTAINER)" \
-			--format 'Revision={{index .Config.Labels "org.opencontainers.image.revision"}} Image={{.Image}} Started={{.State.StartedAt}}'; \
+	fi; \
+	echo; \
+	echo "=== PRODUCTION ==="; \
+	if docker inspect "$(DEPLOY_CONTAINER)" >/dev/null 2>&1; then \
+		container_image="$$(docker inspect "$(DEPLOY_CONTAINER)" --format '{{.Image}}')"; \
+		container_started="$$(docker inspect "$(DEPLOY_CONTAINER)" --format '{{.State.StartedAt}}')"; \
+		container_version="$$(docker exec "$(DEPLOY_CONTAINER)" /app/glance --version 2>/dev/null || true)"; \
+		echo "Version=$${container_version:-unknown}"; \
+		echo "Image=$$container_image"; \
+		echo "Started=$$container_started"; \
 	else \
 		echo "Container $(DEPLOY_CONTAINER) does not exist."; \
 	fi
@@ -675,7 +688,7 @@ deploy:
 		exit 1; \
 	fi; \
 	echo "Refreshing origin..."; \
-	git fetch origin --prune; \
+	git fetch origin --prune --tags; \
 	local_revision="$$(git rev-parse HEAD)"; \
 	origin_revision="$$(git rev-parse origin/$(STABLE_BRANCH))"; \
 	if [ "$$local_revision" != "$$origin_revision" ]; then \
@@ -684,18 +697,33 @@ deploy:
 		echo "Origin: $$origin_revision"; \
 		exit 1; \
 	fi; \
+	release_tag="$$(git tag --points-at HEAD --list 'v*-$(FORK_RELEASE_ID).r*' --sort=-version:refname | head -1)"; \
+	if [ -z "$$release_tag" ]; then \
+		echo "Refusing deployment: current $(STABLE_BRANCH) revision has no formal fork release tag."; \
+		echo "Revision: $$local_revision"; \
+		exit 1; \
+	fi; \
+	release_revision="$$(git rev-list -n 1 "$$release_tag")"; \
+	if [ "$$release_revision" != "$$local_revision" ]; then \
+		echo "Refusing deployment: release tag does not resolve to local $(STABLE_BRANCH)."; \
+		echo "Release: $$release_tag"; \
+		echo "Tag:     $$release_revision"; \
+		echo "Source:  $$local_revision"; \
+		exit 1; \
+	fi; \
 	echo "Source revision: $$local_revision"; \
+	echo "Release:         $$release_tag"; \
 	echo; \
 	echo "=== PULL IMAGE ==="; \
 	docker pull "$(DEPLOY_IMAGE)"; \
-	image_revision="$$(docker image inspect "$(DEPLOY_IMAGE)" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"; \
 	image_id="$$(docker image inspect "$(DEPLOY_IMAGE)" --format '{{.Id}}')"; \
-	echo "Image revision: $$image_revision"; \
-	echo "Image ID:       $$image_id"; \
-	if [ "$$image_revision" != "$$local_revision" ]; then \
-		echo "Refusing deployment: GHCR latest does not match local $(STABLE_BRANCH)."; \
-		echo "Source: $$local_revision"; \
-		echo "Image:  $$image_revision"; \
+	image_version="$$(docker run --rm --entrypoint /app/glance "$(DEPLOY_IMAGE)" --version)"; \
+	echo "Image version: $$image_version"; \
+	echo "Image ID:      $$image_id"; \
+	if [ "$$image_version" != "$$release_tag" ]; then \
+		echo "Refusing deployment: $(DEPLOY_IMAGE) does not match the formal release at local $(STABLE_BRANCH)."; \
+		echo "Release: $$release_tag"; \
+		echo "Image:   $$image_version"; \
 		exit 1; \
 	fi; \
 	echo; \
@@ -704,16 +732,20 @@ deploy:
 	docker compose up -d --no-deps "$(DEPLOY_SERVICE)"; \
 	echo; \
 	echo "=== VERIFY CONTAINER ==="; \
-	container_revision="$$(docker inspect "$(DEPLOY_CONTAINER)" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"; \
+	container_version="$$(docker exec "$(DEPLOY_CONTAINER)" /app/glance --version)"; \
 	container_image="$$(docker inspect "$(DEPLOY_CONTAINER)" --format '{{.Image}}')"; \
-	echo "Container revision: $$container_revision"; \
-	echo "Container image:    $$container_image"; \
-	if [ "$$container_revision" != "$$local_revision" ]; then \
-		echo "Deployment verification failed: container revision does not match source."; \
+	echo "Container version: $$container_version"; \
+	echo "Container image:   $$container_image"; \
+	if [ "$$container_version" != "$$release_tag" ]; then \
+		echo "Deployment verification failed: container version does not match formal release."; \
+		echo "Release:   $$release_tag"; \
+		echo "Container: $$container_version"; \
 		exit 1; \
 	fi; \
 	if [ "$$container_image" != "$$image_id" ]; then \
 		echo "Deployment verification failed: container image does not match pulled image."; \
+		echo "Pulled:    $$image_id"; \
+		echo "Container: $$container_image"; \
 		exit 1; \
 	fi; \
 	echo; \
@@ -739,7 +771,8 @@ deploy:
 	docker logs "$(DEPLOY_CONTAINER)" --since 2m 2>&1 | tail -50 || true; \
 	echo; \
 	echo "=== DEPLOYMENT COMPLETE ==="; \
-	echo "Revision=$$container_revision"; \
+	echo "Release=$$release_tag"; \
+	echo "Revision=$$local_revision"; \
 	echo "Image=$$container_image"
 
 test-instance-start:
