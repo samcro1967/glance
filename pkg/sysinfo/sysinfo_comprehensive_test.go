@@ -67,6 +67,32 @@ func TestCollectReturnsInitializedResult(t *testing.T) {
 	_ = errs // platform-dependent diagnostics are valid and intentionally not asserted.
 }
 
+func TestPhysicalFilesystemType(t *testing.T) {
+	tests := []struct {
+		fstype string
+		want   bool
+	}{
+		{fstype: "overlay", want: true},
+		{fstype: "ext4", want: true},
+		{fstype: "xfs", want: true},
+		{fstype: "btrfs", want: true},
+		{fstype: "proc", want: false},
+		{fstype: "sysfs", want: false},
+		{fstype: "tmpfs", want: false},
+		{fstype: "cgroup2", want: false},
+		{fstype: "unknown", want: false},
+		{fstype: "", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.fstype, func(t *testing.T) {
+			if got := isPhysicalFilesystemType(tt.fstype); got != tt.want {
+				t.Fatalf("isPhysicalFilesystemType(%q) = %t, want %t", tt.fstype, got, tt.want)
+			}
+		})
+	}
+}
+
 func boolPointer(value bool) *bool {
 	return &value
 }
