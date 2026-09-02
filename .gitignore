@@ -3,6 +3,7 @@
 /playground
 /.idea
 /glance*.yml
+!/glance-test.yml
 /.glance-test
 /.glance-test.pid
 /.glance-test.log
