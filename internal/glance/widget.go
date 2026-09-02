@@ -92,6 +92,8 @@ func newWidget(widgetType string) (widget, error) {
 		w = &todoWidget{}
 	case "stack":
 		w = &stackWidget{}
+	case "status-bar":
+		w = &statusBarWidget{}
 	default:
 		return nil, fmt.Errorf("unknown widget type: %s", widgetType)
 	}

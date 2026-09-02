@@ -58,7 +58,7 @@ func (widget *weatherWidget) initialize() error {
 
 func (widget *weatherWidget) update(ctx context.Context) {
 	if widget.Place == nil {
-		place, err := fetchOpenMeteoPlaceFromName(ctx, widget.Location)
+		place, err := fetchOpenMeteoPlaceResource(ctx, widget.Location)
 		if err != nil {
 			widget.withError(err).scheduleEarlyUpdate()
 			return
@@ -67,7 +67,7 @@ func (widget *weatherWidget) update(ctx context.Context) {
 		widget.Place = place
 	}
 
-	weather, err := fetchWeatherForOpenMeteoPlace(ctx, widget.Place, widget.Units)
+	weather, err := fetchOpenMeteoWeatherResource(ctx, widget.Place, widget.Units)
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
 		return
@@ -216,6 +216,15 @@ func fetchOpenMeteoPlaceFromName(ctx context.Context, location string) (*openMet
 }
 
 func fetchWeatherForOpenMeteoPlace(ctx context.Context, place *openMeteoPlaceResponseJson, units string) (*weather, error) {
+	responseJson, err := fetchOpenMeteoWeatherResponse(ctx, place, units)
+	if err != nil {
+		return nil, err
+	}
+
+	return buildWeatherFromOpenMeteoResponse(responseJson, place), nil
+}
+
+func fetchOpenMeteoWeatherResponse(ctx context.Context, place *openMeteoPlaceResponseJson, units string) (*openMeteoWeatherResponseJson, error) {
 	query := url.Values{}
 	var temperatureUnit string
 
@@ -247,6 +256,10 @@ func fetchWeatherForOpenMeteoPlace(ctx context.Context, place *openMeteoPlaceRes
 		return nil, fmt.Errorf("%w: fetching weather data: %w", errNoContent, err)
 	}
 
+	return &responseJson, nil
+}
+
+func buildWeatherFromOpenMeteoResponse(responseJson *openMeteoWeatherResponseJson, place *openMeteoPlaceResponseJson) *weather {
 	now := time.Now().In(place.location)
 	bars := make([]weatherColumn, 0, 24)
 	currentBar := now.Hour() / 2
@@ -301,7 +314,7 @@ func fetchWeatherForOpenMeteoPlace(ctx context.Context, place *openMeteoPlaceRes
 		SunriseColumn:       sunriseBar,
 		SunsetColumn:        sunsetBar,
 		Columns:             bars,
-	}, nil
+	}
 }
 
 var weatherCodeTable = map[int]string{
