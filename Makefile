@@ -6,11 +6,11 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps build test-instance-start test-instance-status test-instance-stop test test-race test-count test-race-count fmt-check diff-check staged-check check coverage vuln status staged-diff upstream-status branch push pr-create pr-view pr-runs pr-merge post-merge image-runs ci-watch ci-view verify-main deploy-status deploy
+.PHONY: help deps build test-instance-start test-instance-status test-instance-stop test test-race test-count test-race-count fmt-check diff-check staged-check check coverage vuln status staged-diff upstream-status branch push pr-create promote-create pr-view pr-runs pr-merge post-merge image-runs ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy
 
 COUNT ?= 10
 COVERAGE_FILE ?= coverage.out
-BASE_REF ?= origin/main
+BASE_REF ?= origin/dev
 
 TEST_PORT ?= 18080
 TEST_BINARY ?= .glance-test
@@ -18,11 +18,19 @@ TEST_CONFIG ?= glance-test.yml
 TEST_PID_FILE ?= .glance-test.pid
 TEST_LOG ?= .glance-test.log
 TEST_URL ?= http://127.0.0.1:$(TEST_PORT)
+
 REPO ?= samcro1967/glance
 PR_WORKFLOW ?= 345456314
 IMAGE_WORKFLOW ?= 344869583
 BRANCH ?= $(shell git branch --show-current 2>/dev/null)
 NEW_BRANCH ?=
+
+DEV_BRANCH ?= dev
+STABLE_BRANCH ?= main
+PR_BASE ?= $(DEV_BRANCH)
+
+FORK_RELEASE_ID ?= samcro1967
+FORK_RELEASE_WIDTH ?= 3
 
 DEPLOY_IMAGE ?= ghcr.io/samcro1967/glance:latest
 DEPLOY_CONTAINER ?= glance
@@ -60,28 +68,36 @@ help:
 	@echo "Repository inspection:"
 	@echo "  make status                  Show branch, latest commit, and status"
 	@echo "  make staged-diff             Show staged diff summary and contents"
-	@echo "  make upstream-status         Refresh and compare main with remotes"
-	@echo "  make verify-main             Verify post-merge main repository state"
-	@echo "  make branch NEW_BRANCH=name  Create a branch from clean, current main"
-	@echo "  make push                    Push current branch to origin and set upstream"
+	@echo "  make upstream-status         Refresh and compare dev/main with remotes"
+	@echo "  make verify-dev              Verify dev repository state"
+	@echo "  make verify-main             Verify main repository state"
+	@echo "  make branch NEW_BRANCH=name  Create a feature branch from clean, current dev"
+	@echo "  make push                    Push current feature branch to origin"
 	@echo
 	@echo "GitHub pull requests:"
 	@echo "  make pr-create TITLE='...' BODY_FILE=file"
-	@echo "                               Create a PR from the current pushed branch"
+	@echo "                               Create a PR from feature branch to dev"
+	@echo "  make promote-create TITLE='...' BODY_FILE=file"
+	@echo "                               Create a promotion PR from dev to main"
 	@echo "  make pr-view PR=55           Show a pull request"
 	@echo "  make pr-runs                 Show recent validation runs for current branch"
-	@echo "  make pr-runs BRANCH=main     Show recent validation runs for a branch"
-	@echo "  make pr-merge PR=55          Merge a pull request and delete its remote branch"
-	@echo "  make post-merge PR=55        Update main and remove the merged local branch"
+	@echo "  make pr-runs BRANCH=dev      Show recent validation runs for a branch"
+	@echo "  make pr-merge PR=55          Merge a pull request and delete feature branch"
+	@echo "  make post-merge PR=55        Update PR base and clean merged feature branch"
 	@echo
 	@echo "GitHub Actions:"
-	@echo "  make image-runs              Show recent main container image builds"
+	@echo "  make image-runs              Show recent dev container image builds"
 	@echo "  make ci-watch RUN=12345      Watch a GitHub Actions run"
 	@echo "  make ci-view RUN=12345       Show a GitHub Actions run result"
 	@echo
+	@echo "Releases:"
+	@echo "  make release-status          Show upstream baseline and next fork release"
+	@echo "  make release-check           Validate main for a formal fork release"
+	@echo "  make release                 Validate, tag, and push the next fork release"
+	@echo
 	@echo "Production:"
 	@echo "  make deploy-status           Compare source, GHCR, and production revisions"
-	@echo "  make deploy                  Pull, verify, and deploy current main to production"
+	@echo "  make deploy                  Deploy the current formal GHCR release"
 
 deps:
 	go mod download
@@ -154,11 +170,17 @@ upstream-status:
 	@echo "=== REFRESH UPSTREAM ==="
 	@git fetch upstream --prune
 	@echo
+	@echo "=== DEV VS ORIGIN ==="
+	@git rev-list --left-right --count origin/$(DEV_BRANCH)...$(DEV_BRANCH)
+	@echo
 	@echo "=== MAIN VS ORIGIN ==="
-	@git rev-list --left-right --count origin/main...main
+	@git rev-list --left-right --count origin/$(STABLE_BRANCH)...$(STABLE_BRANCH)
+	@echo
+	@echo "=== DEV VS MAIN ==="
+	@git rev-list --left-right --count $(STABLE_BRANCH)...$(DEV_BRANCH)
 	@echo
 	@echo "=== MAIN VS UPSTREAM ==="
-	@git rev-list --left-right --count upstream/main...main
+	@git rev-list --left-right --count upstream/main...$(STABLE_BRANCH)
 
 branch:
 	@set -euo pipefail; \
@@ -167,8 +189,8 @@ branch:
 		exit 2; \
 	fi; \
 	current="$$(git branch --show-current)"; \
-	if [ "$$current" != "main" ]; then \
-		echo "Branch creation requires main; current branch is $$current."; \
+	if [ "$$current" != "$(DEV_BRANCH)" ]; then \
+		echo "Branch creation requires $(DEV_BRANCH); current branch is $$current."; \
 		exit 1; \
 	fi; \
 	if [ -n "$$(git status --porcelain)" ]; then \
@@ -182,10 +204,10 @@ branch:
 	fi; \
 	echo "Refreshing origin..."; \
 	git fetch origin --prune; \
-	local_revision="$$(git rev-parse main)"; \
-	origin_revision="$$(git rev-parse origin/main)"; \
+	local_revision="$$(git rev-parse $(DEV_BRANCH))"; \
+	origin_revision="$$(git rev-parse origin/$(DEV_BRANCH))"; \
 	if [ "$$local_revision" != "$$origin_revision" ]; then \
-		echo "Local main does not match origin/main."; \
+		echo "Local $(DEV_BRANCH) does not match origin/$(DEV_BRANCH)."; \
 		echo "Local:  $$local_revision"; \
 		echo "Origin: $$origin_revision"; \
 		exit 1; \
@@ -200,8 +222,8 @@ push:
 		echo "Unable to determine current branch."; \
 		exit 1; \
 	fi; \
-	if [ "$$branch" = "main" ]; then \
-		echo "Refusing to push main with this target."; \
+	if [ "$$branch" = "$(DEV_BRANCH)" ] || [ "$$branch" = "$(STABLE_BRANCH)" ]; then \
+		echo "Refusing to push protected branch $$branch with this target."; \
 		exit 1; \
 	fi; \
 	if [ -n "$$(git status --porcelain)" ]; then \
@@ -231,8 +253,12 @@ pr-create:
 		echo "Unable to determine current branch."; \
 		exit 1; \
 	fi; \
-	if [ "$$branch" = "main" ]; then \
-		echo "Refusing to create a pull request from main."; \
+	if [ "$$branch" = "$(DEV_BRANCH)" ]; then \
+		echo "Refusing normal PR creation from $(DEV_BRANCH). Use make promote-create for $(DEV_BRANCH) to $(STABLE_BRANCH)."; \
+		exit 1; \
+	fi; \
+	if [ "$$branch" = "$(STABLE_BRANCH)" ]; then \
+		echo "Refusing to create a pull request from $(STABLE_BRANCH)."; \
 		exit 1; \
 	fi; \
 	if [ -n "$$(git status --porcelain)" ]; then \
@@ -259,11 +285,57 @@ pr-create:
 		echo "Run make push first."; \
 		exit 1; \
 	fi; \
-	echo "Creating PR from $$branch to main..."; \
+	echo "Creating PR from $$branch to $(PR_BASE)..."; \
 	gh pr create \
 		--repo "$(REPO)" \
-		--base main \
+		--base "$(PR_BASE)" \
 		--head "$$branch" \
+		--title "$(TITLE)" \
+		--body-file "$(BODY_FILE)"
+
+promote-create:
+	@set -euo pipefail; \
+	if [ -z "$(TITLE)" ]; then \
+		echo "TITLE is required. Example: make promote-create TITLE='Promote dev to main' BODY_FILE=/tmp/pr-body.md"; \
+		exit 2; \
+	fi; \
+	if [ -z "$(BODY_FILE)" ]; then \
+		echo "BODY_FILE is required. Example: make promote-create TITLE='Promote dev to main' BODY_FILE=/tmp/pr-body.md"; \
+		exit 2; \
+	fi; \
+	if [ ! -f "$(BODY_FILE)" ]; then \
+		echo "BODY_FILE does not exist: $(BODY_FILE)"; \
+		exit 1; \
+	fi; \
+	branch="$$(git branch --show-current)"; \
+	if [ "$$branch" != "$(DEV_BRANCH)" ]; then \
+		echo "Promotion requires branch $(DEV_BRANCH); current branch is $$branch."; \
+		exit 1; \
+	fi; \
+	if [ -n "$$(git status --porcelain)" ]; then \
+		echo "Promotion requires a clean working tree."; \
+		git status --short; \
+		exit 1; \
+	fi; \
+	echo "Refreshing origin..."; \
+	git fetch origin --prune; \
+	local_revision="$$(git rev-parse $(DEV_BRANCH))"; \
+	remote_revision="$$(git rev-parse origin/$(DEV_BRANCH))"; \
+	if [ "$$local_revision" != "$$remote_revision" ]; then \
+		echo "Local $(DEV_BRANCH) does not match origin/$(DEV_BRANCH)."; \
+		echo "Local:  $$local_revision"; \
+		echo "Origin: $$remote_revision"; \
+		exit 1; \
+	fi; \
+	if [ "$$(git rev-list --count origin/$(STABLE_BRANCH)..origin/$(DEV_BRANCH))" -eq 0 ]; then \
+		echo "$(DEV_BRANCH) contains no commits to promote to $(STABLE_BRANCH)."; \
+		exit 1; \
+	fi; \
+	echo "Creating promotion PR from $(DEV_BRANCH) to $(STABLE_BRANCH)..."; \
+	gh pr create \
+		--repo "$(REPO)" \
+		--base "$(STABLE_BRANCH)" \
+		--head "$(DEV_BRANCH)" \
 		--title "$(TITLE)" \
 		--body-file "$(BODY_FILE)"
 
@@ -278,7 +350,7 @@ pr-view:
 
 pr-runs:
 	@if [ -z "$(BRANCH)" ]; then \
-		echo "BRANCH could not be determined. Example: make pr-runs BRANCH=main"; \
+		echo "BRANCH could not be determined. Example: make pr-runs BRANCH=dev"; \
 		exit 2; \
 	fi
 	@gh run list \
@@ -289,14 +361,22 @@ pr-runs:
 		--json databaseId,headSha,status,conclusion,createdAt,displayTitle
 
 pr-merge:
-	@if [ -z "$(PR)" ]; then \
+	@set -euo pipefail; \
+	if [ -z "$(PR)" ]; then \
 		echo "PR is required. Example: make pr-merge PR=55"; \
 		exit 2; \
+	fi; \
+	head_branch="$$(gh pr view "$(PR)" --repo "$(REPO)" --json headRefName --jq '.headRefName')"; \
+	if [ "$$head_branch" = "$(DEV_BRANCH)" ]; then \
+		gh pr merge "$(PR)" \
+			--repo "$(REPO)" \
+			--merge; \
+	else \
+		gh pr merge "$(PR)" \
+			--repo "$(REPO)" \
+			--merge \
+			--delete-branch; \
 	fi
-	@gh pr merge "$(PR)" \
-		--repo "$(REPO)" \
-		--merge \
-		--delete-branch
 
 post-merge:
 	@set -euo pipefail; \
@@ -312,33 +392,47 @@ post-merge:
 	echo "=== PR #$(PR) ==="; \
 	pr_state="$$(gh pr view "$(PR)" --repo "$(REPO)" --json state --jq '.state')"; \
 	head_branch="$$(gh pr view "$(PR)" --repo "$(REPO)" --json headRefName --jq '.headRefName')"; \
+	base_branch="$$(gh pr view "$(PR)" --repo "$(REPO)" --json baseRefName --jq '.baseRefName')"; \
 	if [ "$$pr_state" != "MERGED" ]; then \
 		echo "PR #$(PR) is not merged; current state is $$pr_state."; \
 		exit 1; \
 	fi; \
+	if [ "$$base_branch" != "$(DEV_BRANCH)" ] && [ "$$base_branch" != "$(STABLE_BRANCH)" ]; then \
+		echo "Unexpected PR base branch: $$base_branch."; \
+		exit 1; \
+	fi; \
 	echo "State=$$pr_state"; \
 	echo "Head=$$head_branch"; \
+	echo "Base=$$base_branch"; \
 	echo; \
-	echo "=== UPDATE LOCAL MAIN ==="; \
-	git switch main; \
-	git pull --ff-only origin main; \
+	echo "=== UPDATE LOCAL $$base_branch ==="; \
+	if git show-ref --verify --quiet "refs/heads/$$base_branch"; then \
+		git switch "$$base_branch"; \
+	else \
+		git switch -c "$$base_branch" --track "origin/$$base_branch"; \
+	fi; \
+	git pull --ff-only origin "$$base_branch"; \
 	echo; \
 	echo "=== LOCAL BRANCH CLEANUP ==="; \
-	if [ "$$head_branch" = "main" ]; then \
-		echo "PR head branch is main; refusing to delete it."; \
+	if [ "$$head_branch" = "$(DEV_BRANCH)" ] || [ "$$head_branch" = "$(STABLE_BRANCH)" ]; then \
+		echo "Preserving long-lived branch $$head_branch."; \
 	elif git show-ref --verify --quiet "refs/heads/$$head_branch"; then \
 		git branch -d "$$head_branch"; \
 	else \
 		echo "Local branch $$head_branch does not exist; nothing to delete."; \
 	fi; \
 	echo; \
-	$(MAKE) verify-main
+	if [ "$$base_branch" = "$(DEV_BRANCH)" ]; then \
+		$(MAKE) verify-dev; \
+	else \
+		$(MAKE) verify-main; \
+	fi
 
 image-runs:
 	@gh run list \
 		--repo "$(REPO)" \
 		--workflow "$(IMAGE_WORKFLOW)" \
-		--branch main \
+		--branch "$(DEV_BRANCH)" \
 		--limit 5 \
 		--json databaseId,headSha,status,conclusion,createdAt,displayTitle
 
@@ -360,6 +454,25 @@ ci-view:
 		--repo "$(REPO)" \
 		--json status,conclusion,headSha,url
 
+verify-dev:
+	@echo "=== REFRESH ORIGIN ==="
+	@git fetch origin --prune
+	@echo
+	@echo "=== BRANCH ==="
+	@git branch --show-current
+	@echo
+	@echo "=== DEV ==="
+	@git log -1 --oneline --decorate
+	@echo
+	@echo "=== STATUS ==="
+	@git status --short
+	@echo
+	@echo "=== DEV VS ORIGIN ==="
+	@git rev-list --left-right --count origin/$(DEV_BRANCH)...$(DEV_BRANCH)
+	@echo
+	@echo "=== DEV VS MAIN ==="
+	@git rev-list --left-right --count $(STABLE_BRANCH)...$(DEV_BRANCH)
+
 verify-main:
 	@echo "=== REFRESH ORIGIN ==="
 	@git fetch origin --prune
@@ -377,10 +490,155 @@ verify-main:
 	@git status --short
 	@echo
 	@echo "=== MAIN VS ORIGIN ==="
-	@git rev-list --left-right --count origin/main...main
+	@git rev-list --left-right --count origin/$(STABLE_BRANCH)...$(STABLE_BRANCH)
+	@echo
+	@echo "=== DEV VS MAIN ==="
+	@git rev-list --left-right --count $(STABLE_BRANCH)...$(DEV_BRANCH)
 	@echo
 	@echo "=== MAIN VS UPSTREAM ==="
-	@git rev-list --left-right --count upstream/main...main
+	@git rev-list --left-right --count upstream/main...$(STABLE_BRANCH)
+
+release-status:
+	@set -euo pipefail; \
+	echo "=== REFRESH RELEASE REFERENCES ==="; \
+	git fetch origin --prune --tags; \
+	git fetch upstream --prune --tags; \
+	echo; \
+	upstream_release="$$(git tag --merged upstream/main --list 'v*' --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$$' | head -1)"; \
+	if [ -z "$$upstream_release" ]; then \
+		echo "Unable to determine latest formal upstream release."; \
+		exit 1; \
+	fi; \
+	upstream_baseline="$$(git rev-parse upstream/main)"; \
+	fork_revision="$$(git rev-parse HEAD)"; \
+	latest_fork="$$(git tag --list "$${upstream_release}-$(FORK_RELEASE_ID).r*" --sort=-version:refname | head -1)"; \
+	if [ -n "$$latest_fork" ]; then \
+		latest_number="$${latest_fork##*.r}"; \
+		if ! [[ "$$latest_number" =~ ^[0-9]+$$ ]]; then \
+			echo "Unable to parse fork revision from $$latest_fork."; \
+			exit 1; \
+		fi; \
+		next_number="$$((10#$$latest_number + 1))"; \
+	else \
+		next_number=1; \
+	fi; \
+	printf -v padded "%0*d" "$(FORK_RELEASE_WIDTH)" "$$next_number"; \
+	next_release="$${upstream_release}-$(FORK_RELEASE_ID).r$${padded}"; \
+	echo "Upstream release:  $$upstream_release"; \
+	echo "Upstream baseline: $$upstream_baseline"; \
+	echo "Fork revision:     $$fork_revision"; \
+	echo "Latest fork tag:   $${latest_fork:-none}"; \
+	echo "Next fork release: $$next_release"
+
+release-check:
+	@set -euo pipefail; \
+	echo "=== RELEASE VALIDATION ==="; \
+	branch="$$(git branch --show-current)"; \
+	if [ "$$branch" != "$(STABLE_BRANCH)" ]; then \
+		echo "Release requires branch $(STABLE_BRANCH); current branch is $$branch."; \
+		exit 1; \
+	fi; \
+	if [ -n "$$(git status --porcelain)" ]; then \
+		echo "Release requires a clean working tree."; \
+		git status --short; \
+		exit 1; \
+	fi; \
+	echo "Refreshing release references..."; \
+	git fetch origin --prune --tags; \
+	git fetch upstream --prune --tags; \
+	local_revision="$$(git rev-parse HEAD)"; \
+	origin_revision="$$(git rev-parse origin/$(STABLE_BRANCH))"; \
+	if [ "$$local_revision" != "$$origin_revision" ]; then \
+		echo "Local $(STABLE_BRANCH) does not match origin/$(STABLE_BRANCH)."; \
+		echo "Local:  $$local_revision"; \
+		echo "Origin: $$origin_revision"; \
+		exit 1; \
+	fi; \
+	if ! git merge-base --is-ancestor origin/$(DEV_BRANCH) $(STABLE_BRANCH); then \
+		echo "$(STABLE_BRANCH) does not contain the current origin/$(DEV_BRANCH)."; \
+		echo "Dev:  $$(git rev-parse origin/$(DEV_BRANCH))"; \
+		echo "Main: $$local_revision"; \
+		echo "Promote $(DEV_BRANCH) to $(STABLE_BRANCH) before releasing."; \
+		exit 1; \
+	fi; \
+	if ! git merge-base --is-ancestor upstream/main $(STABLE_BRANCH); then \
+		echo "Current upstream/main is not fully incorporated into $(STABLE_BRANCH)."; \
+		echo "Upstream: $$(git rev-parse upstream/main)"; \
+		echo "Main:     $$local_revision"; \
+		exit 1; \
+	fi; \
+	upstream_release="$$(git tag --merged upstream/main --list 'v*' --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$$' | head -1)"; \
+	if [ -z "$$upstream_release" ]; then \
+		echo "Unable to determine latest formal upstream release."; \
+		exit 1; \
+	fi; \
+	latest_fork="$$(git tag --list "$${upstream_release}-$(FORK_RELEASE_ID).r*" --sort=-version:refname | head -1)"; \
+	if [ -n "$$latest_fork" ]; then \
+		latest_number="$${latest_fork##*.r}"; \
+		if ! [[ "$$latest_number" =~ ^[0-9]+$$ ]]; then \
+			echo "Unable to parse fork revision from $$latest_fork."; \
+			exit 1; \
+		fi; \
+		next_number="$$((10#$$latest_number + 1))"; \
+	else \
+		next_number=1; \
+	fi; \
+	printf -v padded "%0*d" "$(FORK_RELEASE_WIDTH)" "$$next_number"; \
+	next_release="$${upstream_release}-$(FORK_RELEASE_ID).r$${padded}"; \
+	if git show-ref --verify --quiet "refs/tags/$$next_release"; then \
+		echo "Release tag already exists locally: $$next_release"; \
+		exit 1; \
+	fi; \
+	if git ls-remote --exit-code --tags origin "refs/tags/$$next_release" >/dev/null 2>&1; then \
+		echo "Release tag already exists on origin: $$next_release"; \
+		exit 1; \
+	fi; \
+	echo "Upstream release:  $$upstream_release"; \
+	echo "Upstream baseline: $$(git rev-parse upstream/main)"; \
+	echo "Fork revision:     $$local_revision"; \
+	echo "Next fork release: $$next_release"; \
+	echo; \
+	echo "Running standard validation..."; \
+	$(MAKE) check BASE_REF=origin/$(STABLE_BRANCH); \
+	echo; \
+	echo "Release validation passed."
+
+release: release-check
+	@set -euo pipefail; \
+	upstream_release="$$(git tag --merged upstream/main --list 'v*' --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$$' | head -1)"; \
+	latest_fork="$$(git tag --list "$${upstream_release}-$(FORK_RELEASE_ID).r*" --sort=-version:refname | head -1)"; \
+	if [ -n "$$latest_fork" ]; then \
+		latest_number="$${latest_fork##*.r}"; \
+		next_number="$$((10#$$latest_number + 1))"; \
+	else \
+		next_number=1; \
+	fi; \
+	printf -v padded "%0*d" "$(FORK_RELEASE_WIDTH)" "$$next_number"; \
+	release_tag="$${upstream_release}-$(FORK_RELEASE_ID).r$${padded}"; \
+	upstream_baseline="$$(git rev-parse upstream/main)"; \
+	fork_revision="$$(git rev-parse HEAD)"; \
+	echo "=== CREATE RELEASE TAG ==="; \
+	echo "Release:           $$release_tag"; \
+	echo "Upstream release:  $$upstream_release"; \
+	echo "Upstream baseline: $$upstream_baseline"; \
+	echo "Fork revision:     $$fork_revision"; \
+	git tag -a "$$release_tag" \
+		-m "Glance fork release $$release_tag" \
+		-m "Upstream release: $$upstream_release" \
+		-m "Upstream baseline: $$upstream_baseline" \
+		-m "Fork revision: $$fork_revision"; \
+	echo; \
+	echo "=== PUSH RELEASE TAG ==="; \
+	if ! git push origin "$$release_tag"; then \
+		echo "Release tag push failed."; \
+		echo "Local tag $$release_tag has been retained."; \
+		echo "Inspect local and remote tag state before retrying."; \
+		exit 1; \
+	fi; \
+	echo; \
+	echo "=== RELEASE STARTED ==="; \
+	echo "Tag=$$release_tag"; \
+	echo "The tag push will invoke the GitHub Actions GoReleaser workflow."
 
 deploy-status:
 	@echo "=== SOURCE ==="
@@ -407,8 +665,8 @@ deploy:
 	@set -euo pipefail; \
 	echo "=== PRE-DEPLOY VALIDATION ==="; \
 	branch="$$(git branch --show-current)"; \
-	if [ "$$branch" != "main" ]; then \
-		echo "Deployment requires branch main; current branch is $$branch."; \
+	if [ "$$branch" != "$(STABLE_BRANCH)" ]; then \
+		echo "Deployment requires branch $(STABLE_BRANCH); current branch is $$branch."; \
 		exit 1; \
 	fi; \
 	if [ -n "$$(git status --porcelain)" ]; then \
@@ -419,9 +677,9 @@ deploy:
 	echo "Refreshing origin..."; \
 	git fetch origin --prune; \
 	local_revision="$$(git rev-parse HEAD)"; \
-	origin_revision="$$(git rev-parse origin/main)"; \
+	origin_revision="$$(git rev-parse origin/$(STABLE_BRANCH))"; \
 	if [ "$$local_revision" != "$$origin_revision" ]; then \
-		echo "Local main does not match origin/main."; \
+		echo "Local $(STABLE_BRANCH) does not match origin/$(STABLE_BRANCH)."; \
 		echo "Local:  $$local_revision"; \
 		echo "Origin: $$origin_revision"; \
 		exit 1; \
@@ -435,7 +693,7 @@ deploy:
 	echo "Image revision: $$image_revision"; \
 	echo "Image ID:       $$image_id"; \
 	if [ "$$image_revision" != "$$local_revision" ]; then \
-		echo "Refusing deployment: GHCR latest does not match local main."; \
+		echo "Refusing deployment: GHCR latest does not match local $(STABLE_BRANCH)."; \
 		echo "Source: $$local_revision"; \
 		echo "Image:  $$image_revision"; \
 		exit 1; \

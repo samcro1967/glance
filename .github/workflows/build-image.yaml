@@ -1,10 +1,9 @@
-name: Build container image
+name: Build development container image
 
 on:
   push:
     branches:
-      - main
-  workflow_dispatch:
+      - dev
 
 permissions:
   contents: read
@@ -34,8 +33,7 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=raw,value=latest
-            type=sha,prefix=sha-
+            type=raw,value=dev
 
       - name: Build and push image
         uses: docker/build-push-action@v7
