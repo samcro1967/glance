@@ -48,6 +48,7 @@ type application struct {
 	CreatedAt time.Time
 	Config    config
 
+	releaseStatus  releaseStatusCache
 	parsedManifest []byte
 
 	slugToPage       map[string]*page
@@ -63,6 +64,16 @@ type application struct {
 	usernameHashToUsername map[string]string
 	authAttemptsMu         sync.Mutex
 	failedAuthAttempts     map[string]*failedAuthAttempt
+}
+
+func (a *application) shouldCheckForkReleaseStatus() bool {
+	return a.Version != "dev" &&
+		!a.Config.Branding.HideFooter &&
+		a.Config.Branding.CustomFooter == ""
+}
+
+func (a *application) ReleaseStatus() releaseStatusResult {
+	return a.releaseStatus.get()
 }
 
 func collectRefreshWidgets(source widgets) []widget {
@@ -836,6 +847,19 @@ func (a *application) server() (func() error, func() error) {
 				a.liveUpdates,
 			)
 		}()
+
+		if a.shouldCheckForkReleaseStatus() {
+			schedulerWG.Add(1)
+			go func() {
+				defer schedulerWG.Done()
+
+				runForkReleaseStatusChecker(
+					schedulerCtx,
+					a.Version,
+					&a.releaseStatus,
+				)
+			}()
+		}
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			a.liveUpdates.close()
