@@ -12,6 +12,7 @@ import (
 )
 
 var buildVersion = "dev"
+var buildRevision = ""
 
 func Main() int {
 	options, err := parseCliOptions()

@@ -6,7 +6,7 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps build test-instance-start test-instance-status test-instance-stop test test-race test-count test-race-count fmt-check diff-check staged-check check coverage vuln status staged-diff upstream-status branch push pr-create promote-create pr-view pr-runs pr-merge post-merge image-runs ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy
+.PHONY: help deps build test-instance-start test-instance-status test-instance-stop test test-race test-count test-race-count fmt-check diff-check staged-check check coverage vuln status staged-diff upstream-status branch push pr-create promote-create sync-dev-create pr-view pr-runs pr-merge post-merge image-runs ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy
 
 COUNT ?= 10
 COVERAGE_FILE ?= coverage.out
@@ -79,6 +79,8 @@ help:
 	@echo "                               Create a PR from feature branch to dev"
 	@echo "  make promote-create TITLE='...' BODY_FILE=file"
 	@echo "                               Create a promotion PR from dev to main"
+	@echo "  make sync-dev-create TITLE='...' BODY_FILE=file"
+	@echo "                               Create a synchronization PR from main to dev"
 	@echo "  make pr-view PR=55           Show a pull request"
 	@echo "  make pr-runs                 Show recent validation runs for current branch"
 	@echo "  make pr-runs BRANCH=dev      Show recent validation runs for a branch"
@@ -336,6 +338,71 @@ promote-create:
 		--repo "$(REPO)" \
 		--base "$(STABLE_BRANCH)" \
 		--head "$(DEV_BRANCH)" \
+		--title "$(TITLE)" \
+		--body-file "$(BODY_FILE)"
+
+sync-dev-create:
+	@set -euo pipefail; \
+	if [ -z "$(TITLE)" ]; then \
+		echo "TITLE is required. Example: make sync-dev-create TITLE='Synchronize dev with released main' BODY_FILE=/tmp/pr-body.md"; \
+		exit 2; \
+	fi; \
+	if [ -z "$(BODY_FILE)" ]; then \
+		echo "BODY_FILE is required. Example: make sync-dev-create TITLE='Synchronize dev with released main' BODY_FILE=/tmp/pr-body.md"; \
+		exit 2; \
+	fi; \
+	if [ ! -f "$(BODY_FILE)" ]; then \
+		echo "BODY_FILE does not exist: $(BODY_FILE)"; \
+		exit 1; \
+	fi; \
+	branch="$$(git branch --show-current)"; \
+	if [ "$$branch" != "$(DEV_BRANCH)" ]; then \
+		echo "Dev synchronization requires branch $(DEV_BRANCH); current branch is $$branch."; \
+		exit 1; \
+	fi; \
+	if [ -n "$$(git status --porcelain)" ]; then \
+		echo "Dev synchronization requires a clean working tree."; \
+		git status --short; \
+		exit 1; \
+	fi; \
+	echo "Refreshing origin..."; \
+	git fetch origin --prune; \
+	local_dev="$$(git rev-parse $(DEV_BRANCH))"; \
+	origin_dev="$$(git rev-parse origin/$(DEV_BRANCH))"; \
+	local_main="$$(git rev-parse $(STABLE_BRANCH))"; \
+	origin_main="$$(git rev-parse origin/$(STABLE_BRANCH))"; \
+	if [ "$$local_dev" != "$$origin_dev" ]; then \
+		echo "Local $(DEV_BRANCH) does not match origin/$(DEV_BRANCH)."; \
+		echo "Local:  $$local_dev"; \
+		echo "Origin: $$origin_dev"; \
+		exit 1; \
+	fi; \
+	if [ "$$local_main" != "$$origin_main" ]; then \
+		echo "Local $(STABLE_BRANCH) does not match origin/$(STABLE_BRANCH)."; \
+		echo "Local:  $$local_main"; \
+		echo "Origin: $$origin_main"; \
+		exit 1; \
+	fi; \
+	dev_ahead="$$(git rev-list --count origin/$(STABLE_BRANCH)..origin/$(DEV_BRANCH))"; \
+	main_ahead="$$(git rev-list --count origin/$(DEV_BRANCH)..origin/$(STABLE_BRANCH))"; \
+	if [ "$$dev_ahead" -ne 0 ]; then \
+		echo "Refusing dev synchronization: $(DEV_BRANCH) contains commits not present in $(STABLE_BRANCH)."; \
+		echo "Dev-only commits: $$dev_ahead"; \
+		echo "Promote or otherwise reconcile $(DEV_BRANCH) before synchronizing from $(STABLE_BRANCH)."; \
+		exit 1; \
+	fi; \
+	if [ "$$main_ahead" -eq 0 ]; then \
+		echo "$(STABLE_BRANCH) contains no commits to synchronize to $(DEV_BRANCH)."; \
+		exit 1; \
+	fi; \
+	echo "Dev revision:  $$origin_dev"; \
+	echo "Main revision: $$origin_main"; \
+	echo "Main ahead:    $$main_ahead"; \
+	echo "Creating synchronization PR from $(STABLE_BRANCH) to $(DEV_BRANCH)..."; \
+	gh pr create \
+		--repo "$(REPO)" \
+		--base "$(DEV_BRANCH)" \
+		--head "$(STABLE_BRANCH)" \
 		--title "$(TITLE)" \
 		--body-file "$(BODY_FILE)"
 

@@ -42,5 +42,7 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64
           push: true
+          build-args: |
+            BUILD_REVISION=${{ github.sha }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

@@ -2,7 +2,8 @@ FROM golang:1.27.0-alpine3.24 AS builder
 
 WORKDIR /app
 COPY . /app
-RUN CGO_ENABLED=0 go build .
+ARG BUILD_REVISION
+RUN CGO_ENABLED=0 go build -ldflags "-X github.com/samcro1967/glance/internal/glance.buildRevision=${BUILD_REVISION}" .
 
 FROM alpine:3.24
 
