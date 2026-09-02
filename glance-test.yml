@@ -1,0 +1,104 @@
+# Canonical configuration for the local Glance development test instance.
+#
+# This file is intentionally committed to the repository. Keep its contents
+# public and test-safe. Do not add credentials, tokens, private URLs, or other
+# environment-specific secrets.
+#
+# Representative fork features should be added here as they are developed so
+# this dashboard can also provide a repeatable source for documentation
+# screenshots.
+
+server:
+  host: 0.0.0.0
+  port: 18080
+
+branding:
+  app-name: "Glance Test"
+
+theme:
+  light: false
+
+pages:
+  - name: Test
+    slug: test
+
+    head-widgets:
+      - type: status-bar
+        mode: ticker
+        widgets:
+          - type: weather
+            location: St. Louis, Missouri, United States
+            units: imperial
+
+          - type: markets
+            markets:
+              - symbol: SPY
+                name: S&P 500
+              - symbol: BTC-USD
+                name: Bitcoin
+
+          - type: rss
+            limit: 3
+            feeds:
+              - url: https://selfh.st/rss/
+                title: selfh.st
+
+    columns:
+      - size: small
+        widgets:
+          - type: weather
+            location: St. Louis, Missouri, United States
+            units: imperial
+
+          - type: markets
+            markets:
+              - symbol: SPY
+                name: S&P 500
+              - symbol: BTC-USD
+                name: Bitcoin
+
+      - size: full
+        widgets:
+          - type: group
+            widgets:
+              - type: stack
+                title: News
+                widgets:
+                  - type: hacker-news
+                    collapse-after: 5
+
+                  - type: lobsters
+                    collapse-after: 5
+
+              - type: stack
+                title: Reddit
+                widgets:
+                  - type: reddit
+                    subreddit: selfhosted
+                    collapse-after: 5
+
+                  - type: reddit
+                    subreddit: homelab
+                    collapse-after: 5
+
+      - size: small
+        widgets:
+          - type: clock
+            hour-format: 12h
+
+    bottom-widgets:
+      - type: status-bar
+        mode: wrap
+        widgets:
+          - type: markets
+            markets:
+              - symbol: AAPL
+                name: Apple
+              - symbol: MSFT
+                name: Microsoft
+
+          - type: rss
+            limit: 3
+            feeds:
+              - url: https://ciechanow.ski/atom.xml
+                title: Articles
