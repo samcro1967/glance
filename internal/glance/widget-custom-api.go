@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/tidwall/gjson"
+	"golang.org/x/net/html"
 )
 
 var customAPIWidgetTemplate = mustParseTemplate("custom-api.html", "widget-base.html")
@@ -440,7 +441,45 @@ func fetchAndRenderCustomAPIRequest(
 		return emptyBody, err
 	}
 
-	return template.HTML(templateBuffer.String()), nil
+	rendered := templateBuffer.String()
+
+	if primaryData != nil &&
+		primaryData.Response != nil &&
+		(primaryData.Response.StatusCode < http.StatusOK ||
+			primaryData.Response.StatusCode >= http.StatusMultipleChoices) &&
+		!customAPIHTMLHasVisibleText(rendered) {
+		return emptyBody, fmt.Errorf(
+			"upstream API returned %d %s",
+			primaryData.Response.StatusCode,
+			http.StatusText(primaryData.Response.StatusCode),
+		)
+	}
+
+	return template.HTML(rendered), nil
+}
+
+func customAPIHTMLHasVisibleText(value string) bool {
+	document, err := html.Parse(strings.NewReader(value))
+	if err != nil {
+		return strings.TrimSpace(value) != ""
+	}
+
+	var hasVisibleText func(*html.Node) bool
+	hasVisibleText = func(node *html.Node) bool {
+		if node.Type == html.TextNode && strings.TrimSpace(node.Data) != "" {
+			return true
+		}
+
+		for child := node.FirstChild; child != nil; child = child.NextSibling {
+			if hasVisibleText(child) {
+				return true
+			}
+		}
+
+		return false
+	}
+
+	return hasVisibleText(document)
 }
 
 type decoratedGJSONResult struct {

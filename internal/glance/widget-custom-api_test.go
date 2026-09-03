@@ -637,3 +637,100 @@ func TestCustomAPIWithMethodTemplatePipeline(t *testing.T) {
 		t.Fatalf("method = %q, want %q", got, "PUT")
 	}
 }
+
+func TestFetchAndRenderCustomAPINon2xxEmptyRenderedContentIsError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"code":"server_error","message":"internal upstream detail"}`))
+	}))
+	defer server.Close()
+
+	req := newTestCustomAPIRequest(t, server.URL)
+
+	compiledTemplate, err := template.New("").Funcs(customAPITemplateFuncs).Parse(
+		`<p>{{ .JSON.String "text" }}</p>`,
+	)
+	if err != nil {
+		t.Fatalf("compile template: %v", err)
+	}
+
+	rendered, err := fetchAndRenderCustomAPIRequest(
+		context.Background(),
+		req,
+		nil,
+		nil,
+		compiledTemplate,
+	)
+	if err == nil {
+		t.Fatal("expected unhandled 500 response to return an error")
+	}
+
+	if rendered != "" {
+		t.Fatalf("expected no rendered content, got %q", rendered)
+	}
+
+	if got := err.Error(); got != "upstream API returned 500 Internal Server Error" {
+		t.Fatalf("unexpected error: %q", got)
+	}
+
+	if strings.Contains(err.Error(), "internal upstream detail") {
+		t.Fatalf("upstream response body leaked into error: %q", err)
+	}
+}
+
+func TestFetchAndRenderCustomAPINon2xxVisibleRenderedContentRemainsAvailable(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte(`{"message":"not found"}`))
+	}))
+	defer server.Close()
+
+	req := newTestCustomAPIRequest(t, server.URL)
+
+	compiledTemplate, err := template.New("").Funcs(customAPITemplateFuncs).Parse(
+		`<p>{{ .Response.StatusCode }}: {{ .JSON.String "message" }}</p>`,
+	)
+	if err != nil {
+		t.Fatalf("compile template: %v", err)
+	}
+
+	rendered, err := fetchAndRenderCustomAPIRequest(
+		context.Background(),
+		req,
+		nil,
+		nil,
+		compiledTemplate,
+	)
+	if err != nil {
+		t.Fatalf("expected explicitly rendered non-2xx response to remain available: %v", err)
+	}
+
+	if !strings.Contains(string(rendered), "404: not found") {
+		t.Fatalf("unexpected rendered content: %q", rendered)
+	}
+}
+
+func TestCustomAPIHTMLHasVisibleText(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		want  bool
+	}{
+		{name: "empty", value: "", want: false},
+		{name: "whitespace", value: " \n\t ", want: false},
+		{name: "empty markup", value: `<p class="size-h4"></p>`, want: false},
+		{name: "nested empty markup", value: `<div><span> </span></div>`, want: false},
+		{name: "visible text", value: `<p>Provider unavailable</p>`, want: true},
+		{name: "nested visible text", value: `<div><span>HTTP 500</span></div>`, want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := customAPIHTMLHasVisibleText(tt.value); got != tt.want {
+				t.Fatalf("customAPIHTMLHasVisibleText(%q) = %v, want %v", tt.value, got, tt.want)
+			}
+		})
+	}
+}
