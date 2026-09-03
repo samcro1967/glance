@@ -670,8 +670,21 @@ func TestFetchAndRenderCustomAPINon2xxEmptyRenderedContentIsError(t *testing.T) 
 		t.Fatalf("expected no rendered content, got %q", rendered)
 	}
 
-	if got := err.Error(); got != "upstream API returned 500 Internal Server Error" {
+	if got := err.Error(); got != "unexpected HTTP status 500 Internal Server Error" {
 		t.Fatalf("unexpected error: %q", got)
+	}
+
+	var statusErr *httpStatusError
+	if !errors.As(err, &statusErr) {
+		t.Fatalf("expected structured HTTP status error, got %T: %v", err, err)
+	}
+
+	if statusErr.StatusCode != http.StatusInternalServerError {
+		t.Fatalf("status code = %d, want %d", statusErr.StatusCode, http.StatusInternalServerError)
+	}
+
+	if got := classifyRefreshFailure(err); got != refreshFailureTransient {
+		t.Fatalf("failure class = %q, want %q", got, refreshFailureTransient)
 	}
 
 	if strings.Contains(err.Error(), "internal upstream detail") {
