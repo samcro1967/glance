@@ -741,3 +741,113 @@ func TestDNSStatsHTTPClientTimeout(t *testing.T) {
 		t.Fatalf("DNS timeout took %v, expected configured timeout to terminate request promptly", elapsed)
 	}
 }
+
+func TestFetchPiholeSessionIDHTTPStatusPreservesIdentity(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/auth" {
+			t.Fatalf("request path = %q, want /api/auth", r.URL.Path)
+		}
+
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"session":{"sid":""}}`))
+	}))
+	defer server.Close()
+
+	_, err := fetchPiholeSessionID(
+		context.Background(),
+		server.URL,
+		server.Client(),
+		"password",
+	)
+	if err == nil {
+		t.Fatal("expected authentication failure")
+	}
+
+	var statusErr *httpStatusError
+	if !errors.As(err, &statusErr) {
+		t.Fatalf("expected structured HTTP status error, got %T: %v", err, err)
+	}
+
+	if statusErr.StatusCode != http.StatusUnauthorized {
+		t.Fatalf(
+			"status code = %d, want %d",
+			statusErr.StatusCode,
+			http.StatusUnauthorized,
+		)
+	}
+
+	if classifyRefreshFailure(err) != refreshFailureAuthentication {
+		t.Fatalf(
+			"failure class = %q, want %q",
+			classifyRefreshFailure(err),
+			refreshFailureAuthentication,
+		)
+	}
+}
+
+func TestCheckPiholeSessionIDIsValidUnauthorizedIsProtocolResult(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/auth" {
+			t.Fatalf("request path = %q, want /api/auth", r.URL.Path)
+		}
+
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer server.Close()
+
+	valid, err := checkPiholeSessionIDIsValid(
+		context.Background(),
+		server.URL,
+		server.Client(),
+		"expired-session",
+	)
+	if err != nil {
+		t.Fatalf("401 session validation should be a protocol result: %v", err)
+	}
+
+	if valid {
+		t.Fatal("401 session validation unexpectedly reported valid session")
+	}
+}
+
+func TestCheckPiholeSessionIDIsValidUnexpectedStatusPreservesIdentity(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/auth" {
+			t.Fatalf("request path = %q, want /api/auth", r.URL.Path)
+		}
+
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	defer server.Close()
+
+	_, err := checkPiholeSessionIDIsValid(
+		context.Background(),
+		server.URL,
+		server.Client(),
+		"session-id",
+	)
+	if err == nil {
+		t.Fatal("expected unexpected session validation status to fail")
+	}
+
+	var statusErr *httpStatusError
+	if !errors.As(err, &statusErr) {
+		t.Fatalf("expected structured HTTP status error, got %T: %v", err, err)
+	}
+
+	if statusErr.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf(
+			"status code = %d, want %d",
+			statusErr.StatusCode,
+			http.StatusTooManyRequests,
+		)
+	}
+
+	if classifyRefreshFailure(err) != refreshFailureRateLimited {
+		t.Fatalf(
+			"failure class = %q, want %q",
+			classifyRefreshFailure(err),
+			refreshFailureRateLimited,
+		)
+	}
+}

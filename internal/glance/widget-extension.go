@@ -166,6 +166,14 @@ func fetchExtension(ctx context.Context, options extensionRequestOptions) (exten
 		return extension{}, fmt.Errorf("%w: could not read body: %w", errNoContent, err)
 	}
 
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		return extension{}, fmt.Errorf(
+			"%w: extension request failed: %w",
+			errNoContent,
+			unexpectedHTTPStatusError(response),
+		)
+	}
+
 	extension := extension{}
 
 	if response.Header.Get(extensionHeaderTitle) == "" {
