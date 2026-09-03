@@ -25,23 +25,37 @@ var (
 
 const defaultClientTimeout = 5 * time.Second
 
+var defaultHTTPTransport = &http.Transport{
+	MaxIdleConnsPerHost: 10,
+	IdleConnTimeout:     90 * time.Second,
+	Proxy:               http.ProxyFromEnvironment,
+}
+
+var defaultInsecureHTTPTransport = func() *http.Transport {
+	transport := defaultHTTPTransport.Clone()
+	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	return transport
+}()
+
 var defaultHTTPClient = &http.Client{
-	Transport: &http.Transport{
-		MaxIdleConnsPerHost: 10,
-		IdleConnTimeout:     90 * time.Second,
-		Proxy:               http.ProxyFromEnvironment,
-	},
-	Timeout: defaultClientTimeout,
+	Transport: defaultHTTPTransport,
+	Timeout:   defaultClientTimeout,
 }
 
 var defaultInsecureHTTPClient = &http.Client{
-	Timeout: defaultClientTimeout,
-	Transport: &http.Transport{
-		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
-		MaxIdleConnsPerHost: 10,
-		IdleConnTimeout:     90 * time.Second,
-		Proxy:               http.ProxyFromEnvironment,
-	},
+	Transport: defaultInsecureHTTPTransport,
+	Timeout:   defaultClientTimeout,
+}
+
+func newHTTPClient(timeout durationField, allowInsecure bool) *http.Client {
+	baseClient := ternary(allowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
+	client := *baseClient
+
+	if timeout > 0 {
+		client.Timeout = time.Duration(timeout)
+	}
+
+	return &client
 }
 
 type requestDoer interface {
