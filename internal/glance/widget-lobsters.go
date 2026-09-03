@@ -143,3 +143,11 @@ func fetchLobstersPosts(ctx context.Context, customURL string, instanceURL strin
 
 	return posts, nil
 }
+
+func (widget *lobstersWidget) setDefaultLimit(value int) {
+	widget.Limit = value
+}
+
+func (widget *lobstersWidget) setDefaultCollapseAfter(value int) {
+	widget.CollapseAfter = value
+}

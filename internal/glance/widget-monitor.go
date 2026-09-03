@@ -8,6 +8,8 @@ import (
 	"slices"
 	"strconv"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -15,23 +17,36 @@ var (
 	monitorWidgetCompactTemplate = mustParseTemplate("monitor-compact.html", "widget-base.html")
 )
 
+type monitorSite struct {
+	*SiteStatusRequest `yaml:",inline"`
+	Status             *siteStatus          `yaml:"-"`
+	URL                string               `yaml:"-"`
+	ErrorURL           string               `yaml:"error-url"`
+	Title              string               `yaml:"title"`
+	Icon               customIconField      `yaml:"icon"`
+	SameTab            bool                 `yaml:"same-tab"`
+	StatusText         string               `yaml:"-"`
+	StatusStyle        string               `yaml:"-"`
+	AltStatusCodes     []int                `yaml:"alt-status-codes"`
+	configuredFields   yamlConfiguredFields `yaml:"-"`
+}
+
+func (site *monitorSite) UnmarshalYAML(node *yaml.Node) error {
+	type plain monitorSite
+	if err := node.Decode((*plain)(site)); err != nil {
+		return err
+	}
+
+	site.configuredFields = yamlMappingFields(node)
+	return nil
+}
+
 type monitorWidget struct {
-	widgetBase `yaml:",inline"`
-	Sites      []struct {
-		*SiteStatusRequest `yaml:",inline"`
-		Status             *siteStatus     `yaml:"-"`
-		URL                string          `yaml:"-"`
-		ErrorURL           string          `yaml:"error-url"`
-		Title              string          `yaml:"title"`
-		Icon               customIconField `yaml:"icon"`
-		SameTab            bool            `yaml:"same-tab"`
-		StatusText         string          `yaml:"-"`
-		StatusStyle        string          `yaml:"-"`
-		AltStatusCodes     []int           `yaml:"alt-status-codes"`
-	} `yaml:"sites"`
-	Style           string `yaml:"style"`
-	ShowFailingOnly bool   `yaml:"show-failing-only"`
-	HasFailing      bool   `yaml:"-"`
+	widgetBase      `yaml:",inline"`
+	Sites           []monitorSite `yaml:"sites"`
+	Style           string        `yaml:"style"`
+	ShowFailingOnly bool          `yaml:"show-failing-only"`
+	HasFailing      bool          `yaml:"-"`
 }
 
 func (widget *monitorWidget) initialize() error {
@@ -115,10 +130,11 @@ func statusCodeToStyle(status int, altStatusCodes []int) string {
 }
 
 type SiteStatusRequest struct {
-	DefaultURL    string        `yaml:"url"`
-	CheckURL      string        `yaml:"check-url"`
-	AllowInsecure bool          `yaml:"allow-insecure"`
-	Timeout       durationField `yaml:"timeout"`
+	DefaultURL    string            `yaml:"url"`
+	CheckURL      string            `yaml:"check-url"`
+	AllowInsecure bool              `yaml:"allow-insecure"`
+	Timeout       durationField     `yaml:"timeout"`
+	Headers       map[string]string `yaml:"headers"`
 	BasicAuth     struct {
 		Username string `yaml:"username"`
 		Password string `yaml:"password"`
@@ -149,6 +165,10 @@ func fetchSiteStatusTask(ctx context.Context, statusRequest *SiteStatusRequest) 
 		return siteStatus{
 			Error: err,
 		}, nil
+	}
+
+	for key, value := range statusRequest.Headers {
+		request.Header.Set(key, value)
 	}
 
 	if statusRequest.BasicAuth.Username != "" || statusRequest.BasicAuth.Password != "" {
@@ -194,4 +214,57 @@ func fetchStatusForSites(ctx context.Context, requests []*SiteStatusRequest) ([]
 	}
 
 	return results, nil
+}
+
+func (widget *monitorWidget) setDefaultTimeout(value durationField) {
+	for i := range widget.Sites {
+		if !widget.Sites[i].configuredFields["timeout"] {
+			widget.Sites[i].Timeout = value
+		}
+	}
+}
+
+func (widget *monitorWidget) setDefaultAllowInsecure(value bool) {
+	for i := range widget.Sites {
+		if !widget.Sites[i].configuredFields["allow-insecure"] {
+			widget.Sites[i].AllowInsecure = value
+		}
+	}
+}
+
+func (widget *monitorWidget) setDefaultHeaders(value map[string]string) {
+	for i := range widget.Sites {
+		site := &widget.Sites[i]
+		if site.SiteStatusRequest == nil {
+			continue
+		}
+
+		site.Headers = mergeStringMaps(value, site.Headers)
+	}
+}
+
+func (widget *monitorWidget) setDefaultBasicAuth(value basicAuthDefaults) {
+	for i := range widget.Sites {
+		site := &widget.Sites[i]
+		request := site.SiteStatusRequest
+
+		if request == nil || site.configuredFields["basic-auth"] {
+			continue
+		}
+
+		request.BasicAuth.Username = value.Username
+		request.BasicAuth.Password = value.Password
+	}
+}
+
+func (widget *monitorWidget) setDefaultNewTab(value bool) {
+	for i := range widget.Sites {
+		site := &widget.Sites[i]
+
+		if site.configuredFields["same-tab"] {
+			continue
+		}
+
+		site.SameTab = !value
+	}
 }

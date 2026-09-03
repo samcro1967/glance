@@ -55,6 +55,7 @@ deployment safeguards, and upstream synchronization.
 * Different layouts
 * As many pages/tabs as you need
 * Numerous configuration options for each widget
+* Hierarchical widget defaults for sharing common settings globally or by widget type
 * Multiple styles for some widgets
 * Custom CSS
 

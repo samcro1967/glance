@@ -31,15 +31,16 @@ type dnsStatsWidget struct {
 	Stats           *dnsStats `yaml:"-"`
 	piholeSessionID string    `yaml:"-"`
 
-	HourFormat     string `yaml:"hour-format"`
-	HideGraph      bool   `yaml:"hide-graph"`
-	HideTopDomains bool   `yaml:"hide-top-domains"`
-	Service        string `yaml:"service"`
-	AllowInsecure  bool   `yaml:"allow-insecure"`
-	URL            string `yaml:"url"`
-	Token          string `yaml:"token"`
-	Username       string `yaml:"username"`
-	Password       string `yaml:"password"`
+	HourFormat     string        `yaml:"hour-format"`
+	HideGraph      bool          `yaml:"hide-graph"`
+	HideTopDomains bool          `yaml:"hide-top-domains"`
+	Service        string        `yaml:"service"`
+	AllowInsecure  bool          `yaml:"allow-insecure"`
+	Timeout        durationField `yaml:"timeout"`
+	URL            string        `yaml:"url"`
+	Token          string        `yaml:"token"`
+	Username       string        `yaml:"username"`
+	Password       string        `yaml:"password"`
 }
 
 const (
@@ -90,17 +91,18 @@ func (widget *dnsStatsWidget) update(ctx context.Context) {
 
 	switch widget.Service {
 	case dnsServiceAdguard:
-		stats, err = fetchAdguardStats(ctx, widget.URL, widget.AllowInsecure, widget.Username, widget.Password, widget.HideGraph)
+		stats, err = fetchAdguardStats(ctx, widget.URL, widget.AllowInsecure, widget.Timeout, widget.Username, widget.Password, widget.HideGraph)
 	case dnsServicePihole:
-		stats, err = fetchPihole5Stats(ctx, widget.URL, widget.AllowInsecure, widget.Token, widget.HideGraph)
+		stats, err = fetchPihole5Stats(ctx, widget.URL, widget.AllowInsecure, widget.Timeout, widget.Token, widget.HideGraph)
 	case dnsServiceTechnitium:
-		stats, err = fetchTechnitiumStats(ctx, widget.URL, widget.AllowInsecure, widget.Token, widget.HideGraph)
+		stats, err = fetchTechnitiumStats(ctx, widget.URL, widget.AllowInsecure, widget.Timeout, widget.Token, widget.HideGraph)
 	case dnsServicePiholeV6:
 		var newSessionID string
 		stats, newSessionID, err = fetchPiholeStats(
 			ctx,
 			widget.URL,
 			widget.AllowInsecure,
+			widget.Timeout,
 			widget.Password,
 			widget.piholeSessionID,
 			!widget.HideGraph,
@@ -159,7 +161,18 @@ type adguardStatsResponse struct {
 	TopBlockedDomains []map[string]int `json:"top_blocked_domains"`
 }
 
-func fetchAdguardStats(ctx context.Context, instanceURL string, allowInsecure bool, username, password string, noGraph bool) (*dnsStats, error) {
+func dnsStatsHTTPClient(timeout durationField, allowInsecure bool) *http.Client {
+	baseClient := ternary(allowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
+	client := *baseClient
+
+	if timeout > 0 {
+		client.Timeout = time.Duration(timeout)
+	}
+
+	return &client
+}
+
+func fetchAdguardStats(ctx context.Context, instanceURL string, allowInsecure bool, timeout durationField, username, password string, noGraph bool) (*dnsStats, error) {
 	requestURL := strings.TrimRight(instanceURL, "/") + "/control/stats"
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
@@ -169,7 +182,7 @@ func fetchAdguardStats(ctx context.Context, instanceURL string, allowInsecure bo
 
 	request.SetBasicAuth(username, password)
 
-	var client = ternary(allowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
+	client := dnsStatsHTTPClient(timeout, allowInsecure)
 	responseJson, err := decodeJsonFromRequest[adguardStatsResponse](client, request)
 	if err != nil {
 		return nil, fmt.Errorf("fetching AdGuard stats: %w", err)
@@ -314,7 +327,7 @@ func (p *pihole5TopBlockedDomains) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func fetchPihole5Stats(ctx context.Context, instanceURL string, allowInsecure bool, token string, noGraph bool) (*dnsStats, error) {
+func fetchPihole5Stats(ctx context.Context, instanceURL string, allowInsecure bool, timeout durationField, token string, noGraph bool) (*dnsStats, error) {
 	if token == "" {
 		return nil, errors.New("missing API token")
 	}
@@ -327,7 +340,7 @@ func fetchPihole5Stats(ctx context.Context, instanceURL string, allowInsecure bo
 		return nil, fmt.Errorf("creating Pi-hole stats request: %w", err)
 	}
 
-	var client = ternary(allowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
+	client := dnsStatsHTTPClient(timeout, allowInsecure)
 	responseJson, err := decodeJsonFromRequest[pihole5StatsResponse](client, request)
 	if err != nil {
 		return nil, fmt.Errorf("fetching Pi-hole stats: %w", err)
@@ -423,13 +436,14 @@ func fetchPiholeStats(
 	ctx context.Context,
 	instanceURL string,
 	allowInsecure bool,
+	timeout durationField,
 	password string,
 	sessionID string,
 	includeGraph bool,
 	includeTopDomains bool,
 ) (*dnsStats, string, error) {
 	instanceURL = strings.TrimRight(instanceURL, "/")
-	var client = ternary(allowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
+	client := dnsStatsHTTPClient(timeout, allowInsecure)
 
 	fetchNewSessionID := func() error {
 		newSessionID, err := fetchPiholeSessionID(ctx, instanceURL, client, password)
@@ -755,7 +769,7 @@ type technitiumStatsResponse struct {
 	} `json:"response"`
 }
 
-func fetchTechnitiumStats(ctx context.Context, instanceUrl string, allowInsecure bool, token string, noGraph bool) (*dnsStats, error) {
+func fetchTechnitiumStats(ctx context.Context, instanceUrl string, allowInsecure bool, timeout durationField, token string, noGraph bool) (*dnsStats, error) {
 	if token == "" {
 		return nil, errors.New("missing API token")
 	}
@@ -767,12 +781,7 @@ func fetchTechnitiumStats(ctx context.Context, instanceUrl string, allowInsecure
 		return nil, fmt.Errorf("creating Technitium stats request: %w", err)
 	}
 
-	var client requestDoer
-	if !allowInsecure {
-		client = defaultHTTPClient
-	} else {
-		client = defaultInsecureHTTPClient
-	}
+	client := dnsStatsHTTPClient(timeout, allowInsecure)
 
 	responseJson, err := decodeJsonFromRequest[technitiumStatsResponse](client, request)
 	if err != nil {
@@ -870,4 +879,18 @@ func fetchTechnitiumStats(ctx context.Context, instanceUrl string, allowInsecure
 	}
 
 	return stats, nil
+}
+
+func (widget *dnsStatsWidget) setDefaultAllowInsecure(value bool) {
+	if widget.configuredFields["allow-insecure"] {
+		return
+	}
+	widget.AllowInsecure = value
+}
+
+func (widget *dnsStatsWidget) setDefaultTimeout(value durationField) {
+	if widget.configuredFields["timeout"] {
+		return
+	}
+	widget.Timeout = value
 }

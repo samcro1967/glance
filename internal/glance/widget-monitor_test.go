@@ -408,18 +408,7 @@ func TestMonitorWidgetUpdateAggregatesSiteState(t *testing.T) {
 	defer server.Close()
 
 	widget := &monitorWidget{}
-	widget.Sites = make([]struct {
-		*SiteStatusRequest `yaml:",inline"`
-		Status             *siteStatus     `yaml:"-"`
-		URL                string          `yaml:"-"`
-		ErrorURL           string          `yaml:"error-url"`
-		Title              string          `yaml:"title"`
-		Icon               customIconField `yaml:"icon"`
-		SameTab            bool            `yaml:"same-tab"`
-		StatusText         string          `yaml:"-"`
-		StatusStyle        string          `yaml:"-"`
-		AltStatusCodes     []int           `yaml:"alt-status-codes"`
-	}, 3)
+	widget.Sites = make([]monitorSite, 3)
 
 	widget.Sites[0].SiteStatusRequest = &SiteStatusRequest{
 		DefaultURL: server.URL + "/healthy",
@@ -531,18 +520,7 @@ func TestMonitorWidgetUpdateUsesErrorURLForRequestError(t *testing.T) {
 	)
 
 	widget := &monitorWidget{}
-	widget.Sites = make([]struct {
-		*SiteStatusRequest `yaml:",inline"`
-		Status             *siteStatus     `yaml:"-"`
-		URL                string          `yaml:"-"`
-		ErrorURL           string          `yaml:"error-url"`
-		Title              string          `yaml:"title"`
-		Icon               customIconField `yaml:"icon"`
-		SameTab            bool            `yaml:"same-tab"`
-		StatusText         string          `yaml:"-"`
-		StatusStyle        string          `yaml:"-"`
-		AltStatusCodes     []int           `yaml:"alt-status-codes"`
-	}, 1)
+	widget.Sites = make([]monitorSite, 1)
 
 	widget.Sites[0].SiteStatusRequest = &SiteStatusRequest{
 		DefaultURL: defaultURL,
@@ -583,18 +561,7 @@ func TestMonitorWidgetSuccessfulUpdateClearsFailingState(t *testing.T) {
 	widget := &monitorWidget{
 		HasFailing: true,
 	}
-	widget.Sites = make([]struct {
-		*SiteStatusRequest `yaml:",inline"`
-		Status             *siteStatus     `yaml:"-"`
-		URL                string          `yaml:"-"`
-		ErrorURL           string          `yaml:"error-url"`
-		Title              string          `yaml:"title"`
-		Icon               customIconField `yaml:"icon"`
-		SameTab            bool            `yaml:"same-tab"`
-		StatusText         string          `yaml:"-"`
-		StatusStyle        string          `yaml:"-"`
-		AltStatusCodes     []int           `yaml:"alt-status-codes"`
-	}, 1)
+	widget.Sites = make([]monitorSite, 1)
 
 	widget.Sites[0].SiteStatusRequest = &SiteStatusRequest{
 		DefaultURL: server.URL,
@@ -616,5 +583,31 @@ func TestMonitorWidgetSuccessfulUpdateClearsFailingState(t *testing.T) {
 			widget.Sites[0].Status.Code,
 			http.StatusOK,
 		)
+	}
+}
+
+func TestFetchSiteStatusTaskSendsConfiguredHeaders(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("X-Monitor-Test"); got != "present" {
+			t.Errorf("X-Monitor-Test = %q, want present", got)
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	status, err := fetchSiteStatusTask(
+		context.Background(),
+		&SiteStatusRequest{
+			DefaultURL: server.URL,
+			Headers: map[string]string{
+				"X-Monitor-Test": "present",
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("fetchSiteStatusTask: %v", err)
+	}
+	if status.Error != nil {
+		t.Fatalf("status error: %v", status.Error)
 	}
 }

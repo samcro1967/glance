@@ -474,3 +474,19 @@ func fetchRedditLoidCookie() (string, error) {
 
 	return "", errors.New("no loid cookie found")
 }
+
+func (widget *redditWidget) setDefaultLimit(value int) {
+	widget.Limit = value
+}
+
+func (widget *redditWidget) setDefaultCollapseAfter(value int) {
+	widget.CollapseAfter = value
+}
+
+func (widget *redditWidget) setDefaultProxy(value proxyOptionsField) error {
+	widget.Proxy.URL = value.URL
+	widget.Proxy.AllowInsecure = value.AllowInsecure
+	widget.Proxy.Timeout = value.Timeout
+
+	return widget.Proxy.initializeClient(widget.Proxy.URL)
+}

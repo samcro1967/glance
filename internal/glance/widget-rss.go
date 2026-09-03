@@ -15,6 +15,8 @@ import (
 
 	"github.com/mmcdole/gofeed"
 	gofeedext "github.com/mmcdole/gofeed/extensions"
+
+	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -127,15 +129,32 @@ type rssFeedItem struct {
 }
 
 type rssFeedRequest struct {
-	URL                 string            `yaml:"url"`
-	Title               string            `yaml:"title"`
-	HideCategories      bool              `yaml:"hide-categories"`
-	HideDescription     bool              `yaml:"hide-description"`
-	Limit               int               `yaml:"limit"`
-	ItemLinkPrefix      string            `yaml:"item-link-prefix"`
-	ThumbnailLinkPrefix string            `yaml:"thumbnail-link-prefix"`
-	Headers             map[string]string `yaml:"headers"`
-	IsDetailed          bool              `yaml:"-"`
+	URL                 string               `yaml:"url"`
+	configuredFields    yamlConfiguredFields `yaml:"-"`
+	Title               string               `yaml:"title"`
+	HideCategories      bool                 `yaml:"hide-categories"`
+	HideDescription     bool                 `yaml:"hide-description"`
+	Limit               int                  `yaml:"limit"`
+	ItemLinkPrefix      string               `yaml:"item-link-prefix"`
+	ThumbnailLinkPrefix string               `yaml:"thumbnail-link-prefix"`
+	Headers             map[string]string    `yaml:"headers"`
+	Timeout             durationField        `yaml:"timeout"`
+	AllowInsecure       bool                 `yaml:"allow-insecure"`
+	BasicAuth           struct {
+		Username string `yaml:"username"`
+		Password string `yaml:"password"`
+	} `yaml:"basic-auth"`
+	IsDetailed bool `yaml:"-"`
+}
+
+func (request *rssFeedRequest) UnmarshalYAML(node *yaml.Node) error {
+	type plain rssFeedRequest
+	if err := node.Decode((*plain)(request)); err != nil {
+		return err
+	}
+
+	request.configuredFields = yamlMappingFields(node)
+	return nil
 }
 
 type rssFeedItemList []rssFeedItem
@@ -233,7 +252,14 @@ func (widget *rssWidget) fetchItemsFromFeedTask(ctx context.Context, request rss
 		req.Header.Set(key, value)
 	}
 
-	resource, err := fetchRSSResource(ctx, req)
+	if request.BasicAuth.Username != "" || request.BasicAuth.Password != "" {
+		req.SetBasicAuth(request.BasicAuth.Username, request.BasicAuth.Password)
+	}
+
+	resource, err := fetchRSSResource(ctx, req, rssResourceRequestOptions{
+		Timeout:       request.Timeout,
+		AllowInsecure: request.AllowInsecure,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -483,4 +509,46 @@ func shortenFeedDescriptionLen(description string, maxLen int) string {
 	}
 
 	return description
+}
+
+func (widget *rssWidget) setDefaultLimit(value int) {
+	widget.Limit = value
+}
+
+func (widget *rssWidget) setDefaultCollapseAfter(value int) {
+	widget.CollapseAfter = value
+}
+
+func (widget *rssWidget) setDefaultHeaders(value map[string]string) {
+	for i := range widget.FeedRequests {
+		widget.FeedRequests[i].Headers = mergeStringMaps(value, widget.FeedRequests[i].Headers)
+	}
+}
+
+func (widget *rssWidget) setDefaultTimeout(value durationField) {
+	for i := range widget.FeedRequests {
+		if !widget.FeedRequests[i].configuredFields["timeout"] {
+			widget.FeedRequests[i].Timeout = value
+		}
+	}
+}
+
+func (widget *rssWidget) setDefaultAllowInsecure(value bool) {
+	for i := range widget.FeedRequests {
+		if !widget.FeedRequests[i].configuredFields["allow-insecure"] {
+			widget.FeedRequests[i].AllowInsecure = value
+		}
+	}
+}
+
+func (widget *rssWidget) setDefaultBasicAuth(value basicAuthDefaults) {
+	for i := range widget.FeedRequests {
+		request := &widget.FeedRequests[i]
+		if request.configuredFields["basic-auth"] {
+			continue
+		}
+
+		request.BasicAuth.Username = value.Username
+		request.BasicAuth.Password = value.Password
+	}
 }

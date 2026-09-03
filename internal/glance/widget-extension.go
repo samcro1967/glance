@@ -22,9 +22,15 @@ type extensionWidget struct {
 	FallbackContentType string               `yaml:"fallback-content-type"`
 	Parameters          queryParametersField `yaml:"parameters"`
 	Headers             map[string]string    `yaml:"headers"`
-	AllowHtml           bool                 `yaml:"allow-potentially-dangerous-html"`
-	Extension           extension            `yaml:"-"`
-	cachedHTML          template.HTML        `yaml:"-"`
+	Timeout             durationField        `yaml:"timeout"`
+	AllowInsecure       bool                 `yaml:"allow-insecure"`
+	BasicAuth           struct {
+		Username string `yaml:"username"`
+		Password string `yaml:"password"`
+	} `yaml:"basic-auth"`
+	AllowHtml  bool          `yaml:"allow-potentially-dangerous-html"`
+	Extension  extension     `yaml:"-"`
+	cachedHTML template.HTML `yaml:"-"`
 }
 
 func (widget *extensionWidget) initialize() error {
@@ -47,6 +53,10 @@ func (widget *extensionWidget) update(ctx context.Context) {
 		FallbackContentType: widget.FallbackContentType,
 		Parameters:          widget.Parameters,
 		Headers:             widget.Headers,
+		Timeout:             widget.Timeout,
+		AllowInsecure:       widget.AllowInsecure,
+		BasicAuthUsername:   widget.BasicAuth.Username,
+		BasicAuthPassword:   widget.BasicAuth.Password,
 		AllowHtml:           widget.AllowHtml,
 	})
 
@@ -92,7 +102,11 @@ type extensionRequestOptions struct {
 	FallbackContentType string               `yaml:"fallback-content-type"`
 	Parameters          queryParametersField `yaml:"parameters"`
 	Headers             map[string]string    `yaml:"headers"`
+	Timeout             durationField        `yaml:"timeout"`
+	AllowInsecure       bool                 `yaml:"allow-insecure"`
 	AllowHtml           bool                 `yaml:"allow-potentially-dangerous-html"`
+	BasicAuthUsername   string
+	BasicAuthPassword   string
 }
 
 type extension struct {
@@ -129,7 +143,17 @@ func fetchExtension(ctx context.Context, options extensionRequestOptions) (exten
 		request.Header.Add(key, value)
 	}
 
-	response, err := defaultHTTPClient.Do(request)
+	if options.BasicAuthUsername != "" || options.BasicAuthPassword != "" {
+		request.SetBasicAuth(options.BasicAuthUsername, options.BasicAuthPassword)
+	}
+
+	baseClient := ternary(options.AllowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
+	client := *baseClient
+	if options.Timeout > 0 {
+		client.Timeout = time.Duration(options.Timeout)
+	}
+
+	response, err := client.Do(request)
 	if err != nil {
 		return extension{}, fmt.Errorf(
 			"%w: extension request failed: %w",
@@ -173,4 +197,25 @@ func fetchExtension(ctx context.Context, options extensionRequestOptions) (exten
 	extension.Content = convertExtensionContent(options, body, contentType)
 
 	return extension, nil
+}
+
+func (widget *extensionWidget) setDefaultHeaders(value map[string]string) {
+	widget.Headers = mergeStringMaps(value, widget.Headers)
+}
+
+func (widget *extensionWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
+}
+
+func (widget *extensionWidget) setDefaultAllowInsecure(value bool) {
+	widget.AllowInsecure = value
+}
+
+func (widget *extensionWidget) setDefaultBasicAuth(value basicAuthDefaults) {
+	if widget.configuredFields["basic-auth"] {
+		return
+	}
+
+	widget.BasicAuth.Username = value.Username
+	widget.BasicAuth.Password = value.Password
 }

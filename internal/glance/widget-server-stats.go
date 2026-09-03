@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/samcro1967/glance/pkg/sysinfo"
+
+	"gopkg.in/yaml.v3"
 )
 
 var serverStatsWidgetTemplate = mustParseTemplate("server-stats.html", "widget-base.html")
@@ -100,17 +102,29 @@ func (widget *serverStatsWidget) Render() template.HTML {
 
 type serverStatsRequest struct {
 	*sysinfo.SystemInfoRequest `yaml:",inline"`
-	Info                       *sysinfo.SystemInfo `yaml:"-"`
-	IsReachable                bool                `yaml:"-"`
-	StatusText                 string              `yaml:"-"`
-	Name                       string              `yaml:"name"`
-	HideSwap                   bool                `yaml:"hide-swap"`
-	Type                       string              `yaml:"type"`
-	URL                        string              `yaml:"url"`
-	Token                      string              `yaml:"token"`
-	Timeout                    durationField       `yaml:"timeout"`
+	configuredFields           yamlConfiguredFields `yaml:"-"`
+	Info                       *sysinfo.SystemInfo  `yaml:"-"`
+	IsReachable                bool                 `yaml:"-"`
+	StatusText                 string               `yaml:"-"`
+	Name                       string               `yaml:"name"`
+	HideSwap                   bool                 `yaml:"hide-swap"`
+	Type                       string               `yaml:"type"`
+	URL                        string               `yaml:"url"`
+	Token                      string               `yaml:"token"`
+	Timeout                    durationField        `yaml:"timeout"`
+	AllowInsecure              bool                 `yaml:"allow-insecure"`
 	// Support for other agents
 	// Provider                   string              `yaml:"provider"`
+}
+
+func (request *serverStatsRequest) UnmarshalYAML(node *yaml.Node) error {
+	type plain serverStatsRequest
+	if err := node.Decode((*plain)(request)); err != nil {
+		return err
+	}
+
+	request.configuredFields = yamlMappingFields(node)
+	return nil
 }
 
 func fetchRemoteServerInfo(ctx context.Context, infoReq *serverStatsRequest) (*sysinfo.SystemInfo, error) {
@@ -131,7 +145,8 @@ func fetchRemoteServerInfo(ctx context.Context, infoReq *serverStatsRequest) (*s
 		request.Header.Set("Authorization", "Bearer "+infoReq.Token)
 	}
 
-	info, err := decodeJsonFromRequest[*sysinfo.SystemInfo](defaultHTTPClient, request)
+	client := ternary(infoReq.AllowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
+	info, err := decodeJsonFromRequest[*sysinfo.SystemInfo](client, request)
 	if err != nil {
 		return nil, err
 	}
@@ -139,4 +154,20 @@ func fetchRemoteServerInfo(ctx context.Context, infoReq *serverStatsRequest) (*s
 	infoReq.SystemInfoRequest.Filter(info)
 
 	return info, nil
+}
+
+func (widget *serverStatsWidget) setDefaultTimeout(value durationField) {
+	for i := range widget.Servers {
+		if !widget.Servers[i].configuredFields["timeout"] {
+			widget.Servers[i].Timeout = value
+		}
+	}
+}
+
+func (widget *serverStatsWidget) setDefaultAllowInsecure(value bool) {
+	for i := range widget.Servers {
+		if !widget.Servers[i].configuredFields["allow-insecure"] {
+			widget.Servers[i].AllowInsecure = value
+		}
+	}
 }

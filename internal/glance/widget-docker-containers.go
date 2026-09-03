@@ -24,6 +24,7 @@ type dockerContainersWidget struct {
 	FormatContainerNames bool                         `yaml:"format-container-names"`
 	Containers           dockerContainerList          `yaml:"-"`
 	LabelOverrides       map[string]map[string]string `yaml:"containers"`
+	DefaultNewTab        *bool                        `yaml:"-"`
 }
 
 func (widget *dockerContainersWidget) initialize() error {
@@ -45,6 +46,7 @@ func (widget *dockerContainersWidget) update(ctx context.Context) {
 		widget.RunningOnly,
 		widget.FormatContainerNames,
 		widget.LabelOverrides,
+		widget.DefaultNewTab,
 	)
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
 		return
@@ -163,6 +165,7 @@ func fetchDockerContainers(
 	runningOnly bool,
 	formatNames bool,
 	labelOverrides map[string]map[string]string,
+	defaultNewTab *bool,
 ) (dockerContainerList, error) {
 	containers, err := fetchDockerContainersFromSource(
 		ctx,
@@ -181,11 +184,19 @@ func fetchDockerContainers(
 	for i := range containers {
 		container := &containers[i]
 
+		sameTab := false
+		if defaultNewTab != nil {
+			sameTab = !*defaultNewTab
+		}
+		if value, ok := container.Labels[dockerContainerLabelSameTab]; ok && value != "" {
+			sameTab = stringToBool(value)
+		}
+
 		dc := dockerContainer{
 			Name:        deriveDockerContainerName(container, formatNames),
 			URL:         container.Labels.getOrDefault(dockerContainerLabelURL, ""),
 			Description: container.Labels.getOrDefault(dockerContainerLabelDescription, ""),
-			SameTab:     stringToBool(container.Labels.getOrDefault(dockerContainerLabelSameTab, "false")),
+			SameTab:     sameTab,
 			Image:       container.Image,
 			State:       strings.ToLower(container.State),
 			StateText:   strings.ToLower(container.Status),
@@ -409,4 +420,9 @@ func dockerContainersRemoteSourceURL(source string) (string, error) {
 	}
 
 	return scheme + "://" + net.JoinHostPort(parsed.Hostname(), port), nil
+}
+
+func (widget *dockerContainersWidget) setDefaultNewTab(value bool) {
+	widget.DefaultNewTab = new(bool)
+	*widget.DefaultNewTab = value
 }

@@ -258,3 +258,7 @@ func fetchChannelsFromTwitch(ctx context.Context, channelLogins []string) (twitc
 
 	return result, nil
 }
+
+func (widget *twitchChannelsWidget) setDefaultCollapseAfter(value int) {
+	widget.CollapseAfter = value
+}

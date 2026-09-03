@@ -240,3 +240,54 @@ func TestRSSFetchItemsFromFeedsCancellationPreservesClassificationAndCause(t *te
 		t.Fatalf("unexpected cancellation error:\n got: %q\nwant: %q", err.Error(), expected)
 	}
 }
+
+func TestRSSFetchSendsConfiguredHeadersAndBasicAuth(t *testing.T) {
+	const (
+		username = "rss-user"
+		password = "rss-pass"
+	)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("X-RSS-Test"); got != "present" {
+			t.Errorf("X-RSS-Test = %q, want present", got)
+		}
+
+		gotUsername, gotPassword, ok := r.BasicAuth()
+		if !ok {
+			t.Error("RSS request did not contain Basic Authentication")
+		} else {
+			if gotUsername != username {
+				t.Errorf("username = %q, want %q", gotUsername, username)
+			}
+			if gotPassword != password {
+				t.Errorf("password = %q, want %q", gotPassword, password)
+			}
+		}
+
+		w.Header().Set("Content-Type", "application/rss+xml")
+		_, _ = w.Write([]byte(testRSSFeed))
+	}))
+	defer server.Close()
+
+	request := rssFeedRequest{
+		URL: server.URL + "/feed",
+		Headers: map[string]string{
+			"X-RSS-Test": "present",
+		},
+	}
+	request.BasicAuth.Username = username
+	request.BasicAuth.Password = password
+
+	widget := &rssWidget{
+		FeedRequests: []rssFeedRequest{request},
+		cachedFeeds:  make(map[string]*cachedRSSFeed),
+	}
+
+	items, err := widget.fetchItemsFromFeeds(context.Background())
+	if err != nil {
+		t.Fatalf("fetchItemsFromFeeds: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("items = %d, want 1", len(items))
+	}
+}

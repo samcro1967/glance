@@ -100,6 +100,10 @@ func newWidget(widgetType string) (widget, error) {
 
 	w.setID(widgetIDCounter.Add(1))
 
+	if base, ok := widgetBaseOf(w); ok {
+		base.OpenLinksInNewTab = true
+	}
+
 	return w, nil
 }
 
@@ -130,10 +134,30 @@ func (w *widgets) UnmarshalYAML(node *yaml.Node) error {
 			return err
 		}
 
+		if base, ok := widgetBaseOf(widget); ok {
+			base.configuredFields = yamlMappingFields(&node)
+		}
+
 		*w = append(*w, widget)
 	}
 
 	return nil
+}
+
+type yamlConfiguredFields map[string]bool
+
+func yamlMappingFields(node *yaml.Node) yamlConfiguredFields {
+	fields := make(yamlConfiguredFields)
+
+	if node == nil || node.Kind != yaml.MappingNode {
+		return fields
+	}
+
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		fields[node.Content[i].Value] = true
+	}
+
+	return fields
 }
 
 type widget interface {
@@ -181,25 +205,27 @@ const (
 )
 
 type widgetBase struct {
-	ID                  uint64           `yaml:"-"`
-	Providers           *widgetProviders `yaml:"-"`
-	Type                string           `yaml:"type"`
-	Title               string           `yaml:"title"`
-	TitleURL            string           `yaml:"title-url"`
-	HideHeader          bool             `yaml:"hide-header"`
-	CSSClass            string           `yaml:"css-class"`
-	CustomCacheDuration durationField    `yaml:"cache"`
-	ContentAvailable    bool             `yaml:"-"`
-	WIP                 bool             `yaml:"-"`
-	Error               error            `yaml:"-"`
-	Notice              error            `yaml:"-"`
-	templateBuffer      bytes.Buffer     `yaml:"-"`
-	cacheDuration       time.Duration    `yaml:"-"`
-	cacheType           cacheType        `yaml:"-"`
-	nextUpdate          time.Time        `yaml:"-"`
-	updateRetriedTimes  int              `yaml:"-"`
-	refreshDegraded     bool             `yaml:"-"`
-	refreshMu           sync.Mutex       `yaml:"-"`
+	ID                  uint64               `yaml:"-"`
+	Providers           *widgetProviders     `yaml:"-"`
+	Type                string               `yaml:"type"`
+	Title               string               `yaml:"title"`
+	TitleURL            string               `yaml:"title-url"`
+	HideHeader          bool                 `yaml:"hide-header"`
+	CSSClass            string               `yaml:"css-class"`
+	CustomCacheDuration durationField        `yaml:"cache"`
+	OpenLinksInNewTab   bool                 `yaml:"-"`
+	ContentAvailable    bool                 `yaml:"-"`
+	configuredFields    yamlConfiguredFields `yaml:"-"`
+	WIP                 bool                 `yaml:"-"`
+	Error               error                `yaml:"-"`
+	Notice              error                `yaml:"-"`
+	templateBuffer      bytes.Buffer         `yaml:"-"`
+	cacheDuration       time.Duration        `yaml:"-"`
+	cacheType           cacheType            `yaml:"-"`
+	nextUpdate          time.Time            `yaml:"-"`
+	updateRetriedTimes  int                  `yaml:"-"`
+	refreshDegraded     bool                 `yaml:"-"`
+	refreshMu           sync.Mutex           `yaml:"-"`
 }
 
 type widgetProviders struct {
@@ -250,12 +276,20 @@ func (w *widgetBase) setHideHeader(value bool) {
 	w.HideHeader = value
 }
 
+func (w *widgetBase) setDefaultNewTab(value bool) {
+	w.OpenLinksInNewTab = value
+}
+
 func (widget *widgetBase) handleRequest(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "not implemented", http.StatusNotImplemented)
 }
 
 func (w *widgetBase) GetType() string {
 	return w.Type
+}
+
+func (w *widgetBase) getWidgetBase() *widgetBase {
+	return w
 }
 
 func (w *widgetBase) setProviders(providers *widgetProviders) {

@@ -62,3 +62,44 @@ func TestFetchExtensionCancellation(t *testing.T) {
 		t.Fatal("server did not observe extension request cancellation")
 	}
 }
+
+func TestFetchExtensionSendsConfiguredHeadersAndBasicAuth(t *testing.T) {
+	const (
+		username = "extension-user"
+		password = "extension-pass"
+	)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("X-Extension-Test"); got != "present" {
+			t.Errorf("X-Extension-Test = %q, want present", got)
+		}
+
+		gotUsername, gotPassword, ok := r.BasicAuth()
+		if !ok {
+			t.Error("extension request did not contain Basic Authentication")
+		} else {
+			if gotUsername != username {
+				t.Errorf("username = %q, want %q", gotUsername, username)
+			}
+			if gotPassword != password {
+				t.Errorf("password = %q, want %q", gotPassword, password)
+			}
+		}
+
+		w.Header().Set("Content-Type", "text/html")
+		_, _ = w.Write([]byte("<div>extension</div>"))
+	}))
+	defer server.Close()
+
+	_, err := fetchExtension(context.Background(), extensionRequestOptions{
+		URL: server.URL,
+		Headers: map[string]string{
+			"X-Extension-Test": "present",
+		},
+		BasicAuthUsername: username,
+		BasicAuthPassword: password,
+	})
+	if err != nil {
+		t.Fatalf("fetchExtension: %v", err)
+	}
+}

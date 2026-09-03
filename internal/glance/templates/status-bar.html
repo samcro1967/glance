@@ -30,20 +30,20 @@
             </div>
         {{ else if eq .Kind "market" }}
             <div class="status-bar-market-content">
-                {{ if .URL }}<a href="{{ .URL }}" target="_blank" rel="noreferrer" class="status-bar-market-identity">{{ else }}<span class="status-bar-market-identity">{{ end }}
+                {{ if .URL }}<a href="{{ .URL }}"{{ if .OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }} class="status-bar-market-identity">{{ else }}<span class="status-bar-market-identity">{{ end }}
                     <span class="status-bar-primary">{{ .MarketSymbol }}</span>
                     {{ if .MarketName }}<span class="color-subdue">{{ .MarketName }}</span>{{ end }}
                 {{ if .URL }}</a>{{ else }}</span>{{ end }}
-                {{ if .MarketChartURL }}<a href="{{ .MarketChartURL }}" target="_blank" rel="noreferrer" class="status-bar-market-values">{{ else }}<span class="status-bar-market-values">{{ end }}
+                {{ if .MarketChartURL }}<a href="{{ .MarketChartURL }}"{{ if .OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }} class="status-bar-market-values">{{ else }}<span class="status-bar-market-values">{{ end }}
                     <span title="{{ .MarketCurrency }}">{{ .MarketCurrencySymbol }}{{ .MarketPrice | formatPriceWithPrecision .MarketPriceHint }}</span>
                     <span class="{{ if eq .MarketPercentChange 0.0 }}{{ else if gt .MarketPercentChange 0.0 }}color-positive{{ else }}color-negative{{ end }}">{{ printf "%+.2f" .MarketPercentChange }}%</span>
                 {{ if .MarketChartURL }}</a>{{ else }}</span>{{ end }}
             </div>
         {{ else if eq .Kind "rss" }}
             <div class="status-bar-rss-content">
-                {{ if .URL }}<a href="{{ .URL }}" target="_blank" rel="noreferrer" class="status-bar-primary status-bar-rss-title">{{ .RSSTitle }}</a>{{ else }}<span class="status-bar-primary status-bar-rss-title">{{ .RSSTitle }}</span>{{ end }}
+                {{ if .URL }}<a href="{{ .URL }}"{{ if .OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }} class="status-bar-primary status-bar-rss-title">{{ .RSSTitle }}</a>{{ else }}<span class="status-bar-primary status-bar-rss-title">{{ .RSSTitle }}</span>{{ end }}
                 <span class="status-bar-rss-meta color-subdue">
-                    {{ if .RSSChannelName }}{{ if .RSSChannelURL }}<a href="{{ .RSSChannelURL }}" target="_blank" rel="noreferrer">{{ .RSSChannelName }}</a>{{ else }}<span>{{ .RSSChannelName }}</span>{{ end }}{{ end }}
+                    {{ if .RSSChannelName }}{{ if .RSSChannelURL }}<a href="{{ .RSSChannelURL }}"{{ if .OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }}>{{ .RSSChannelName }}</a>{{ else }}<span>{{ .RSSChannelName }}</span>{{ end }}{{ end }}
                     <span {{ dynamicRelativeTimeAttrs .RSSPublishedAt }}></span>
                 </span>
             </div>

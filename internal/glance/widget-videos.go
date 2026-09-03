@@ -135,6 +135,18 @@ type video struct {
 	TimePosted   time.Time
 }
 
+type videoCardTemplateData struct {
+	Video             video
+	OpenLinksInNewTab bool
+}
+
+func videoCardTemplateDataFor(video video, openLinksInNewTab bool) videoCardTemplateData {
+	return videoCardTemplateData{
+		Video:             video,
+		OpenLinksInNewTab: openLinksInNewTab,
+	}
+}
+
 type videoList []video
 
 func (v videoList) sortByNewest() videoList {
@@ -286,4 +298,16 @@ func (w *videosWidget) fetchYoutubeChannelUploads(
 	}
 
 	return videos, nil
+}
+
+func (widget *videosWidget) setDefaultLimit(value int) {
+	widget.Limit = value
+}
+
+func (widget *videosWidget) setDefaultCollapseAfter(value int) {
+	widget.CollapseAfter = value
+}
+
+func (widget *videosWidget) setDefaultCollapseAfterRows(value int) {
+	widget.CollapseAfterRows = value
 }

@@ -66,8 +66,9 @@ type config struct {
 		AppBackgroundColor string        `yaml:"app-background-color"`
 	} `yaml:"branding"`
 
-	Pages      []page                           `yaml:"pages"`
-	Dashboards orderedYAMLMap[string, []string] `yaml:"dashboards"`
+	WidgetDefaults widgetDefaultsConfig             `yaml:"widget-defaults"`
+	Pages          []page                           `yaml:"pages"`
+	Dashboards     orderedYAMLMap[string, []string] `yaml:"dashboards"`
 }
 
 type user struct {
@@ -280,9 +281,15 @@ func newConfigFromParsedYAML(parsed *parsedYAMLConfig) (*config, error) {
 		return nil, configDiagnosticFromYAMLError(parsed, err)
 	}
 
+	if err = validateWidgetDefaults(config.WidgetDefaults); err != nil {
+		return nil, err
+	}
+
 	if err = isConfigStateValidWithSources(config, parsed, semanticSources); err != nil {
 		return nil, err
 	}
+
+	defaultsLogSummary := widgetDefaultsLogSummary{}
 
 	for p := range config.Pages {
 		var pageSource configPageSemanticSources
@@ -292,6 +299,11 @@ func newConfigFromParsedYAML(parsed *parsedYAMLConfig) (*config, error) {
 
 		for w := range config.Pages[p].HeadWidgets {
 			candidate := config.Pages[p].HeadWidgets[w]
+			defaultsSummary, defaultsErr := applyWidgetDefaultsTree(candidate, config.WidgetDefaults)
+			if defaultsErr != nil {
+				return nil, defaultsErr
+			}
+			defaultsLogSummary.add(defaultsSummary)
 			if err := candidate.initialize(); err != nil {
 				formatted := formatWidgetInitError(err, candidate)
 				return nil, widgetInitializationDiagnostic(
@@ -305,6 +317,11 @@ func newConfigFromParsedYAML(parsed *parsedYAMLConfig) (*config, error) {
 
 		for w := range config.Pages[p].BottomWidgets {
 			candidate := config.Pages[p].BottomWidgets[w]
+			defaultsSummary, defaultsErr := applyWidgetDefaultsTree(candidate, config.WidgetDefaults)
+			if defaultsErr != nil {
+				return nil, defaultsErr
+			}
+			defaultsLogSummary.add(defaultsSummary)
 			if err := candidate.initialize(); err != nil {
 				formatted := formatWidgetInitError(err, candidate)
 				return nil, widgetInitializationDiagnostic(
@@ -324,6 +341,11 @@ func newConfigFromParsedYAML(parsed *parsedYAMLConfig) (*config, error) {
 
 			for w := range config.Pages[p].Columns[c].Widgets {
 				candidate := config.Pages[p].Columns[c].Widgets[w]
+				defaultsSummary, defaultsErr := applyWidgetDefaultsTree(candidate, config.WidgetDefaults)
+				if defaultsErr != nil {
+					return nil, defaultsErr
+				}
+				defaultsLogSummary.add(defaultsSummary)
 				if err := candidate.initialize(); err != nil {
 					formatted := formatWidgetInitError(err, candidate)
 					return nil, widgetInitializationDiagnostic(
@@ -336,6 +358,8 @@ func newConfigFromParsedYAML(parsed *parsedYAMLConfig) (*config, error) {
 			}
 		}
 	}
+
+	logWidgetDefaultsConfigured(config.WidgetDefaults, defaultsLogSummary)
 
 	return config, nil
 }
