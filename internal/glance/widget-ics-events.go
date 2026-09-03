@@ -3,6 +3,7 @@ package glance
 import (
 	"context"
 	"fmt"
+	"gopkg.in/yaml.v3"
 	"html/template"
 	"io"
 	"net/http"
@@ -35,9 +36,27 @@ type icsEventsWidget struct {
 }
 
 type icsEventSource struct {
-	URL   string `yaml:"url"`
-	File  string `yaml:"file"`
-	Title string `yaml:"title"`
+	URL           string            `yaml:"url"`
+	File          string            `yaml:"file"`
+	Title         string            `yaml:"title"`
+	Timeout       durationField     `yaml:"timeout"`
+	AllowInsecure bool              `yaml:"allow-insecure"`
+	Headers       map[string]string `yaml:"headers"`
+	BasicAuth     struct {
+		Username string `yaml:"username"`
+		Password string `yaml:"password"`
+	} `yaml:"basic-auth"`
+	configuredFields yamlConfiguredFields `yaml:"-"`
+}
+
+func (source *icsEventSource) UnmarshalYAML(node *yaml.Node) error {
+	type plain icsEventSource
+	if err := node.Decode((*plain)(source)); err != nil {
+		return err
+	}
+
+	source.configuredFields = yamlMappingFields(node)
+	return nil
 }
 
 type cachedICSSource struct {
@@ -204,6 +223,13 @@ func (widget *icsEventsWidget) fetchSource(ctx context.Context, source icsEventS
 	}
 
 	req.Header.Set("User-Agent", glanceUserAgentString)
+	for key, value := range source.Headers {
+		req.Header.Set(key, value)
+	}
+
+	if source.BasicAuth.Username != "" || source.BasicAuth.Password != "" {
+		req.SetBasicAuth(source.BasicAuth.Username, source.BasicAuth.Password)
+	}
 
 	widget.cachedSourcesMutex.Lock()
 	cached, isCached := widget.cachedSources[source.URL]
@@ -217,7 +243,13 @@ func (widget *icsEventsWidget) fetchSource(ctx context.Context, source icsEventS
 	}
 	widget.cachedSourcesMutex.Unlock()
 
-	resp, err := defaultHTTPClient.Do(req)
+	baseClient := ternary(source.AllowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
+	client := *baseClient
+	if source.Timeout > 0 {
+		client.Timeout = time.Duration(source.Timeout)
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("sending ICS request: %w", safeHTTPTransportError(err))
 	}
@@ -706,5 +738,47 @@ func agendaDateLabel(eventTime, now time.Time) string {
 		return "Tomorrow"
 	default:
 		return eventTime.Format("Monday, January 2")
+	}
+}
+
+func (widget *icsEventsWidget) setDefaultLimit(value int) {
+	widget.Limit = value
+}
+
+func (widget *icsEventsWidget) setDefaultCollapseAfter(value int) {
+	widget.CollapseAfter = value
+}
+
+func (widget *icsEventsWidget) setDefaultTimeout(value durationField) {
+	for i := range widget.Sources {
+		if !widget.Sources[i].configuredFields["timeout"] {
+			widget.Sources[i].Timeout = value
+		}
+	}
+}
+
+func (widget *icsEventsWidget) setDefaultAllowInsecure(value bool) {
+	for i := range widget.Sources {
+		if !widget.Sources[i].configuredFields["allow-insecure"] {
+			widget.Sources[i].AllowInsecure = value
+		}
+	}
+}
+
+func (widget *icsEventsWidget) setDefaultHeaders(value map[string]string) {
+	for i := range widget.Sources {
+		widget.Sources[i].Headers = mergeStringMaps(value, widget.Sources[i].Headers)
+	}
+}
+
+func (widget *icsEventsWidget) setDefaultBasicAuth(value basicAuthDefaults) {
+	for i := range widget.Sources {
+		source := &widget.Sources[i]
+		if source.configuredFields["basic-auth"] {
+			continue
+		}
+
+		source.BasicAuth.Username = value.Username
+		source.BasicAuth.Password = value.Password
 	}
 }

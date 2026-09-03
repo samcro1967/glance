@@ -20,6 +20,9 @@ type changeDetectionWidget struct {
 	Token            string                   `yaml:"token"`
 	Limit            int                      `yaml:"limit"`
 	CollapseAfter    int                      `yaml:"collapse-after"`
+	Timeout          durationField            `yaml:"timeout"`
+	AllowInsecure    bool                     `yaml:"allow-insecure"`
+	Headers          map[string]string        `yaml:"headers"`
 }
 
 func (widget *changeDetectionWidget) initialize() error {
@@ -42,7 +45,7 @@ func (widget *changeDetectionWidget) initialize() error {
 
 func (widget *changeDetectionWidget) update(ctx context.Context) {
 	if len(widget.WatchUUIDs) == 0 {
-		uuids, err := fetchWatchUUIDsFromChangeDetection(ctx, widget.InstanceURL, string(widget.Token))
+		uuids, err := fetchWatchUUIDsFromChangeDetection(ctx, widget.InstanceURL, string(widget.Token), widget.Timeout, widget.AllowInsecure, widget.Headers)
 
 		if !widget.canContinueUpdateAfterHandlingErr(err) {
 			return
@@ -51,7 +54,7 @@ func (widget *changeDetectionWidget) update(ctx context.Context) {
 		widget.WatchUUIDs = uuids
 	}
 
-	watches, err := fetchWatchesFromChangeDetection(ctx, widget.InstanceURL, widget.WatchUUIDs, string(widget.Token))
+	watches, err := fetchWatchesFromChangeDetection(ctx, widget.InstanceURL, widget.WatchUUIDs, string(widget.Token), widget.Timeout, widget.AllowInsecure, widget.Headers)
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
 		return
@@ -94,7 +97,7 @@ type changeDetectionResponseJson struct {
 	PreviousHash string `json:"previous_md5"`
 }
 
-func fetchWatchUUIDsFromChangeDetection(ctx context.Context, instanceURL string, token string) ([]string, error) {
+func fetchWatchUUIDsFromChangeDetection(ctx context.Context, instanceURL string, token string, timeout durationField, allowInsecure bool, headers map[string]string) ([]string, error) {
 	request, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
@@ -105,11 +108,21 @@ func fetchWatchUUIDsFromChangeDetection(ctx context.Context, instanceURL string,
 		return nil, fmt.Errorf("creating change detection watch list request: %w", err)
 	}
 
-	if token != "" {
-		request.Header.Add("x-api-key", token)
+	for key, value := range headers {
+		request.Header.Set(key, value)
 	}
 
-	uuidsMap, err := decodeJsonFromRequest[map[string]struct{}](defaultHTTPClient, request)
+	if token != "" {
+		request.Header.Set("x-api-key", token)
+	}
+
+	baseClient := ternary(allowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
+	client := *baseClient
+	if timeout > 0 {
+		client.Timeout = time.Duration(timeout)
+	}
+
+	uuidsMap, err := decodeJsonFromRequest[map[string]struct{}](&client, request)
 	if err != nil {
 		return nil, fmt.Errorf("fetching change detection watch list: %w", err)
 	}
@@ -123,7 +136,7 @@ func fetchWatchUUIDsFromChangeDetection(ctx context.Context, instanceURL string,
 	return uuids, nil
 }
 
-func fetchWatchesFromChangeDetection(ctx context.Context, instanceURL string, requestedWatchIDs []string, token string) (changeDetectionWatchList, error) {
+func fetchWatchesFromChangeDetection(ctx context.Context, instanceURL string, requestedWatchIDs []string, token string, timeout durationField, allowInsecure bool, headers map[string]string) (changeDetectionWatchList, error) {
 	watches := make(changeDetectionWatchList, 0, len(requestedWatchIDs))
 
 	if len(requestedWatchIDs) == 0 {
@@ -149,14 +162,24 @@ func fetchWatchesFromChangeDetection(ctx context.Context, instanceURL string, re
 			)
 		}
 
+		for key, value := range headers {
+			request.Header.Set(key, value)
+		}
+
 		if token != "" {
-			request.Header.Add("x-api-key", token)
+			request.Header.Set("x-api-key", token)
 		}
 
 		requests = append(requests, request)
 	}
 
-	task := decodeJsonFromRequestTask[changeDetectionResponseJson](defaultHTTPClient)
+	baseClient := ternary(allowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
+	client := *baseClient
+	if timeout > 0 {
+		client.Timeout = time.Duration(timeout)
+	}
+
+	task := decodeJsonFromRequestTask[changeDetectionResponseJson](&client)
 	job := newJob(task, requests).withWorkers(15).withContext(ctx)
 	responses, errs, err := workerPoolDo(job)
 	if err != nil {
@@ -232,4 +255,24 @@ func fetchWatchesFromChangeDetection(ctx context.Context, instanceURL string, re
 	}
 
 	return watches, nil
+}
+
+func (widget *changeDetectionWidget) setDefaultLimit(value int) {
+	widget.Limit = value
+}
+
+func (widget *changeDetectionWidget) setDefaultCollapseAfter(value int) {
+	widget.CollapseAfter = value
+}
+
+func (widget *changeDetectionWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
+}
+
+func (widget *changeDetectionWidget) setDefaultAllowInsecure(value bool) {
+	widget.AllowInsecure = value
+}
+
+func (widget *changeDetectionWidget) setDefaultHeaders(value map[string]string) {
+	widget.Headers = mergeStringMaps(value, widget.Headers)
 }

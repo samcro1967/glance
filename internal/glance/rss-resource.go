@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
 type rssResourceResponse struct {
@@ -24,6 +25,11 @@ type rssResourceCall struct {
 	err  error
 }
 
+type rssResourceRequestOptions struct {
+	Timeout       durationField
+	AllowInsecure bool
+}
+
 var rssResourceRequests = struct {
 	sync.Mutex
 	current map[[32]byte]*rssResourceCall
@@ -31,12 +37,16 @@ var rssResourceRequests = struct {
 	current: make(map[[32]byte]*rssResourceCall),
 }
 
-func rssResourceRequestKey(request *http.Request) [32]byte {
+func rssResourceRequestKey(request *http.Request, options rssResourceRequestOptions) [32]byte {
 	var builder strings.Builder
 
 	builder.WriteString(request.Method)
 	builder.WriteByte(0)
 	builder.WriteString(request.URL.String())
+	builder.WriteByte(0)
+	builder.WriteString(fmt.Sprintf("%d", options.Timeout))
+	builder.WriteByte(0)
+	builder.WriteString(fmt.Sprintf("%t", options.AllowInsecure))
 	builder.WriteByte(0)
 
 	keys := make([]string, 0, len(request.Header))
@@ -61,8 +71,8 @@ func rssResourceRequestKey(request *http.Request) [32]byte {
 	return sha256.Sum256([]byte(builder.String()))
 }
 
-func fetchRSSResource(ctx context.Context, request *http.Request) (rssResourceResponse, error) {
-	key := rssResourceRequestKey(request)
+func fetchRSSResource(ctx context.Context, request *http.Request, options rssResourceRequestOptions) (rssResourceResponse, error) {
+	key := rssResourceRequestKey(request, options)
 
 	rssResourceRequests.Lock()
 	if call, ok := rssResourceRequests.current[key]; ok {
@@ -80,7 +90,7 @@ func fetchRSSResource(ctx context.Context, request *http.Request) (rssResourceRe
 	rssResourceRequests.current[key] = call
 	rssResourceRequests.Unlock()
 
-	call.val, call.err = fetchRSSResourceUncached(request)
+	call.val, call.err = fetchRSSResourceUncached(request, options)
 
 	rssResourceRequests.Lock()
 	delete(rssResourceRequests.current, key)
@@ -90,8 +100,15 @@ func fetchRSSResource(ctx context.Context, request *http.Request) (rssResourceRe
 	return call.val, call.err
 }
 
-func fetchRSSResourceUncached(request *http.Request) (rssResourceResponse, error) {
-	response, err := defaultHTTPClient.Do(request)
+func fetchRSSResourceUncached(request *http.Request, options rssResourceRequestOptions) (rssResourceResponse, error) {
+	baseClient := ternary(options.AllowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
+	client := *baseClient
+
+	if options.Timeout > 0 {
+		client.Timeout = time.Duration(options.Timeout)
+	}
+
+	response, err := client.Do(request)
 	if err != nil {
 		return rssResourceResponse{}, fmt.Errorf("sending RSS request: %w", safeHTTPTransportError(err))
 	}

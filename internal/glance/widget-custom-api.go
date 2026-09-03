@@ -20,6 +20,8 @@ import (
 
 	"github.com/tidwall/gjson"
 	"golang.org/x/net/html"
+
+	"gopkg.in/yaml.v3"
 )
 
 var customAPIWidgetTemplate = mustParseTemplate("custom-api.html", "widget-base.html")
@@ -84,22 +86,49 @@ type CustomAPIRequest struct {
 		Username string `yaml:"username"`
 		Password string `yaml:"password"`
 	} `yaml:"basic-auth"`
-	bodyReader  io.ReadSeeker `yaml:"-"`
-	httpRequest *http.Request `yaml:"-"`
-	Timeout     durationField `yaml:"timeout"`
+	bodyReader       io.ReadSeeker        `yaml:"-"`
+	httpRequest      *http.Request        `yaml:"-"`
+	Timeout          durationField        `yaml:"timeout"`
+	configuredFields yamlConfiguredFields `yaml:"-"`
+}
+
+type customAPISubrequests map[string]*CustomAPIRequest
+
+func (requests *customAPISubrequests) UnmarshalYAML(node *yaml.Node) error {
+	if node == nil || node.Kind != yaml.MappingNode {
+		return node.Decode((*map[string]*CustomAPIRequest)(requests))
+	}
+
+	decoded := make(customAPISubrequests, len(node.Content)/2)
+
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		key := node.Content[i].Value
+		valueNode := node.Content[i+1]
+
+		request := &CustomAPIRequest{}
+		if err := valueNode.Decode(request); err != nil {
+			return err
+		}
+
+		request.configuredFields = yamlMappingFields(valueNode)
+		decoded[key] = request
+	}
+
+	*requests = decoded
+	return nil
 }
 
 type customAPIWidget struct {
 	widgetBase           `yaml:",inline"`
-	*CustomAPIRequest    `yaml:",inline"`             // the primary request
-	Subrequests          map[string]*CustomAPIRequest `yaml:"subrequests"`
-	Options              customAPIOptions             `yaml:"options"`
-	Template             string                       `yaml:"template"`
-	Frameless            bool                         `yaml:"frameless"`
-	compiledTemplate     *template.Template           `yaml:"-"`
-	CompiledHTML         template.HTML                `yaml:"-"`
-	Stale                bool                         `yaml:"-"`
-	LastSuccessfulUpdate time.Time                    `yaml:"-"`
+	*CustomAPIRequest    `yaml:",inline"`     // the primary request
+	Subrequests          customAPISubrequests `yaml:"subrequests"`
+	Options              customAPIOptions     `yaml:"options"`
+	Template             string               `yaml:"template"`
+	Frameless            bool                 `yaml:"frameless"`
+	compiledTemplate     *template.Template   `yaml:"-"`
+	CompiledHTML         template.HTML        `yaml:"-"`
+	Stale                bool                 `yaml:"-"`
+	LastSuccessfulUpdate time.Time            `yaml:"-"`
 }
 
 func (widget *customAPIWidget) initialize() error {
@@ -901,4 +930,44 @@ func customAPIFuncParseTimeInLocation(layout, value string, loc *time.Location) 
 	}
 
 	return parsed
+}
+
+func (widget *customAPIWidget) setDefaultTimeout(value durationField) {
+	if widget.widgetBase.configuredFields["timeout"] {
+		return
+	}
+	widget.Timeout = value
+}
+
+func (widget *customAPIWidget) setDefaultAllowInsecure(value bool) {
+	if widget.widgetBase.configuredFields["allow-insecure"] {
+		return
+	}
+	widget.AllowInsecure = value
+}
+
+func (widget *customAPIWidget) setDefaultHeaders(value map[string]string) {
+	widget.Headers = mergeStringMaps(value, widget.Headers)
+}
+
+func setCustomAPIRequestDefaultBasicAuth(request *CustomAPIRequest, value basicAuthDefaults) {
+	if request == nil || request.configuredFields["basic-auth"] {
+		return
+	}
+
+	request.BasicAuth.Username = value.Username
+	request.BasicAuth.Password = value.Password
+}
+
+func (widget *customAPIWidget) setDefaultBasicAuth(value basicAuthDefaults) {
+	if widget.CustomAPIRequest != nil {
+		if !widget.widgetBase.configuredFields["basic-auth"] {
+			widget.CustomAPIRequest.BasicAuth.Username = value.Username
+			widget.CustomAPIRequest.BasicAuth.Password = value.Password
+		}
+	}
+
+	for _, request := range widget.Subrequests {
+		setCustomAPIRequestDefaultBasicAuth(request, value)
+	}
 }

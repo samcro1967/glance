@@ -185,6 +185,7 @@ func TestStatusBarCompactItems(t *testing.T) {
 	}
 
 	marketsChild := &marketsWidget{
+		widgetBase: widgetBase{OpenLinksInNewTab: true},
 		Markets: marketList{
 			{
 				marketRequest: marketRequest{
@@ -229,11 +230,11 @@ func TestStatusBarCompactItems(t *testing.T) {
 		t.Errorf("weather item = %+v", got)
 	}
 
-	if got := items[1]; got.Kind != "market" || got.MarketSymbol != "NSIT" || got.MarketName != "Insight" || got.URL != "https://finance.yahoo.com/quote/NSIT" || got.MarketChartURL != "https://tradingview.com/chart?symbol=NSIT" || got.MarketPrice != 143.25 || got.MarketPercentChange != 1.75 {
+	if got := items[1]; got.Kind != "market" || got.MarketSymbol != "NSIT" || got.MarketName != "Insight" || got.URL != "https://finance.yahoo.com/quote/NSIT" || got.MarketChartURL != "https://tradingview.com/chart?symbol=NSIT" || got.MarketPrice != 143.25 || got.MarketPercentChange != 1.75 || !got.OpenLinksInNewTab {
 		t.Errorf("market item = %+v", got)
 	}
 
-	if got := items[2]; got.Kind != "rss" || got.RSSTitle != "Example headline" || got.URL != "https://example.com/article" || got.RSSChannelName != "Example News" || !got.RSSPublishedAt.Equal(published) {
+	if got := items[2]; got.Kind != "rss" || got.RSSTitle != "Example headline" || got.URL != "https://example.com/article" || got.RSSChannelName != "Example News" || !got.RSSPublishedAt.Equal(published) || got.OpenLinksInNewTab {
 		t.Errorf("rss item = %+v", got)
 	}
 }

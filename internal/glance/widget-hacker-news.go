@@ -200,3 +200,11 @@ func fetchHackerNewsPosts(ctx context.Context, sort string, limit int, commentsU
 
 	return fetchHackerNewsPostsFromIds(ctx, postIds, commentsUrlTemplate)
 }
+
+func (widget *hackerNewsWidget) setDefaultLimit(value int) {
+	widget.Limit = value
+}
+
+func (widget *hackerNewsWidget) setDefaultCollapseAfter(value int) {
+	widget.CollapseAfter = value
+}

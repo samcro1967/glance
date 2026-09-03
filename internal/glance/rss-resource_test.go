@@ -84,7 +84,7 @@ func TestRSSResourceCoalescesConcurrentEquivalentRequests(t *testing.T) {
 				"User-Agent": glanceUserAgentString,
 				"X-Test":     "same",
 			})
-			_, err := fetchRSSResource(context.Background(), request)
+			_, err := fetchRSSResource(context.Background(), request, rssResourceRequestOptions{})
 			errs <- err
 		}()
 	}
@@ -117,7 +117,7 @@ func TestRSSResourceDoesNotCacheCompletedRequest(t *testing.T) {
 
 	for i := 0; i < 2; i++ {
 		request := rssResourceTestRequest(t, nil)
-		if _, err := fetchRSSResource(context.Background(), request); err != nil {
+		if _, err := fetchRSSResource(context.Background(), request, rssResourceRequestOptions{}); err != nil {
 			t.Fatalf("fetch %d: %v", i+1, err)
 		}
 	}
@@ -146,7 +146,7 @@ func TestRSSResourceCanonicalizesHeaderOrder(t *testing.T) {
 	second.Header.Add("X-First", "b")
 	second.Header.Add("X-Second", "two")
 
-	if got, want := rssResourceRequestKey(first), rssResourceRequestKey(second); got != want {
+	if got, want := rssResourceRequestKey(first, rssResourceRequestOptions{}), rssResourceRequestKey(second, rssResourceRequestOptions{}); got != want {
 		t.Fatalf("equivalent headers produced different keys")
 	}
 }
@@ -155,7 +155,7 @@ func TestRSSResourceKeepsDifferentHeadersIndependent(t *testing.T) {
 	first := rssResourceTestRequest(t, map[string]string{"Authorization": "Bearer first"})
 	second := rssResourceTestRequest(t, map[string]string{"Authorization": "Bearer second"})
 
-	if got, want := rssResourceRequestKey(first), rssResourceRequestKey(second); got == want {
+	if got, want := rssResourceRequestKey(first, rssResourceRequestOptions{}), rssResourceRequestKey(second, rssResourceRequestOptions{}); got == want {
 		t.Fatalf("different headers produced identical keys")
 	}
 }
@@ -177,7 +177,7 @@ func TestRSSResourceWaitingCallerCanCancel(t *testing.T) {
 
 	go func() {
 		request := rssResourceTestRequest(t, map[string]string{"X-Test": "same"})
-		_, err := fetchRSSResource(context.Background(), request)
+		_, err := fetchRSSResource(context.Background(), request, rssResourceRequestOptions{})
 		firstDone <- err
 	}()
 
@@ -189,7 +189,7 @@ func TestRSSResourceWaitingCallerCanCancel(t *testing.T) {
 	request := rssResourceTestRequest(t, map[string]string{"X-Test": "same"})
 	request = request.WithContext(ctx)
 
-	if _, err := fetchRSSResource(ctx, request); err != context.Canceled {
+	if _, err := fetchRSSResource(ctx, request, rssResourceRequestOptions{}); err != context.Canceled {
 		t.Fatalf("waiting fetch error = %v, want %v", err, context.Canceled)
 	}
 
@@ -368,7 +368,7 @@ func TestRSSResourcePreservesTransportErrorContext(t *testing.T) {
 	})
 
 	request := rssResourceTestRequest(t, nil)
-	_, err := fetchRSSResource(context.Background(), request)
+	_, err := fetchRSSResource(context.Background(), request, rssResourceRequestOptions{})
 	if err == nil {
 		t.Fatal("fetch error = nil, want transport error")
 	}
@@ -392,12 +392,59 @@ func TestRSSResourcePreservesReadErrorContext(t *testing.T) {
 	})
 
 	request := rssResourceTestRequest(t, nil)
-	_, err := fetchRSSResource(context.Background(), request)
+	_, err := fetchRSSResource(context.Background(), request, rssResourceRequestOptions{})
 	if err == nil {
 		t.Fatal("fetch error = nil, want read error")
 	}
 
 	if !strings.Contains(err.Error(), "reading RSS response") {
 		t.Fatalf("fetch error = %q, want reading RSS response context", err)
+	}
+}
+
+func TestRSSResourceRequestKeyIncludesHTTPPolicy(t *testing.T) {
+	request := rssResourceTestRequest(t, map[string]string{
+		"User-Agent": glanceUserAgentString,
+		"X-Test":     "same",
+	})
+
+	base := rssResourceRequestKey(request, rssResourceRequestOptions{})
+
+	withTimeout := rssResourceRequestKey(request, rssResourceRequestOptions{
+		Timeout: durationField(5 * time.Second),
+	})
+	if base == withTimeout {
+		t.Fatal("different timeout produced identical RSS resource key")
+	}
+
+	withInsecure := rssResourceRequestKey(request, rssResourceRequestOptions{
+		AllowInsecure: true,
+	})
+	if base == withInsecure {
+		t.Fatal("different TLS policy produced identical RSS resource key")
+	}
+
+	equivalent := rssResourceRequestKey(
+		rssResourceTestRequest(t, map[string]string{
+			"X-Test":     "same",
+			"User-Agent": glanceUserAgentString,
+		}),
+		rssResourceRequestOptions{},
+	)
+	if base != equivalent {
+		t.Fatal("equivalent RSS request policy produced different resource key")
+	}
+}
+
+func TestRSSResourceRequestKeyIncludesBasicAuth(t *testing.T) {
+	first := rssResourceTestRequest(t, nil)
+	first.SetBasicAuth("first-user", "first-pass")
+
+	second := rssResourceTestRequest(t, nil)
+	second.SetBasicAuth("second-user", "second-pass")
+
+	if got, want := rssResourceRequestKey(first, rssResourceRequestOptions{}),
+		rssResourceRequestKey(second, rssResourceRequestOptions{}); got == want {
+		t.Fatal("different Basic Authentication produced identical RSS resource key")
 	}
 }

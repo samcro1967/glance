@@ -11,7 +11,7 @@
             <div class="ics-event-time color-subdue">{{ .TimeLabel }}</div>
             <div class="ics-event-details min-width-0">
                 {{ if .URL }}
-                <a class="ics-event-title block text-truncate color-highlight" href="{{ .URL | safeURL }}" target="_blank" rel="noreferrer">{{ .Title }}</a>
+                <a class="ics-event-title block text-truncate color-highlight" href="{{ .URL | safeURL }}"{{ if $.OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }}>{{ .Title }}</a>
                 {{ else }}
                 <div class="ics-event-title text-truncate color-highlight">{{ .Title }}</div>
                 {{ end }}

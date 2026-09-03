@@ -6,6 +6,7 @@
   - [Environment variables](#environment-variables)
     - [Other ways of providing tokens/passwords/secrets](#other-ways-of-providing-tokenspasswordssecrets)
   - [Including other config files](#including-other-config-files)
+  - [Widget defaults](#widget-defaults)
   - [Icons](#icons)
   - [Config schema](#config-schema)
 - [Authentication](#authentication)
@@ -192,6 +193,149 @@ docker run --rm -v ./glance.yml:/app/config/glance.yml glanceapp/glance config:p
 ```
 
 This assumes that the config you want to print is in your current working directory and is named `glance.yml`.
+
+### Widget defaults
+
+The optional top-level `widget-defaults` property lets you define shared widget settings once and inherit them across the dashboard. Existing configurations do not need to use `widget-defaults`; when it is omitted, existing widget syntax and built-in behavior remain unchanged.
+
+Defaults can be defined globally and refined for a particular widget type:
+
+```yaml
+widget-defaults:
+  global:
+    cache: 30m
+    new-tab: true
+
+  types:
+    rss:
+      cache: 15m
+      collapse-after: 8
+    monitor:
+      timeout: 5s
+```
+
+#### Resolution and precedence
+
+Defaults are resolved from least specific to most specific:
+
+```text
+built-in widget default
+        ↓
+widget-defaults.global
+        ↓
+widget-defaults.types.<widget-type>
+        ↓
+widget instance
+        ↓
+child/source setting, where supported
+```
+
+The most specific explicitly configured value wins. Explicit widget and child/source settings therefore continue to override inherited defaults.
+
+For example:
+
+```yaml
+widget-defaults:
+  global:
+    cache: 30m
+  types:
+    rss:
+      cache: 15m
+
+pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets:
+          - type: rss
+            feeds:
+              - url: https://example.com/news.xml
+
+          - type: rss
+            cache: 5m
+            feeds:
+              - url: https://example.com/updates.xml
+```
+
+The first RSS widget uses the RSS type default of `15m`. The second uses `5m` because the widget instance is more specific.
+
+Container widgets do not implicitly pass their type defaults to their children. Each child widget resolves defaults according to its own widget type. For example, an RSS widget inside a Status Bar, Group, or Stack still resolves RSS defaults independently.
+
+#### Common capabilities
+
+The following capabilities are common to registered widgets and may be configured under `widget-defaults.global` or `widget-defaults.types.<type>`:
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| `title` | string | Default widget title |
+| `title-url` | string | Default URL opened by the widget title |
+| `hide-header` | boolean | Whether the widget header is hidden |
+| `css-class` | string | Default custom CSS class |
+| `cache` | duration | Default refresh/cache interval where the widget supports configurable caching |
+| `new-tab` | boolean | Whether links governed by the widget's common link policy open in a new tab |
+
+`new-tab` is the canonical hierarchical setting for link destination. Existing widget-specific properties such as `same-tab` remain supported and are not deprecated. Where a widget or child exposes one of those existing controls, the more specific setting wins.
+
+#### Capability-specific defaults
+
+Some capabilities are meaningful only for particular widget types. They can be configured under `widget-defaults.types.<type>` and, where supported, directly on widget instances or their child/source entries.
+
+| Name | Type | Description |
+| ---- | ---- | ----------- |
+| `limit` | integer | Maximum number of displayed items |
+| `collapse-after` | integer | Number of visible items before the remainder is collapsed |
+| `collapse-after-rows` | integer | Number of visible rows before the remainder is collapsed |
+| `timeout` | duration | HTTP request timeout |
+| `allow-insecure` | boolean | Allow invalid/self-signed TLS certificates |
+| `headers` | map | HTTP request headers |
+| `basic-auth` | object | HTTP Basic Authentication credentials |
+| `proxy` | string or object | HTTP proxy configuration where supported |
+
+Applicability and inheritance scope are validated. A capability is applied only to widget types and scopes for which it has defined semantics; unsupported combinations are rejected rather than silently changing unrelated behavior.
+
+List capabilities such as `limit` and `collapse-after` are not global defaults. They are available only for compatible widget types. `basic-auth` is also intentionally not global and is available only for compatible type, instance, or child/source scopes.
+
+HTTP defaults apply only to widgets whose endpoint semantics support them. Provider-owned services do not automatically inherit generic HTTP configuration merely because they perform network requests.
+
+#### Child and source settings
+
+Some widgets contain child entries or independently configurable remote sources. Supported defaults can flow to those entries while preserving explicit child/source overrides.
+
+For example:
+
+```yaml
+widget-defaults:
+  global:
+    timeout: 10s
+    headers:
+      User-Agent: Glance
+
+  types:
+    rss:
+      timeout: 5s
+      basic-auth:
+        username: reader
+        password: ${RSS_PASSWORD}
+
+pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets:
+          - type: rss
+            feeds:
+              - url: https://example.com/feed.xml
+              - url: https://example.com/private.xml
+                timeout: 15s
+```
+
+The first feed inherits the RSS type timeout of `5s`. The second explicitly uses `15s`.
+
+Inherited HTTP headers are merged with more-specific headers, with the more-specific value winning when the same header name is configured at multiple levels. Dedicated authentication settings take precedence over an inherited or custom `Authorization` header.
+
+#### Backward compatibility
+
+`widget-defaults` is additive and optional. A valid configuration that does not use it continues to use the existing widget-specific syntax and built-in defaults. Existing names such as `same-tab` remain valid and do not produce deprecation warnings merely because `new-tab` is the canonical hierarchical capability name.
 
 ## Icons
 
@@ -1091,7 +1235,10 @@ An array of RSS/atom feeds. The title can optionally be changed.
 | hide-description | boolean | no | false | Only applicable for `detailed-list` style |
 | limit | integer | no | | |
 | item-link-prefix | string | no | | |
+| timeout | duration string | no | | |
+| allow-insecure | boolean | no | false | |
 | headers | key (string) & value (string) | no | | |
+| basic-auth | object | no | | |
 
 ###### `limit`
 The maximum number of articles to show from that specific feed. Useful if you have a feed which posts a lot of articles frequently and you want to prevent it from excessively pushing down articles from other feeds.
@@ -1099,7 +1246,16 @@ The maximum number of articles to show from that specific feed. Useful if you ha
 ###### `item-link-prefix`
 If an RSS feed isn't returning item links with a base domain and Glance has failed to automatically detect the correct domain you can manually add a prefix to each link with this property.
 
-###### `headers`
+###### `timeout`
+The maximum time to wait for the feed request. When omitted, an applicable inherited HTTP timeout may be used.
+
+###### `allow-insecure`
+Whether to allow invalid/self-signed certificates when fetching this feed.
+
+###### `basic-auth`
+Optional HTTP Basic Authentication credentials for this feed.
+
+##### `headers`
 Optionally specify the headers that will be sent with the request. Example:
 
 ```yaml
@@ -2227,7 +2383,10 @@ Display a widget provided by an external source (3rd party). If you want to lear
 | url | string | yes | |
 | fallback-content-type | string | no | |
 | allow-potentially-dangerous-html | boolean | no | false |
+| timeout | duration string | no | |
+| allow-insecure | boolean | no | false |
 | headers | key & value | no | |
+| basic-auth | object | no | |
 | parameters | key & value | no | |
 
 ##### `url`
@@ -2236,6 +2395,12 @@ The URL of the extension. **Note that the query gets stripped from this URL and 
 ##### `fallback-content-type`
 Optionally specify the fallback content type of the extension if the URL does not return a valid `Widget-Content-Type` header. Currently the only supported value for this property is `html`.
 
+##### `timeout`
+The maximum time to wait for the extension request.
+
+##### `allow-insecure`
+Whether to allow invalid/self-signed certificates when requesting the extension.
+
 ##### `headers`
 Optionally specify the headers that will be sent with the request. Example:
 
@@ -2243,6 +2408,9 @@ Optionally specify the headers that will be sent with the request. Example:
 headers:
   x-api-key: ${SECRET_KEY}
 ```
+
+##### `basic-auth`
+Optional HTTP Basic Authentication credentials for the extension request.
 
 ##### `allow-potentially-dangerous-html`
 Whether to allow the extension to display HTML.
@@ -2457,6 +2625,7 @@ Properties for each site:
 | icon | string | no | |
 | timeout | string | no | 3s |
 | allow-insecure | boolean | no | false |
+| headers | key & value | no | |
 | same-tab | boolean | no | false |
 | alt-status-codes | array | no | |
 | basic-auth | object | no | |
@@ -2824,6 +2993,7 @@ Preview:
 | Name | Type | Required | Default |
 | ---- | ---- | -------- | ------- |
 | service | string | no | pihole |
+| timeout | duration string | no | |
 | allow-insecure | bool | no | false |
 | url | string | yes |  |
 | username | string | when service is `adguard` |  |
@@ -2835,6 +3005,9 @@ Preview:
 
 ##### `service`
 Either `adguard`, `technitium`, or `pihole` (major version 5 and below) or `pihole-v6` (major version 6 and above).
+
+##### `timeout`
+The maximum time to wait for a response from the DNS service.
 
 ##### `allow-insecure`
 Whether to allow invalid/self-signed certificates when making the request to the service.
@@ -2976,6 +3149,7 @@ Whether to hide this mountpoint from the widget.
 | url | string | yes |  |
 | token | string | no |  |
 | timeout | string | no | 3s |
+| allow-insecure | boolean | no | false |
 
 ###### `url`
 The URL and port of the server to fetch the statistics from.
@@ -2984,7 +3158,10 @@ The URL and port of the server to fetch the statistics from.
 The authentication token to use when fetching the statistics.
 
 ###### `timeout`
-The maximum time to wait for a response from the server. The value is a string and must be a number followed by one of s, m, h, d. Example: `10s` for 10 seconds, `1m` for 1 minute, etc
+The maximum time to wait for a response from the server. The value is a string and must be a number followed by one of s, m, h, d. Example: `10s` for 10 seconds, `1m` for 1 minute, etc.
+
+###### `allow-insecure`
+Whether to allow invalid/self-signed certificates when fetching statistics from a remote server.
 
 ### Repository
 Display general information about a repository as well as a list of the latest open pull requests and issues.
@@ -3143,6 +3320,9 @@ Preview:
 | ---- | ---- | -------- | ------- |
 | instance-url | string | no | `https://www.changedetection.io` |
 | token | string | no |  |
+| timeout | duration string | no | |
+| allow-insecure | boolean | no | false |
+| headers | key & value | no | |
 | limit | integer | no | 10 |
 | collapse-after | integer | no | 5 |
 | watches | array of strings | no |  |
@@ -3152,6 +3332,15 @@ The URL pointing to your instance of `changedetection.io`.
 
 ##### `token`
 The API access token which can be found in `SETTINGS > API`. Optionally, you can specify this using an environment variable with the syntax `${VARIABLE_NAME}`.
+
+##### `timeout`
+The maximum time to wait for requests to the ChangeDetection.io instance.
+
+##### `allow-insecure`
+Whether to allow invalid/self-signed certificates when contacting the ChangeDetection.io instance.
+
+##### `headers`
+Optional HTTP headers sent with requests to the ChangeDetection.io instance. The dedicated `token` setting remains authoritative for its authentication header.
 
 ##### `limit`
 The maximum number of watches to show.
@@ -3339,6 +3528,10 @@ Properties for each source:
 | url | string | conditional | |
 | file | string | conditional | |
 | title | string | no | |
+| timeout | duration string | no | |
+| allow-insecure | boolean | no | false |
+| headers | key & value | no | |
+| basic-auth | object | no | |
 
 ###### `url`
 The HTTP or HTTPS URL of a remote iCalendar source. Specify either `url` or `file`, but not both.
@@ -3348,6 +3541,18 @@ The path to a local iCalendar file. Specify either `file` or `url`, but not both
 
 ###### `title`
 An optional source label shown with events from this source.
+
+###### `timeout`
+For remote URL sources, the maximum time to wait for the HTTP request.
+
+###### `allow-insecure`
+For remote URL sources, whether to allow invalid/self-signed certificates.
+
+###### `headers`
+Optional HTTP headers sent when fetching a remote URL source.
+
+###### `basic-auth`
+Optional HTTP Basic Authentication credentials for a remote URL source. These HTTP properties do not affect local file sources.
 
 ##### `days-ahead`
 The number of days ahead to include when loading events. Recurring events are expanded only within this bounded time window.

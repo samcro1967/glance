@@ -213,12 +213,21 @@ func (p *proxyOptionsField) UnmarshalYAML(node *yaml.Node) error {
 		proxyURL = p.URL
 	}
 
-	parsedUrl, err := url.Parse(proxyURL)
+	return p.initializeClient(proxyURL)
+}
+
+func (p *proxyOptionsField) initializeClient(proxyURL string) error {
+	if proxyURL == "" {
+		p.client = nil
+		return nil
+	}
+
+	parsedURL, err := url.Parse(proxyURL)
 	if err != nil {
 		return fmt.Errorf("parsing proxy URL: %v", err)
 	}
 
-	var timeout = defaultClientTimeout
+	timeout := defaultClientTimeout
 	if p.Timeout > 0 {
 		timeout = time.Duration(p.Timeout)
 	}
@@ -226,7 +235,7 @@ func (p *proxyOptionsField) UnmarshalYAML(node *yaml.Node) error {
 	p.client = &http.Client{
 		Timeout: timeout,
 		Transport: &http.Transport{
-			Proxy:           http.ProxyURL(parsedUrl),
+			Proxy:           http.ProxyURL(parsedURL),
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: p.AllowInsecure},
 		},
 	}

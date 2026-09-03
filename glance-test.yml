@@ -4,8 +4,9 @@
 # public and test-safe. Do not add credentials, tokens, private URLs, or other
 # environment-specific secrets.
 #
-# Representative visual fork features are collected on dedicated pages so this
-# dashboard can provide a repeatable source for documentation screenshots.
+# Representative fork features and hierarchical configuration behavior are
+# collected on dedicated pages so this dashboard provides a repeatable source
+# for local integration testing and documentation screenshots.
 
 server:
   host: 0.0.0.0
@@ -17,7 +18,259 @@ branding:
 theme:
   light: false
 
+# ---------------------------------------------------------------------------
+# Hierarchical widget defaults
+# ---------------------------------------------------------------------------
+#
+# This intentionally exercises the supported inheritance model:
+#
+#   built-in default
+#       -> global default
+#       -> widget-type default
+#       -> widget instance
+#       -> child/source override
+#
+# Global defaults exercise every common capability and the generic HTTP
+# capabilities that are valid at global scope. Type defaults exercise the
+# reusable list and HTTP capability families. Widgets below contain selected
+# explicit overrides so the test instance covers precedence as well as simple
+# inheritance.
+#
+# Some presentation defaults are intentionally obvious so inheritance can be
+# verified visually. Individual widgets override them where appropriate.
+
+widget-defaults:
+  global:
+    title: "Inherited Widget Title"
+    title-url: https://github.com/samcro1967/glance
+    hide-header: false
+    css-class: test-default-global
+    cache: 30m
+    new-tab: true
+    timeout: 10s
+    allow-insecure: false
+    headers:
+      X-Glance-Test: global
+
+  types:
+    rss:
+      title: "Inherited RSS"
+      cache: 15m
+      new-tab: false
+      limit: 6
+      collapse-after: 4
+      timeout: 8s
+      allow-insecure: false
+      headers:
+        X-Glance-Test-Type: rss
+      basic-auth:
+        username: glance-test
+        password: glance-test
+
+    monitor:
+      title: "Inherited Monitor"
+      cache: 1m
+      new-tab: false
+      timeout: 5s
+      allow-insecure: false
+      headers:
+        X-Glance-Test-Type: monitor
+      basic-auth:
+        username: glance-test
+        password: glance-test
+
+    hacker-news:
+      title: "Inherited Hacker News"
+      limit: 6
+      collapse-after: 4
+      new-tab: false
+
+    lobsters:
+      title: "Inherited Lobsters"
+      limit: 6
+      collapse-after: 4
+      new-tab: false
+
+    reddit:
+      title: "Inherited Reddit"
+      limit: 6
+      collapse-after: 4
+      new-tab: false
+
+    releases:
+      title: "Inherited Releases"
+      limit: 6
+      collapse-after: 4
+      new-tab: false
+
+    videos:
+      title: "Inherited Videos"
+      limit: 8
+      collapse-after: 6
+      collapse-after-rows: 2
+      new-tab: false
+
+    twitch-top-games:
+      title: "Inherited Twitch Games"
+      limit: 8
+      collapse-after: 5
+      new-tab: false
+
+    twitch-channels:
+      title: "Inherited Twitch Channels"
+      collapse-after: 5
+      new-tab: false
+
+    ics-events:
+      title: "Inherited ICS Events"
+      limit: 6
+      collapse-after: 4
+      new-tab: false
+      timeout: 8s
+      allow-insecure: false
+      headers:
+        X-Glance-Test-Type: ics
+      basic-auth:
+        username: glance-test
+        password: glance-test
+
+    custom-api:
+      title: "Inherited Custom API"
+      cache: 15m
+      timeout: 8s
+      allow-insecure: false
+      headers:
+        X-Glance-Test-Type: custom-api
+      basic-auth:
+        username: glance-test
+        password: glance-test
+
+    extension:
+      title: "Inherited Extension"
+      cache: 15m
+      timeout: 8s
+      allow-insecure: false
+      headers:
+        X-Glance-Test-Type: extension
+      basic-auth:
+        username: glance-test
+        password: glance-test
+
+    markets:
+      title: "Inherited Markets"
+      new-tab: false
+
+    stocks:
+      title: "Inherited Stocks Alias"
+      new-tab: true
+
+    repository:
+      title: "Inherited Repository"
+      new-tab: false
+
+    search:
+      title: "Inherited Search"
+      new-tab: false
+
+    bookmarks:
+      title: "Inherited Bookmarks"
+      new-tab: false
+
 pages:
+  # ---------------------------------------------------------------------------
+  # Hierarchical defaults integration
+  # ---------------------------------------------------------------------------
+  - name: Defaults
+    slug: defaults
+    width: wide
+
+    columns:
+      - size: medium
+        widgets:
+          # Exercises RSS type defaults and child/source inheritance.
+          #
+          # The first feed inherits type HTTP defaults. The second feed
+          # explicitly overrides child-capable values, proving the most
+          # specific configured value wins.
+          - type: rss
+            title: RSS Instance Override
+            cache: 20m
+            feeds:
+              - url: https://selfh.st/rss/
+                title: Inherited Feed
+
+              - url: https://www.joshwcomeau.com/rss.xml
+                title: Explicit Feed Override
+                limit: 2
+                timeout: 12s
+                allow-insecure: false
+                headers:
+                  X-Glance-Test-Child: rss
+                basic-auth:
+                  username: ""
+                  password: ""
+
+          # Common capabilities apply recursively through containers.
+          - type: group
+            title: Nested Defaults
+            widgets:
+              - type: hacker-news
+
+              - type: stack
+                title: Nested Stack
+                widgets:
+                  - type: lobsters
+
+                  - type: reddit
+                    subreddit: selfhosted
+
+      - size: medium
+        widgets:
+          # Exercises list type defaults with an explicit instance override.
+          - type: hacker-news
+            title: Hacker News Instance Override
+            limit: 3
+            collapse-after: 2
+
+          - type: releases
+            repositories:
+              - glanceapp/glance
+              - samcro1967/glance
+              - immich-app/immich
+              - syncthing/syncthing
+
+          - type: videos
+            style: grid-cards
+            channels:
+              - UCXuqSBlHAE6Xw-yeJA0Tunw
+              - UCR-DXc1voovS8nhAvccRZhg
+              - UCsBjURrPoezykLs9EqgamOA
+
+      - size: medium
+        widgets:
+          # Exercises common title/title-url/new-tab behavior.
+          - type: weather
+            title: Weather Instance Override
+            title-url: https://open-meteo.com/
+            location: St. Louis, Missouri, United States
+            units: imperial
+
+          # markets and stocks intentionally have different type defaults even
+          # though both resolve to the same implementation.
+          - type: markets
+            markets:
+              - symbol: SPY
+                name: S&P 500
+              - symbol: AAPL
+                name: Apple
+
+          - type: stocks
+            markets:
+              - symbol: MSFT
+                name: Microsoft
+              - symbol: NVDA
+                name: NVIDIA
+
   # ---------------------------------------------------------------------------
   # Status Bar
   # ---------------------------------------------------------------------------
@@ -27,13 +280,16 @@ pages:
 
     head-widgets:
       - type: status-bar
+        title: Status Bar Ticker
         mode: ticker
         widgets:
           - type: weather
+            title: Weather
             location: St. Louis, Missouri, United States
             units: imperial
 
           - type: markets
+            title: Markets
             markets:
               - symbol: SPY
                 name: S&P 500
@@ -47,10 +303,14 @@ pages:
                 name: NVIDIA
 
           - type: rss
+            title: RSS
             limit: 5
             feeds:
               - url: https://selfh.st/rss/
                 title: selfh.st
+                basic-auth:
+                  username: ""
+                  password: ""
 
     columns:
       - size: full
@@ -62,13 +322,16 @@ pages:
 
     bottom-widgets:
       - type: status-bar
+        title: Status Bar Wrap
         mode: wrap
         widgets:
           - type: weather
+            title: Weather
             location: St. Louis, Missouri, United States
             units: imperial
 
           - type: markets
+            title: Markets
             markets:
               - symbol: SPY
                 name: S&P 500
@@ -80,10 +343,14 @@ pages:
                 name: Microsoft
 
           - type: rss
+            title: RSS
             limit: 3
             feeds:
               - url: https://selfh.st/rss/
                 title: selfh.st
+                basic-auth:
+                  username: ""
+                  password: ""
 
   # ---------------------------------------------------------------------------
   # Layout features
@@ -123,6 +390,9 @@ pages:
         feeds:
           - url: https://selfh.st/rss/
             title: selfh.st
+            basic-auth:
+              username: ""
+              password: ""
 
   # ---------------------------------------------------------------------------
   # Medium + Full proportional layout
@@ -140,6 +410,7 @@ pages:
             units: imperial
 
           - type: clock
+            title: Clock
             hour-format: 12h
 
       - size: full
@@ -157,11 +428,10 @@ pages:
     width: wide
 
     columns:
-      # Stack demonstration: a group provides tabs for selecting between
-      # multiple stacks, while each stack renders its child widgets vertically.
       - size: full
         widgets:
           - type: group
+            title: Stack Group
             widgets:
               - type: stack
                 title: News Stack
@@ -191,11 +461,10 @@ pages:
                     limit: 5
                     collapse-after: 5
 
-      # Nested Groups demonstration: the outer group contains groups which
-      # expose their own second level of tabs.
       - size: full
         widgets:
           - type: group
+            title: Nested Groups
             widgets:
               - type: group
                 title: News
@@ -300,6 +569,11 @@ pages:
               - timezone: Europe/London
                 label: London
 
+          - type: search
+            title: Search
+            search-engine: google
+            autofocus: false
+
       - size: medium
         widgets:
           - type: timer
@@ -334,6 +608,87 @@ pages:
             sources:
               - file: testdata/screenshot-calendar.ics
                 title: Example Calendar
+
+  # ---------------------------------------------------------------------------
+  # Request-oriented widgets
+  # ---------------------------------------------------------------------------
+  #
+  # These examples use public, test-safe endpoints and explicitly override
+  # inherited credentials where the public endpoint does not require them.
+  #
+  # They provide integration coverage for the request policy added or
+  # significantly expanded by the fork without depending on private services.
+  - name: Requests
+    slug: requests
+    width: wide
+
+    columns:
+      - size: medium
+        widgets:
+          - type: custom-api
+            title: Custom API
+            url: https://api.github.com/repos/samcro1967/glance
+            basic-auth:
+              username: ""
+              password: ""
+            headers:
+              Accept: application/vnd.github+json
+              X-Glance-Test-Instance: custom-api
+            template: |
+              <div class="flex flex-column gap-5">
+                <div class="size-h4 color-highlight">
+                  {{ .JSON.String "full_name" }}
+                </div>
+                <div>
+                  {{ .JSON.String "description" }}
+                </div>
+                <div class="color-subdue">
+                  Stars: {{ .JSON.Int "stargazers_count" | formatNumber }}
+                </div>
+              </div>
+
+
+      - size: medium
+        widgets:
+          - type: monitor
+            title: Public Monitors
+            sites:
+              - title: GitHub
+                url: https://github.com/
+                basic-auth:
+                  username: ""
+                  password: ""
+
+              - title: Glance
+                url: https://github.com/glanceapp/glance
+                timeout: 8s
+                allow-insecure: false
+                headers:
+                  X-Glance-Test-Child: monitor
+                basic-auth:
+                  username: ""
+                  password: ""
+                same-tab: true
+
+          - type: repository
+            title: Glance Repository
+            repository: glanceapp/glance
+
+      - size: medium
+        widgets:
+          - type: bookmarks
+            title: Link Policy
+            groups:
+              - title: Inherited Link Policy
+                links:
+                  - title: Glance Fork
+                    url: https://github.com/samcro1967/glance
+
+              - title: Explicit Same Tab
+                same-tab: true
+                links:
+                  - title: Upstream Glance
+                    url: https://github.com/glanceapp/glance
 
   # ---------------------------------------------------------------------------
   # Pages used to demonstrate named dashboards and the dashboard switcher.
@@ -385,11 +740,13 @@ pages:
 
 dashboards:
   Default:
+    - defaults
     - status-bar
     - layout
     - proportional
     - groups-stack
     - widgets
+    - requests
     - timer-small
     - timer-medium-full
     - home
@@ -401,10 +758,12 @@ dashboards:
     - shared
 
   Documentation:
+    - defaults
     - status-bar
     - layout
     - groups-stack
     - widgets
+    - requests
     - timer-small
     - timer-medium-full
     - shared

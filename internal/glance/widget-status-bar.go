@@ -10,8 +10,9 @@ import (
 var statusBarWidgetTemplate = mustParseTemplate("status-bar.html", "widget-base.html")
 
 type statusBarCompactItem struct {
-	Kind string
-	URL  string
+	Kind              string
+	URL               string
+	OpenLinksInNewTab bool
 
 	Error  error
 	Notice error
@@ -147,6 +148,7 @@ func (widget *statusBarWidget) CompactItems() []statusBarCompactItem {
 					Error:                child.Error,
 					Notice:               child.Notice,
 					URL:                  market.SymbolLink,
+					OpenLinksInNewTab:    child.OpenLinksInNewTab,
 					MarketSymbol:         market.Symbol,
 					MarketName:           market.Name,
 					MarketChartURL:       market.ChartLink,
@@ -171,14 +173,15 @@ func (widget *statusBarWidget) CompactItems() []statusBarCompactItem {
 			for j := range child.Items {
 				item := child.Items[j]
 				items = append(items, statusBarCompactItem{
-					Kind:           "rss",
-					Error:          child.Error,
-					Notice:         child.Notice,
-					URL:            item.Link,
-					RSSTitle:       item.Title,
-					RSSChannelName: item.ChannelName,
-					RSSChannelURL:  item.ChannelURL,
-					RSSPublishedAt: item.PublishedAt,
+					Kind:              "rss",
+					Error:             child.Error,
+					Notice:            child.Notice,
+					URL:               item.Link,
+					OpenLinksInNewTab: child.OpenLinksInNewTab,
+					RSSTitle:          item.Title,
+					RSSChannelName:    item.ChannelName,
+					RSSChannelURL:     item.ChannelURL,
+					RSSPublishedAt:    item.PublishedAt,
 				})
 			}
 		}
