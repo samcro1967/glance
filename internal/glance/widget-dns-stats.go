@@ -440,19 +440,21 @@ func fetchPiholeStats(
 		return nil
 	}
 
-	if sessionID == "" {
-		if err := fetchNewSessionID(); err != nil {
-			return nil, "", fmt.Errorf("fetching session ID: %w", err)
-		}
-	} else {
-		isValid, err := checkPiholeSessionIDIsValid(ctx, instanceURL, client, sessionID)
-		if err != nil {
-			return nil, "", fmt.Errorf("checking session ID: %w", err)
-		}
-
-		if !isValid {
+	if password != "" {
+		if sessionID == "" {
 			if err := fetchNewSessionID(); err != nil {
-				return nil, "", fmt.Errorf("renewing session ID: %w", err)
+				return nil, "", fmt.Errorf("fetching session ID: %w", err)
+			}
+		} else {
+			isValid, err := checkPiholeSessionIDIsValid(ctx, instanceURL, client, sessionID)
+			if err != nil {
+				return nil, "", fmt.Errorf("checking session ID: %w", err)
+			}
+
+			if !isValid {
+				if err := fetchNewSessionID(); err != nil {
+					return nil, "", fmt.Errorf("renewing session ID: %w", err)
+				}
 			}
 		}
 	}

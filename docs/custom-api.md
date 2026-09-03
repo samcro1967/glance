@@ -387,10 +387,13 @@ The following functions are available for building dynamic HTTP requests:
 - `withHeader(key string, value string, request Request) Request`: Adds a request header.
 - `withParameter(key string, value string, request Request) Request`: Adds a query parameter.
 - `withStringBody(body string, request Request) Request`: Adds a string body. Requests with a body default to `POST` when no method is explicitly set.
+- `withBasicAuth(username string, password string, request Request) Request`: Sets HTTP basic authentication credentials.
 - `withAllowInsecure(value bool|string, request Request) Request`: Controls whether invalid or self-signed TLS certificates are accepted.
 - `getResponse(request Request) Response`: Executes the request and returns its response.
 
 These functions can be chained using Go template pipelines. For example, `newRequest "https://self-signed.example.com" | withAllowInsecure true | getResponse`.
+
+HTTP basic authentication for dynamic requests is configured with `withBasicAuth`, which can be chained with the other request functions.
 
 For example, a dynamic `PUT` request with a string body can be made like this:
 
