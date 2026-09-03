@@ -149,11 +149,7 @@ func fetchExtension(ctx context.Context, options extensionRequestOptions) (exten
 		request.SetBasicAuth(options.BasicAuthUsername, options.BasicAuthPassword)
 	}
 
-	baseClient := ternary(options.AllowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
-	client := *baseClient
-	if options.Timeout > 0 {
-		client.Timeout = time.Duration(options.Timeout)
-	}
+	client := newHTTPClient(options.Timeout, options.AllowInsecure)
 
 	response, err := client.Do(request)
 	if err != nil {
@@ -168,6 +164,14 @@ func fetchExtension(ctx context.Context, options extensionRequestOptions) (exten
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		return extension{}, fmt.Errorf("%w: could not read body: %w", errNoContent, err)
+	}
+
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		return extension{}, fmt.Errorf(
+			"%w: extension request failed: %w",
+			errNoContent,
+			unexpectedHTTPStatusError(response),
+		)
 	}
 
 	extension := extension{}

@@ -197,3 +197,130 @@ func TestExtensionWidgetFailedRefreshPreservesLastKnownGoodContent(t *testing.T)
 		)
 	}
 }
+
+func TestFetchExtensionHTTPStatusPreservesErrorIdentity(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "internal detail that must not appear in the error", http.StatusTooManyRequests)
+	}))
+	defer server.Close()
+
+	_, err := fetchExtension(context.Background(), extensionRequestOptions{
+		URL: server.URL,
+	})
+	if err == nil {
+		t.Fatal("expected HTTP status failure")
+	}
+
+	if !errors.Is(err, errNoContent) {
+		t.Fatalf("errNoContent identity was not preserved: %v", err)
+	}
+
+	var statusErr *httpStatusError
+	if !errors.As(err, &statusErr) {
+		t.Fatalf("HTTP status identity was not preserved: %v", err)
+	}
+
+	if statusErr.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf(
+			"status code = %d, want %d",
+			statusErr.StatusCode,
+			http.StatusTooManyRequests,
+		)
+	}
+
+	if classifyRefreshFailure(err) != refreshFailureRateLimited {
+		t.Fatalf(
+			"failure class = %q, want %q",
+			classifyRefreshFailure(err),
+			refreshFailureRateLimited,
+		)
+	}
+
+	if refreshFailureRetryable(err) {
+		t.Fatal("429 Extension failure should not be retryable")
+	}
+
+	if strings.Contains(err.Error(), "internal detail") {
+		t.Fatalf("HTTP status error exposed response body: %q", err)
+	}
+}
+
+func TestExtensionWidgetHTTPStatusFailurePreservesLastKnownGoodContent(t *testing.T) {
+	var fail atomic.Bool
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if fail.Load() {
+			http.Error(w, "rate limited", http.StatusTooManyRequests)
+			return
+		}
+
+		w.Header().Set(extensionHeaderTitle, "Working Extension")
+		w.Header().Set(extensionHeaderContentType, "html")
+		_, _ = w.Write([]byte("<div>last-known-good</div>"))
+	}))
+	defer server.Close()
+
+	widget := &extensionWidget{
+		URL:       server.URL,
+		AllowHtml: true,
+	}
+	if err := widget.initialize(); err != nil {
+		t.Fatalf("initialize extension widget: %v", err)
+	}
+
+	widget.update(context.Background())
+
+	if widget.Error != nil {
+		t.Fatalf("successful refresh set error: %v", widget.Error)
+	}
+
+	previousExtension := widget.Extension
+	previousHTML := widget.cachedHTML
+
+	fail.Store(true)
+	widget.update(context.Background())
+
+	if widget.Error == nil {
+		t.Fatal("failed refresh should set widget error")
+	}
+
+	var statusErr *httpStatusError
+	if !errors.As(widget.Error, &statusErr) {
+		t.Fatalf("widget error did not preserve HTTP status identity: %v", widget.Error)
+	}
+
+	if statusErr.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf(
+			"status code = %d, want %d",
+			statusErr.StatusCode,
+			http.StatusTooManyRequests,
+		)
+	}
+
+	if widget.Extension != previousExtension {
+		t.Fatal("HTTP status failure replaced last-known-good extension")
+	}
+
+	if widget.cachedHTML != previousHTML {
+		t.Fatal("HTTP status failure replaced last-known-good rendered HTML")
+	}
+
+	if !widget.refreshDegraded {
+		t.Fatal("HTTP status failure should mark widget degraded")
+	}
+
+	if widget.refreshFailureClass != refreshFailureRateLimited {
+		t.Fatalf(
+			"failure class = %q, want %q",
+			widget.refreshFailureClass,
+			refreshFailureRateLimited,
+		)
+	}
+
+	if widget.updateRetriedTimes != 0 {
+		t.Fatalf(
+			"retry attempts = %d, want 0 for rate-limit failure",
+			widget.updateRetriedTimes,
+		)
+	}
+}

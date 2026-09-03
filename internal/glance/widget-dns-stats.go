@@ -161,17 +161,6 @@ type adguardStatsResponse struct {
 	TopBlockedDomains []map[string]int `json:"top_blocked_domains"`
 }
 
-func dnsStatsHTTPClient(timeout durationField, allowInsecure bool) *http.Client {
-	baseClient := ternary(allowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
-	client := *baseClient
-
-	if timeout > 0 {
-		client.Timeout = time.Duration(timeout)
-	}
-
-	return &client
-}
-
 func fetchAdguardStats(ctx context.Context, instanceURL string, allowInsecure bool, timeout durationField, username, password string, noGraph bool) (*dnsStats, error) {
 	requestURL := strings.TrimRight(instanceURL, "/") + "/control/stats"
 
@@ -182,7 +171,7 @@ func fetchAdguardStats(ctx context.Context, instanceURL string, allowInsecure bo
 
 	request.SetBasicAuth(username, password)
 
-	client := dnsStatsHTTPClient(timeout, allowInsecure)
+	client := newHTTPClient(timeout, allowInsecure)
 	responseJson, err := decodeJsonFromRequest[adguardStatsResponse](client, request)
 	if err != nil {
 		return nil, fmt.Errorf("fetching AdGuard stats: %w", err)
@@ -340,7 +329,7 @@ func fetchPihole5Stats(ctx context.Context, instanceURL string, allowInsecure bo
 		return nil, fmt.Errorf("creating Pi-hole stats request: %w", err)
 	}
 
-	client := dnsStatsHTTPClient(timeout, allowInsecure)
+	client := newHTTPClient(timeout, allowInsecure)
 	responseJson, err := decodeJsonFromRequest[pihole5StatsResponse](client, request)
 	if err != nil {
 		return nil, fmt.Errorf("fetching Pi-hole stats: %w", err)
@@ -443,7 +432,7 @@ func fetchPiholeStats(
 	includeTopDomains bool,
 ) (*dnsStats, string, error) {
 	instanceURL = strings.TrimRight(instanceURL, "/")
-	client := dnsStatsHTTPClient(timeout, allowInsecure)
+	client := newHTTPClient(timeout, allowInsecure)
 
 	fetchNewSessionID := func() error {
 		newSessionID, err := fetchPiholeSessionID(ctx, instanceURL, client, password)
@@ -781,7 +770,7 @@ func fetchTechnitiumStats(ctx context.Context, instanceUrl string, allowInsecure
 		return nil, fmt.Errorf("creating Technitium stats request: %w", err)
 	}
 
-	client := dnsStatsHTTPClient(timeout, allowInsecure)
+	client := newHTTPClient(timeout, allowInsecure)
 
 	responseJson, err := decodeJsonFromRequest[technitiumStatsResponse](client, request)
 	if err != nil {

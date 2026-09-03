@@ -747,3 +747,80 @@ func TestCustomAPIHTMLHasVisibleText(t *testing.T) {
 		})
 	}
 }
+
+func TestFetchCustomAPIResponseEmptyNon2xxPreservesStatusIdentity(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	defer server.Close()
+
+	req := &CustomAPIRequest{URL: server.URL}
+	if err := req.initialize(); err != nil {
+		t.Fatalf("initialize request: %v", err)
+	}
+
+	_, err := fetchCustomAPIResponse(context.Background(), req)
+	if err == nil {
+		t.Fatal("expected empty non-2xx response to fail")
+	}
+
+	var statusErr *httpStatusError
+	if !errors.As(err, &statusErr) {
+		t.Fatalf("expected structured HTTP status error, got %T: %v", err, err)
+	}
+
+	if statusErr.StatusCode != http.StatusTooManyRequests {
+		t.Fatalf(
+			"status code = %d, want %d",
+			statusErr.StatusCode,
+			http.StatusTooManyRequests,
+		)
+	}
+
+	if classifyRefreshFailure(err) != refreshFailureRateLimited {
+		t.Fatalf(
+			"failure class = %q, want %q",
+			classifyRefreshFailure(err),
+			refreshFailureRateLimited,
+		)
+	}
+}
+
+func TestFetchCustomAPIResponseInvalidJSONNon2xxPreservesStatusIdentity(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadGateway)
+		_, _ = w.Write([]byte(`not-json`))
+	}))
+	defer server.Close()
+
+	req := &CustomAPIRequest{URL: server.URL}
+	if err := req.initialize(); err != nil {
+		t.Fatalf("initialize request: %v", err)
+	}
+
+	_, err := fetchCustomAPIResponse(context.Background(), req)
+	if err == nil {
+		t.Fatal("expected invalid JSON non-2xx response to fail")
+	}
+
+	var statusErr *httpStatusError
+	if !errors.As(err, &statusErr) {
+		t.Fatalf("expected structured HTTP status error, got %T: %v", err, err)
+	}
+
+	if statusErr.StatusCode != http.StatusBadGateway {
+		t.Fatalf(
+			"status code = %d, want %d",
+			statusErr.StatusCode,
+			http.StatusBadGateway,
+		)
+	}
+
+	if classifyRefreshFailure(err) != refreshFailureTransient {
+		t.Fatalf(
+			"failure class = %q, want %q",
+			classifyRefreshFailure(err),
+			refreshFailureTransient,
+		)
+	}
+}

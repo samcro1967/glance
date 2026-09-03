@@ -346,12 +346,7 @@ func fetchCustomAPIResponse(ctx context.Context, req *CustomAPIRequest) (*custom
 		req.bodyReader.Seek(0, io.SeekStart)
 	}
 
-	baseClient := ternary(req.AllowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
-	client := *baseClient
-
-	if req.Timeout > 0 {
-		client.Timeout = time.Duration(req.Timeout)
-	}
+	client := newHTTPClient(req.Timeout, req.AllowInsecure)
 
 	resp, err := client.Do(req.httpRequest.WithContext(ctx))
 	if err != nil {
@@ -371,7 +366,7 @@ func fetchCustomAPIResponse(ctx context.Context, req *CustomAPIRequest) (*custom
 	// nothing useful for the template to consume and should be treated as a
 	// failed refresh.
 	if (resp.StatusCode < 200 || resp.StatusCode >= 300) && body == "" {
-		return nil, fmt.Errorf("%d %s", resp.StatusCode, http.StatusText(resp.StatusCode))
+		return nil, unexpectedHTTPStatusError(resp)
 	}
 
 	if !req.SkipJSONValidation && body != "" && !gjson.Valid(body) {
@@ -379,7 +374,7 @@ func fetchCustomAPIResponse(ctx context.Context, req *CustomAPIRequest) (*custom
 			return nil, errors.New("invalid response JSON")
 		}
 
-		return nil, fmt.Errorf("%d %s", resp.StatusCode, http.StatusText(resp.StatusCode))
+		return nil, unexpectedHTTPStatusError(resp)
 	}
 
 	return &customAPIResponseData{
