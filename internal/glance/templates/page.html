@@ -8,7 +8,7 @@
 
 {{ define "navigation-links" }}
 {{ range .NavigationPages }}
-<a href="{{ $.App.Config.Server.BaseURL }}{{ $.DashboardPath }}/{{ .Slug }}" class="nav-item{{ if eq .Slug $.Page.Slug }} nav-item-current{{ end }}"{{ if eq .Slug $.Page.Slug }} aria-current="page"{{ end }}>{{ .Title }}</a>
+<a href="{{ $.App.Config.Server.BaseURL }}{{ $.DashboardPath }}/{{ .Slug }}" class="nav-item{{ if eq .Slug $.Page.Slug }} nav-item-current{{ end }}"{{ if eq .Slug $.Page.Slug }} aria-current="page"{{ end }}><div class="nav-item-text">{{ .Title }}</div></a>
 {{ end }}
 {{ end }}
 
@@ -72,7 +72,7 @@
             </div>
             {{ end }}
 
-            <nav class="nav flex grow hide-scrollbars">
+            <nav class="desktop-navigation flex grow hide-scrollbars">
                 {{ template "navigation-links" . }}
             </nav>
 

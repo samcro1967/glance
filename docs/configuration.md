@@ -223,6 +223,12 @@ icon: auto-invert sh:glance-dark # with a selfh.st icon
 
 This expects the icon to be black and will automatically invert it to white when using a dark theme.
 
+If there is no `.svg` version available for a `selfh.st` or `Dashboard` icon, then you can add the image extension of the format you wish to use.
+```yaml
+icon: sh:glance.png # use the .png version of the icon
+icon: sh:glance.webp # use the .webp version of the icon
+```
+
 ## Config schema
 
 For property descriptions, validation and autocompletion of the config within your IDE, @not-first has kindly created a [schema](https://github.com/not-first/glance-schema). Massive thanks to them for this, go check it out and give them a star!
@@ -1981,6 +1987,7 @@ Examples:
 | method | string | no | GET |
 | body-type | string | no | json |
 | body | any | no | |
+| basic-auth | map | no | |
 | frameless | boolean | no | false |
 | allow-insecure | boolean | no | false |
 | skip-json-validation | boolean | no | false |
@@ -2035,6 +2042,15 @@ body:
 body-type: string
 body: |
   key1=value1&key2=value2
+```
+
+##### `basic-auth`
+Optionally specify credentials to be sent with the request using HTTP basic authentication. Example:
+
+```yaml
+basic-auth:
+  username: your-username
+  password: your-password
 ```
 
 ##### `frameless`
@@ -2832,7 +2848,7 @@ Only required when using AdGuard Home. The username used to log into the admin d
 ##### `password`
 Required when using AdGuard Home, where the password is the one used to log into the admin dashboard.
 
-Also required when using Pi-hole major version 6 and above, where the password is the one used to log into the admin dashboard or the application password, which can be found in `Settings -> Web Interface / API -> Configure app password`.
+For Pi-hole version 6+, this field is required if you have set a password to log into Pi-hole. You can either use the password you use to log into the admin dashboard or the application password, which can be found in `Settings -> Web Interface / API -> Configure app password`.
 
 ##### `token`
 Required when using Pi-hole major version 5 or earlier. The API token which can be found in `Settings -> API -> Show API token`.
