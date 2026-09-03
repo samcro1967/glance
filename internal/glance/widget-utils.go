@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand/v2"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -63,16 +64,107 @@ func setBrowserUserAgentHeader(request *http.Request) {
 	request.Header.Set("User-Agent", getBrowserUserAgentHeader())
 }
 
+type httpStatusError struct {
+	StatusCode int
+	Status     string
+}
+
+func (err *httpStatusError) Error() string {
+	if err.Status != "" {
+		return fmt.Sprintf("unexpected HTTP status %s", err.Status)
+	}
+
+	return fmt.Sprintf("unexpected HTTP status %d", err.StatusCode)
+}
+
 func unexpectedHTTPStatusError(response *http.Response) error {
 	if response == nil {
 		return errors.New("unexpected HTTP response")
 	}
 
-	if response.Status != "" {
-		return fmt.Errorf("unexpected HTTP status %s", response.Status)
+	return &httpStatusError{
+		StatusCode: response.StatusCode,
+		Status:     response.Status,
+	}
+}
+
+type refreshFailureClass string
+
+const (
+	refreshFailureUnknown        refreshFailureClass = "unknown"
+	refreshFailureCancelled      refreshFailureClass = "cancelled"
+	refreshFailureTransient      refreshFailureClass = "transient"
+	refreshFailureRateLimited    refreshFailureClass = "rate-limit"
+	refreshFailureAuthentication refreshFailureClass = "authentication"
+	refreshFailureAuthorization  refreshFailureClass = "authorization"
+	refreshFailureRequest        refreshFailureClass = "request"
+	refreshFailureMalformed      refreshFailureClass = "malformed"
+)
+
+func classifyRefreshFailure(err error) refreshFailureClass {
+	if err == nil {
+		return refreshFailureUnknown
 	}
 
-	return fmt.Errorf("unexpected HTTP status %d", response.StatusCode)
+	if errors.Is(err, context.Canceled) {
+		return refreshFailureCancelled
+	}
+
+	if errors.Is(err, context.DeadlineExceeded) {
+		return refreshFailureTransient
+	}
+
+	var statusErr *httpStatusError
+	if errors.As(err, &statusErr) {
+		switch statusErr.StatusCode {
+		case http.StatusRequestTimeout:
+			return refreshFailureTransient
+		case http.StatusTooManyRequests:
+			return refreshFailureRateLimited
+		case http.StatusUnauthorized:
+			return refreshFailureAuthentication
+		case http.StatusForbidden:
+			return refreshFailureAuthorization
+		}
+
+		if statusErr.StatusCode >= 500 && statusErr.StatusCode <= 599 {
+			return refreshFailureTransient
+		}
+
+		if statusErr.StatusCode >= 400 && statusErr.StatusCode <= 499 {
+			return refreshFailureRequest
+		}
+	}
+
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return refreshFailureTransient
+	}
+
+	var jsonSyntaxErr *json.SyntaxError
+	if errors.As(err, &jsonSyntaxErr) {
+		return refreshFailureMalformed
+	}
+
+	var xmlSyntaxErr *xml.SyntaxError
+	if errors.As(err, &xmlSyntaxErr) {
+		return refreshFailureMalformed
+	}
+
+	return refreshFailureUnknown
+}
+
+func refreshFailureRetryable(err error) bool {
+	switch classifyRefreshFailure(err) {
+	case refreshFailureCancelled,
+		refreshFailureRateLimited,
+		refreshFailureAuthentication,
+		refreshFailureAuthorization,
+		refreshFailureRequest:
+		return false
+	default:
+		return true
+	}
 }
 
 func safeHTTPTransportError(err error) error {

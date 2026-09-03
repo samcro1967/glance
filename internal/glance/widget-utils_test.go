@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -506,5 +507,113 @@ func TestWorkerPoolDoEmptyJobReturnsCancelledContext(t *testing.T) {
 			len(results),
 			len(errs),
 		)
+	}
+}
+
+func TestUnexpectedHTTPStatusErrorPreservesStatusCode(t *testing.T) {
+	err := unexpectedHTTPStatusError(&http.Response{
+		StatusCode: http.StatusForbidden,
+		Status:     "403 Forbidden",
+	})
+
+	var statusErr *httpStatusError
+	if !errors.As(err, &statusErr) {
+		t.Fatalf("error type = %T, want *httpStatusError", err)
+	}
+
+	if statusErr.StatusCode != http.StatusForbidden {
+		t.Fatalf("status code = %d, want %d", statusErr.StatusCode, http.StatusForbidden)
+	}
+
+	if err.Error() != "unexpected HTTP status 403 Forbidden" {
+		t.Fatalf("error = %q, want %q", err.Error(), "unexpected HTTP status 403 Forbidden")
+	}
+}
+
+func TestClassifyRefreshFailure(t *testing.T) {
+	tests := []struct {
+		name      string
+		err       error
+		wantClass refreshFailureClass
+		retryable bool
+	}{
+		{
+			name:      "cancelled",
+			err:       fmt.Errorf("wrapped: %w", context.Canceled),
+			wantClass: refreshFailureCancelled,
+			retryable: false,
+		},
+		{
+			name:      "deadline exceeded",
+			err:       fmt.Errorf("wrapped: %w", context.DeadlineExceeded),
+			wantClass: refreshFailureTransient,
+			retryable: true,
+		},
+		{
+			name:      "request timeout",
+			err:       fmt.Errorf("wrapped: %w", unexpectedHTTPStatusError(&http.Response{StatusCode: http.StatusRequestTimeout, Status: "408 Request Timeout"})),
+			wantClass: refreshFailureTransient,
+			retryable: true,
+		},
+		{
+			name:      "too many requests",
+			err:       fmt.Errorf("wrapped: %w", unexpectedHTTPStatusError(&http.Response{StatusCode: http.StatusTooManyRequests, Status: "429 Too Many Requests"})),
+			wantClass: refreshFailureRateLimited,
+			retryable: false,
+		},
+		{
+			name:      "unauthorized",
+			err:       fmt.Errorf("wrapped: %w", unexpectedHTTPStatusError(&http.Response{StatusCode: http.StatusUnauthorized, Status: "401 Unauthorized"})),
+			wantClass: refreshFailureAuthentication,
+			retryable: false,
+		},
+		{
+			name:      "forbidden",
+			err:       fmt.Errorf("wrapped: %w", unexpectedHTTPStatusError(&http.Response{StatusCode: http.StatusForbidden, Status: "403 Forbidden"})),
+			wantClass: refreshFailureAuthorization,
+			retryable: false,
+		},
+		{
+			name:      "not found",
+			err:       fmt.Errorf("wrapped: %w", unexpectedHTTPStatusError(&http.Response{StatusCode: http.StatusNotFound, Status: "404 Not Found"})),
+			wantClass: refreshFailureRequest,
+			retryable: false,
+		},
+		{
+			name:      "bad gateway",
+			err:       fmt.Errorf("wrapped: %w", unexpectedHTTPStatusError(&http.Response{StatusCode: http.StatusBadGateway, Status: "502 Bad Gateway"})),
+			wantClass: refreshFailureTransient,
+			retryable: true,
+		},
+		{
+			name:      "json syntax",
+			err:       fmt.Errorf("decoding JSON response: %w", &json.SyntaxError{Offset: 1}),
+			wantClass: refreshFailureMalformed,
+			retryable: true,
+		},
+		{
+			name:      "xml syntax",
+			err:       fmt.Errorf("decoding XML response: %w", &xml.SyntaxError{Msg: "invalid XML", Line: 1}),
+			wantClass: refreshFailureMalformed,
+			retryable: true,
+		},
+		{
+			name:      "unknown",
+			err:       errors.New("provider-specific failure"),
+			wantClass: refreshFailureUnknown,
+			retryable: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := classifyRefreshFailure(test.err); got != test.wantClass {
+				t.Fatalf("class = %q, want %q", got, test.wantClass)
+			}
+
+			if got := refreshFailureRetryable(test.err); got != test.retryable {
+				t.Fatalf("retryable = %t, want %t", got, test.retryable)
+			}
+		})
 	}
 }
