@@ -219,12 +219,10 @@ func contentFetchError(
 	)
 }
 
-func decodeJsonFromRequest[T any](client requestDoer, request *http.Request) (T, error) {
-	var result T
-
+func fetchHTTPResponseBody(client requestDoer, request *http.Request) ([]byte, error) {
 	response, err := client.Do(request)
 	if err != nil {
-		return result, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"sending HTTP request: %w",
 			safeHTTPTransportError(err),
 		)
@@ -233,11 +231,22 @@ func decodeJsonFromRequest[T any](client requestDoer, request *http.Request) (T,
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
-		return result, fmt.Errorf("reading HTTP response: %w", err)
+		return nil, fmt.Errorf("reading HTTP response: %w", err)
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return result, unexpectedHTTPStatusError(response)
+		return nil, unexpectedHTTPStatusError(response)
+	}
+
+	return body, nil
+}
+
+func decodeJsonFromRequest[T any](client requestDoer, request *http.Request) (T, error) {
+	var result T
+
+	body, err := fetchHTTPResponseBody(client, request)
+	if err != nil {
+		return result, err
 	}
 
 	if err := json.Unmarshal(body, &result); err != nil {
@@ -253,26 +262,12 @@ func decodeJsonFromRequestTask[T any](client requestDoer) func(*http.Request) (T
 	}
 }
 
-// TODO: tidy up, these are a copy of the above but with a line changed
 func decodeXmlFromRequest[T any](client requestDoer, request *http.Request) (T, error) {
 	var result T
 
-	response, err := client.Do(request)
+	body, err := fetchHTTPResponseBody(client, request)
 	if err != nil {
-		return result, fmt.Errorf(
-			"sending HTTP request: %w",
-			safeHTTPTransportError(err),
-		)
-	}
-	defer response.Body.Close()
-
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		return result, fmt.Errorf("reading HTTP response: %w", err)
-	}
-
-	if response.StatusCode != http.StatusOK {
-		return result, unexpectedHTTPStatusError(response)
+		return result, err
 	}
 
 	if err := xml.Unmarshal(body, &result); err != nil {

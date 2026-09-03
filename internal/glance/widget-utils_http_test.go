@@ -1,7 +1,9 @@
 package glance
 
 import (
+	"io"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 )
@@ -157,5 +159,70 @@ func TestNewHTTPClientDoesNotMutateSharedClient(t *testing.T) {
 			"mutating derived client changed default Timeout to %s",
 			defaultHTTPClient.Timeout,
 		)
+	}
+}
+
+type trackingReadCloser struct {
+	io.Reader
+	closed bool
+}
+
+func (body *trackingReadCloser) Close() error {
+	body.closed = true
+	return nil
+}
+
+func TestFetchHTTPResponseBodyClosesResponseBody(t *testing.T) {
+	tests := []struct {
+		name       string
+		statusCode int
+		status     string
+		wantErr    bool
+	}{
+		{
+			name:       "success",
+			statusCode: http.StatusOK,
+			status:     "200 OK",
+		},
+		{
+			name:       "HTTP status failure",
+			statusCode: http.StatusBadGateway,
+			status:     "502 Bad Gateway",
+			wantErr:    true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			body := &trackingReadCloser{
+				Reader: strings.NewReader(`{"ok":true}`),
+			}
+
+			client := testRequestDoer(func(*http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: test.statusCode,
+					Status:     test.status,
+					Body:       body,
+				}, nil
+			})
+
+			request, err := http.NewRequest(http.MethodGet, "https://example.com", nil)
+			if err != nil {
+				t.Fatalf("creating request: %v", err)
+			}
+
+			_, err = fetchHTTPResponseBody(client, request)
+
+			if test.wantErr && err == nil {
+				t.Fatal("expected error")
+			}
+			if !test.wantErr && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if !body.closed {
+				t.Fatal("response body was not closed")
+			}
+		})
 	}
 }
