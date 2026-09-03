@@ -4,9 +4,8 @@
 # public and test-safe. Do not add credentials, tokens, private URLs, or other
 # environment-specific secrets.
 #
-# Representative fork features should be added here as they are developed so
-# this dashboard can also provide a repeatable source for documentation
-# screenshots.
+# Representative visual fork features are collected on dedicated pages so this
+# dashboard can provide a repeatable source for documentation screenshots.
 
 server:
   host: 0.0.0.0
@@ -19,8 +18,12 @@ theme:
   light: false
 
 pages:
-  - name: Test
-    slug: test
+  # ---------------------------------------------------------------------------
+  # Status Bar
+  # ---------------------------------------------------------------------------
+  - name: Status Bar
+    slug: status-bar
+    width: wide
 
     head-widgets:
       - type: status-bar
@@ -36,15 +39,30 @@ pages:
                 name: S&P 500
               - symbol: BTC-USD
                 name: Bitcoin
+              - symbol: AAPL
+                name: Apple
+              - symbol: MSFT
+                name: Microsoft
+              - symbol: NVDA
+                name: NVIDIA
 
           - type: rss
-            limit: 3
+            limit: 5
             feeds:
               - url: https://selfh.st/rss/
                 title: selfh.st
 
     columns:
-      - size: small
+      - size: full
+        widgets:
+          - type: hacker-news
+            title: Technology News
+            limit: 5
+            collapse-after: 5
+
+    bottom-widgets:
+      - type: status-bar
+        mode: wrap
         widgets:
           - type: weather
             location: St. Louis, Missouri, United States
@@ -56,42 +74,6 @@ pages:
                 name: S&P 500
               - symbol: BTC-USD
                 name: Bitcoin
-
-      - size: full
-        widgets:
-          - type: group
-            widgets:
-              - type: stack
-                title: News
-                widgets:
-                  - type: hacker-news
-                    collapse-after: 5
-
-                  - type: lobsters
-                    collapse-after: 5
-
-              - type: stack
-                title: Reddit
-                widgets:
-                  - type: reddit
-                    subreddit: selfhosted
-                    collapse-after: 5
-
-                  - type: reddit
-                    subreddit: homelab
-                    collapse-after: 5
-
-      - size: small
-        widgets:
-          - type: clock
-            hour-format: 12h
-
-    bottom-widgets:
-      - type: status-bar
-        mode: wrap
-        widgets:
-          - type: markets
-            markets:
               - symbol: AAPL
                 name: Apple
               - symbol: MSFT
@@ -100,5 +82,329 @@ pages:
           - type: rss
             limit: 3
             feeds:
-              - url: https://ciechanow.ski/atom.xml
-                title: Articles
+              - url: https://selfh.st/rss/
+                title: selfh.st
+
+  # ---------------------------------------------------------------------------
+  # Layout features
+  # ---------------------------------------------------------------------------
+  - name: Layout
+    slug: layout
+    width: wide
+
+    columns:
+      - size: medium
+        widgets:
+          - type: weather
+            title: First Medium Column
+            location: St. Louis, Missouri, United States
+            units: imperial
+
+      - size: medium
+        widgets:
+          - type: hacker-news
+            title: Second Medium Column
+            limit: 5
+            collapse-after: 5
+
+      - size: medium
+        widgets:
+          - type: reddit
+            title: Third Medium Column
+            subreddit: selfhosted
+            limit: 5
+            collapse-after: 5
+
+    bottom-widgets:
+      - type: rss
+        title: Bottom Widgets
+        style: horizontal-cards
+        limit: 5
+        feeds:
+          - url: https://selfh.st/rss/
+            title: selfh.st
+
+  # ---------------------------------------------------------------------------
+  # Medium + Full proportional layout
+  # ---------------------------------------------------------------------------
+  - name: Proportional
+    slug: proportional
+    width: wide
+
+    columns:
+      - size: medium
+        widgets:
+          - type: weather
+            title: Medium Column
+            location: St. Louis, Missouri, United States
+            units: imperial
+
+          - type: clock
+            hour-format: 12h
+
+      - size: full
+        widgets:
+          - type: hacker-news
+            title: Full Column
+            limit: 10
+            collapse-after: 5
+
+  # ---------------------------------------------------------------------------
+  # Group, nested group, and stack
+  # ---------------------------------------------------------------------------
+  - name: Groups & Stack
+    slug: groups-stack
+    width: wide
+
+    columns:
+      # Stack demonstration: a group provides tabs for selecting between
+      # multiple stacks, while each stack renders its child widgets vertically.
+      - size: full
+        widgets:
+          - type: group
+            widgets:
+              - type: stack
+                title: News Stack
+                widgets:
+                  - type: hacker-news
+                    title: Hacker News
+                    limit: 5
+                    collapse-after: 5
+
+                  - type: lobsters
+                    title: Lobsters
+                    limit: 5
+                    collapse-after: 5
+
+              - type: stack
+                title: Community Stack
+                widgets:
+                  - type: reddit
+                    title: Self Hosted
+                    subreddit: selfhosted
+                    limit: 5
+                    collapse-after: 5
+
+                  - type: reddit
+                    title: Home Lab
+                    subreddit: homelab
+                    limit: 5
+                    collapse-after: 5
+
+      # Nested Groups demonstration: the outer group contains groups which
+      # expose their own second level of tabs.
+      - size: full
+        widgets:
+          - type: group
+            widgets:
+              - type: group
+                title: News
+                widgets:
+                  - type: hacker-news
+                    title: Hacker News
+                    limit: 5
+                    collapse-after: 5
+
+                  - type: lobsters
+                    title: Lobsters
+                    limit: 5
+                    collapse-after: 5
+
+              - type: group
+                title: Communities
+                widgets:
+                  - type: reddit
+                    title: Self Hosted
+                    subreddit: selfhosted
+                    limit: 5
+                    collapse-after: 5
+
+                  - type: reddit
+                    title: Home Lab
+                    subreddit: homelab
+                    limit: 5
+                    collapse-after: 5
+
+  # ---------------------------------------------------------------------------
+  # Timer responsive layouts
+  # ---------------------------------------------------------------------------
+  - name: Timer Small
+    slug: timer-small
+    width: wide
+
+    columns:
+      - size: small
+        widgets:
+          - type: timer
+            title: Small Timer
+            id: screenshot-timers-small
+            hour-format: 12h
+
+      - size: full
+        widgets:
+          - type: markdown
+            title: Small Column Test
+            source: |
+              ## Timer Responsive Test
+
+              The Timer in the small column verifies the narrowest supported
+              desktop column layout.
+
+      - size: small
+        widgets:
+          - type: bookmarks
+            title: Test Links
+            groups:
+              - title: Examples
+                links:
+                  - title: GitHub
+                    url: https://github.com/
+
+  - name: Timer Medium + Full
+    slug: timer-medium-full
+    width: wide
+
+    columns:
+      - size: medium
+        widgets:
+          - type: timer
+            title: Medium Timer
+            id: screenshot-timers-medium
+            hour-format: 12h
+
+      - size: full
+        widgets:
+          - type: timer
+            title: Full Timer
+            id: screenshot-timers-full
+            hour-format: 12h
+
+  # ---------------------------------------------------------------------------
+  # Fork widgets
+  # ---------------------------------------------------------------------------
+  - name: Widgets
+    slug: widgets
+    width: wide
+
+    columns:
+      - size: medium
+        widgets:
+          - type: analog-clock
+            title: Analog Clock
+            hide-am-pm-indicator: false
+            hide-date: false
+            dial-markers: NumericalFull
+            timezones:
+              - timezone: America/New_York
+                label: New York
+              - timezone: Europe/London
+                label: London
+
+      - size: medium
+        widgets:
+          - type: timer
+            title: Timers
+            id: screenshot-timers
+            hour-format: 12h
+
+          - type: markdown
+            title: Markdown
+            source: |
+              ## Native Markdown
+
+              This content is rendered **directly by Glance**.
+
+              - GitHub Flavored Markdown
+              - **Bold** and *italic* text
+              - [Links](https://github.com/glanceapp/glance)
+              - ~~Strikethrough~~
+
+              | Feature | Status |
+              | --- | --- |
+              | Markdown | Working |
+              | Sanitization | Enabled |
+
+      - size: medium
+        widgets:
+          - type: ics-events
+            title: Upcoming Events
+            days-ahead: 14
+            limit: 8
+            collapse-after: 5
+            sources:
+              - file: testdata/screenshot-calendar.ics
+                title: Example Calendar
+
+  # ---------------------------------------------------------------------------
+  # Pages used to demonstrate named dashboards and the dashboard switcher.
+  # ---------------------------------------------------------------------------
+  - name: Home
+    slug: home
+
+    columns:
+      - size: full
+        widgets:
+          - type: markdown
+            title: Default Dashboard
+            source: |
+              ## Default Dashboard
+
+              Use the Glance logo to switch between the configured dashboards.
+
+  - name: Personal
+    slug: personal-page
+
+    columns:
+      - size: full
+        widgets:
+          - type: bookmarks
+            title: Personal
+            groups:
+              - title: Common Sites
+                links:
+                  - title: GitHub
+                    url: https://github.com/
+                  - title: Wikipedia
+                    url: https://en.wikipedia.org/
+                  - title: YouTube
+                    url: https://www.youtube.com/
+
+  - name: Shared
+    slug: shared
+
+    columns:
+      - size: full
+        widgets:
+          - type: markdown
+            title: Shared Page
+            source: |
+              ## Shared Page
+
+              This page is configured once and is available from multiple
+              named dashboards.
+
+dashboards:
+  Default:
+    - status-bar
+    - layout
+    - proportional
+    - groups-stack
+    - widgets
+    - timer-small
+    - timer-medium-full
+    - home
+    - shared
+
+  Personal:
+    - home
+    - personal-page
+    - shared
+
+  Documentation:
+    - status-bar
+    - layout
+    - groups-stack
+    - widgets
+    - timer-small
+    - timer-medium-full
+    - shared
