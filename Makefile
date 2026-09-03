@@ -6,7 +6,7 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps build test-instance-start test-instance-status test-instance-stop test test-race test-count test-race-count fmt-check diff-check staged-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy
+.PHONY: help deps build test-instance-start test-instance-status test-instance-stop test test-race test-count test-race-count fmt-check diff-check staged-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy
 
 COUNT ?= 10
 COVERAGE_FILE ?= coverage.out
@@ -25,6 +25,7 @@ CI_RUN_RETRY_DELAY ?= 5
 REPO ?= samcro1967/glance
 PR_WORKFLOW ?= 345456314
 IMAGE_WORKFLOW ?= 344869583
+RELEASE_WORKFLOW ?= 344853462
 BRANCH ?= $(shell git branch --show-current 2>/dev/null)
 NEW_BRANCH ?=
 
@@ -97,6 +98,8 @@ help:
 	@echo "GitHub Actions:"
 	@echo "  make image-runs              Show recent dev container image builds"
 	@echo "  make image-watch             Find and watch image build for current dev HEAD"
+	@echo "  make release-runs            Show recent formal release builds"
+	@echo "  make release-watch           Find and watch release build for current main tag"
 	@echo "  make ci-watch RUN=12345      Watch a GitHub Actions run"
 	@echo "  make ci-view RUN=12345       Show a GitHub Actions run result"
 	@echo
@@ -630,6 +633,60 @@ image-watch:
 	gh run view "$$run_id" \
 		--repo "$(REPO)" \
 		--json status,conclusion,headSha,url
+
+release-runs:
+	@gh run list \
+		--repo "$(REPO)" \
+		--workflow "$(RELEASE_WORKFLOW)" \
+		--limit 5 \
+		--json databaseId,headSha,headBranch,status,conclusion,createdAt,displayTitle
+
+release-watch:
+	@set -euo pipefail; \
+	branch="$$(git branch --show-current)"; \
+	if [ "$$branch" != "$(STABLE_BRANCH)" ]; then \
+		echo "Release watch requires branch $(STABLE_BRANCH); current branch is $$branch."; \
+		exit 1; \
+	fi; \
+	revision="$$(git rev-parse HEAD)"; \
+	release_tag="$$(git tag --points-at HEAD --list 'v*-$(FORK_RELEASE_ID).r*' --sort=-version:refname | head -1)"; \
+	if [ -z "$$release_tag" ]; then \
+		echo "No formal fork release tag points at current $(STABLE_BRANCH) revision $$revision."; \
+		exit 1; \
+	fi; \
+	echo "=== FIND FORMAL RELEASE RUN ==="; \
+	echo "Release=$$release_tag"; \
+	echo "Revision=$$revision"; \
+	run_id=""; \
+	for i in $$(seq 1 "$(CI_RUN_RETRIES)"); do \
+		run_id="$$(gh run list \
+			--repo "$(REPO)" \
+			--workflow "$(RELEASE_WORKFLOW)" \
+			--limit 20 \
+			--json databaseId,headSha,headBranch \
+			--jq '.[] | select(.headSha == "'"$$revision"'" and .headBranch == "'"$$release_tag"'") | .databaseId' \
+			| head -1)"; \
+		if [ -n "$$run_id" ]; then \
+			break; \
+		fi; \
+		echo "Matching release run not available yet; retrying ($$i/$(CI_RUN_RETRIES))..."; \
+		sleep "$(CI_RUN_RETRY_DELAY)"; \
+	done; \
+	if [ -z "$$run_id" ]; then \
+		echo "No release run found for $$release_tag at $$revision."; \
+		exit 1; \
+	fi; \
+	echo "Run=$$run_id"; \
+	echo; \
+	echo "=== WATCH FORMAL RELEASE ==="; \
+	gh run watch "$$run_id" \
+		--repo "$(REPO)" \
+		--exit-status; \
+	echo; \
+	echo "=== FORMAL RELEASE RESULT ==="; \
+	gh run view "$$run_id" \
+		--repo "$(REPO)" \
+		--json status,conclusion,headSha,headBranch,url
 
 ci-watch:
 	@if [ -z "$(RUN)" ]; then \
