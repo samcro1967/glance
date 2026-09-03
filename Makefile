@@ -6,18 +6,21 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps build test-instance-start test-instance-status test-instance-stop test test-race test-count test-race-count fmt-check diff-check staged-check check coverage vuln status staged-diff upstream-status branch push pr-create promote-create sync-dev-create pr-view pr-runs pr-merge post-merge image-runs ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy
+.PHONY: help deps build test-instance-start test-instance-status test-instance-stop test test-race test-count test-race-count fmt-check diff-check staged-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy
 
 COUNT ?= 10
 COVERAGE_FILE ?= coverage.out
 BASE_REF ?= origin/dev
 
-TEST_PORT ?= 18080
+TEST_PORT := 18080
 TEST_BINARY ?= .glance-test
 TEST_CONFIG ?= glance-test.yml
 TEST_PID_FILE ?= .glance-test.pid
 TEST_LOG ?= .glance-test.log
 TEST_URL ?= http://127.0.0.1:$(TEST_PORT)
+
+CI_RUN_RETRIES ?= 12
+CI_RUN_RETRY_DELAY ?= 5
 
 REPO ?= samcro1967/glance
 PR_WORKFLOW ?= 345456314
@@ -46,9 +49,9 @@ help:
 	@echo "Development:"
 	@echo "  make deps                    Download Go module dependencies"
 	@echo "  make build                   Build all Go packages"
-	@echo "  make test-instance-start     Start isolated Glance on port $(TEST_PORT)"
+	@echo "  make test-instance-start     Start isolated Glance using $(TEST_CONFIG)"
 	@echo "  make test-instance-status    Show isolated Glance status"
-	@echo "  make test-instance-stop      Stop isolated Glance and clean artifacts"
+	@echo "  make test-instance-stop      Stop isolated Glance and clean runtime artifacts"
 	@echo
 	@echo "Testing:"
 	@echo "  make test                    Run the Go test suite"
@@ -69,6 +72,7 @@ help:
 	@echo "  make status                  Show branch, latest commit, and status"
 	@echo "  make staged-diff             Show staged diff summary and contents"
 	@echo "  make upstream-status         Refresh and compare dev/main with remotes"
+	@echo "  make upstream-dev-status     Inspect differences with upstream dev"
 	@echo "  make verify-dev              Verify dev repository state"
 	@echo "  make verify-main             Verify main repository state"
 	@echo "  make branch NEW_BRANCH=name  Create a feature branch from clean, current dev"
@@ -84,11 +88,13 @@ help:
 	@echo "  make pr-view PR=55           Show a pull request"
 	@echo "  make pr-runs                 Show recent validation runs for current branch"
 	@echo "  make pr-runs BRANCH=dev      Show recent validation runs for a branch"
+	@echo "  make pr-watch                Find and watch validation for current HEAD"
 	@echo "  make pr-merge PR=55          Merge a pull request and delete feature branch"
 	@echo "  make post-merge PR=55        Update PR base and clean merged feature branch"
 	@echo
 	@echo "GitHub Actions:"
 	@echo "  make image-runs              Show recent dev container image builds"
+	@echo "  make image-watch             Find and watch image build for current dev HEAD"
 	@echo "  make ci-watch RUN=12345      Watch a GitHub Actions run"
 	@echo "  make ci-view RUN=12345       Show a GitHub Actions run result"
 	@echo
@@ -183,6 +189,31 @@ upstream-status:
 	@echo
 	@echo "=== MAIN VS UPSTREAM ==="
 	@git rev-list --left-right --count upstream/main...$(STABLE_BRANCH)
+
+upstream-dev-status:
+	@echo "=== REFRESH UPSTREAM ==="
+	@git fetch upstream --prune
+	@echo
+	@echo "=== FORK DEV VS UPSTREAM DEV ==="
+	@git rev-list --left-right --count upstream/$(DEV_BRANCH)...$(DEV_BRANCH)
+	@echo
+	@echo "=== UPSTREAM DEV PATCH STATUS ==="
+	@set -euo pipefail; \
+	total=$$(git rev-list --count $(DEV_BRANCH)..upstream/$(DEV_BRANCH)); \
+	incorporated=$$(git cherry $(DEV_BRANCH) upstream/$(DEV_BRANCH) | grep -c "^- " || true); \
+	actionable=$$(git cherry $(DEV_BRANCH) upstream/$(DEV_BRANCH) | grep -c "^+ " || true); \
+	echo "Upstream-only commits:     $$total"; \
+	echo "Already incorporated:     $$incorporated"; \
+	echo "Require review:           $$actionable"; \
+	echo; \
+	if [ "$$actionable" -eq 0 ]; then \
+		echo "STATUS: No new upstream dev patches require review."; \
+	else \
+		echo "=== PATCHES REQUIRING REVIEW ==="; \
+		git cherry -v $(DEV_BRANCH) upstream/$(DEV_BRANCH) | grep "^+ " || true; \
+	fi
+	@echo
+	@echo "Inspection only; upstream/$(DEV_BRANCH) is not automatically merged into fork $(DEV_BRANCH)."
 
 branch:
 	@set -euo pipefail; \
@@ -427,6 +458,49 @@ pr-runs:
 		--limit 5 \
 		--json databaseId,headSha,status,conclusion,createdAt,displayTitle
 
+pr-watch:
+	@set -euo pipefail; \
+	branch="$$(git branch --show-current)"; \
+	if [ -z "$$branch" ]; then \
+		echo "Unable to determine current branch."; \
+		exit 1; \
+	fi; \
+	revision="$$(git rev-parse HEAD)"; \
+	echo "=== FIND PR VALIDATION RUN ==="; \
+	echo "Branch=$$branch"; \
+	echo "Revision=$$revision"; \
+	run_id=""; \
+	for i in $$(seq 1 "$(CI_RUN_RETRIES)"); do \
+		run_id="$$(gh run list \
+			--repo "$(REPO)" \
+			--workflow "$(PR_WORKFLOW)" \
+			--branch "$$branch" \
+			--limit 20 \
+			--json databaseId,headSha \
+			--jq '.[] | select(.headSha == "'"$$revision"'") | .databaseId' \
+			| head -1)"; \
+		if [ -n "$$run_id" ]; then \
+			break; \
+		fi; \
+		echo "Matching validation run not available yet; retrying ($$i/$(CI_RUN_RETRIES))..."; \
+		sleep "$(CI_RUN_RETRY_DELAY)"; \
+	done; \
+	if [ -z "$$run_id" ]; then \
+		echo "No validation run found for $$revision."; \
+		exit 1; \
+	fi; \
+	echo "Run=$$run_id"; \
+	echo; \
+	echo "=== WATCH PR VALIDATION ==="; \
+	gh run watch "$$run_id" \
+		--repo "$(REPO)" \
+		--exit-status; \
+	echo; \
+	echo "=== PR VALIDATION RESULT ==="; \
+	gh run view "$$run_id" \
+		--repo "$(REPO)" \
+		--json status,conclusion,headSha,url
+
 pr-merge:
 	@set -euo pipefail; \
 	if [ -z "$(PR)" ]; then \
@@ -502,6 +576,49 @@ image-runs:
 		--branch "$(DEV_BRANCH)" \
 		--limit 5 \
 		--json databaseId,headSha,status,conclusion,createdAt,displayTitle
+
+image-watch:
+	@set -euo pipefail; \
+	branch="$$(git branch --show-current)"; \
+	if [ "$$branch" != "$(DEV_BRANCH)" ]; then \
+		echo "Image watch requires branch $(DEV_BRANCH); current branch is $$branch."; \
+		exit 1; \
+	fi; \
+	revision="$$(git rev-parse HEAD)"; \
+	echo "=== FIND DEVELOPMENT IMAGE RUN ==="; \
+	echo "Branch=$$branch"; \
+	echo "Revision=$$revision"; \
+	run_id=""; \
+	for i in $$(seq 1 "$(CI_RUN_RETRIES)"); do \
+		run_id="$$(gh run list \
+			--repo "$(REPO)" \
+			--workflow "$(IMAGE_WORKFLOW)" \
+			--branch "$(DEV_BRANCH)" \
+			--limit 20 \
+			--json databaseId,headSha \
+			--jq '.[] | select(.headSha == "'"$$revision"'") | .databaseId' \
+			| head -1)"; \
+		if [ -n "$$run_id" ]; then \
+			break; \
+		fi; \
+		echo "Matching image run not available yet; retrying ($$i/$(CI_RUN_RETRIES))..."; \
+		sleep "$(CI_RUN_RETRY_DELAY)"; \
+	done; \
+	if [ -z "$$run_id" ]; then \
+		echo "No development image run found for $$revision."; \
+		exit 1; \
+	fi; \
+	echo "Run=$$run_id"; \
+	echo; \
+	echo "=== WATCH DEVELOPMENT IMAGE ==="; \
+	gh run watch "$$run_id" \
+		--repo "$(REPO)" \
+		--exit-status; \
+	echo; \
+	echo "=== DEVELOPMENT IMAGE RESULT ==="; \
+	gh run view "$$run_id" \
+		--repo "$(REPO)" \
+		--json status,conclusion,headSha,url
 
 ci-watch:
 	@if [ -z "$(RUN)" ]; then \
@@ -844,6 +961,10 @@ deploy:
 
 test-instance-start:
 	@set -euo pipefail; \
+	if [ ! -f "$(TEST_CONFIG)" ]; then \
+		echo "Canonical test configuration does not exist: $(TEST_CONFIG)"; \
+		exit 1; \
+	fi; \
 	if [ -f "$(TEST_PID_FILE)" ]; then \
 		pid="$$(cat "$(TEST_PID_FILE)")"; \
 		if kill -0 "$$pid" 2>/dev/null; then \
@@ -856,35 +977,8 @@ test-instance-start:
 	echo "=== BUILD TEST BINARY ==="; \
 	go build -o "$(TEST_BINARY)" .; \
 	echo; \
-	echo "=== CREATE TEST CONFIG ==="; \
-	printf '%s\n' \
-		'server:' \
-		'  host: 0.0.0.0' \
-		'  port: $(TEST_PORT)' \
-		'' \
-		'branding:' \
-		'  app-name: "Glance Test"' \
-		'' \
-		'theme:' \
-		'  light: false' \
-		'' \
-		'pages:' \
-		'  - name: Home' \
-		'    slug: home' \
-		'    columns:' \
-		'      - size: full' \
-		'        widgets:' \
-		'          - type: html' \
-		'            source: "<p>Home test page</p>"' \
-		'' \
-		'  - name: News' \
-		'    slug: news' \
-		'    columns:' \
-		'      - size: full' \
-		'        widgets:' \
-		'          - type: html' \
-		'            source: "<p>News test page</p>"' \
-		> "$(TEST_CONFIG)"; \
+	echo "=== TEST CONFIG ==="; \
+	echo "$(TEST_CONFIG)"; \
 	echo; \
 	echo "=== VALIDATE TEST CONFIG ==="; \
 	"./$(TEST_BINARY)" --config "$(TEST_CONFIG)" config:validate; \
@@ -913,6 +1007,7 @@ test-instance-start:
 		exit 1; \
 	fi; \
 	echo "Test instance started."; \
+	echo "Config=$(TEST_CONFIG)"; \
 	echo "PID=$$pid"; \
 	echo "URL=$(TEST_URL)"
 
@@ -928,6 +1023,7 @@ test-instance-status:
 		exit 1; \
 	fi; \
 	code="$$(curl -sS -o /dev/null -w '%{http_code}' "$(TEST_URL)/" 2>/dev/null || true)"; \
+	echo "Config=$(TEST_CONFIG)"; \
 	echo "PID=$$pid"; \
 	echo "URL=$(TEST_URL)"; \
 	echo "HTTP=$${code:-unavailable}"
@@ -947,5 +1043,6 @@ test-instance-stop:
 			done; \
 		fi; \
 	fi; \
-	rm -f "$(TEST_PID_FILE)" "$(TEST_BINARY)" "$(TEST_CONFIG)" "$(TEST_LOG)"; \
-	echo "Test instance stopped and artifacts removed."
+	rm -f "$(TEST_PID_FILE)" "$(TEST_BINARY)" "$(TEST_LOG)"; \
+	echo "Test instance stopped and runtime artifacts removed."; \
+	echo "Preserved $(TEST_CONFIG)."

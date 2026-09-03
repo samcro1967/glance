@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"html"
 	"html/template"
-	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -233,29 +232,23 @@ func (widget *rssWidget) fetchItemsFromFeedTask(ctx context.Context, request rss
 		req.Header.Set(key, value)
 	}
 
-	resp, err := defaultHTTPClient.Do(req)
+	resource, err := fetchRSSResource(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf(
-			"sending RSS request: %w",
-			safeHTTPTransportError(err),
-		)
+		return nil, err
 	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusNotModified && isCached {
+	if resource.StatusCode == http.StatusNotModified && isCached {
 		return cache.items, nil
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, unexpectedHTTPStatusError(resp)
+	if resource.StatusCode != http.StatusOK {
+		return nil, unexpectedHTTPStatusError(&http.Response{
+			Status:     resource.Status,
+			StatusCode: resource.StatusCode,
+		})
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("reading RSS response: %w", err)
-	}
-
-	feed, err := feedParser.ParseString(string(body))
+	feed, err := feedParser.ParseString(string(resource.Body))
 	if err != nil {
 		return nil, fmt.Errorf("parsing RSS response: %w", err)
 	}
@@ -326,11 +319,11 @@ func (widget *rssWidget) fetchItemsFromFeedTask(ctx context.Context, request rss
 		items = append(items, rssItem)
 	}
 
-	if resp.Header.Get("ETag") != "" || resp.Header.Get("Last-Modified") != "" {
+	if resource.Header.Get("ETag") != "" || resource.Header.Get("Last-Modified") != "" {
 		widget.cachedFeedsMutex.Lock()
 		widget.cachedFeeds[request.URL] = &cachedRSSFeed{
-			etag:         resp.Header.Get("ETag"),
-			lastModified: resp.Header.Get("Last-Modified"),
+			etag:         resource.Header.Get("ETag"),
+			lastModified: resource.Header.Get("Last-Modified"),
 			items:        items,
 		}
 		widget.cachedFeedsMutex.Unlock()

@@ -123,12 +123,10 @@ type marketResponseJson struct {
 const marketChartDays = 21
 
 func fetchMarketsDataFromYahoo(ctx context.Context, marketRequests []marketRequest) (marketList, error) {
-	requests := make([]*http.Request, 0, len(marketRequests))
-
 	for i := range marketRequests {
-		request, err := http.NewRequestWithContext(
+		_, err := http.NewRequestWithContext(
 			ctx,
-			"GET",
+			http.MethodGet,
 			fmt.Sprintf(
 				"https://query1.finance.yahoo.com/v8/finance/chart/%s?range=1mo&interval=1d",
 				marketRequests[i].Symbol,
@@ -144,15 +142,13 @@ func fetchMarketsDataFromYahoo(ctx context.Context, marketRequests []marketReque
 				fmt.Errorf("creating market request: %w", err),
 			)
 		}
-
-		setBrowserUserAgentHeader(request)
-		requests = append(requests, request)
 	}
 
-	job := newJob(
-		decodeJsonFromRequestTask[marketResponseJson](defaultHTTPClient),
-		requests,
-	).withContext(ctx)
+	task := func(request marketRequest) (marketResponseJson, error) {
+		return fetchYahooMarketResource(ctx, request.Symbol)
+	}
+
+	job := newJob(task, marketRequests).withContext(ctx)
 
 	responses, errs, err := workerPoolDo(job)
 	if err != nil {

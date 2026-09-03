@@ -360,8 +360,28 @@ var redditHTTPClient = &http.Client{
 
 var (
 	redditChallengePattern = regexp.MustCompile(`await\(async \w+\s*=>\s*\w+\s*\+\s*\w+\)\("([^"]+)"\)`)
-	redditTokenPattern     = regexp.MustCompile(`name="token"\s+value="([^"]+)"`)
+	redditTokenPattern     = regexp.MustCompile(`name="jsc_token"\s+value="([^"]+)"`)
+	redditOrigRPattern     = regexp.MustCompile(`name="jsc_orig_r"\s+value="([^"]*)"`)
 )
+
+func parseRedditChallengeForm(body []byte) (string, string, string, error) {
+	challengeMatches := redditChallengePattern.FindSubmatch(body)
+	if challengeMatches == nil {
+		return "", "", "", errors.New("no JS challenge found")
+	}
+
+	tokenMatches := redditTokenPattern.FindSubmatch(body)
+	if tokenMatches == nil {
+		return "", "", "", errors.New("no jsc_token found in challenge page")
+	}
+
+	origRMatches := redditOrigRPattern.FindSubmatch(body)
+	if origRMatches == nil {
+		return "", "", "", errors.New("no jsc_orig_r found in challenge page")
+	}
+
+	return string(challengeMatches[1]), string(tokenMatches[1]), string(origRMatches[1]), nil
+}
 
 // Allows all widget instances to share a single loid cookie, since we don't want to draw
 // too much attention by making a lot of requests to the flow that allows us to obtain
@@ -416,25 +436,18 @@ func fetchRedditLoidCookie() (string, error) {
 		return "", fmt.Errorf("reading Reddit challenge response: %w", err)
 	}
 
-	challengeMatches := redditChallengePattern.FindSubmatch(challengeBody)
-	tokenMatches := redditTokenPattern.FindSubmatch(challengeBody)
-
-	if challengeMatches == nil {
-		return "", errors.New("no JS challenge found")
+	challengeStr, token, origR, err := parseRedditChallengeForm(challengeBody)
+	if err != nil {
+		return "", err
 	}
 
-	if tokenMatches == nil {
-		return "", errors.New("no token found in challenge page")
-	}
-
-	challengeStr := string(challengeMatches[1])
-	token := string(tokenMatches[1])
 	solution := challengeStr + challengeStr // the JS does: e + e
 
 	params := url.Values{
 		"solution":     {solution},
 		"js_challenge": {"1"},
-		"token":        {token},
+		"jsc_token":    {token},
+		"jsc_orig_r":   {origR},
 	}
 	request, err = http.NewRequest("GET", "https://www.reddit.com/?"+params.Encode(), nil)
 	if err != nil {

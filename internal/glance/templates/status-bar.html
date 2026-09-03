@@ -1,0 +1,66 @@
+{{ template "widget-base.html" . }}
+
+{{ define "widget-content-classes" }}widget-content-frameless{{ end }}
+
+{{ define "status-bar-items" }}
+    {{ range .CompactItems }}
+    <div class="status-bar-item status-bar-item-{{ .Kind }}">
+        {{ if .Error }}
+        <div class="notice-icon notice-icon-major" title="{{ .Error }}"></div>
+        {{ else if .Notice }}
+        <div class="notice-icon notice-icon-minor" title="{{ .Notice }}"></div>
+        {{ end }}
+        {{ if eq .Kind "error" }}
+            <span class="status-bar-primary">{{ .ErrorTitle }}</span>
+            <span class="color-negative">Unavailable</span>
+        {{ else if eq .Kind "weather" }}
+            <div class="status-bar-weather-content">
+                <div class="status-bar-weather-line">
+                    <span class="status-bar-primary">{{ .WeatherCondition }}</span>
+                    <span class="status-bar-weather-separator color-subdue">·</span>
+                    <span>{{ .WeatherTemperature }}°{{ .WeatherUnit }}</span>
+                    <span class="status-bar-weather-separator color-subdue">·</span>
+                    <span class="color-subdue">Feels {{ .WeatherFeelsLike }}°{{ .WeatherUnit }}</span>
+                </div>
+                {{ if .WeatherLocation }}
+                <div class="status-bar-weather-line color-subdue">
+                    <span class="status-bar-weather-location">{{ .WeatherLocation }}</span>
+                </div>
+                {{ end }}
+            </div>
+        {{ else if eq .Kind "market" }}
+            <div class="status-bar-market-content">
+                {{ if .URL }}<a href="{{ .URL }}" target="_blank" rel="noreferrer" class="status-bar-market-identity">{{ else }}<span class="status-bar-market-identity">{{ end }}
+                    <span class="status-bar-primary">{{ .MarketSymbol }}</span>
+                    {{ if .MarketName }}<span class="color-subdue">{{ .MarketName }}</span>{{ end }}
+                {{ if .URL }}</a>{{ else }}</span>{{ end }}
+                {{ if .MarketChartURL }}<a href="{{ .MarketChartURL }}" target="_blank" rel="noreferrer" class="status-bar-market-values">{{ else }}<span class="status-bar-market-values">{{ end }}
+                    <span title="{{ .MarketCurrency }}">{{ .MarketCurrencySymbol }}{{ .MarketPrice | formatPriceWithPrecision .MarketPriceHint }}</span>
+                    <span class="{{ if eq .MarketPercentChange 0.0 }}{{ else if gt .MarketPercentChange 0.0 }}color-positive{{ else }}color-negative{{ end }}">{{ printf "%+.2f" .MarketPercentChange }}%</span>
+                {{ if .MarketChartURL }}</a>{{ else }}</span>{{ end }}
+            </div>
+        {{ else if eq .Kind "rss" }}
+            <div class="status-bar-rss-content">
+                {{ if .URL }}<a href="{{ .URL }}" target="_blank" rel="noreferrer" class="status-bar-primary status-bar-rss-title">{{ .RSSTitle }}</a>{{ else }}<span class="status-bar-primary status-bar-rss-title">{{ .RSSTitle }}</span>{{ end }}
+                <span class="status-bar-rss-meta color-subdue">
+                    {{ if .RSSChannelName }}{{ if .RSSChannelURL }}<a href="{{ .RSSChannelURL }}" target="_blank" rel="noreferrer">{{ .RSSChannelName }}</a>{{ else }}<span>{{ .RSSChannelName }}</span>{{ end }}{{ end }}
+                    <span {{ dynamicRelativeTimeAttrs .RSSPublishedAt }}></span>
+                </span>
+            </div>
+        {{ end }}
+    </div>
+    {{ end }}
+{{ end }}
+
+{{ define "widget-content" }}
+<div class="status-bar status-bar-mode-{{ .Mode }}">
+    <div class="status-bar-track">
+        <div class="status-bar-items">
+            {{ template "status-bar-items" . }}
+        </div>
+        <div class="status-bar-items status-bar-items-duplicate" aria-hidden="true" inert>
+            {{ template "status-bar-items" . }}
+        </div>
+    </div>
+</div>
+{{ end }}
