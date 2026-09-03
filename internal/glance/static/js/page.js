@@ -3,11 +3,253 @@ import { setupMasonries } from './masonry.js';
 import { throttledDebounce, isElementVisible, openURLInNewTab } from './utils.js';
 import { elem, find, findAll } from './templating.js';
 
+const frontendDiagnosticsEnabled = pageData.frontendDiagnostics === true;
+const frontendDiagnosticsBuffer = [];
+const frontendDiagnosticsSession = frontendDiagnosticsEnabled
+    ? (
+        typeof crypto !== "undefined" &&
+        typeof crypto.randomUUID === "function"
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    ).slice(0, 64)
+    : "";
+let frontendDiagnosticsSequence = 0;
+let frontendDiagnosticsFlushTimer = null;
+let frontendDiagnosticsFlushInProgress = false;
+let frontendDiagnosticsImmediateFlushPending = false;
+
+function frontendDiagnostic(event, fields = {}, flush = false) {
+    if (!frontendDiagnosticsEnabled) {
+        return;
+    }
+
+    const diagnostic = {
+        event,
+        page: pageData.slug || "",
+        session: frontendDiagnosticsSession,
+        sequence: ++frontendDiagnosticsSequence,
+    };
+
+    if (fields.widget !== undefined) {
+        diagnostic.widget = String(fields.widget);
+    }
+
+    if (fields.detail !== undefined && fields.detail !== "") {
+        diagnostic.detail = String(fields.detail).slice(0, 256);
+    }
+
+    if (fields.elapsedMS !== undefined) {
+        diagnostic.elapsed_ms = Math.max(0, fields.elapsedMS);
+    }
+
+    if (fields.status !== undefined) {
+        diagnostic.status = fields.status;
+    }
+
+    if (fields.length !== undefined) {
+        diagnostic.length = Math.max(0, fields.length);
+    }
+
+    if (fields.state !== undefined) {
+        diagnostic.state = fields.state;
+    }
+
+    frontendDiagnosticsBuffer.push(diagnostic);
+
+    if (flush) {
+        if (frontendDiagnosticsFlushInProgress) {
+            frontendDiagnosticsImmediateFlushPending = true;
+        } else {
+            flushFrontendDiagnostics();
+        }
+        return;
+    }
+
+    if (frontendDiagnosticsFlushTimer === null) {
+        frontendDiagnosticsFlushTimer = setTimeout(
+            flushFrontendDiagnostics,
+            1000
+        );
+    }
+}
+
+function flushFrontendDiagnostics() {
+    if (
+        !frontendDiagnosticsEnabled ||
+        frontendDiagnosticsFlushInProgress ||
+        frontendDiagnosticsBuffer.length === 0
+    ) {
+        return;
+    }
+
+    if (frontendDiagnosticsFlushTimer !== null) {
+        clearTimeout(frontendDiagnosticsFlushTimer);
+        frontendDiagnosticsFlushTimer = null;
+    }
+
+    const events = frontendDiagnosticsBuffer.splice(0, 50);
+    frontendDiagnosticsFlushInProgress = true;
+
+    fetch(`${pageData.baseURL}/api/frontend-diagnostics`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ events }),
+        keepalive: true,
+    })
+        .catch(() => {
+            // Diagnostics must never interfere with normal page behavior.
+        })
+        .finally(() => {
+            frontendDiagnosticsFlushInProgress = false;
+
+            if (frontendDiagnosticsBuffer.length === 0) {
+                frontendDiagnosticsImmediateFlushPending = false;
+                return;
+            }
+
+            if (frontendDiagnosticsImmediateFlushPending) {
+                frontendDiagnosticsImmediateFlushPending = false;
+                flushFrontendDiagnostics();
+                return;
+            }
+
+            frontendDiagnosticsFlushTimer = setTimeout(
+                flushFrontendDiagnostics,
+                1000
+            );
+        });
+}
+
+function frontendDiagnosticErrorDetail(value) {
+    if (value instanceof Error) {
+        return `${value.name}: ${value.message}`.slice(0, 256);
+    }
+
+    return String(value).slice(0, 256);
+}
+
+function setupFrontendDiagnosticsLifecycle() {
+    if (!frontendDiagnosticsEnabled) {
+        return;
+    }
+
+    window.addEventListener("error", (event) => {
+        frontendDiagnostic("window_error", {
+            detail: frontendDiagnosticErrorDetail(
+                event.error ?? event.message ?? "unknown error"
+            ),
+        }, true);
+    });
+
+    window.addEventListener("unhandledrejection", (event) => {
+        frontendDiagnostic("unhandled_rejection", {
+            detail: frontendDiagnosticErrorDetail(event.reason),
+        }, true);
+    });
+
+    window.addEventListener("pageshow", (event) => {
+        frontendDiagnostic("page_show", {
+            detail: `persisted=${event.persisted} visibility=${document.visibilityState} online=${navigator.onLine}`,
+        }, true);
+    });
+
+    document.addEventListener("visibilitychange", () => {
+        frontendDiagnostic("visibility_change", {
+            detail: `visibility=${document.visibilityState}`,
+        });
+    });
+
+    window.addEventListener("online", () => {
+        frontendDiagnostic("network_online");
+    });
+
+    window.addEventListener("offline", () => {
+        frontendDiagnostic("network_offline");
+    });
+}
+
+setupFrontendDiagnosticsLifecycle();
+
+function runFrontendDiagnosticStage(name, callback) {
+    if (!frontendDiagnosticsEnabled) {
+        return callback();
+    }
+
+    const started = performance.now();
+
+    frontendDiagnostic("page_initialize_start", {
+        detail: name,
+    }, true);
+
+    try {
+        const result = callback();
+
+        frontendDiagnostic("page_initialize_complete", {
+            detail: name,
+            elapsedMS: performance.now() - started,
+        });
+
+        return result;
+    } catch (error) {
+        frontendDiagnostic("page_initialize_error", {
+            detail: `${name}: ${frontendDiagnosticErrorDetail(error)}`,
+            elapsedMS: performance.now() - started,
+        }, true);
+
+        throw error;
+    }
+}
+
+async function runFrontendDiagnosticAsyncStage(name, callback) {
+    if (!frontendDiagnosticsEnabled) {
+        return callback();
+    }
+
+    const started = performance.now();
+
+    frontendDiagnostic("page_initialize_start", {
+        detail: name,
+    }, true);
+
+    try {
+        const result = await callback();
+
+        frontendDiagnostic("page_initialize_complete", {
+            detail: name,
+            elapsedMS: performance.now() - started,
+        });
+
+        return result;
+    } catch (error) {
+        frontendDiagnostic("page_initialize_error", {
+            detail: `${name}: ${frontendDiagnosticErrorDetail(error)}`,
+            elapsedMS: performance.now() - started,
+        }, true);
+
+        throw error;
+    }
+}
+
 async function fetchPageContent(pageData) {
     // TODO: handle non 200 status codes/time outs
     // TODO: add retries
+    const fetchStarted = performance.now();
+    frontendDiagnostic("page_content_fetch_start");
+
     const response = await fetch(`${pageData.baseURL}/api/pages/${pageData.slug}/content/`);
+    frontendDiagnostic("page_content_fetch_response", {
+        status: response.status,
+        elapsedMS: performance.now() - fetchStarted,
+    });
+
+    const bodyStarted = performance.now();
     const content = await response.text();
+    frontendDiagnostic("page_content_fetch_complete", {
+        length: content.length,
+        elapsedMS: performance.now() - bodyStarted,
+    });
 
     return content;
 }
@@ -811,26 +1053,58 @@ function setupTruncatedElementTitles(root = document) {
 
 async function changeTheme(key, onChanged) {
     const themeStyleElem = find("#theme-style");
+    const themeChangeStarted = performance.now();
 
-    const response = await fetch(`${pageData.baseURL}/api/set-theme/${key}`, {
-        method: "POST",
+    frontendDiagnostic("theme_change_start", {
+        detail: String(key).slice(0, 64),
     });
 
-    if (response.status != 200) {
-        alert("Failed to set theme: " + response.statusText);
-        return;
+    try {
+        const response = await fetch(`${pageData.baseURL}/api/set-theme/${key}`, {
+            method: "POST",
+        });
+
+        frontendDiagnostic("theme_change_response", {
+            detail: String(key).slice(0, 64),
+            status: response.status,
+            elapsedMS: performance.now() - themeChangeStarted,
+        });
+
+        if (response.status != 200) {
+            frontendDiagnostic("theme_change_error", {
+                detail: String(key).slice(0, 64),
+                status: response.status,
+                elapsedMS: performance.now() - themeChangeStarted,
+            }, true);
+
+            alert("Failed to set theme: " + response.statusText);
+            return;
+        }
+
+        const newThemeStyle = await response.text();
+
+        const tempStyle = elem("style")
+            .html("* { transition: none !important; }")
+            .appendTo(document.head);
+
+        themeStyleElem.html(newThemeStyle);
+        document.documentElement.setAttribute("data-theme", key);
+        document.documentElement.setAttribute("data-scheme", response.headers.get("X-Scheme"));
+        typeof onChanged == "function" && onChanged();
+        setTimeout(() => { tempStyle.remove(); }, 10);
+
+        frontendDiagnostic("theme_change_complete", {
+            detail: String(key).slice(0, 64),
+            elapsedMS: performance.now() - themeChangeStarted,
+        });
+    } catch (error) {
+        frontendDiagnostic("theme_change_error", {
+            detail: frontendDiagnosticErrorDetail(error),
+            elapsedMS: performance.now() - themeChangeStarted,
+        }, true);
+
+        throw error;
     }
-    const newThemeStyle = await response.text();
-
-    const tempStyle = elem("style")
-        .html("* { transition: none !important; }")
-        .appendTo(document.head);
-
-    themeStyleElem.html(newThemeStyle);
-    document.documentElement.setAttribute("data-theme", key);
-    document.documentElement.setAttribute("data-scheme", response.headers.get("X-Scheme"));
-    typeof onChanged == "function" && onChanged();
-    setTimeout(() => { tempStyle.remove(); }, 10);
 }
 
 function initThemePicker() {
@@ -941,17 +1215,25 @@ const liveWidgetUpdatesInFlight = new Set();
 const liveWidgetUpdatesPending = new Set();
 
 async function refreshLiveWidget(widgetID) {
+    const refreshStarted = performance.now();
     const selector = `[data-widget-id="${CSS.escape(widgetID)}"]`;
     const currentWidget = document.querySelector(selector);
+
+    frontendDiagnostic("widget_refresh_start", { widget: widgetID });
 
     // The application-wide SSE stream includes widgets from every page.
     // Ignore notifications for widgets that are not present on this page.
     if (currentWidget === null) {
+        frontendDiagnostic(
+            "widget_refresh_ignored_not_on_page",
+            { widget: widgetID }
+        );
         return;
     }
 
     if (liveWidgetUpdatesInFlight.has(widgetID)) {
         liveWidgetUpdatesPending.add(widgetID);
+        frontendDiagnostic("widget_refresh_pending", { widget: widgetID });
         return;
     }
 
@@ -961,38 +1243,131 @@ async function refreshLiveWidget(widgetID) {
         do {
             liveWidgetUpdatesPending.delete(widgetID);
 
+            const fetchStarted = performance.now();
+            frontendDiagnostic("widget_fetch_start", { widget: widgetID });
+
             const response = await fetch(
                 `${pageData.baseURL}/api/widgets/${encodeURIComponent(widgetID)}/content/`
             );
+
+            frontendDiagnostic("widget_fetch_complete", {
+                widget: widgetID,
+                status: response.status,
+                elapsedMS: performance.now() - fetchStarted,
+            });
 
             if (!response.ok) {
                 console.error(
                     `Failed to refresh widget ${widgetID}: ${response.status} ${response.statusText}`
                 );
+                frontendDiagnostic("widget_refresh_error", {
+                    widget: widgetID,
+                    status: response.status,
+                });
                 return;
             }
 
+            const bodyStarted = performance.now();
             const html = await response.text();
+
+            frontendDiagnostic("widget_body_complete", {
+                widget: widgetID,
+                length: html.length,
+                elapsedMS: performance.now() - bodyStarted,
+            });
+
             const template = document.createElement("template");
+            const parseStarted = performance.now();
+
+            frontendDiagnostic(
+                "widget_parse_start",
+                { widget: widgetID },
+                true
+            );
+
             template.innerHTML = html.trim();
+
+            frontendDiagnostic("widget_parse_complete", {
+                widget: widgetID,
+                elapsedMS: performance.now() - parseStarted,
+            });
 
             const replacement = template.content.firstElementChild;
             if (replacement === null || replacement.dataset.widgetId !== widgetID) {
                 console.error(`Invalid replacement content for widget ${widgetID}`);
+                frontendDiagnostic("widget_replacement_invalid", {
+                    widget: widgetID,
+                });
                 return;
             }
 
             const liveCurrentWidget = document.querySelector(selector);
             if (liveCurrentWidget === null) {
+                frontendDiagnostic("widget_current_missing", {
+                    widget: widgetID,
+                });
                 return;
             }
 
+            const cleanupStarted = performance.now();
+            frontendDiagnostic(
+                "widget_cleanup_start",
+                { widget: widgetID },
+                true
+            );
+
             cleanupLiveWidget(liveCurrentWidget);
+
+            frontendDiagnostic("widget_cleanup_complete", {
+                widget: widgetID,
+                elapsedMS: performance.now() - cleanupStarted,
+            });
+
+            const replaceStarted = performance.now();
+            frontendDiagnostic(
+                "widget_replace_start",
+                { widget: widgetID },
+                true
+            );
+
             liveCurrentWidget.replaceWith(replacement);
+
+            frontendDiagnostic("widget_replace_complete", {
+                widget: widgetID,
+                elapsedMS: performance.now() - replaceStarted,
+            });
+
+            const initializeStarted = performance.now();
+            frontendDiagnostic(
+                "widget_initialize_start",
+                { widget: widgetID },
+                true
+            );
+
             initializeLiveWidget(replacement);
+
+            frontendDiagnostic("widget_initialize_complete", {
+                widget: widgetID,
+                elapsedMS: performance.now() - initializeStarted,
+            });
+
+            if (liveWidgetUpdatesPending.has(widgetID)) {
+                frontendDiagnostic("widget_refresh_repeat_pending", {
+                    widget: widgetID,
+                });
+            }
         } while (liveWidgetUpdatesPending.has(widgetID));
+
+        frontendDiagnostic("widget_refresh_complete", {
+            widget: widgetID,
+            elapsedMS: performance.now() - refreshStarted,
+        });
     } catch (error) {
         console.error(`Failed to refresh widget ${widgetID}:`, error);
+        frontendDiagnostic("widget_refresh_error", {
+            widget: widgetID,
+            detail: error instanceof Error ? error.message : String(error),
+        }, true);
     } finally {
         liveWidgetUpdatesPending.delete(widgetID);
         liveWidgetUpdatesInFlight.delete(widgetID);
@@ -1001,45 +1376,144 @@ async function refreshLiveWidget(widgetID) {
 
 function setupLiveWidgetUpdates() {
     if (typeof EventSource === "undefined") {
+        frontendDiagnostic("live_updates_unsupported");
         return;
     }
 
-    const events = new EventSource(`${pageData.baseURL}/api/live-updates`);
+    let events = null;
 
-    events.addEventListener("widget", (event) => {
-        if (!/^\d+$/.test(event.data)) {
+    function connect() {
+        if (events !== null && events.readyState !== EventSource.CLOSED) {
             return;
         }
 
-        refreshLiveWidget(event.data);
+        frontendDiagnostic("live_updates_connect");
+
+        events = new EventSource(`${pageData.baseURL}/api/live-updates`);
+        const currentEvents = events;
+
+        currentEvents.addEventListener("open", () => {
+            frontendDiagnostic("live_updates_open", {
+                state: currentEvents.readyState,
+            });
+        });
+
+        currentEvents.addEventListener("error", () => {
+            frontendDiagnostic("live_updates_error", {
+                state: currentEvents.readyState,
+            }, true);
+        });
+
+        currentEvents.addEventListener("widget", (event) => {
+            if (!/^\d+$/.test(event.data)) {
+                frontendDiagnostic("live_update_invalid", {
+                    length: event.data.length,
+                });
+                return;
+            }
+
+            frontendDiagnostic("live_update_received", {
+                widget: event.data,
+            });
+
+            refreshLiveWidget(event.data);
+        });
+    }
+
+    function close(event) {
+        frontendDiagnostic("page_hide", {
+            detail: `persisted=${event.persisted} visibility=${document.visibilityState}`,
+        });
+
+        if (events !== null && events.readyState !== EventSource.CLOSED) {
+            frontendDiagnostic("live_updates_close", {
+                state: events.readyState,
+                detail: `persisted=${event.persisted}`,
+            }, true);
+
+            events.close();
+        } else {
+            frontendDiagnostic("live_updates_close", {
+                state: events === null ? EventSource.CLOSED : events.readyState,
+                detail: `persisted=${event.persisted} already_closed=true`,
+            }, true);
+        }
+    }
+
+    window.addEventListener("pagehide", close);
+
+    window.addEventListener("pageshow", (event) => {
+        if (!event.persisted) {
+            return;
+        }
+
+        frontendDiagnostic("live_updates_restore", {
+            detail: "persisted=true",
+        }, true);
+
+        connect();
     });
+
+    connect();
 }
 
 async function setupPage() {
-    initThemePicker();
+    const setupStarted = performance.now();
+    frontendDiagnostic("page_setup_start");
+
+    runFrontendDiagnosticStage(
+        "theme_picker",
+        () => initThemePicker()
+    );
 
     const pageElement = document.getElementById("page");
     const pageContentElement = document.getElementById("page-content");
     const pageContent = await fetchPageContent(pageData);
 
+    const parseStarted = performance.now();
+    frontendDiagnostic("page_parse_start", {}, true);
     pageContentElement.innerHTML = pageContent;
+    frontendDiagnostic("page_parse_complete", {
+        elapsedMS: performance.now() - parseStarted,
+    });
 
     try {
-        setupPopovers();
-        setupClocks();
-        setupAnalogClocks();
-        await setupCalendars();
-        await setupTimers();
-        await setupTodos();
-        setupCarousels();
-        setupSearchBoxes();
-        setupCollapsibleLists();
-        setupCollapsibleGrids();
-        setupGroups();
-        setupMasonries();
-        setupDynamicRelativeTime();
-        setupLazyImages();
-        setupLiveWidgetUpdates();
+        runFrontendDiagnosticStage("popovers", () => setupPopovers());
+        runFrontendDiagnosticStage("clocks", () => setupClocks());
+        runFrontendDiagnosticStage("analog_clocks", () => setupAnalogClocks());
+        await runFrontendDiagnosticAsyncStage(
+            "calendars",
+            () => setupCalendars()
+        );
+        await runFrontendDiagnosticAsyncStage(
+            "timers",
+            () => setupTimers()
+        );
+        await runFrontendDiagnosticAsyncStage(
+            "todos",
+            () => setupTodos()
+        );
+        runFrontendDiagnosticStage("carousels", () => setupCarousels());
+        runFrontendDiagnosticStage("search_boxes", () => setupSearchBoxes());
+        runFrontendDiagnosticStage(
+            "collapsible_lists",
+            () => setupCollapsibleLists()
+        );
+        runFrontendDiagnosticStage(
+            "collapsible_grids",
+            () => setupCollapsibleGrids()
+        );
+        runFrontendDiagnosticStage("groups", () => setupGroups());
+        runFrontendDiagnosticStage("masonries", () => setupMasonries());
+        runFrontendDiagnosticStage(
+            "relative_time",
+            () => setupDynamicRelativeTime()
+        );
+        runFrontendDiagnosticStage("lazy_images", () => setupLazyImages());
+        runFrontendDiagnosticStage(
+            "live_updates",
+            () => setupLiveWidgetUpdates()
+        );
     } finally {
         pageElement.classList.add("content-ready");
         pageElement.setAttribute("aria-busy", "false");
@@ -1055,6 +1529,10 @@ async function setupPage() {
         setTimeout(() => {
             document.body.classList.add("page-columns-transitioned");
         }, 300);
+
+        frontendDiagnostic("page_setup_complete", {
+            elapsedMS: performance.now() - setupStarted,
+        }, true);
     }
 }
 

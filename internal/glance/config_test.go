@@ -1647,3 +1647,57 @@ func TestStatusBarPlacement(t *testing.T) {
 		})
 	}
 }
+
+func TestFrontendDiagnosticsConfigDefaultDisabled(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "glance.yml")
+
+	writeConfigTestFile(t, mainPath,
+		"pages:\n"+
+			"  - name: Home\n"+
+			"    columns:\n"+
+			"      - size: full\n",
+	)
+
+	parsed, err := parseYAMLIncludesWithSources(mainPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	config, err := newConfigFromParsedYAML(parsed)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if config.Server.FrontendDiagnostics {
+		t.Fatal("frontend diagnostics enabled by default, want disabled")
+	}
+}
+
+func TestFrontendDiagnosticsConfigEnabled(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "glance.yml")
+
+	writeConfigTestFile(t, mainPath,
+		"server:\n"+
+			"  frontend-diagnostics: true\n"+
+			"pages:\n"+
+			"  - name: Home\n"+
+			"    columns:\n"+
+			"      - size: full\n",
+	)
+
+	parsed, err := parseYAMLIncludesWithSources(mainPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	config, err := newConfigFromParsedYAML(parsed)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !config.Server.FrontendDiagnostics {
+		t.Fatal("frontend diagnostics disabled, want enabled")
+	}
+}
