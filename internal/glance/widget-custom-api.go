@@ -477,11 +477,10 @@ func fetchAndRenderCustomAPIRequest(
 		(primaryData.Response.StatusCode < http.StatusOK ||
 			primaryData.Response.StatusCode >= http.StatusMultipleChoices) &&
 		!customAPIHTMLHasVisibleText(rendered) {
-		return emptyBody, fmt.Errorf(
-			"upstream API returned %d %s",
-			primaryData.Response.StatusCode,
-			http.StatusText(primaryData.Response.StatusCode),
-		)
+		return emptyBody, &httpStatusError{
+			StatusCode: primaryData.Response.StatusCode,
+			Status:     primaryData.Response.Status,
+		}
 	}
 
 	return template.HTML(rendered), nil
