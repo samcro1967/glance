@@ -6,7 +6,7 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps build test-instance-start test-instance-status test-instance-stop test test-race test-count test-race-count fmt-check diff-check staged-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy
+.PHONY: help deps build test-instance-start test-instance-status test-instance-stop test test-race test-count test-race-count fmt-check diff-check staged-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy
 
 COUNT ?= 10
 COVERAGE_FILE ?= coverage.out
@@ -36,9 +36,11 @@ FORK_RELEASE_ID ?= samcro1967
 FORK_RELEASE_WIDTH ?= 3
 
 DEPLOY_IMAGE ?= ghcr.io/samcro1967/glance:latest
+DEPLOY_DEV_IMAGE ?= ghcr.io/samcro1967/glance:dev
 DEPLOY_CONTAINER ?= glance
 DEPLOY_SERVICE ?= glance
 DEPLOY_DIR ?= /home/osuhickeys/Documents/Docker
+DEPLOY_COMPOSE_FILE ?= docker-compose.yml
 DEPLOY_URL ?= http://127.0.0.1:8092/
 DEPLOY_RETRIES ?= 6
 DEPLOY_RETRY_DELAY ?= 2
@@ -88,8 +90,8 @@ help:
 	@echo "  make pr-view PR=55           Show a pull request"
 	@echo "  make pr-runs                 Show recent validation runs for current branch"
 	@echo "  make pr-runs BRANCH=dev      Show recent validation runs for a branch"
-	@echo "  make pr-watch                Find and watch validation for current HEAD"
-	@echo "  make pr-merge PR=55          Merge a pull request and delete feature branch"
+	@echo "  make pr-watch PR=55          Find and watch validation for the exact PR head"
+	@echo "  make pr-merge PR=55          Merge a pull request; delete feature branches only"
 	@echo "  make post-merge PR=55        Update PR base and clean merged feature branch"
 	@echo
 	@echo "GitHub Actions:"
@@ -104,7 +106,8 @@ help:
 	@echo "  make release                 Validate, tag, and push the next fork release"
 	@echo
 	@echo "Production:"
-	@echo "  make deploy-status           Compare source, GHCR, and production revisions"
+	@echo "  make deploy-status           Compare source, Compose config, GHCR, and production"
+	@echo "  make deploy-dev              Deploy the current dev GHCR image for validation"
 	@echo "  make deploy                  Deploy the current formal GHCR release"
 
 deps:
@@ -460,21 +463,28 @@ pr-runs:
 
 pr-watch:
 	@set -euo pipefail; \
-	branch="$$(git branch --show-current)"; \
-	if [ -z "$$branch" ]; then \
-		echo "Unable to determine current branch."; \
+	if [ -z "$(PR)" ]; then \
+		echo "PR is required. Example: make pr-watch PR=55"; \
+		exit 2; \
+	fi; \
+	pr_state="$$(gh pr view "$(PR)" --repo "$(REPO)" --json state --jq '.state')"; \
+	head_branch="$$(gh pr view "$(PR)" --repo "$(REPO)" --json headRefName --jq '.headRefName')"; \
+	revision="$$(gh pr view "$(PR)" --repo "$(REPO)" --json headRefOid --jq '.headRefOid')"; \
+	if [ "$$pr_state" != "OPEN" ]; then \
+		echo "PR #$(PR) is not open; current state is $$pr_state."; \
 		exit 1; \
 	fi; \
-	revision="$$(git rev-parse HEAD)"; \
 	echo "=== FIND PR VALIDATION RUN ==="; \
-	echo "Branch=$$branch"; \
+	echo "PR=$(PR)"; \
+	echo "Branch=$$head_branch"; \
 	echo "Revision=$$revision"; \
 	run_id=""; \
 	for i in $$(seq 1 "$(CI_RUN_RETRIES)"); do \
 		run_id="$$(gh run list \
 			--repo "$(REPO)" \
 			--workflow "$(PR_WORKFLOW)" \
-			--branch "$$branch" \
+			--branch "$$head_branch" \
+			--event pull_request \
 			--limit 20 \
 			--json databaseId,headSha \
 			--jq '.[] | select(.headSha == "'"$$revision"'") | .databaseId' \
@@ -486,7 +496,7 @@ pr-watch:
 		sleep "$(CI_RUN_RETRY_DELAY)"; \
 	done; \
 	if [ -z "$$run_id" ]; then \
-		echo "No validation run found for $$revision."; \
+		echo "No pull-request validation run found for PR #$(PR) at $$revision."; \
 		exit 1; \
 	fi; \
 	echo "Run=$$run_id"; \
@@ -508,7 +518,8 @@ pr-merge:
 		exit 2; \
 	fi; \
 	head_branch="$$(gh pr view "$(PR)" --repo "$(REPO)" --json headRefName --jq '.headRefName')"; \
-	if [ "$$head_branch" = "$(DEV_BRANCH)" ]; then \
+	if [ "$$head_branch" = "$(DEV_BRANCH)" ] || [ "$$head_branch" = "$(STABLE_BRANCH)" ]; then \
+		echo "Preserving long-lived branch $$head_branch."; \
 		gh pr merge "$(PR)" \
 			--repo "$(REPO)" \
 			--merge; \
@@ -642,11 +653,11 @@ verify-dev:
 	@echo "=== REFRESH ORIGIN ==="
 	@git fetch origin --prune
 	@echo
-	@echo "=== BRANCH ==="
+	@echo "=== CURRENT BRANCH ==="
 	@git branch --show-current
 	@echo
 	@echo "=== DEV ==="
-	@git log -1 --oneline --decorate
+	@git log -1 --oneline --decorate $(DEV_BRANCH)
 	@echo
 	@echo "=== STATUS ==="
 	@git status --short
@@ -664,11 +675,11 @@ verify-main:
 	@echo "=== REFRESH UPSTREAM ==="
 	@git fetch upstream --prune
 	@echo
-	@echo "=== BRANCH ==="
+	@echo "=== CURRENT BRANCH ==="
 	@git branch --show-current
 	@echo
 	@echo "=== MAIN ==="
-	@git log -1 --oneline --decorate
+	@git log -1 --oneline --decorate $(STABLE_BRANCH)
 	@echo
 	@echo "=== STATUS ==="
 	@git status --short
@@ -826,7 +837,7 @@ release: release-check
 
 deploy-status:
 	@set -euo pipefail; \
-	echo "=== SOURCE ==="; \
+	echo "=== SOURCE CHECKOUT ==="; \
 	branch="$$(git branch --show-current)"; \
 	local_revision="$$(git rev-parse HEAD)"; \
 	release_tag="$$(git tag --points-at HEAD --list 'v*-$(FORK_RELEASE_ID).r*' --sort=-version:refname | head -1)"; \
@@ -834,7 +845,20 @@ deploy-status:
 	echo "Revision=$$local_revision"; \
 	echo "Release=$${release_tag:-none}"; \
 	echo; \
-	echo "=== DEPLOY IMAGE ==="; \
+	echo "=== COMPOSE CONFIGURATION ==="; \
+	compose_images="$$(cd "$(DEPLOY_DIR)" && docker compose config --images "$(DEPLOY_SERVICE)" 2>/dev/null || true)"; \
+	if [ -n "$$compose_images" ]; then \
+		printf '%s\n' "$$compose_images"; \
+		if printf '%s\n' "$$compose_images" | grep -Fxq "$(DEPLOY_IMAGE)"; then \
+			echo "Formal image configured: yes"; \
+		else \
+			echo "Formal image configured: no"; \
+		fi; \
+	else \
+		echo "Unable to read Compose image configuration."; \
+	fi; \
+	echo; \
+	echo "=== FORMAL DEPLOY IMAGE ==="; \
 	if docker image inspect "$(DEPLOY_IMAGE)" >/dev/null 2>&1; then \
 		image_id="$$(docker image inspect "$(DEPLOY_IMAGE)" --format '{{.Id}}')"; \
 		image_created="$$(docker image inspect "$(DEPLOY_IMAGE)" --format '{{.Created}}')"; \
@@ -844,6 +868,18 @@ deploy-status:
 		echo "Created=$$image_created"; \
 	else \
 		echo "Image $(DEPLOY_IMAGE) is not available locally."; \
+	fi; \
+	echo; \
+	echo "=== DEVELOPMENT DEPLOY IMAGE ==="; \
+	if docker image inspect "$(DEPLOY_DEV_IMAGE)" >/dev/null 2>&1; then \
+		dev_image_id="$$(docker image inspect "$(DEPLOY_DEV_IMAGE)" --format '{{.Id}}')"; \
+		dev_image_created="$$(docker image inspect "$(DEPLOY_DEV_IMAGE)" --format '{{.Created}}')"; \
+		dev_image_version="$$(docker run --rm --entrypoint /app/glance "$(DEPLOY_DEV_IMAGE)" --version 2>/dev/null || true)"; \
+		echo "Version=$${dev_image_version:-unknown}"; \
+		echo "Image=$$dev_image_id"; \
+		echo "Created=$$dev_image_created"; \
+	else \
+		echo "Image $(DEPLOY_DEV_IMAGE) is not available locally."; \
 	fi; \
 	echo; \
 	echo "=== PRODUCTION ==="; \
@@ -857,6 +893,122 @@ deploy-status:
 	else \
 		echo "Container $(DEPLOY_CONTAINER) does not exist."; \
 	fi
+
+deploy-dev:
+	@set -euo pipefail; \
+	echo "=== PRE-DEPLOY DEV VALIDATION ==="; \
+	branch="$$(git branch --show-current)"; \
+	if [ "$$branch" != "$(DEV_BRANCH)" ]; then \
+		echo "Development deployment requires branch $(DEV_BRANCH); current branch is $$branch."; \
+		exit 1; \
+	fi; \
+	if [ -n "$$(git status --porcelain)" ]; then \
+		echo "Development deployment requires a clean working tree."; \
+		git status --short; \
+		exit 1; \
+	fi; \
+	echo "Refreshing origin..."; \
+	git fetch origin --prune; \
+	local_revision="$$(git rev-parse HEAD)"; \
+	origin_revision="$$(git rev-parse origin/$(DEV_BRANCH))"; \
+	if [ "$$local_revision" != "$$origin_revision" ]; then \
+		echo "Local $(DEV_BRANCH) does not match origin/$(DEV_BRANCH)."; \
+		echo "Local:  $$local_revision"; \
+		echo "Origin: $$origin_revision"; \
+		exit 1; \
+	fi; \
+	echo "Verifying successful development image build..."; \
+	run_id="$$(gh run list \
+		--repo "$(REPO)" \
+		--workflow "$(IMAGE_WORKFLOW)" \
+		--branch "$(DEV_BRANCH)" \
+		--limit 20 \
+		--json databaseId,headSha,status,conclusion \
+		--jq '.[] | select(.headSha == "'"$$local_revision"'" and .status == "completed" and .conclusion == "success") | .databaseId' \
+		| head -1)"; \
+	if [ -z "$$run_id" ]; then \
+		echo "Refusing development deployment: no successful dev image build found for $$local_revision."; \
+		echo "Run make image-watch after the dev image workflow starts."; \
+		exit 1; \
+	fi; \
+	echo "Dev revision: $$local_revision"; \
+	echo "Image run:    $$run_id"; \
+	echo; \
+	echo "=== VERIFY BASE COMPOSE CONFIGURATION ==="; \
+	compose_images="$$(cd "$(DEPLOY_DIR)" && docker compose config --images "$(DEPLOY_SERVICE)")"; \
+	if ! printf '%s\n' "$$compose_images" | grep -Fxq "$(DEPLOY_IMAGE)"; then \
+		echo "Refusing development deployment: base Compose configuration does not reference $(DEPLOY_IMAGE)."; \
+		echo "Keep the permanent Compose configuration on the formal latest image."; \
+		printf '%s\n' "$$compose_images"; \
+		exit 1; \
+	fi; \
+	echo "Base Compose remains configured for $(DEPLOY_IMAGE)."; \
+	echo; \
+	echo "=== PULL DEVELOPMENT IMAGE ==="; \
+	docker pull "$(DEPLOY_DEV_IMAGE)"; \
+	image_id="$$(docker image inspect "$(DEPLOY_DEV_IMAGE)" --format '{{.Id}}')"; \
+	image_version="$$(docker run --rm --entrypoint /app/glance "$(DEPLOY_DEV_IMAGE)" --version)"; \
+	echo "Image version: $$image_version"; \
+	echo "Image ID:      $$image_id"; \
+	if [ "$$image_version" != "dev" ]; then \
+		echo "Refusing development deployment: $(DEPLOY_DEV_IMAGE) does not identify as dev."; \
+		exit 1; \
+	fi; \
+	echo; \
+	echo "=== DEPLOY DEVELOPMENT IMAGE ==="; \
+	override_file="$$(mktemp)"; \
+	trap 'rm -f "$$override_file"' EXIT; \
+	printf 'services:\n  %s:\n    image: %s\n' "$(DEPLOY_SERVICE)" "$(DEPLOY_DEV_IMAGE)" > "$$override_file"; \
+	cd "$(DEPLOY_DIR)"; \
+	docker compose -f "$(DEPLOY_COMPOSE_FILE)" -f "$$override_file" up -d --force-recreate --no-deps "$(DEPLOY_SERVICE)"; \
+	echo; \
+	echo "=== VERIFY DEVELOPMENT CONTAINER ==="; \
+	container_version="$$(docker exec "$(DEPLOY_CONTAINER)" /app/glance --version)"; \
+	container_image="$$(docker inspect "$(DEPLOY_CONTAINER)" --format '{{.Image}}')"; \
+	echo "Container version: $$container_version"; \
+	echo "Container image:   $$container_image"; \
+	if [ "$$container_version" != "dev" ]; then \
+		echo "Development deployment verification failed: container does not identify as dev."; \
+		exit 1; \
+	fi; \
+	if [ "$$container_image" != "$$image_id" ]; then \
+		echo "Development deployment verification failed: container image does not match pulled dev image."; \
+		echo "Pulled:    $$image_id"; \
+		echo "Container: $$container_image"; \
+		exit 1; \
+	fi; \
+	echo; \
+	echo "=== HTTP CHECK ==="; \
+	http_ok=0; \
+	for i in $$(seq 1 "$(DEPLOY_RETRIES)"); do \
+		code="$$(curl -sS -o /dev/null -w '%{http_code}' "$(DEPLOY_URL)" 2>/dev/null || true)"; \
+		if [ "$$code" = "200" ] || [ "$$code" = "302" ]; then \
+			echo "Glance HTTP: $$code"; \
+			http_ok=1; \
+			break; \
+		fi; \
+		echo "Glance HTTP: $${code:-not ready}; retrying..."; \
+		sleep "$(DEPLOY_RETRY_DELAY)"; \
+	done; \
+	if [ "$$http_ok" -ne 1 ]; then \
+		echo "Development deployment verification failed: Glance did not become HTTP-ready."; \
+		docker logs "$(DEPLOY_CONTAINER)" --since 2m 2>&1 | tail -50 || true; \
+		exit 1; \
+	fi; \
+	short_revision="$${local_revision:0:7}"; \
+	if ! docker logs "$(DEPLOY_CONTAINER)" --since 2m 2>&1 | grep -Fq "revision=$$short_revision"; then \
+		echo "Development deployment verification failed: startup log does not report revision $$short_revision."; \
+		docker logs "$(DEPLOY_CONTAINER)" --since 2m 2>&1 | tail -50 || true; \
+		exit 1; \
+	fi; \
+	echo; \
+	echo "=== RECENT LOGS ==="; \
+	docker logs "$(DEPLOY_CONTAINER)" --since 2m 2>&1 | tail -50 || true; \
+	echo; \
+	echo "=== DEVELOPMENT DEPLOYMENT COMPLETE ==="; \
+	echo "Revision=$$local_revision"; \
+	echo "Image=$$container_image"; \
+	echo "BaseComposeImage=$(DEPLOY_IMAGE)"
 
 deploy:
 	@set -euo pipefail; \
@@ -898,6 +1050,16 @@ deploy:
 	echo "Source revision: $$local_revision"; \
 	echo "Release:         $$release_tag"; \
 	echo; \
+	echo "=== VERIFY BASE COMPOSE CONFIGURATION ==="; \
+	compose_images="$$(cd "$(DEPLOY_DIR)" && docker compose config --images "$(DEPLOY_SERVICE)")"; \
+	if ! printf '%s\n' "$$compose_images" | grep -Fxq "$(DEPLOY_IMAGE)"; then \
+		echo "Refusing deployment: base Compose configuration does not reference $(DEPLOY_IMAGE)."; \
+		echo "Formal production deployment requires the permanent Compose configuration to use latest."; \
+		printf '%s\n' "$$compose_images"; \
+		exit 1; \
+	fi; \
+	echo "Base Compose is configured for $(DEPLOY_IMAGE)."; \
+	echo; \
 	echo "=== PULL IMAGE ==="; \
 	docker pull "$(DEPLOY_IMAGE)"; \
 	image_id="$$(docker image inspect "$(DEPLOY_IMAGE)" --format '{{.Id}}')"; \
@@ -913,7 +1075,7 @@ deploy:
 	echo; \
 	echo "=== DEPLOY ==="; \
 	cd "$(DEPLOY_DIR)"; \
-	docker compose up -d --no-deps "$(DEPLOY_SERVICE)"; \
+	docker compose up -d --force-recreate --no-deps "$(DEPLOY_SERVICE)"; \
 	echo; \
 	echo "=== VERIFY CONTAINER ==="; \
 	container_version="$$(docker exec "$(DEPLOY_CONTAINER)" /app/glance --version)"; \
