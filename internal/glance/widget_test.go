@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"log/slog"
+	"net/http"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -585,5 +586,335 @@ func TestRefreshWidgetWaitsForActiveRender(t *testing.T) {
 	case <-refreshDone:
 	case <-time.After(time.Second):
 		t.Fatal("refresh did not complete")
+	}
+}
+
+func TestWidgetRefreshRetryPolicyByFailureClass(t *testing.T) {
+	tests := []struct {
+		name           string
+		err            error
+		wantRetryCount int
+		wantClass      refreshFailureClass
+		wantRetryLog   string
+	}{
+		{
+			name:           "transient server failure retries early",
+			err:            unexpectedHTTPStatusError(&http.Response{StatusCode: http.StatusBadGateway, Status: "502 Bad Gateway"}),
+			wantRetryCount: 1,
+			wantClass:      refreshFailureTransient,
+			wantRetryLog:   "retry=true",
+		},
+		{
+			name:           "authentication failure uses normal schedule",
+			err:            unexpectedHTTPStatusError(&http.Response{StatusCode: http.StatusUnauthorized, Status: "401 Unauthorized"}),
+			wantRetryCount: 0,
+			wantClass:      refreshFailureAuthentication,
+			wantRetryLog:   "retry=false",
+		},
+		{
+			name:           "authorization failure uses normal schedule",
+			err:            unexpectedHTTPStatusError(&http.Response{StatusCode: http.StatusForbidden, Status: "403 Forbidden"}),
+			wantRetryCount: 0,
+			wantClass:      refreshFailureAuthorization,
+			wantRetryLog:   "retry=false",
+		},
+		{
+			name:           "rate limit uses normal schedule",
+			err:            unexpectedHTTPStatusError(&http.Response{StatusCode: http.StatusTooManyRequests, Status: "429 Too Many Requests"}),
+			wantRetryCount: 0,
+			wantClass:      refreshFailureRateLimited,
+			wantRetryLog:   "retry=false",
+		},
+		{
+			name:           "persistent request failure uses normal schedule",
+			err:            unexpectedHTTPStatusError(&http.Response{StatusCode: http.StatusNotFound, Status: "404 Not Found"}),
+			wantRetryCount: 0,
+			wantClass:      refreshFailureRequest,
+			wantRetryLog:   "retry=false",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			widget := &widgetBase{
+				ID:    50,
+				Type:  "test-widget",
+				Title: "Retry Policy",
+			}
+			widget.withCacheDuration(time.Hour)
+
+			var logOutput bytes.Buffer
+			previousLogger := slog.Default()
+			slog.SetDefault(slog.New(slog.NewTextHandler(&logOutput, nil)))
+			t.Cleanup(func() {
+				slog.SetDefault(previousLogger)
+			})
+
+			if widget.canContinueUpdateAfterHandlingErr(test.err) {
+				t.Fatal("full refresh failure should not continue update")
+			}
+
+			if widget.updateRetriedTimes != test.wantRetryCount {
+				t.Fatalf(
+					"retry attempts = %d, want %d",
+					widget.updateRetriedTimes,
+					test.wantRetryCount,
+				)
+			}
+
+			if widget.refreshFailureClass != test.wantClass {
+				t.Fatalf(
+					"failure class = %q, want %q",
+					widget.refreshFailureClass,
+					test.wantClass,
+				)
+			}
+
+			logged := logOutput.String()
+			if !strings.Contains(logged, "failure_class="+string(test.wantClass)) {
+				t.Fatalf("missing failure class in log: %q", logged)
+			}
+
+			if !strings.Contains(logged, test.wantRetryLog) {
+				t.Fatalf("missing retry decision in log: %q", logged)
+			}
+		})
+	}
+}
+
+func TestWidgetPartialRefreshRetryPolicy(t *testing.T) {
+	tests := []struct {
+		name           string
+		cause          error
+		wantRetryCount int
+		wantRetryLog   string
+	}{
+		{
+			name:           "transient partial failure retries early",
+			cause:          unexpectedHTTPStatusError(&http.Response{StatusCode: http.StatusServiceUnavailable, Status: "503 Service Unavailable"}),
+			wantRetryCount: 1,
+			wantRetryLog:   "retry=true",
+		},
+		{
+			name:           "rate limited partial failure uses normal schedule",
+			cause:          unexpectedHTTPStatusError(&http.Response{StatusCode: http.StatusTooManyRequests, Status: "429 Too Many Requests"}),
+			wantRetryCount: 0,
+			wantRetryLog:   "retry=false",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			widget := &widgetBase{
+				ID:    51,
+				Type:  "test-widget",
+				Title: "Partial Retry Policy",
+			}
+			widget.withCacheDuration(time.Hour)
+
+			var logOutput bytes.Buffer
+			previousLogger := slog.Default()
+			slog.SetDefault(slog.New(slog.NewTextHandler(&logOutput, nil)))
+			t.Cleanup(func() {
+				slog.SetDefault(previousLogger)
+			})
+
+			err := contentFetchError(
+				errPartialContent,
+				1,
+				2,
+				"resources",
+				test.cause,
+			)
+
+			if !widget.canContinueUpdateAfterHandlingErr(err) {
+				t.Fatal("partial refresh should continue update")
+			}
+
+			if widget.updateRetriedTimes != test.wantRetryCount {
+				t.Fatalf(
+					"retry attempts = %d, want %d",
+					widget.updateRetriedTimes,
+					test.wantRetryCount,
+				)
+			}
+
+			if widget.Error != nil {
+				t.Fatalf("partial refresh set widget error: %v", widget.Error)
+			}
+
+			if !errors.Is(widget.Notice, errPartialContent) {
+				t.Fatalf("partial refresh notice = %v, want errPartialContent", widget.Notice)
+			}
+
+			if !strings.Contains(logOutput.String(), test.wantRetryLog) {
+				t.Fatalf("missing retry decision in log: %q", logOutput.String())
+			}
+		})
+	}
+}
+
+func TestWidgetRefreshCancellationIsLifecycleNeutral(t *testing.T) {
+	widget := &widgetBase{
+		ID:    52,
+		Type:  "test-widget",
+		Title: "Cancellation",
+	}
+	widget.withCacheDuration(time.Hour)
+
+	originalNextUpdate := time.Now().Add(30 * time.Minute)
+	widget.nextUpdate = originalNextUpdate
+
+	var logOutput bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logOutput, nil)))
+	t.Cleanup(func() {
+		slog.SetDefault(previousLogger)
+	})
+
+	if widget.canContinueUpdateAfterHandlingErr(context.Canceled) {
+		t.Fatal("cancelled refresh should not continue update")
+	}
+
+	if widget.refreshDegraded {
+		t.Fatal("cancelled refresh should not mark widget degraded")
+	}
+
+	if widget.updateRetriedTimes != 0 {
+		t.Fatalf("cancelled refresh retry attempts = %d, want 0", widget.updateRetriedTimes)
+	}
+
+	if widget.refreshFailureCount != 0 {
+		t.Fatalf("cancelled refresh failure count = %d, want 0", widget.refreshFailureCount)
+	}
+
+	if !widget.nextUpdate.Equal(originalNextUpdate) {
+		t.Fatalf(
+			"cancelled refresh changed next update: got %v want %v",
+			widget.nextUpdate,
+			originalNextUpdate,
+		)
+	}
+
+	if logOutput.Len() != 0 {
+		t.Fatalf("cancelled refresh emitted operational log: %q", logOutput.String())
+	}
+}
+
+func TestWidgetRecoveryLogsFailureContextOnce(t *testing.T) {
+	widget := &widgetBase{
+		ID:    53,
+		Type:  "test-widget",
+		Title: "Failure Context",
+	}
+	widget.withCacheDuration(time.Hour)
+
+	var logOutput bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logOutput, nil)))
+	t.Cleanup(func() {
+		slog.SetDefault(previousLogger)
+	})
+
+	failure := unexpectedHTTPStatusError(&http.Response{
+		StatusCode: http.StatusBadGateway,
+		Status:     "502 Bad Gateway",
+	})
+
+	widget.canContinueUpdateAfterHandlingErr(failure)
+	widget.canContinueUpdateAfterHandlingErr(failure)
+
+	if widget.refreshFailureCount != 2 {
+		t.Fatalf("failure count = %d, want 2", widget.refreshFailureCount)
+	}
+
+	logOutput.Reset()
+
+	if !widget.canContinueUpdateAfterHandlingErr(nil) {
+		t.Fatal("successful refresh should continue update")
+	}
+
+	recoveryLog := logOutput.String()
+
+	if !strings.Contains(recoveryLog, "previous_failure_class=transient") {
+		t.Fatalf("missing previous failure class: %q", recoveryLog)
+	}
+
+	if !strings.Contains(recoveryLog, "previous_failures=2") {
+		t.Fatalf("missing previous failure count: %q", recoveryLog)
+	}
+
+	if widget.refreshFailureCount != 0 {
+		t.Fatalf("failure count = %d, want 0 after recovery", widget.refreshFailureCount)
+	}
+
+	if widget.refreshFailureClass != refreshFailureUnknown {
+		t.Fatalf(
+			"failure class = %q, want %q after recovery",
+			widget.refreshFailureClass,
+			refreshFailureUnknown,
+		)
+	}
+
+	logOutput.Reset()
+
+	widget.canContinueUpdateAfterHandlingErr(nil)
+
+	if logOutput.Len() != 0 {
+		t.Fatalf("subsequent healthy refresh emitted recovery log: %q", logOutput.String())
+	}
+}
+
+func TestWidgetRefreshFailureLogsContentState(t *testing.T) {
+	tests := []struct {
+		name             string
+		contentAvailable bool
+		wantContent      string
+	}{
+		{
+			name:             "first load has no content",
+			contentAvailable: false,
+			wantContent:      "no-content",
+		},
+		{
+			name:             "failed refresh preserves stale content",
+			contentAvailable: true,
+			wantContent:      "stale",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			widget := &widgetBase{
+				ID:               42,
+				Type:             "test",
+				Title:            "Test Widget",
+				ContentAvailable: test.contentAvailable,
+			}
+			widget.withCacheDuration(time.Hour)
+
+			var logs bytes.Buffer
+			logger := slog.New(slog.NewTextHandler(&logs, nil))
+			previousLogger := slog.Default()
+			slog.SetDefault(logger)
+			t.Cleanup(func() {
+				slog.SetDefault(previousLogger)
+			})
+
+			err := &httpStatusError{
+				StatusCode: http.StatusBadGateway,
+				Status:     "502 Bad Gateway",
+			}
+
+			if widget.canContinueUpdateAfterHandlingErr(err) {
+				t.Fatal("complete refresh failure should stop update")
+			}
+
+			logged := logs.String()
+			want := "content=" + test.wantContent
+			if !strings.Contains(logged, want) {
+				t.Fatalf("log = %q, want %q", logged, want)
+			}
+		})
 	}
 }

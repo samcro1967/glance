@@ -60,7 +60,9 @@ func (widget *extensionWidget) update(ctx context.Context) {
 		AllowHtml:           widget.AllowHtml,
 	})
 
-	widget.canContinueUpdateAfterHandlingErr(err)
+	if !widget.canContinueUpdateAfterHandlingErr(err) {
+		return
+	}
 
 	widget.Extension = extension
 

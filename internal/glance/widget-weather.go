@@ -59,8 +59,7 @@ func (widget *weatherWidget) initialize() error {
 func (widget *weatherWidget) update(ctx context.Context) {
 	if widget.Place == nil {
 		place, err := fetchOpenMeteoPlaceResource(ctx, widget.Location)
-		if err != nil {
-			widget.withError(err).scheduleEarlyUpdate()
+		if !widget.canContinueUpdateAfterHandlingErr(err) {
 			return
 		}
 

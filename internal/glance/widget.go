@@ -225,6 +225,8 @@ type widgetBase struct {
 	nextUpdate          time.Time            `yaml:"-"`
 	updateRetriedTimes  int                  `yaml:"-"`
 	refreshDegraded     bool                 `yaml:"-"`
+	refreshFailureClass refreshFailureClass  `yaml:"-"`
+	refreshFailureCount int                  `yaml:"-"`
 	refreshMu           sync.Mutex           `yaml:"-"`
 }
 
@@ -373,40 +375,52 @@ func (w *widgetBase) withError(err error) *widgetBase {
 }
 
 func (w *widgetBase) canContinueUpdateAfterHandlingErr(err error) bool {
-	// TODO: needs covering more edge cases.
-	// if there's partial content and we update early there's a chance
-	// the early update returns even less content than the initial update.
-	// need some kind of mechanism that tells us whether we should update early
-	// or not depending on the number of things that failed during the initial
-	// and subsequent update and how they failed - ie whether it was server
-	// error (like gateway timeout, do retry early) or client error (like
-	// hitting a rate limit, don't retry early). will require reworking a
-	// good amount of code in the feed package and probably having a custom
-	// error type that holds more information because screw wrapping errors.
-	// alternatively have a resource cache and only refetch the failed resources,
-	// then rebuild the widget.
-
 	if err != nil {
-		w.scheduleEarlyUpdate()
+		failureClass := classifyRefreshFailure(err)
+
+		if failureClass == refreshFailureCancelled {
+			return false
+		}
 
 		partialContent := errors.Is(err, errPartialContent)
+		retry := refreshFailureRetryable(err)
+
+		if retry {
+			w.scheduleEarlyUpdate()
+		} else {
+			w.scheduleNextUpdate()
+		}
+
+		w.refreshFailureCount++
+		w.refreshFailureClass = failureClass
 
 		if !w.refreshDegraded {
 			message := "Widget refresh failed"
+			content := "no-content"
 			if partialContent {
 				message = "Widget refresh degraded"
+				content = "partial"
+			} else if w.ContentAvailable {
+				content = "stale"
 			}
 
-			slog.Warn(
-				message,
+			args := []any{
 				"widget_id", w.ID,
 				"type", w.Type,
 				"title", w.Title,
+				"failure_class", failureClass,
 				"cause", err,
-				"retry_attempt", w.updateRetriedTimes,
-				"next_update", w.nextUpdate,
-			)
+				"content", content,
+				"retry", retry,
+			}
 
+			if retry {
+				args = append(args, "retry_attempt", w.updateRetriedTimes)
+			}
+
+			args = append(args, "next_update", w.nextUpdate)
+
+			slog.Warn(message, args...)
 			w.refreshDegraded = true
 		}
 
@@ -422,11 +436,15 @@ func (w *widgetBase) canContinueUpdateAfterHandlingErr(err error) bool {
 	}
 
 	wasDegraded := w.refreshDegraded
+	previousFailureClass := w.refreshFailureClass
+	previousFailures := w.refreshFailureCount
 
 	w.withNotice(nil)
 	w.withError(nil)
 	w.scheduleNextUpdate()
 	w.refreshDegraded = false
+	w.refreshFailureClass = refreshFailureUnknown
+	w.refreshFailureCount = 0
 
 	if wasDegraded {
 		slog.Info(
@@ -434,6 +452,8 @@ func (w *widgetBase) canContinueUpdateAfterHandlingErr(err error) bool {
 			"widget_id", w.ID,
 			"type", w.Type,
 			"title", w.Title,
+			"previous_failure_class", previousFailureClass,
+			"previous_failures", previousFailures,
 		)
 	}
 
