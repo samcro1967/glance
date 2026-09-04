@@ -1050,6 +1050,19 @@ async function setupUnitConverters() {
     }
 }
 
+async function setupCalculators() {
+    const elems = Array.from(
+        document.getElementsByClassName("calculator")
+    );
+    if (elems.length == 0) return;
+
+    const calculator = await import('./calculator.js');
+
+    for (let i = 0; i < elems.length; i++) {
+        calculator.default(elems[i]);
+    }
+}
+
 function setupTruncatedElementTitles(root = document) {
     const elements = root.querySelectorAll(".text-truncate, .single-line-titles .title, .text-truncate-2-lines, .text-truncate-3-lines");
 
@@ -1509,6 +1522,10 @@ async function setupPage() {
         await runFrontendDiagnosticAsyncStage(
             "unit_converters",
             () => setupUnitConverters()
+        );
+        await runFrontendDiagnosticAsyncStage(
+            "calculators",
+            () => setupCalculators()
         );
         runFrontendDiagnosticStage("carousels", () => setupCarousels());
         runFrontendDiagnosticStage("search_boxes", () => setupSearchBoxes());

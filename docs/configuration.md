@@ -34,6 +34,7 @@
   - [Todo](#todo)
   - [Timer](#timer)
   - [Unit Converter](#unit-converter)
+  - [Calculator](#calculator)
   - [Monitor](#monitor)
   - [Releases](#releases)
   - [Docker Containers](#docker-containers)
@@ -2583,6 +2584,26 @@ The widget includes 35 conversion categories and 379 units covering common measu
 No external service or network connection is required. The conversion catalog is built into Glance and conversions are performed locally in the browser.
 
 The widget has no required configuration properties beyond the standard [shared widget properties](#shared-properties). Each category provides default source and destination units, which can be changed interactively in the widget.
+
+### Calculator
+
+Perform calculations directly in the browser using a native Glance calculator.
+
+The calculator supports standard arithmetic together with percentage, reciprocal, square, square root, exponent, nth-root, parentheses, sign change, clear-entry, clear, and backspace controls. Expressions support operator precedence and parentheses, and the calculator can also be operated from the keyboard.
+
+Example:
+
+```yaml
+- type: calculator
+```
+
+Preview:
+
+![](images/calculator-preview.png)
+
+No external service or network connection is required. Calculations are performed locally in the browser.
+
+The widget has no required configuration properties beyond the standard [shared widget properties](#shared-properties).
 
 ### Monitor
 

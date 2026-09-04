@@ -577,6 +577,9 @@ pages:
           - type: unit-converter
             title: Unit Converter
 
+          - type: calculator
+            title: Calculator
+
       - size: medium
         widgets:
           - type: timer
