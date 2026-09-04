@@ -1,0 +1,55 @@
+{{ template "widget-base.html" . }}
+
+{{ define "widget-content" }}
+<div class="calculator" tabindex="0" aria-label="Calculator">
+    <div class="calculator-display">
+        <div
+            class="calculator-expression"
+            data-calculator-expression
+            aria-live="polite"
+        ></div>
+        <output
+            class="calculator-result"
+            data-calculator-result
+            aria-live="polite"
+        >0</output>
+    </div>
+
+    <div class="calculator-keypad">
+        <button type="button" data-calculator-action="percent">%</button>
+        <button type="button" data-calculator-action="clear-entry">CE</button>
+        <button type="button" data-calculator-action="clear">C</button>
+        <button type="button" data-calculator-action="backspace" aria-label="Backspace">⌫</button>
+
+        <button type="button" data-calculator-action="reciprocal">1/x</button>
+        <button type="button" data-calculator-action="square">x²</button>
+        <button type="button" data-calculator-action="square-root">√x</button>
+        <button type="button" class="calculator-operator" data-calculator-operator="/">÷</button>
+
+        <button type="button" data-calculator-operator="^">xʸ</button>
+        <button type="button" data-calculator-operator="root">ʸ√x</button>
+        <button type="button" data-calculator-paren="(">(</button>
+        <button type="button" data-calculator-paren=")">)</button>
+
+        <button type="button" data-calculator-digit="7">7</button>
+        <button type="button" data-calculator-digit="8">8</button>
+        <button type="button" data-calculator-digit="9">9</button>
+        <button type="button" class="calculator-operator" data-calculator-operator="*">×</button>
+
+        <button type="button" data-calculator-digit="4">4</button>
+        <button type="button" data-calculator-digit="5">5</button>
+        <button type="button" data-calculator-digit="6">6</button>
+        <button type="button" class="calculator-operator" data-calculator-operator="-">−</button>
+
+        <button type="button" data-calculator-digit="1">1</button>
+        <button type="button" data-calculator-digit="2">2</button>
+        <button type="button" data-calculator-digit="3">3</button>
+        <button type="button" class="calculator-operator" data-calculator-operator="+">+</button>
+
+        <button type="button" data-calculator-action="sign">±</button>
+        <button type="button" data-calculator-digit="0">0</button>
+        <button type="button" data-calculator-action="decimal">.</button>
+        <button type="button" class="calculator-equals" data-calculator-action="equals">=</button>
+    </div>
+</div>
+{{ end }}
