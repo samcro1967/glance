@@ -574,6 +574,9 @@ pages:
             search-engine: google
             autofocus: false
 
+          - type: unit-converter
+            title: Unit Converter
+
       - size: medium
         widgets:
           - type: timer

@@ -1,0 +1,40 @@
+{{ template "widget-base.html" . }}
+
+{{ define "widget-content" }}
+<div class="unit-converter">
+    <script type="application/json" data-unit-converter-catalog>{{ .CatalogJSON }}</script>
+
+    <div class="unit-converter-row">
+        <label>Category</label>
+        <select data-unit-converter-category aria-label="Conversion category"></select>
+    </div>
+
+    <div class="unit-converter-row">
+        <label>From</label>
+        <select data-unit-converter-from aria-label="Convert from"></select>
+    </div>
+
+    <div class="unit-converter-row">
+        <label>Value</label>
+        <input
+            data-unit-converter-value
+            type="text"
+            inputmode="decimal"
+            value="1"
+            autocomplete="off"
+            spellcheck="false"
+            aria-label="Value to convert"
+        >
+    </div>
+
+    <div class="unit-converter-row">
+        <label>To</label>
+        <select data-unit-converter-to aria-label="Convert to"></select>
+    </div>
+
+    <div class="unit-converter-row unit-converter-result-row">
+        <span class="unit-converter-label">Result</span>
+        <output data-unit-converter-result></output>
+    </div>
+</div>
+{{ end }}
