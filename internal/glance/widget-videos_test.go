@@ -456,3 +456,74 @@ func TestVideosFetchYoutubeChannelUploadsFallbackPreservesBothFailures(t *testin
 		t.Fatalf("error missing fallback UU failure: %v", err)
 	}
 }
+
+func TestVideosRenderRespectsNewTabPolicy(t *testing.T) {
+	video := video{
+		ThumbnailUrl: "https://example.com/thumbnail.jpg",
+		Title:        "Test Video",
+		Url:          "https://example.com/video",
+		Author:       "Test Channel",
+		AuthorUrl:    "https://example.com/channel",
+		TimePosted:   time.Now().Add(-time.Hour),
+	}
+
+	for _, style := range []string{"", "grid-cards", "vertical-list"} {
+		style := style
+
+		t.Run("style="+style+"/new-tab", func(t *testing.T) {
+			widget := &videosWidget{
+				widgetBase: widgetBase{
+					Title:             "Videos",
+					OpenLinksInNewTab: true,
+					ContentAvailable:  true,
+				},
+				Videos:            videoList{video},
+				Style:             style,
+				CollapseAfter:     7,
+				CollapseAfterRows: 4,
+			}
+
+			rendered := string(widget.Render())
+
+			if !strings.Contains(rendered, `href="https://example.com/video" target="_blank" rel="noreferrer"`) {
+				t.Fatalf("video link does not open in new tab:\n%s", rendered)
+			}
+
+			if !strings.Contains(rendered, `href="https://example.com/channel" target="_blank" rel="noreferrer"`) {
+				t.Fatalf("author link does not open in new tab:\n%s", rendered)
+			}
+		})
+
+		t.Run("style="+style+"/same-tab", func(t *testing.T) {
+			widget := &videosWidget{
+				widgetBase: widgetBase{
+					Title:             "Videos",
+					OpenLinksInNewTab: false,
+					ContentAvailable:  true,
+				},
+				Videos:            videoList{video},
+				Style:             style,
+				CollapseAfter:     7,
+				CollapseAfterRows: 4,
+			}
+
+			rendered := string(widget.Render())
+
+			if strings.Contains(rendered, `href="https://example.com/video" target="_blank"`) {
+				t.Fatalf("video link unexpectedly opens in new tab:\n%s", rendered)
+			}
+
+			if strings.Contains(rendered, `href="https://example.com/channel" target="_blank"`) {
+				t.Fatalf("author link unexpectedly opens in new tab:\n%s", rendered)
+			}
+
+			if !strings.Contains(rendered, `href="https://example.com/video"`) {
+				t.Fatalf("video link missing:\n%s", rendered)
+			}
+
+			if !strings.Contains(rendered, `href="https://example.com/channel"`) {
+				t.Fatalf("author link missing:\n%s", rendered)
+			}
+		})
+	}
+}

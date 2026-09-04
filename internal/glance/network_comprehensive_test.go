@@ -107,11 +107,11 @@ func TestComprehensiveChangeDetectionFetchesUUIDsAndWatches(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-	ids, err := fetchWatchUUIDsFromChangeDetection(context.Background(), server.URL, "token")
+	ids, err := fetchWatchUUIDsFromChangeDetection(context.Background(), server.URL, "token", 0, false, nil)
 	if err != nil || len(ids) != 2 {
 		t.Fatalf("ids=%v err=%v", ids, err)
 	}
-	watches, err := fetchWatchesFromChangeDetection(context.Background(), server.URL, []string{"watch-1", "watch-2"}, "token")
+	watches, err := fetchWatchesFromChangeDetection(context.Background(), server.URL, []string{"watch-1", "watch-2"}, "token", 0, false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,11 +135,11 @@ func TestComprehensiveChangeDetectionPartialAndEmpty(t *testing.T) {
 		http.Error(rw, "bad", http.StatusInternalServerError)
 	}))
 	defer server.Close()
-	watches, err := fetchWatchesFromChangeDetection(context.Background(), server.URL, []string{"good", "bad"}, "")
+	watches, err := fetchWatchesFromChangeDetection(context.Background(), server.URL, []string{"good", "bad"}, "", 0, false, nil)
 	if len(watches) != 1 || err == nil || !errors.Is(err, errPartialContent) {
 		t.Fatalf("watches=%#v err=%v", watches, err)
 	}
-	empty, err := fetchWatchesFromChangeDetection(context.Background(), server.URL, nil, "")
+	empty, err := fetchWatchesFromChangeDetection(context.Background(), server.URL, nil, "", 0, false, nil)
 	if err != nil || len(empty) != 0 {
 		t.Fatalf("empty=%#v err=%v", empty, err)
 	}

@@ -5,9 +5,10 @@
 {{ define "widget-content" }}
 <div class="carousel-container">
     <div class="cards-horizontal carousel-items-container">
+        {{ $openLinksInNewTab := .OpenLinksInNewTab }}
         {{ range .Videos }}
         <div class="card widget-content-frame thumbnail-parent">
-            {{ template "video-card-contents" . }}
+            {{ template "video-card-contents" videoCardTemplateData . $openLinksInNewTab }}
         </div>
         {{ end }}
     </div>

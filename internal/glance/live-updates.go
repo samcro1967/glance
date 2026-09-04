@@ -2,9 +2,13 @@ package glance
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"sync"
+	"sync/atomic"
 )
+
+var frontendDiagnosticsLiveUpdateConnectionID atomic.Uint64
 
 type liveUpdateSubscription struct {
 	mu      sync.Mutex
@@ -138,8 +142,27 @@ func (a *application) handleLiveUpdatesRequest(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	connectionID := uint64(0)
+	if a.Config.Server.FrontendDiagnostics {
+		connectionID = frontendDiagnosticsLiveUpdateConnectionID.Add(1)
+		slog.Info(
+			"Frontend diagnostic",
+			"source", "server",
+			"event", "live_updates_request_accepted",
+			"connection", connectionID,
+		)
+	}
+
 	flusher, ok := w.(http.Flusher)
 	if !ok {
+		if a.Config.Server.FrontendDiagnostics {
+			slog.Info(
+				"Frontend diagnostic",
+				"source", "server",
+				"event", "live_updates_streaming_unsupported",
+				"connection", connectionID,
+			)
+		}
 		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
 		return
 	}
@@ -151,33 +174,98 @@ func (a *application) handleLiveUpdatesRequest(w http.ResponseWriter, r *http.Re
 	subscription, unsubscribe := a.liveUpdates.subscribe()
 	defer unsubscribe()
 
+	if a.Config.Server.FrontendDiagnostics {
+		slog.Info(
+			"Frontend diagnostic",
+			"source", "server",
+			"event", "live_updates_stream_ready",
+			"connection", connectionID,
+		)
+	}
+
 	// Commit and flush the response immediately so EventSource knows that
 	// the connection has been established even when no widget is currently
 	// due for refresh.
 	w.WriteHeader(http.StatusOK)
 	flusher.Flush()
 
+	if a.Config.Server.FrontendDiagnostics {
+		slog.Info(
+			"Frontend diagnostic",
+			"source", "server",
+			"event", "live_updates_initial_flush",
+			"connection", connectionID,
+		)
+	}
+
 	for {
 		select {
 		case <-r.Context().Done():
+			if a.Config.Server.FrontendDiagnostics {
+				slog.Info(
+					"Frontend diagnostic",
+					"source", "server",
+					"event", "live_updates_disconnected",
+					"connection", connectionID,
+					"reason", "request_context",
+				)
+			}
 			return
 
 		case _, ok := <-subscription.ready:
 			if !ok {
+				if a.Config.Server.FrontendDiagnostics {
+					slog.Info(
+						"Frontend diagnostic",
+						"source", "server",
+						"event", "live_updates_disconnected",
+						"connection", connectionID,
+						"reason", "subscription_closed",
+					)
+				}
 				return
 			}
 
 			for _, widgetID := range subscription.takePending() {
+				if a.Config.Server.FrontendDiagnostics {
+					slog.Info(
+						"Frontend diagnostic",
+						"source", "server",
+						"event", "live_updates_widget_write",
+						"connection", connectionID,
+						"widget", widgetID,
+					)
+				}
+
 				if _, err := fmt.Fprintf(
 					w,
 					"event: widget\ndata: %d\n\n",
 					widgetID,
 				); err != nil {
+					if a.Config.Server.FrontendDiagnostics {
+						slog.Info(
+							"Frontend diagnostic",
+							"source", "server",
+							"event", "live_updates_write_failed",
+							"connection", connectionID,
+							"widget", widgetID,
+							"error", err,
+						)
+					}
 					return
 				}
 			}
 
 			flusher.Flush()
+
+			if a.Config.Server.FrontendDiagnostics {
+				slog.Info(
+					"Frontend diagnostic",
+					"source", "server",
+					"event", "live_updates_widget_flush",
+					"connection", connectionID,
+				)
+			}
 		}
 	}
 }

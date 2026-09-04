@@ -13,9 +13,10 @@ import (
 var intl = message.NewPrinter(language.English)
 
 var globalTemplateFunctions = template.FuncMap{
-	"formatApproxNumber": formatApproxNumber,
-	"formatNumber":       intl.Sprint,
-	"renderWidget":       renderWidget,
+	"formatApproxNumber":    formatApproxNumber,
+	"formatNumber":          intl.Sprint,
+	"renderWidget":          renderWidget,
+	"videoCardTemplateData": videoCardTemplateDataFor,
 	"safeCSS": func(str string) template.CSS {
 		return template.CSS(str)
 	},

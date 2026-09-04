@@ -441,3 +441,11 @@ func fetchLatestCodebergRelease(ctx context.Context, request *releaseRequest) (*
 		TimeReleased: parseRFC3339Time(response.PublishedAt),
 	}, nil
 }
+
+func (widget *releasesWidget) setDefaultLimit(value int) {
+	widget.Limit = value
+}
+
+func (widget *releasesWidget) setDefaultCollapseAfter(value int) {
+	widget.CollapseAfter = value
+}

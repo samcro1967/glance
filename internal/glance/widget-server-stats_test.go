@@ -118,3 +118,30 @@ func TestFetchRemoteServerInfoTimeout(t *testing.T) {
 		t.Fatal("server did not observe remote server stats timeout")
 	}
 }
+
+func TestFetchRemoteServerInfoAllowInsecure(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/sysinfo/all" {
+			http.NotFound(w, r)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"hostname":"tls-test"}`))
+	}))
+	defer server.Close()
+
+	request := &serverStatsRequest{
+		URL:           server.URL,
+		Timeout:       durationField(2 * time.Second),
+		AllowInsecure: true,
+	}
+
+	info, err := fetchRemoteServerInfo(context.Background(), request)
+	if err != nil {
+		t.Fatalf("fetchRemoteServerInfo with allow-insecure: %v", err)
+	}
+	if info == nil {
+		t.Fatal("fetchRemoteServerInfo returned nil info")
+	}
+}

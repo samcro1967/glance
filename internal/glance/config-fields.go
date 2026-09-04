@@ -1,7 +1,6 @@
 package glance
 
 import (
-	"crypto/tls"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -213,23 +212,28 @@ func (p *proxyOptionsField) UnmarshalYAML(node *yaml.Node) error {
 		proxyURL = p.URL
 	}
 
-	parsedUrl, err := url.Parse(proxyURL)
+	return p.initializeClient(proxyURL)
+}
+
+func (p *proxyOptionsField) initializeClient(proxyURL string) error {
+	if proxyURL == "" {
+		p.client = nil
+		return nil
+	}
+
+	parsedURL, err := url.Parse(proxyURL)
 	if err != nil {
-		return fmt.Errorf("parsing proxy URL: %v", err)
+		return fmt.Errorf("parsing proxy URL: %w", err)
 	}
 
-	var timeout = defaultClientTimeout
-	if p.Timeout > 0 {
-		timeout = time.Duration(p.Timeout)
-	}
+	p.client = newHTTPClient(p.Timeout, p.AllowInsecure)
 
-	p.client = &http.Client{
-		Timeout: timeout,
-		Transport: &http.Transport{
-			Proxy:           http.ProxyURL(parsedUrl),
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: p.AllowInsecure},
-		},
+	transport := defaultHTTPTransport.Clone()
+	if p.AllowInsecure {
+		transport = defaultInsecureHTTPTransport.Clone()
 	}
+	transport.Proxy = http.ProxyURL(parsedURL)
+	p.client.Transport = transport
 
 	return nil
 }

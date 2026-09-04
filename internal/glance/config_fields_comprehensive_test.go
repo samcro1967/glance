@@ -134,6 +134,26 @@ func TestComprehensiveProxyOptionsField(t *testing.T) {
 	if !ok || tr.Proxy == nil {
 		t.Fatal("proxy transport not configured")
 	}
+	if tr == defaultHTTPTransport || tr == defaultInsecureHTTPTransport {
+		t.Fatal("proxy client must use an independent transport")
+	}
+	if tr.MaxIdleConnsPerHost != defaultHTTPTransport.MaxIdleConnsPerHost {
+		t.Fatalf(
+			"proxy MaxIdleConnsPerHost = %d, want %d",
+			tr.MaxIdleConnsPerHost,
+			defaultHTTPTransport.MaxIdleConnsPerHost,
+		)
+	}
+	if tr.IdleConnTimeout != defaultHTTPTransport.IdleConnTimeout {
+		t.Fatalf(
+			"proxy IdleConnTimeout = %s, want %s",
+			tr.IdleConnTimeout,
+			defaultHTTPTransport.IdleConnTimeout,
+		)
+	}
+	if tr.TLSClientConfig != nil && tr.TLSClientConfig.InsecureSkipVerify {
+		t.Fatal("scalar proxy unexpectedly allows insecure TLS")
+	}
 
 	var mapping proxyOptionsField
 	if err := yaml.Unmarshal([]byte("url: https://proxy.example.invalid\nallow-insecure: true\ntimeout: 9s\n"), &mapping); err != nil {
@@ -143,8 +163,25 @@ func TestComprehensiveProxyOptionsField(t *testing.T) {
 		t.Fatalf("timeout=%v", mapping.client)
 	}
 	tr = mapping.client.Transport.(*http.Transport)
+	if tr == defaultHTTPTransport || tr == defaultInsecureHTTPTransport {
+		t.Fatal("insecure proxy client must use an independent transport")
+	}
 	if tr.TLSClientConfig == nil || !tr.TLSClientConfig.InsecureSkipVerify {
 		t.Fatal("allow-insecure not applied")
+	}
+	if tr.MaxIdleConnsPerHost != defaultInsecureHTTPTransport.MaxIdleConnsPerHost {
+		t.Fatalf(
+			"insecure proxy MaxIdleConnsPerHost = %d, want %d",
+			tr.MaxIdleConnsPerHost,
+			defaultInsecureHTTPTransport.MaxIdleConnsPerHost,
+		)
+	}
+	if tr.IdleConnTimeout != defaultInsecureHTTPTransport.IdleConnTimeout {
+		t.Fatalf(
+			"insecure proxy IdleConnTimeout = %s, want %s",
+			tr.IdleConnTimeout,
+			defaultInsecureHTTPTransport.IdleConnTimeout,
+		)
 	}
 }
 

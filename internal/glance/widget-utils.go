@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand/v2"
+	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -24,23 +25,37 @@ var (
 
 const defaultClientTimeout = 5 * time.Second
 
+var defaultHTTPTransport = &http.Transport{
+	MaxIdleConnsPerHost: 10,
+	IdleConnTimeout:     90 * time.Second,
+	Proxy:               http.ProxyFromEnvironment,
+}
+
+var defaultInsecureHTTPTransport = func() *http.Transport {
+	transport := defaultHTTPTransport.Clone()
+	transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	return transport
+}()
+
 var defaultHTTPClient = &http.Client{
-	Transport: &http.Transport{
-		MaxIdleConnsPerHost: 10,
-		IdleConnTimeout:     90 * time.Second,
-		Proxy:               http.ProxyFromEnvironment,
-	},
-	Timeout: defaultClientTimeout,
+	Transport: defaultHTTPTransport,
+	Timeout:   defaultClientTimeout,
 }
 
 var defaultInsecureHTTPClient = &http.Client{
-	Timeout: defaultClientTimeout,
-	Transport: &http.Transport{
-		TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
-		MaxIdleConnsPerHost: 10,
-		IdleConnTimeout:     90 * time.Second,
-		Proxy:               http.ProxyFromEnvironment,
-	},
+	Transport: defaultInsecureHTTPTransport,
+	Timeout:   defaultClientTimeout,
+}
+
+func newHTTPClient(timeout durationField, allowInsecure bool) *http.Client {
+	baseClient := ternary(allowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
+	client := *baseClient
+
+	if timeout > 0 {
+		client.Timeout = time.Duration(timeout)
+	}
+
+	return &client
 }
 
 type requestDoer interface {
@@ -63,16 +78,107 @@ func setBrowserUserAgentHeader(request *http.Request) {
 	request.Header.Set("User-Agent", getBrowserUserAgentHeader())
 }
 
+type httpStatusError struct {
+	StatusCode int
+	Status     string
+}
+
+func (err *httpStatusError) Error() string {
+	if err.Status != "" {
+		return fmt.Sprintf("unexpected HTTP status %s", err.Status)
+	}
+
+	return fmt.Sprintf("unexpected HTTP status %d", err.StatusCode)
+}
+
 func unexpectedHTTPStatusError(response *http.Response) error {
 	if response == nil {
 		return errors.New("unexpected HTTP response")
 	}
 
-	if response.Status != "" {
-		return fmt.Errorf("unexpected HTTP status %s", response.Status)
+	return &httpStatusError{
+		StatusCode: response.StatusCode,
+		Status:     response.Status,
+	}
+}
+
+type refreshFailureClass string
+
+const (
+	refreshFailureUnknown        refreshFailureClass = "unknown"
+	refreshFailureCancelled      refreshFailureClass = "cancelled"
+	refreshFailureTransient      refreshFailureClass = "transient"
+	refreshFailureRateLimited    refreshFailureClass = "rate-limit"
+	refreshFailureAuthentication refreshFailureClass = "authentication"
+	refreshFailureAuthorization  refreshFailureClass = "authorization"
+	refreshFailureRequest        refreshFailureClass = "request"
+	refreshFailureMalformed      refreshFailureClass = "malformed"
+)
+
+func classifyRefreshFailure(err error) refreshFailureClass {
+	if err == nil {
+		return refreshFailureUnknown
 	}
 
-	return fmt.Errorf("unexpected HTTP status %d", response.StatusCode)
+	if errors.Is(err, context.Canceled) {
+		return refreshFailureCancelled
+	}
+
+	if errors.Is(err, context.DeadlineExceeded) {
+		return refreshFailureTransient
+	}
+
+	var statusErr *httpStatusError
+	if errors.As(err, &statusErr) {
+		switch statusErr.StatusCode {
+		case http.StatusRequestTimeout:
+			return refreshFailureTransient
+		case http.StatusTooManyRequests:
+			return refreshFailureRateLimited
+		case http.StatusUnauthorized:
+			return refreshFailureAuthentication
+		case http.StatusForbidden:
+			return refreshFailureAuthorization
+		}
+
+		if statusErr.StatusCode >= 500 && statusErr.StatusCode <= 599 {
+			return refreshFailureTransient
+		}
+
+		if statusErr.StatusCode >= 400 && statusErr.StatusCode <= 499 {
+			return refreshFailureRequest
+		}
+	}
+
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return refreshFailureTransient
+	}
+
+	var jsonSyntaxErr *json.SyntaxError
+	if errors.As(err, &jsonSyntaxErr) {
+		return refreshFailureMalformed
+	}
+
+	var xmlSyntaxErr *xml.SyntaxError
+	if errors.As(err, &xmlSyntaxErr) {
+		return refreshFailureMalformed
+	}
+
+	return refreshFailureUnknown
+}
+
+func refreshFailureRetryable(err error) bool {
+	switch classifyRefreshFailure(err) {
+	case refreshFailureCancelled,
+		refreshFailureRateLimited,
+		refreshFailureAuthentication,
+		refreshFailureAuthorization,
+		refreshFailureRequest:
+		return false
+	default:
+		return true
+	}
 }
 
 func safeHTTPTransportError(err error) error {
@@ -113,12 +219,10 @@ func contentFetchError(
 	)
 }
 
-func decodeJsonFromRequest[T any](client requestDoer, request *http.Request) (T, error) {
-	var result T
-
+func fetchHTTPResponseBody(client requestDoer, request *http.Request) ([]byte, error) {
 	response, err := client.Do(request)
 	if err != nil {
-		return result, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"sending HTTP request: %w",
 			safeHTTPTransportError(err),
 		)
@@ -127,11 +231,22 @@ func decodeJsonFromRequest[T any](client requestDoer, request *http.Request) (T,
 
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
-		return result, fmt.Errorf("reading HTTP response: %w", err)
+		return nil, fmt.Errorf("reading HTTP response: %w", err)
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return result, unexpectedHTTPStatusError(response)
+		return nil, unexpectedHTTPStatusError(response)
+	}
+
+	return body, nil
+}
+
+func decodeJsonFromRequest[T any](client requestDoer, request *http.Request) (T, error) {
+	var result T
+
+	body, err := fetchHTTPResponseBody(client, request)
+	if err != nil {
+		return result, err
 	}
 
 	if err := json.Unmarshal(body, &result); err != nil {
@@ -147,26 +262,12 @@ func decodeJsonFromRequestTask[T any](client requestDoer) func(*http.Request) (T
 	}
 }
 
-// TODO: tidy up, these are a copy of the above but with a line changed
 func decodeXmlFromRequest[T any](client requestDoer, request *http.Request) (T, error) {
 	var result T
 
-	response, err := client.Do(request)
+	body, err := fetchHTTPResponseBody(client, request)
 	if err != nil {
-		return result, fmt.Errorf(
-			"sending HTTP request: %w",
-			safeHTTPTransportError(err),
-		)
-	}
-	defer response.Body.Close()
-
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		return result, fmt.Errorf("reading HTTP response: %w", err)
-	}
-
-	if response.StatusCode != http.StatusOK {
-		return result, unexpectedHTTPStatusError(response)
+		return result, err
 	}
 
 	if err := xml.Unmarshal(body, &result); err != nil {

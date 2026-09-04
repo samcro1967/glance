@@ -100,6 +100,10 @@ func newWidget(widgetType string) (widget, error) {
 
 	w.setID(widgetIDCounter.Add(1))
 
+	if base, ok := widgetBaseOf(w); ok {
+		base.OpenLinksInNewTab = true
+	}
+
 	return w, nil
 }
 
@@ -130,10 +134,30 @@ func (w *widgets) UnmarshalYAML(node *yaml.Node) error {
 			return err
 		}
 
+		if base, ok := widgetBaseOf(widget); ok {
+			base.configuredFields = yamlMappingFields(&node)
+		}
+
 		*w = append(*w, widget)
 	}
 
 	return nil
+}
+
+type yamlConfiguredFields map[string]bool
+
+func yamlMappingFields(node *yaml.Node) yamlConfiguredFields {
+	fields := make(yamlConfiguredFields)
+
+	if node == nil || node.Kind != yaml.MappingNode {
+		return fields
+	}
+
+	for i := 0; i+1 < len(node.Content); i += 2 {
+		fields[node.Content[i].Value] = true
+	}
+
+	return fields
 }
 
 type widget interface {
@@ -181,25 +205,29 @@ const (
 )
 
 type widgetBase struct {
-	ID                  uint64           `yaml:"-"`
-	Providers           *widgetProviders `yaml:"-"`
-	Type                string           `yaml:"type"`
-	Title               string           `yaml:"title"`
-	TitleURL            string           `yaml:"title-url"`
-	HideHeader          bool             `yaml:"hide-header"`
-	CSSClass            string           `yaml:"css-class"`
-	CustomCacheDuration durationField    `yaml:"cache"`
-	ContentAvailable    bool             `yaml:"-"`
-	WIP                 bool             `yaml:"-"`
-	Error               error            `yaml:"-"`
-	Notice              error            `yaml:"-"`
-	templateBuffer      bytes.Buffer     `yaml:"-"`
-	cacheDuration       time.Duration    `yaml:"-"`
-	cacheType           cacheType        `yaml:"-"`
-	nextUpdate          time.Time        `yaml:"-"`
-	updateRetriedTimes  int              `yaml:"-"`
-	refreshDegraded     bool             `yaml:"-"`
-	refreshMu           sync.Mutex       `yaml:"-"`
+	ID                  uint64               `yaml:"-"`
+	Providers           *widgetProviders     `yaml:"-"`
+	Type                string               `yaml:"type"`
+	Title               string               `yaml:"title"`
+	TitleURL            string               `yaml:"title-url"`
+	HideHeader          bool                 `yaml:"hide-header"`
+	CSSClass            string               `yaml:"css-class"`
+	CustomCacheDuration durationField        `yaml:"cache"`
+	OpenLinksInNewTab   bool                 `yaml:"-"`
+	ContentAvailable    bool                 `yaml:"-"`
+	configuredFields    yamlConfiguredFields `yaml:"-"`
+	WIP                 bool                 `yaml:"-"`
+	Error               error                `yaml:"-"`
+	Notice              error                `yaml:"-"`
+	templateBuffer      bytes.Buffer         `yaml:"-"`
+	cacheDuration       time.Duration        `yaml:"-"`
+	cacheType           cacheType            `yaml:"-"`
+	nextUpdate          time.Time            `yaml:"-"`
+	updateRetriedTimes  int                  `yaml:"-"`
+	refreshDegraded     bool                 `yaml:"-"`
+	refreshFailureClass refreshFailureClass  `yaml:"-"`
+	refreshFailureCount int                  `yaml:"-"`
+	refreshMu           sync.Mutex           `yaml:"-"`
 }
 
 type widgetProviders struct {
@@ -250,12 +278,20 @@ func (w *widgetBase) setHideHeader(value bool) {
 	w.HideHeader = value
 }
 
+func (w *widgetBase) setDefaultNewTab(value bool) {
+	w.OpenLinksInNewTab = value
+}
+
 func (widget *widgetBase) handleRequest(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "not implemented", http.StatusNotImplemented)
 }
 
 func (w *widgetBase) GetType() string {
 	return w.Type
+}
+
+func (w *widgetBase) getWidgetBase() *widgetBase {
+	return w
 }
 
 func (w *widgetBase) setProviders(providers *widgetProviders) {
@@ -339,40 +375,52 @@ func (w *widgetBase) withError(err error) *widgetBase {
 }
 
 func (w *widgetBase) canContinueUpdateAfterHandlingErr(err error) bool {
-	// TODO: needs covering more edge cases.
-	// if there's partial content and we update early there's a chance
-	// the early update returns even less content than the initial update.
-	// need some kind of mechanism that tells us whether we should update early
-	// or not depending on the number of things that failed during the initial
-	// and subsequent update and how they failed - ie whether it was server
-	// error (like gateway timeout, do retry early) or client error (like
-	// hitting a rate limit, don't retry early). will require reworking a
-	// good amount of code in the feed package and probably having a custom
-	// error type that holds more information because screw wrapping errors.
-	// alternatively have a resource cache and only refetch the failed resources,
-	// then rebuild the widget.
-
 	if err != nil {
-		w.scheduleEarlyUpdate()
+		failureClass := classifyRefreshFailure(err)
+
+		if failureClass == refreshFailureCancelled {
+			return false
+		}
 
 		partialContent := errors.Is(err, errPartialContent)
+		retry := refreshFailureRetryable(err)
+
+		if retry {
+			w.scheduleEarlyUpdate()
+		} else {
+			w.scheduleNextUpdate()
+		}
+
+		w.refreshFailureCount++
+		w.refreshFailureClass = failureClass
 
 		if !w.refreshDegraded {
 			message := "Widget refresh failed"
+			content := "no-content"
 			if partialContent {
 				message = "Widget refresh degraded"
+				content = "partial"
+			} else if w.ContentAvailable {
+				content = "stale"
 			}
 
-			slog.Warn(
-				message,
+			args := []any{
 				"widget_id", w.ID,
 				"type", w.Type,
 				"title", w.Title,
+				"failure_class", failureClass,
 				"cause", err,
-				"retry_attempt", w.updateRetriedTimes,
-				"next_update", w.nextUpdate,
-			)
+				"content", content,
+				"retry", retry,
+			}
 
+			if retry {
+				args = append(args, "retry_attempt", w.updateRetriedTimes)
+			}
+
+			args = append(args, "next_update", w.nextUpdate)
+
+			slog.Warn(message, args...)
 			w.refreshDegraded = true
 		}
 
@@ -388,11 +436,15 @@ func (w *widgetBase) canContinueUpdateAfterHandlingErr(err error) bool {
 	}
 
 	wasDegraded := w.refreshDegraded
+	previousFailureClass := w.refreshFailureClass
+	previousFailures := w.refreshFailureCount
 
 	w.withNotice(nil)
 	w.withError(nil)
 	w.scheduleNextUpdate()
 	w.refreshDegraded = false
+	w.refreshFailureClass = refreshFailureUnknown
+	w.refreshFailureCount = 0
 
 	if wasDegraded {
 		slog.Info(
@@ -400,6 +452,8 @@ func (w *widgetBase) canContinueUpdateAfterHandlingErr(err error) bool {
 			"widget_id", w.ID,
 			"type", w.Type,
 			"title", w.Title,
+			"previous_failure_class", previousFailureClass,
+			"previous_failures", previousFailures,
 		)
 	}
 

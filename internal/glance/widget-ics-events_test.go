@@ -1232,3 +1232,50 @@ func TestParseICSDuration(t *testing.T) {
 		})
 	}
 }
+
+func TestICSEventsFetchSourceSendsConfiguredHeadersAndBasicAuth(t *testing.T) {
+	const (
+		username = "ics-user"
+		password = "ics-pass"
+	)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("X-ICS-Test"); got != "present" {
+			t.Errorf("X-ICS-Test = %q, want present", got)
+		}
+
+		gotUsername, gotPassword, ok := r.BasicAuth()
+		if !ok {
+			t.Error("ICS request did not contain Basic Authentication")
+		} else {
+			if gotUsername != username {
+				t.Errorf("username = %q, want %q", gotUsername, username)
+			}
+			if gotPassword != password {
+				t.Errorf("password = %q, want %q", gotPassword, password)
+			}
+		}
+
+		_, _ = w.Write([]byte("calendar-data"))
+	}))
+	defer server.Close()
+
+	source := icsEventSource{
+		URL: server.URL,
+		Headers: map[string]string{
+			"X-ICS-Test": "present",
+		},
+	}
+	source.BasicAuth.Username = username
+	source.BasicAuth.Password = password
+
+	widget := newICSTestWidget(t, []icsEventSource{source})
+
+	body, err := widget.fetchSource(context.Background(), widget.Sources[0])
+	if err != nil {
+		t.Fatalf("fetchSource: %v", err)
+	}
+	if string(body) != "calendar-data" {
+		t.Fatalf("body = %q, want calendar-data", body)
+	}
+}

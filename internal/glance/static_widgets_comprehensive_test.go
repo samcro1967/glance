@@ -306,36 +306,16 @@ func TestComprehensiveLegacyCalendar(t *testing.T) {
 
 func TestComprehensiveBookmarksInheritance(t *testing.T) {
 	w := &bookmarksWidget{}
-	w.Groups = append(w.Groups, struct {
-		Title     string         `yaml:"title"`
-		Color     *hslColorField `yaml:"color"`
-		SameTab   bool           `yaml:"same-tab"`
-		HideArrow bool           `yaml:"hide-arrow"`
-		Target    string         `yaml:"target"`
-		Links     []struct {
-			Title        string          `yaml:"title"`
-			URL          string          `yaml:"url"`
-			Description  string          `yaml:"description"`
-			Icon         customIconField `yaml:"icon"`
-			SameTabRaw   *bool           `yaml:"same-tab"`
-			SameTab      bool            `yaml:"-"`
-			HideArrowRaw *bool           `yaml:"hide-arrow"`
-			HideArrow    bool            `yaml:"-"`
-			Target       string          `yaml:"target"`
-		} `yaml:"links"`
-	}{Title: "Default", SameTab: true, HideArrow: true})
+	w.Groups = append(w.Groups, bookmarkGroup{
+		Title:     "Default",
+		SameTab:   true,
+		HideArrow: true,
+	})
 	g := &w.Groups[0]
-	g.Links = append(g.Links, struct {
-		Title        string          `yaml:"title"`
-		URL          string          `yaml:"url"`
-		Description  string          `yaml:"description"`
-		Icon         customIconField `yaml:"icon"`
-		SameTabRaw   *bool           `yaml:"same-tab"`
-		SameTab      bool            `yaml:"-"`
-		HideArrowRaw *bool           `yaml:"hide-arrow"`
-		HideArrow    bool            `yaml:"-"`
-		Target       string          `yaml:"target"`
-	}{Title: "One", URL: "https://example.invalid"})
+	g.Links = append(g.Links, bookmarkLink{
+		Title: "One",
+		URL:   "https://example.invalid",
+	})
 	if err := w.initialize(); err != nil {
 		t.Fatal(err)
 	}

@@ -128,3 +128,11 @@ func fetchTopGamesFromTwitch(ctx context.Context, exclude []string, limit int) (
 
 	return categories, nil
 }
+
+func (widget *twitchGamesWidget) setDefaultLimit(value int) {
+	widget.Limit = value
+}
+
+func (widget *twitchGamesWidget) setDefaultCollapseAfter(value int) {
+	widget.CollapseAfter = value
+}

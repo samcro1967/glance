@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -29,7 +30,7 @@ func TestFetchWatchUUIDsFromChangeDetectionCancellation(t *testing.T) {
 
 	result := make(chan error, 1)
 	go func() {
-		_, err := fetchWatchUUIDsFromChangeDetection(ctx, server.URL, "")
+		_, err := fetchWatchUUIDsFromChangeDetection(ctx, server.URL, "", 0, false, nil)
 		result <- err
 	}()
 
@@ -109,6 +110,9 @@ func TestFetchWatchesFromChangeDetectionCancellation(t *testing.T) {
 				"watch-16",
 			},
 			"",
+			0,
+			false,
+			nil,
 		)
 		result <- err
 	}()
@@ -138,5 +142,68 @@ func TestFetchWatchesFromChangeDetectionCancellation(t *testing.T) {
 	case <-requestCanceled:
 	case <-time.After(time.Second):
 		t.Fatal("server did not observe change detection watch request cancellation")
+	}
+}
+
+func TestChangeDetectionHTTPPolicySendsHeadersAndTokenWins(t *testing.T) {
+	const token = "dedicated-token"
+
+	var requests atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+
+		if got := r.Header.Get("X-Change-Test"); got != "present" {
+			t.Errorf("X-Change-Test = %q, want present", got)
+		}
+		if got := r.Header.Get("X-Api-Key"); got != token {
+			t.Errorf("X-Api-Key = %q, want dedicated token %q", got, token)
+		}
+
+		switch r.URL.Path {
+		case "/api/v1/watch":
+			_, _ = w.Write([]byte(`{"watch-1":{}}`))
+		case "/api/v1/watch/watch-1":
+			_, _ = w.Write([]byte(`{"title":"Test","url":"https://example.com","last_changed":2}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	headers := map[string]string{
+		"X-Change-Test": "present",
+		"X-Api-Key":     "header-must-not-win",
+	}
+
+	ids, err := fetchWatchUUIDsFromChangeDetection(
+		context.Background(),
+		server.URL,
+		token,
+		0,
+		false,
+		headers,
+	)
+	if err != nil {
+		t.Fatalf("fetchWatchUUIDsFromChangeDetection: %v", err)
+	}
+
+	watches, err := fetchWatchesFromChangeDetection(
+		context.Background(),
+		server.URL,
+		ids,
+		token,
+		0,
+		false,
+		headers,
+	)
+	if err != nil {
+		t.Fatalf("fetchWatchesFromChangeDetection: %v", err)
+	}
+	if len(watches) != 1 {
+		t.Fatalf("watches = %d, want 1", len(watches))
+	}
+	if got := requests.Load(); got != 2 {
+		t.Fatalf("requests = %d, want 2", got)
 	}
 }
