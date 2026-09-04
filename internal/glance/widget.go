@@ -90,6 +90,8 @@ func newWidget(widgetType string) (widget, error) {
 		w = &timerWidget{}
 	case "to-do":
 		w = &todoWidget{}
+	case "unit-converter":
+		w = &unitConverterWidget{}
 	case "stack":
 		w = &stackWidget{}
 	case "status-bar":

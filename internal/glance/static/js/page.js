@@ -1037,6 +1037,19 @@ async function setupTodos() {
     }
 }
 
+async function setupUnitConverters() {
+    const elems = Array.from(
+        document.getElementsByClassName("unit-converter")
+    );
+    if (elems.length == 0) return;
+
+    const converter = await import('./unit-converter.js');
+
+    for (let i = 0; i < elems.length; i++) {
+        converter.default(elems[i]);
+    }
+}
+
 function setupTruncatedElementTitles(root = document) {
     const elements = root.querySelectorAll(".text-truncate, .single-line-titles .title, .text-truncate-2-lines, .text-truncate-3-lines");
 
@@ -1492,6 +1505,10 @@ async function setupPage() {
         await runFrontendDiagnosticAsyncStage(
             "todos",
             () => setupTodos()
+        );
+        await runFrontendDiagnosticAsyncStage(
+            "unit_converters",
+            () => setupUnitConverters()
         );
         runFrontendDiagnosticStage("carousels", () => setupCarousels());
         runFrontendDiagnosticStage("search_boxes", () => setupSearchBoxes());

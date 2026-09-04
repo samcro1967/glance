@@ -10,7 +10,7 @@ var registeredWidgetTypes = map[string]struct{}{
 	"lobsters": {}, "change-detection": {}, "repository": {},
 	"search": {}, "extension": {}, "group": {}, "dns-stats": {},
 	"split-column": {}, "custom-api": {}, "docker-containers": {},
-	"server-stats": {}, "timer": {}, "to-do": {}, "stack": {},
+	"server-stats": {}, "timer": {}, "to-do": {}, "unit-converter": {}, "stack": {},
 	"status-bar": {},
 }
 

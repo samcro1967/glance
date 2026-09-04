@@ -1,0 +1,3002 @@
+{
+  "schema_version": 1,
+  "title": "Glance Unit Converter Catalog",
+  "description": "Independent modern unit-conversion dataset for Glance.",
+  "transform_semantics": {
+    "scale": "canonical = value * scale",
+    "affine": "canonical = value * scale + offset",
+    "reciprocal": "canonical = constant / value"
+  },
+  "sources": [
+    {
+      "id": "BIPM-SI-2026",
+      "authority": "BIPM",
+      "title": "SI Brochure, 9th edition, updated 2026"
+    },
+    {
+      "id": "NIST-SP811",
+      "authority": "NIST",
+      "title": "Guide to the SI, Appendix B conversion factors"
+    },
+    {
+      "id": "NIST-SP330",
+      "authority": "NIST",
+      "title": "SI and binary-prefix guidance"
+    }
+  ],
+  "categories": [
+    {
+      "id": "acceleration",
+      "name": "Acceleration",
+      "canonical": "m_s2",
+      "default_from": "ft_s2",
+      "default_to": "m_s2",
+      "units": [
+        {
+          "id": "m_s2",
+          "name": "Meter per second squared",
+          "symbol": "m/s²",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "cm_s2",
+          "name": "Centimeter per second squared",
+          "symbol": "cm/s²",
+          "transform": "scale",
+          "scale": 0.01
+        },
+        {
+          "id": "mm_s2",
+          "name": "Millimeter per second squared",
+          "symbol": "mm/s²",
+          "transform": "scale",
+          "scale": 0.001
+        },
+        {
+          "id": "ft_s2",
+          "name": "Foot per second squared",
+          "symbol": "ft/s²",
+          "transform": "scale",
+          "scale": 0.3048
+        },
+        {
+          "id": "in_s2",
+          "name": "Inch per second squared",
+          "symbol": "in/s²",
+          "transform": "scale",
+          "scale": 0.0254
+        },
+        {
+          "id": "g0",
+          "name": "Standard gravity",
+          "symbol": "g₀",
+          "transform": "scale",
+          "scale": 9.80665
+        },
+        {
+          "id": "mph_s",
+          "name": "Mile per hour per second",
+          "symbol": "mph/s",
+          "transform": "scale",
+          "scale": 0.44704
+        }
+      ]
+    },
+    {
+      "id": "amount",
+      "name": "Amount of Substance",
+      "canonical": "mol",
+      "default_from": "mol",
+      "default_to": "kmol",
+      "units": [
+        {
+          "id": "mol",
+          "name": "Mole",
+          "symbol": "mol",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "kmol",
+          "name": "Kilomole",
+          "symbol": "kmol",
+          "transform": "scale",
+          "scale": 1000.0
+        },
+        {
+          "id": "mmol",
+          "name": "Millimole",
+          "symbol": "mmol",
+          "transform": "scale",
+          "scale": 0.001
+        },
+        {
+          "id": "umol",
+          "name": "Micromole",
+          "symbol": "µmol",
+          "transform": "scale",
+          "scale": 1e-06
+        },
+        {
+          "id": "nmol",
+          "name": "Nanomole",
+          "symbol": "nmol",
+          "transform": "scale",
+          "scale": 1e-09
+        }
+      ]
+    },
+    {
+      "id": "angle",
+      "name": "Angle",
+      "canonical": "rad",
+      "default_from": "deg",
+      "default_to": "rad",
+      "units": [
+        {
+          "id": "rad",
+          "name": "Radian",
+          "symbol": "rad",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "mrad",
+          "name": "Milliradian",
+          "symbol": "mrad",
+          "transform": "scale",
+          "scale": 0.001
+        },
+        {
+          "id": "deg",
+          "name": "Degree",
+          "symbol": "°",
+          "transform": "scale",
+          "scale": 0.017453292519943295
+        },
+        {
+          "id": "arcmin",
+          "name": "Arcminute",
+          "symbol": "′",
+          "transform": "scale",
+          "scale": 0.0002908882086657216
+        },
+        {
+          "id": "arcsec",
+          "name": "Arcsecond",
+          "symbol": "″",
+          "transform": "scale",
+          "scale": 4.84813681109536e-06
+        },
+        {
+          "id": "grad",
+          "name": "Gradian",
+          "symbol": "gon",
+          "transform": "scale",
+          "scale": 0.015707963267948967
+        },
+        {
+          "id": "rev",
+          "name": "Revolution",
+          "symbol": "rev",
+          "transform": "scale",
+          "scale": 6.283185307179586
+        },
+        {
+          "id": "right",
+          "name": "Right angle",
+          "symbol": "right angle",
+          "transform": "scale",
+          "scale": 1.5707963267948966
+        }
+      ]
+    },
+    {
+      "id": "angular_acceleration",
+      "name": "Angular Acceleration",
+      "canonical": "rad_s2",
+      "default_from": "rad_s2",
+      "default_to": "deg_s2",
+      "units": [
+        {
+          "id": "rad_s2",
+          "name": "Radian per second squared",
+          "symbol": "rad/s²",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "deg_s2",
+          "name": "Degree per second squared",
+          "symbol": "°/s²",
+          "transform": "scale",
+          "scale": 0.017453292519943295
+        },
+        {
+          "id": "rev_s2",
+          "name": "Revolution per second squared",
+          "symbol": "rev/s²",
+          "transform": "scale",
+          "scale": 6.283185307179586
+        },
+        {
+          "id": "rpm_s",
+          "name": "Revolution per minute per second",
+          "symbol": "rpm/s",
+          "transform": "scale",
+          "scale": 0.10471975511965977
+        }
+      ]
+    },
+    {
+      "id": "angular_speed",
+      "name": "Angular Speed",
+      "canonical": "rad_s",
+      "default_from": "rpm",
+      "default_to": "rad_s",
+      "units": [
+        {
+          "id": "rad_s",
+          "name": "Radian per second",
+          "symbol": "rad/s",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "deg_s",
+          "name": "Degree per second",
+          "symbol": "°/s",
+          "transform": "scale",
+          "scale": 0.017453292519943295
+        },
+        {
+          "id": "rev_s",
+          "name": "Revolution per second",
+          "symbol": "rev/s",
+          "transform": "scale",
+          "scale": 6.283185307179586
+        },
+        {
+          "id": "rpm",
+          "name": "Revolution per minute",
+          "symbol": "rpm",
+          "transform": "scale",
+          "scale": 0.10471975511965977
+        }
+      ]
+    },
+    {
+      "id": "area",
+      "name": "Area",
+      "canonical": "m2",
+      "default_from": "ft2",
+      "default_to": "m2",
+      "units": [
+        {
+          "id": "m2",
+          "name": "Square meter",
+          "symbol": "m²",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "mm2",
+          "name": "Square millimeter",
+          "symbol": "mm²",
+          "transform": "scale",
+          "scale": 1e-06
+        },
+        {
+          "id": "cm2",
+          "name": "Square centimeter",
+          "symbol": "cm²",
+          "transform": "scale",
+          "scale": 0.0001
+        },
+        {
+          "id": "km2",
+          "name": "Square kilometer",
+          "symbol": "km²",
+          "transform": "scale",
+          "scale": 1000000.0
+        },
+        {
+          "id": "in2",
+          "name": "Square inch",
+          "symbol": "in²",
+          "transform": "scale",
+          "scale": 0.00064516
+        },
+        {
+          "id": "ft2",
+          "name": "Square foot",
+          "symbol": "ft²",
+          "transform": "scale",
+          "scale": 0.09290304
+        },
+        {
+          "id": "yd2",
+          "name": "Square yard",
+          "symbol": "yd²",
+          "transform": "scale",
+          "scale": 0.83612736
+        },
+        {
+          "id": "mi2",
+          "name": "Square mile",
+          "symbol": "mi²",
+          "transform": "scale",
+          "scale": 2589988.110336
+        },
+        {
+          "id": "acre",
+          "name": "Acre",
+          "symbol": "acre",
+          "transform": "scale",
+          "scale": 4046.8564224
+        },
+        {
+          "id": "ha",
+          "name": "Hectare",
+          "symbol": "ha",
+          "transform": "scale",
+          "scale": 10000.0
+        }
+      ]
+    },
+    {
+      "id": "digital_information",
+      "name": "Digital Information",
+      "canonical": "B",
+      "default_from": "GB",
+      "default_to": "MB",
+      "units": [
+        {
+          "id": "bit",
+          "name": "Bit",
+          "symbol": "bit",
+          "transform": "scale",
+          "scale": 0.125
+        },
+        {
+          "id": "nibble",
+          "name": "Nibble",
+          "symbol": "nibble",
+          "transform": "scale",
+          "scale": 0.5
+        },
+        {
+          "id": "B",
+          "name": "Byte",
+          "symbol": "B",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "kbit",
+          "name": "Kilobit",
+          "symbol": "kbit",
+          "transform": "scale",
+          "scale": 125.0
+        },
+        {
+          "id": "kB",
+          "name": "Kilobyte",
+          "symbol": "kB",
+          "transform": "scale",
+          "scale": 1000
+        },
+        {
+          "id": "Mbit",
+          "name": "Megabit",
+          "symbol": "Mbit",
+          "transform": "scale",
+          "scale": 125000.0
+        },
+        {
+          "id": "MB",
+          "name": "Megabyte",
+          "symbol": "MB",
+          "transform": "scale",
+          "scale": 1000000
+        },
+        {
+          "id": "Gbit",
+          "name": "Gigabit",
+          "symbol": "Gbit",
+          "transform": "scale",
+          "scale": 125000000.0
+        },
+        {
+          "id": "GB",
+          "name": "Gigabyte",
+          "symbol": "GB",
+          "transform": "scale",
+          "scale": 1000000000
+        },
+        {
+          "id": "Tbit",
+          "name": "Terabit",
+          "symbol": "Tbit",
+          "transform": "scale",
+          "scale": 125000000000.0
+        },
+        {
+          "id": "TB",
+          "name": "Terabyte",
+          "symbol": "TB",
+          "transform": "scale",
+          "scale": 1000000000000
+        },
+        {
+          "id": "Pbit",
+          "name": "Petabit",
+          "symbol": "Pbit",
+          "transform": "scale",
+          "scale": 125000000000000.0
+        },
+        {
+          "id": "PB",
+          "name": "Petabyte",
+          "symbol": "PB",
+          "transform": "scale",
+          "scale": 1000000000000000
+        },
+        {
+          "id": "Ebit",
+          "name": "Exabit",
+          "symbol": "Ebit",
+          "transform": "scale",
+          "scale": 1.25e+17
+        },
+        {
+          "id": "EB",
+          "name": "Exabyte",
+          "symbol": "EB",
+          "transform": "scale",
+          "scale": 1000000000000000000
+        },
+        {
+          "id": "Zbit",
+          "name": "Zettabit",
+          "symbol": "Zbit",
+          "transform": "scale",
+          "scale": 1.25e+20
+        },
+        {
+          "id": "ZB",
+          "name": "Zettabyte",
+          "symbol": "ZB",
+          "transform": "scale",
+          "scale": 1000000000000000000000
+        },
+        {
+          "id": "Ybit",
+          "name": "Yottabit",
+          "symbol": "Ybit",
+          "transform": "scale",
+          "scale": 1.25e+23
+        },
+        {
+          "id": "YB",
+          "name": "Yottabyte",
+          "symbol": "YB",
+          "transform": "scale",
+          "scale": 1000000000000000000000000
+        },
+        {
+          "id": "Kibit",
+          "name": "Kibibit",
+          "symbol": "Kibit",
+          "transform": "scale",
+          "scale": 128.0
+        },
+        {
+          "id": "KiB",
+          "name": "Kibibyte",
+          "symbol": "KiB",
+          "transform": "scale",
+          "scale": 1024
+        },
+        {
+          "id": "Mibit",
+          "name": "Mebibit",
+          "symbol": "Mibit",
+          "transform": "scale",
+          "scale": 131072.0
+        },
+        {
+          "id": "MiB",
+          "name": "Mebibyte",
+          "symbol": "MiB",
+          "transform": "scale",
+          "scale": 1048576
+        },
+        {
+          "id": "Gibit",
+          "name": "Gibibit",
+          "symbol": "Gibit",
+          "transform": "scale",
+          "scale": 134217728.0
+        },
+        {
+          "id": "GiB",
+          "name": "Gibibyte",
+          "symbol": "GiB",
+          "transform": "scale",
+          "scale": 1073741824
+        },
+        {
+          "id": "Tibit",
+          "name": "Tebibit",
+          "symbol": "Tibit",
+          "transform": "scale",
+          "scale": 137438953472.0
+        },
+        {
+          "id": "TiB",
+          "name": "Tebibyte",
+          "symbol": "TiB",
+          "transform": "scale",
+          "scale": 1099511627776
+        },
+        {
+          "id": "Pibit",
+          "name": "Pebibit",
+          "symbol": "Pibit",
+          "transform": "scale",
+          "scale": 140737488355328.0
+        },
+        {
+          "id": "PiB",
+          "name": "Pebibyte",
+          "symbol": "PiB",
+          "transform": "scale",
+          "scale": 1125899906842624
+        },
+        {
+          "id": "Eibit",
+          "name": "Exbibit",
+          "symbol": "Eibit",
+          "transform": "scale",
+          "scale": 1.4411518807585587e+17
+        },
+        {
+          "id": "EiB",
+          "name": "Exbibyte",
+          "symbol": "EiB",
+          "transform": "scale",
+          "scale": 1152921504606846976
+        },
+        {
+          "id": "Zibit",
+          "name": "Zebibit",
+          "symbol": "Zibit",
+          "transform": "scale",
+          "scale": 1.4757395258967641e+20
+        },
+        {
+          "id": "ZiB",
+          "name": "Zebibyte",
+          "symbol": "ZiB",
+          "transform": "scale",
+          "scale": 1180591620717411303424
+        },
+        {
+          "id": "Yibit",
+          "name": "Yobibit",
+          "symbol": "Yibit",
+          "transform": "scale",
+          "scale": 1.5111572745182865e+23
+        },
+        {
+          "id": "YiB",
+          "name": "Yobibyte",
+          "symbol": "YiB",
+          "transform": "scale",
+          "scale": 1208925819614629174706176
+        }
+      ]
+    },
+    {
+      "id": "concentration",
+      "name": "Concentration",
+      "canonical": "mol_m3",
+      "default_from": "mol_m3",
+      "default_to": "mmol_m3",
+      "units": [
+        {
+          "id": "mol_m3",
+          "name": "Mole per cubic meter",
+          "symbol": "mol/m³",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "mmol_m3",
+          "name": "Millimole per cubic meter",
+          "symbol": "mmol/m³",
+          "transform": "scale",
+          "scale": 0.001
+        },
+        {
+          "id": "umol_m3",
+          "name": "Micromole per cubic meter",
+          "symbol": "µmol/m³",
+          "transform": "scale",
+          "scale": 1e-06
+        },
+        {
+          "id": "mol_L",
+          "name": "Mole per liter",
+          "symbol": "mol/L",
+          "transform": "scale",
+          "scale": 1000.0
+        },
+        {
+          "id": "mmol_L",
+          "name": "Millimole per liter",
+          "symbol": "mmol/L",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "umol_L",
+          "name": "Micromole per liter",
+          "symbol": "µmol/L",
+          "transform": "scale",
+          "scale": 0.001
+        },
+        {
+          "id": "kmol_m3",
+          "name": "Kilomole per cubic meter",
+          "symbol": "kmol/m³",
+          "transform": "scale",
+          "scale": 1000.0
+        },
+        {
+          "id": "mmol_mL",
+          "name": "Millimole per milliliter",
+          "symbol": "mmol/mL",
+          "transform": "scale",
+          "scale": 1000.0
+        },
+        {
+          "id": "umol_mL",
+          "name": "Micromole per milliliter",
+          "symbol": "µmol/mL",
+          "transform": "scale",
+          "scale": 1.0
+        },
+        {
+          "id": "umol_cm3",
+          "name": "Micromole per cubic centimeter",
+          "symbol": "µmol/cm³",
+          "transform": "scale",
+          "scale": 1.0
+        },
+        {
+          "id": "entity_m3",
+          "name": "Elementary entity per cubic meter",
+          "symbol": "entity/m³",
+          "transform": "scale",
+          "scale": 1.6605390671738466e-24
+        }
+      ]
+    },
+    {
+      "id": "density",
+      "name": "Density",
+      "canonical": "kg_m3",
+      "default_from": "kg_m3",
+      "default_to": "g_cm3",
+      "units": [
+        {
+          "id": "kg_m3",
+          "name": "Kilogram per cubic meter",
+          "symbol": "kg/m³",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "g_cm3",
+          "name": "Gram per cubic centimeter",
+          "symbol": "g/cm³",
+          "transform": "scale",
+          "scale": 1000
+        },
+        {
+          "id": "kg_L",
+          "name": "Kilogram per liter",
+          "symbol": "kg/L",
+          "transform": "scale",
+          "scale": 1000
+        },
+        {
+          "id": "lb_ft3",
+          "name": "Pound per cubic foot",
+          "symbol": "lb/ft³",
+          "transform": "scale",
+          "scale": 16.018463373960138
+        },
+        {
+          "id": "lb_usgal",
+          "name": "Pound per US gallon",
+          "symbol": "lb/US gal",
+          "transform": "scale",
+          "scale": 119.82642731689663
+        },
+        {
+          "id": "lb_impgal",
+          "name": "Pound per Imperial gallon",
+          "symbol": "lb/imp gal",
+          "transform": "scale",
+          "scale": 99.7763726631017
+        },
+        {
+          "id": "g_m3",
+          "name": "Gram per cubic meter",
+          "symbol": "g/m³",
+          "transform": "scale",
+          "scale": 0.001
+        },
+        {
+          "id": "mg_m3",
+          "name": "Milligram per cubic meter",
+          "symbol": "mg/m³",
+          "transform": "scale",
+          "scale": 1e-06
+        },
+        {
+          "id": "lb_in3",
+          "name": "Pound per cubic inch",
+          "symbol": "lb/in³",
+          "transform": "scale",
+          "scale": 27679.904710203125
+        },
+        {
+          "id": "slug_ft3",
+          "name": "Slug per cubic foot",
+          "symbol": "slug/ft³",
+          "transform": "scale",
+          "scale": 515.3788183931961
+        },
+        {
+          "id": "short_ton_yd3",
+          "name": "Short ton per cubic yard",
+          "symbol": "short ton/yd³",
+          "transform": "scale",
+          "scale": 1186.552842515566
+        }
+      ]
+    },
+    {
+      "id": "distance",
+      "name": "Distance",
+      "canonical": "m",
+      "default_from": "mi",
+      "default_to": "km",
+      "units": [
+        {
+          "id": "m",
+          "name": "Meter",
+          "symbol": "m",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "mm",
+          "name": "Millimeter",
+          "symbol": "mm",
+          "transform": "scale",
+          "scale": 0.001
+        },
+        {
+          "id": "cm",
+          "name": "Centimeter",
+          "symbol": "cm",
+          "transform": "scale",
+          "scale": 0.01
+        },
+        {
+          "id": "km",
+          "name": "Kilometer",
+          "symbol": "km",
+          "transform": "scale",
+          "scale": 1000.0
+        },
+        {
+          "id": "um",
+          "name": "Micrometer",
+          "symbol": "µm",
+          "transform": "scale",
+          "scale": 1e-06
+        },
+        {
+          "id": "nm",
+          "name": "Nanometer",
+          "symbol": "nm",
+          "transform": "scale",
+          "scale": 1e-09
+        },
+        {
+          "id": "angstrom",
+          "name": "Ångström",
+          "symbol": "Å",
+          "transform": "scale",
+          "scale": 1e-10
+        },
+        {
+          "id": "mil",
+          "name": "Mil",
+          "symbol": "mil",
+          "transform": "scale",
+          "scale": 2.54e-05
+        },
+        {
+          "id": "in",
+          "name": "Inch",
+          "symbol": "in",
+          "transform": "scale",
+          "scale": 0.0254
+        },
+        {
+          "id": "ft",
+          "name": "Foot",
+          "symbol": "ft",
+          "transform": "scale",
+          "scale": 0.3048
+        },
+        {
+          "id": "yd",
+          "name": "Yard",
+          "symbol": "yd",
+          "transform": "scale",
+          "scale": 0.9144
+        },
+        {
+          "id": "mi",
+          "name": "Mile",
+          "symbol": "mi",
+          "transform": "scale",
+          "scale": 1609.344
+        },
+        {
+          "id": "nmi",
+          "name": "Nautical mile",
+          "symbol": "nmi",
+          "transform": "scale",
+          "scale": 1852
+        },
+        {
+          "id": "furlong",
+          "name": "Furlong",
+          "symbol": "fur",
+          "transform": "scale",
+          "scale": 201.168
+        },
+        {
+          "id": "au",
+          "name": "Astronomical unit",
+          "symbol": "au",
+          "transform": "scale",
+          "scale": 149597870700
+        },
+        {
+          "id": "ly",
+          "name": "Light-year",
+          "symbol": "ly",
+          "transform": "scale",
+          "scale": 9460730472580800
+        },
+        {
+          "id": "pc",
+          "name": "Parsec",
+          "symbol": "pc",
+          "transform": "scale",
+          "scale": 3.085677581491367e+16
+        },
+        {
+          "id": "pm",
+          "name": "Picometer",
+          "symbol": "pm",
+          "transform": "scale",
+          "scale": 1e-12
+        },
+        {
+          "id": "dam",
+          "name": "Decameter",
+          "symbol": "dam",
+          "transform": "scale",
+          "scale": 10.0
+        },
+        {
+          "id": "hm",
+          "name": "Hectometer",
+          "symbol": "hm",
+          "transform": "scale",
+          "scale": 100.0
+        }
+      ]
+    },
+    {
+      "id": "dynamic_viscosity",
+      "name": "Dynamic Viscosity",
+      "canonical": "Pa_s",
+      "default_from": "Pa_s",
+      "default_to": "mPa_s",
+      "units": [
+        {
+          "id": "Pa_s",
+          "name": "Pascal-second",
+          "symbol": "Pa·s",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "mPa_s",
+          "name": "Millipascal-second",
+          "symbol": "mPa·s",
+          "transform": "scale",
+          "scale": 0.001
+        },
+        {
+          "id": "P",
+          "name": "Poise",
+          "symbol": "P",
+          "transform": "scale",
+          "scale": 0.1
+        },
+        {
+          "id": "cP",
+          "name": "Centipoise",
+          "symbol": "cP",
+          "transform": "scale",
+          "scale": 0.001
+        },
+        {
+          "id": "lb_ft_s",
+          "name": "Pound per foot-second",
+          "symbol": "lb/(ft·s)",
+          "transform": "scale",
+          "scale": 1.4881639435695537
+        }
+      ]
+    },
+    {
+      "id": "energy",
+      "name": "Energy",
+      "canonical": "J",
+      "default_from": "kWh",
+      "default_to": "MJ",
+      "units": [
+        {
+          "id": "J",
+          "name": "Joule",
+          "symbol": "J",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "kJ",
+          "name": "Kilojoule",
+          "symbol": "kJ",
+          "transform": "scale",
+          "scale": 1000.0
+        },
+        {
+          "id": "MJ",
+          "name": "Megajoule",
+          "symbol": "MJ",
+          "transform": "scale",
+          "scale": 1000000.0
+        },
+        {
+          "id": "Wh",
+          "name": "Watt-hour",
+          "symbol": "Wh",
+          "transform": "scale",
+          "scale": 3600
+        },
+        {
+          "id": "kWh",
+          "name": "Kilowatt-hour",
+          "symbol": "kWh",
+          "transform": "scale",
+          "scale": 3600000.0
+        },
+        {
+          "id": "MWh",
+          "name": "Megawatt-hour",
+          "symbol": "MWh",
+          "transform": "scale",
+          "scale": 3600000000.0
+        },
+        {
+          "id": "GWh",
+          "name": "Gigawatt-hour",
+          "symbol": "GWh",
+          "transform": "scale",
+          "scale": 3600000000000.0
+        },
+        {
+          "id": "cal_it",
+          "name": "Calorie (International Table)",
+          "symbol": "cal_IT",
+          "transform": "scale",
+          "scale": 4.1868
+        },
+        {
+          "id": "cal_th",
+          "name": "Calorie (thermochemical)",
+          "symbol": "cal_th",
+          "transform": "scale",
+          "scale": 4.184
+        },
+        {
+          "id": "kcal_it",
+          "name": "Kilocalorie (International Table)",
+          "symbol": "kcal_IT",
+          "transform": "scale",
+          "scale": 4186.8
+        },
+        {
+          "id": "kcal_th",
+          "name": "Kilocalorie (thermochemical)",
+          "symbol": "kcal_th",
+          "transform": "scale",
+          "scale": 4184
+        },
+        {
+          "id": "btu_it",
+          "name": "British thermal unit (International Table)",
+          "symbol": "Btu_IT",
+          "transform": "scale",
+          "scale": 1055.056
+        },
+        {
+          "id": "btu_th",
+          "name": "British thermal unit (thermochemical)",
+          "symbol": "Btu_th",
+          "transform": "scale",
+          "scale": 1054.35
+        },
+        {
+          "id": "eV",
+          "name": "Electronvolt",
+          "symbol": "eV",
+          "transform": "scale",
+          "scale": 1.602176634e-19
+        },
+        {
+          "id": "ft_lbf",
+          "name": "Foot pound-force",
+          "symbol": "ft·lbf",
+          "transform": "scale",
+          "scale": 1.3558179483314003
+        },
+        {
+          "id": "therm_us",
+          "name": "Therm (US)",
+          "symbol": "therm",
+          "transform": "scale",
+          "scale": 105480400
+        },
+        {
+          "id": "ton_tnt",
+          "name": "Ton of TNT",
+          "symbol": "t TNT",
+          "transform": "scale",
+          "scale": 4184000000.0
+        },
+        {
+          "id": "mJ",
+          "name": "Millijoule",
+          "symbol": "mJ",
+          "transform": "scale",
+          "scale": 0.001
+        },
+        {
+          "id": "uJ",
+          "name": "Microjoule",
+          "symbol": "µJ",
+          "transform": "scale",
+          "scale": 1e-06
+        },
+        {
+          "id": "nJ",
+          "name": "Nanojoule",
+          "symbol": "nJ",
+          "transform": "scale",
+          "scale": 1e-09
+        },
+        {
+          "id": "GJ",
+          "name": "Gigajoule",
+          "symbol": "GJ",
+          "transform": "scale",
+          "scale": 1000000000.0
+        },
+        {
+          "id": "erg",
+          "name": "Erg",
+          "symbol": "erg",
+          "transform": "scale",
+          "scale": 1e-07
+        },
+        {
+          "id": "keV",
+          "name": "Kiloelectronvolt",
+          "symbol": "keV",
+          "transform": "scale",
+          "scale": 1.602176634e-16
+        },
+        {
+          "id": "MeV",
+          "name": "Megaelectronvolt",
+          "symbol": "MeV",
+          "transform": "scale",
+          "scale": 1.602176634e-13
+        },
+        {
+          "id": "hp_h",
+          "name": "Horsepower-hour (mechanical)",
+          "symbol": "hp·h",
+          "transform": "scale",
+          "scale": 2684519.537696173
+        },
+        {
+          "id": "lbf_in",
+          "name": "Pound-force inch",
+          "symbol": "lbf·in",
+          "transform": "scale",
+          "scale": 0.11298482902761668
+        },
+        {
+          "id": "ozf_in",
+          "name": "Ounce-force inch",
+          "symbol": "ozf·in",
+          "transform": "scale",
+          "scale": 0.007061551814226043
+        }
+      ]
+    },
+    {
+      "id": "flow",
+      "name": "Flow",
+      "canonical": "m3_s",
+      "default_from": "usgal_min",
+      "default_to": "L_min",
+      "units": [
+        {
+          "id": "m3_s",
+          "name": "Cubic meter per second",
+          "symbol": "m³/s",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "L_s",
+          "name": "Liter per second",
+          "symbol": "L/s",
+          "transform": "scale",
+          "scale": 0.001
+        },
+        {
+          "id": "L_min",
+          "name": "Liter per minute",
+          "symbol": "L/min",
+          "transform": "scale",
+          "scale": 1.6666666666666667e-05
+        },
+        {
+          "id": "mL_s",
+          "name": "Milliliter per second",
+          "symbol": "mL/s",
+          "transform": "scale",
+          "scale": 1e-06
+        },
+        {
+          "id": "ft3_s",
+          "name": "Cubic foot per second",
+          "symbol": "ft³/s",
+          "transform": "scale",
+          "scale": 0.028316846592000004
+        },
+        {
+          "id": "ft3_min",
+          "name": "Cubic foot per minute",
+          "symbol": "ft³/min",
+          "transform": "scale",
+          "scale": 0.0004719474432000001
+        },
+        {
+          "id": "usgal_s",
+          "name": "US gallon per second",
+          "symbol": "US gal/s",
+          "transform": "scale",
+          "scale": 0.003785411784
+        },
+        {
+          "id": "usgal_min",
+          "name": "US gallon per minute",
+          "symbol": "US gal/min",
+          "transform": "scale",
+          "scale": 6.30901964e-05
+        },
+        {
+          "id": "usgal_h",
+          "name": "US gallon per hour",
+          "symbol": "US gal/h",
+          "transform": "scale",
+          "scale": 1.0515032733333334e-06
+        },
+        {
+          "id": "impgal_min",
+          "name": "Imperial gallon per minute",
+          "symbol": "imp gal/min",
+          "transform": "scale",
+          "scale": 7.576816666666667e-05
+        },
+        {
+          "id": "m3_min",
+          "name": "Cubic meter per minute",
+          "symbol": "m³/min",
+          "transform": "scale",
+          "scale": 0.016666666666666666
+        },
+        {
+          "id": "m3_h",
+          "name": "Cubic meter per hour",
+          "symbol": "m³/h",
+          "transform": "scale",
+          "scale": 0.0002777777777777778
+        },
+        {
+          "id": "m3_day",
+          "name": "Cubic meter per day",
+          "symbol": "m³/day",
+          "transform": "scale",
+          "scale": 1.1574074074074073e-05
+        },
+        {
+          "id": "L_h",
+          "name": "Liter per hour",
+          "symbol": "L/h",
+          "transform": "scale",
+          "scale": 2.7777777777777776e-07
+        },
+        {
+          "id": "L_day",
+          "name": "Liter per day",
+          "symbol": "L/day",
+          "transform": "scale",
+          "scale": 1.1574074074074074e-08
+        },
+        {
+          "id": "mL_min",
+          "name": "Milliliter per minute",
+          "symbol": "mL/min",
+          "transform": "scale",
+          "scale": 1.6666666666666667e-08
+        },
+        {
+          "id": "mL_h",
+          "name": "Milliliter per hour",
+          "symbol": "mL/h",
+          "transform": "scale",
+          "scale": 2.7777777777777777e-10
+        },
+        {
+          "id": "ft3_h",
+          "name": "Cubic foot per hour",
+          "symbol": "ft³/h",
+          "transform": "scale",
+          "scale": 7.86579072e-06
+        },
+        {
+          "id": "usgal_day",
+          "name": "US gallon per day",
+          "symbol": "US gal/day",
+          "transform": "scale",
+          "scale": 4.3812636388888886e-08
+        },
+        {
+          "id": "impgal_s",
+          "name": "Imperial gallon per second",
+          "symbol": "imp gal/s",
+          "transform": "scale",
+          "scale": 0.00454609
+        },
+        {
+          "id": "impgal_h",
+          "name": "Imperial gallon per hour",
+          "symbol": "imp gal/h",
+          "transform": "scale",
+          "scale": 1.2628027777777779e-06
+        },
+        {
+          "id": "impgal_day",
+          "name": "Imperial gallon per day",
+          "symbol": "imp gal/day",
+          "transform": "scale",
+          "scale": 5.2616782407407406e-08
+        },
+        {
+          "id": "usfloz_s",
+          "name": "US fluid ounce per second",
+          "symbol": "US fl oz/s",
+          "transform": "scale",
+          "scale": 2.9573529562499998e-05
+        },
+        {
+          "id": "usfloz_min",
+          "name": "US fluid ounce per minute",
+          "symbol": "US fl oz/min",
+          "transform": "scale",
+          "scale": 4.928921593749999e-07
+        },
+        {
+          "id": "usfloz_h",
+          "name": "US fluid ounce per hour",
+          "symbol": "US fl oz/h",
+          "transform": "scale",
+          "scale": 8.214869322916666e-09
+        },
+        {
+          "id": "impfloz_s",
+          "name": "Imperial fluid ounce per second",
+          "symbol": "imp fl oz/s",
+          "transform": "scale",
+          "scale": 2.84130625e-05
+        },
+        {
+          "id": "impfloz_min",
+          "name": "Imperial fluid ounce per minute",
+          "symbol": "imp fl oz/min",
+          "transform": "scale",
+          "scale": 4.7355104166666667e-07
+        },
+        {
+          "id": "impfloz_h",
+          "name": "Imperial fluid ounce per hour",
+          "symbol": "imp fl oz/h",
+          "transform": "scale",
+          "scale": 7.892517361111111e-09
+        }
+      ]
+    },
+    {
+      "id": "force",
+      "name": "Force",
+      "canonical": "N",
+      "default_from": "lbf",
+      "default_to": "N",
+      "units": [
+        {
+          "id": "N",
+          "name": "Newton",
+          "symbol": "N",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "mN",
+          "name": "Millinewton",
+          "symbol": "mN",
+          "transform": "scale",
+          "scale": 0.001
+        },
+        {
+          "id": "kN",
+          "name": "Kilonewton",
+          "symbol": "kN",
+          "transform": "scale",
+          "scale": 1000.0
+        },
+        {
+          "id": "MN",
+          "name": "Meganewton",
+          "symbol": "MN",
+          "transform": "scale",
+          "scale": 1000000.0
+        },
+        {
+          "id": "dyn",
+          "name": "Dyne",
+          "symbol": "dyn",
+          "transform": "scale",
+          "scale": 1e-05
+        },
+        {
+          "id": "gf",
+          "name": "Gram-force",
+          "symbol": "gf",
+          "transform": "scale",
+          "scale": 0.00980665
+        },
+        {
+          "id": "kgf",
+          "name": "Kilogram-force",
+          "symbol": "kgf",
+          "transform": "scale",
+          "scale": 9.80665
+        },
+        {
+          "id": "lbf",
+          "name": "Pound-force",
+          "symbol": "lbf",
+          "transform": "scale",
+          "scale": 4.4482216152605
+        },
+        {
+          "id": "ozf",
+          "name": "Ounce-force",
+          "symbol": "ozf",
+          "transform": "scale",
+          "scale": 0.2780138509537812
+        },
+        {
+          "id": "tonf_us",
+          "name": "Ton-force (short)",
+          "symbol": "tonf",
+          "transform": "scale",
+          "scale": 8896.443230521
+        }
+      ]
+    },
+    {
+      "id": "inertia",
+      "name": "Moment of Inertia",
+      "canonical": "kg_m2",
+      "default_from": "kg_m2",
+      "default_to": "g_cm2",
+      "units": [
+        {
+          "id": "kg_m2",
+          "name": "Kilogram square meter",
+          "symbol": "kg·m²",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "g_cm2",
+          "name": "Gram square centimeter",
+          "symbol": "g·cm²",
+          "transform": "scale",
+          "scale": 1e-07
+        },
+        {
+          "id": "lb_ft2",
+          "name": "Pound square foot",
+          "symbol": "lb·ft²",
+          "transform": "scale",
+          "scale": 0.042140110093804806
+        },
+        {
+          "id": "lb_in2",
+          "name": "Pound square inch",
+          "symbol": "lb·in²",
+          "transform": "scale",
+          "scale": 0.0002926396534292
+        },
+        {
+          "id": "slug_ft2",
+          "name": "Slug square foot",
+          "symbol": "slug·ft²",
+          "transform": "scale",
+          "scale": 1.3558179483314003
+        }
+      ]
+    },
+    {
+      "id": "light",
+      "name": "Illuminance",
+      "canonical": "lx",
+      "default_from": "fc",
+      "default_to": "lx",
+      "units": [
+        {
+          "id": "lx",
+          "name": "Lux",
+          "symbol": "lx",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "fc",
+          "name": "Foot-candle",
+          "symbol": "fc",
+          "transform": "scale",
+          "scale": 10.763910416709722
+        }
+      ]
+    },
+    {
+      "id": "mass",
+      "name": "Mass",
+      "canonical": "kg",
+      "default_from": "lb",
+      "default_to": "kg",
+      "units": [
+        {
+          "id": "kg",
+          "name": "Kilogram",
+          "symbol": "kg",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "g",
+          "name": "Gram",
+          "symbol": "g",
+          "transform": "scale",
+          "scale": 0.001
+        },
+        {
+          "id": "mg",
+          "name": "Milligram",
+          "symbol": "mg",
+          "transform": "scale",
+          "scale": 1e-06
+        },
+        {
+          "id": "ug",
+          "name": "Microgram",
+          "symbol": "µg",
+          "transform": "scale",
+          "scale": 1e-09
+        },
+        {
+          "id": "ng",
+          "name": "Nanogram",
+          "symbol": "ng",
+          "transform": "scale",
+          "scale": 1e-12
+        },
+        {
+          "id": "tonne",
+          "name": "Tonne",
+          "symbol": "t",
+          "transform": "scale",
+          "scale": 1000
+        },
+        {
+          "id": "lb",
+          "name": "Pound (avoirdupois)",
+          "symbol": "lb",
+          "transform": "scale",
+          "scale": 0.45359237
+        },
+        {
+          "id": "oz",
+          "name": "Ounce (avoirdupois)",
+          "symbol": "oz",
+          "transform": "scale",
+          "scale": 0.028349523125
+        },
+        {
+          "id": "stone",
+          "name": "Stone",
+          "symbol": "st",
+          "transform": "scale",
+          "scale": 6.35029318
+        },
+        {
+          "id": "short_ton",
+          "name": "Short ton",
+          "symbol": "short ton",
+          "transform": "scale",
+          "scale": 907.18474
+        },
+        {
+          "id": "long_ton",
+          "name": "Long ton",
+          "symbol": "long ton",
+          "transform": "scale",
+          "scale": 1016.0469088000001
+        },
+        {
+          "id": "grain",
+          "name": "Grain",
+          "symbol": "gr",
+          "transform": "scale",
+          "scale": 6.479891000000001e-05
+        },
+        {
+          "id": "troy_oz",
+          "name": "Troy ounce",
+          "symbol": "oz t",
+          "transform": "scale",
+          "scale": 0.0311034768
+        },
+        {
+          "id": "troy_lb",
+          "name": "Troy pound",
+          "symbol": "lb t",
+          "transform": "scale",
+          "scale": 0.3732417216
+        },
+        {
+          "id": "carat",
+          "name": "Carat",
+          "symbol": "ct",
+          "transform": "scale",
+          "scale": 0.0002
+        },
+        {
+          "id": "pennyweight",
+          "name": "Pennyweight",
+          "symbol": "dwt",
+          "transform": "scale",
+          "scale": 0.00155517384
+        },
+        {
+          "id": "slug",
+          "name": "Slug",
+          "symbol": "slug",
+          "transform": "scale",
+          "scale": 14.593902937206362
+        },
+        {
+          "id": "pg",
+          "name": "Picogram",
+          "symbol": "pg",
+          "transform": "scale",
+          "scale": 1e-15
+        }
+      ]
+    },
+    {
+      "id": "power",
+      "name": "Power",
+      "canonical": "W",
+      "default_from": "hp_mech",
+      "default_to": "kW",
+      "units": [
+        {
+          "id": "W",
+          "name": "Watt",
+          "symbol": "W",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "mW",
+          "name": "Milliwatt",
+          "symbol": "mW",
+          "transform": "scale",
+          "scale": 0.001
+        },
+        {
+          "id": "kW",
+          "name": "Kilowatt",
+          "symbol": "kW",
+          "transform": "scale",
+          "scale": 1000.0
+        },
+        {
+          "id": "MW",
+          "name": "Megawatt",
+          "symbol": "MW",
+          "transform": "scale",
+          "scale": 1000000.0
+        },
+        {
+          "id": "GW",
+          "name": "Gigawatt",
+          "symbol": "GW",
+          "transform": "scale",
+          "scale": 1000000000.0
+        },
+        {
+          "id": "hp_mech",
+          "name": "Horsepower (mechanical)",
+          "symbol": "hp",
+          "transform": "scale",
+          "scale": 745.6998715822702
+        },
+        {
+          "id": "hp_metric",
+          "name": "Horsepower (metric)",
+          "symbol": "PS",
+          "transform": "scale",
+          "scale": 735.49875
+        },
+        {
+          "id": "ft_lbf_s",
+          "name": "Foot pound-force per second",
+          "symbol": "ft·lbf/s",
+          "transform": "scale",
+          "scale": 1.3558179483314003
+        },
+        {
+          "id": "btu_it_h",
+          "name": "British thermal unit (IT) per hour",
+          "symbol": "Btu_IT/h",
+          "transform": "scale",
+          "scale": 0.2930711111111111
+        },
+        {
+          "id": "btu_it_min",
+          "name": "British thermal unit (IT) per minute",
+          "symbol": "Btu_IT/min",
+          "transform": "scale",
+          "scale": 17.584266666666668
+        },
+        {
+          "id": "btu_it_s",
+          "name": "British thermal unit (IT) per second",
+          "symbol": "Btu_IT/s",
+          "transform": "scale",
+          "scale": 1055.056
+        },
+        {
+          "id": "cal_it_s",
+          "name": "Calorie (International Table) per second",
+          "symbol": "cal_IT/s",
+          "transform": "scale",
+          "scale": 4.1868
+        }
+      ]
+    },
+    {
+      "id": "pressure",
+      "name": "Pressure",
+      "canonical": "Pa",
+      "default_from": "psi",
+      "default_to": "kPa",
+      "units": [
+        {
+          "id": "Pa",
+          "name": "Pascal",
+          "symbol": "Pa",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "hPa",
+          "name": "Hectopascal",
+          "symbol": "hPa",
+          "transform": "scale",
+          "scale": 100
+        },
+        {
+          "id": "kPa",
+          "name": "Kilopascal",
+          "symbol": "kPa",
+          "transform": "scale",
+          "scale": 1000.0
+        },
+        {
+          "id": "MPa",
+          "name": "Megapascal",
+          "symbol": "MPa",
+          "transform": "scale",
+          "scale": 1000000.0
+        },
+        {
+          "id": "bar",
+          "name": "Bar",
+          "symbol": "bar",
+          "transform": "scale",
+          "scale": 100000.0
+        },
+        {
+          "id": "mbar",
+          "name": "Millibar",
+          "symbol": "mbar",
+          "transform": "scale",
+          "scale": 100
+        },
+        {
+          "id": "atm",
+          "name": "Standard atmosphere",
+          "symbol": "atm",
+          "transform": "scale",
+          "scale": 101325
+        },
+        {
+          "id": "psi",
+          "name": "Pound-force per square inch",
+          "symbol": "psi",
+          "transform": "scale",
+          "scale": 6894.757293168361
+        },
+        {
+          "id": "ksi",
+          "name": "Kip per square inch",
+          "symbol": "ksi",
+          "transform": "scale",
+          "scale": 6894757.293168361
+        },
+        {
+          "id": "torr",
+          "name": "Torr",
+          "symbol": "Torr",
+          "transform": "scale",
+          "scale": 133.32236842105263
+        },
+        {
+          "id": "ubar",
+          "name": "Microbar",
+          "symbol": "µbar",
+          "transform": "scale",
+          "scale": 0.1
+        },
+        {
+          "id": "psf",
+          "name": "Pound-force per square foot",
+          "symbol": "lbf/ft²",
+          "transform": "scale",
+          "scale": 47.88025898033584
+        },
+        {
+          "id": "inHg",
+          "name": "Inch of mercury (conventional)",
+          "symbol": "inHg",
+          "transform": "scale",
+          "scale": 3386.389
+        },
+        {
+          "id": "cmHg",
+          "name": "Centimeter of mercury (conventional)",
+          "symbol": "cmHg",
+          "transform": "scale",
+          "scale": 1333.224
+        },
+        {
+          "id": "mmHg",
+          "name": "Millimeter of mercury (conventional)",
+          "symbol": "mmHg",
+          "transform": "scale",
+          "scale": 133.3224
+        },
+        {
+          "id": "inH2O",
+          "name": "Inch of water (conventional)",
+          "symbol": "inH₂O",
+          "transform": "scale",
+          "scale": 249.0889
+        },
+        {
+          "id": "ftH2O",
+          "name": "Foot of water (conventional)",
+          "symbol": "ftH₂O",
+          "transform": "scale",
+          "scale": 2989.067
+        },
+        {
+          "id": "mmH2O",
+          "name": "Millimeter of water (conventional)",
+          "symbol": "mmH₂O",
+          "transform": "scale",
+          "scale": 9.80665
+        }
+      ]
+    },
+    {
+      "id": "speed",
+      "name": "Speed",
+      "canonical": "m_s",
+      "default_from": "mph",
+      "default_to": "km_h",
+      "units": [
+        {
+          "id": "m_s",
+          "name": "Meter per second",
+          "symbol": "m/s",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "km_h",
+          "name": "Kilometer per hour",
+          "symbol": "km/h",
+          "transform": "scale",
+          "scale": 0.2777777777777778
+        },
+        {
+          "id": "mph",
+          "name": "Mile per hour",
+          "symbol": "mph",
+          "transform": "scale",
+          "scale": 0.44704
+        },
+        {
+          "id": "ft_s",
+          "name": "Foot per second",
+          "symbol": "ft/s",
+          "transform": "scale",
+          "scale": 0.3048
+        },
+        {
+          "id": "knot",
+          "name": "Knot",
+          "symbol": "kn",
+          "transform": "scale",
+          "scale": 0.5144444444444445
+        },
+        {
+          "id": "c",
+          "name": "Speed of light in vacuum",
+          "symbol": "c",
+          "transform": "scale",
+          "scale": 299792458
+        },
+        {
+          "id": "m_min",
+          "name": "Meter per minute",
+          "symbol": "m/min",
+          "transform": "scale",
+          "scale": 0.016666666666666666
+        },
+        {
+          "id": "m_h",
+          "name": "Meter per hour",
+          "symbol": "m/h",
+          "transform": "scale",
+          "scale": 0.0002777777777777778
+        },
+        {
+          "id": "km_min",
+          "name": "Kilometer per minute",
+          "symbol": "km/min",
+          "transform": "scale",
+          "scale": 16.666666666666668
+        },
+        {
+          "id": "km_s",
+          "name": "Kilometer per second",
+          "symbol": "km/s",
+          "transform": "scale",
+          "scale": 1000.0
+        },
+        {
+          "id": "mi_min",
+          "name": "Mile per minute",
+          "symbol": "mi/min",
+          "transform": "scale",
+          "scale": 26.822400000000002
+        },
+        {
+          "id": "mi_s",
+          "name": "Mile per second",
+          "symbol": "mi/s",
+          "transform": "scale",
+          "scale": 1609.344
+        },
+        {
+          "id": "ft_min",
+          "name": "Foot per minute",
+          "symbol": "ft/min",
+          "transform": "scale",
+          "scale": 0.00508
+        },
+        {
+          "id": "in_s",
+          "name": "Inch per second",
+          "symbol": "in/s",
+          "transform": "scale",
+          "scale": 0.0254
+        }
+      ]
+    },
+    {
+      "id": "temperature",
+      "name": "Temperature",
+      "canonical": "K",
+      "default_from": "F",
+      "default_to": "C",
+      "units": [
+        {
+          "id": "K",
+          "name": "Kelvin",
+          "symbol": "K",
+          "transform": "affine",
+          "scale": 1,
+          "offset": 0
+        },
+        {
+          "id": "C",
+          "name": "Degree Celsius",
+          "symbol": "°C",
+          "transform": "affine",
+          "scale": 1,
+          "offset": 273.15
+        },
+        {
+          "id": "F",
+          "name": "Degree Fahrenheit",
+          "symbol": "°F",
+          "transform": "affine",
+          "scale": 0.5555555555555556,
+          "offset": 255.3722222222222
+        },
+        {
+          "id": "R",
+          "name": "Degree Rankine",
+          "symbol": "°R",
+          "transform": "affine",
+          "scale": 0.5555555555555556,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "id": "time",
+      "name": "Time",
+      "canonical": "s",
+      "default_from": "h",
+      "default_to": "min",
+      "units": [
+        {
+          "id": "s",
+          "name": "Second",
+          "symbol": "s",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "ns",
+          "name": "Nanosecond",
+          "symbol": "ns",
+          "transform": "scale",
+          "scale": 1e-09
+        },
+        {
+          "id": "us",
+          "name": "Microsecond",
+          "symbol": "µs",
+          "transform": "scale",
+          "scale": 1e-06
+        },
+        {
+          "id": "ms",
+          "name": "Millisecond",
+          "symbol": "ms",
+          "transform": "scale",
+          "scale": 0.001
+        },
+        {
+          "id": "min",
+          "name": "Minute",
+          "symbol": "min",
+          "transform": "scale",
+          "scale": 60
+        },
+        {
+          "id": "h",
+          "name": "Hour",
+          "symbol": "h",
+          "transform": "scale",
+          "scale": 3600
+        },
+        {
+          "id": "day",
+          "name": "Day",
+          "symbol": "d",
+          "transform": "scale",
+          "scale": 86400
+        },
+        {
+          "id": "week",
+          "name": "Week",
+          "symbol": "wk",
+          "transform": "scale",
+          "scale": 604800
+        },
+        {
+          "id": "fortnight",
+          "name": "Fortnight",
+          "symbol": "fortnight",
+          "transform": "scale",
+          "scale": 1209600
+        },
+        {
+          "id": "month30",
+          "name": "Month (30 days)",
+          "symbol": "30-day mo",
+          "transform": "scale",
+          "scale": 2592000
+        },
+        {
+          "id": "year365",
+          "name": "Year (365 days)",
+          "symbol": "365-day yr",
+          "transform": "scale",
+          "scale": 31536000
+        },
+        {
+          "id": "leap366",
+          "name": "Leap year (366 days)",
+          "symbol": "366-day yr",
+          "transform": "scale",
+          "scale": 31622400
+        },
+        {
+          "id": "ps",
+          "name": "Picosecond",
+          "symbol": "ps",
+          "transform": "scale",
+          "scale": 1e-12
+        },
+        {
+          "id": "decade365",
+          "name": "Decade (10 × 365-day years)",
+          "symbol": "3650-day decade",
+          "transform": "scale",
+          "scale": 315360000.0
+        },
+        {
+          "id": "century365",
+          "name": "Century (100 × 365-day years)",
+          "symbol": "36500-day century",
+          "transform": "scale",
+          "scale": 3153600000.0
+        },
+        {
+          "id": "millennium365",
+          "name": "Millennium (1000 × 365-day years)",
+          "symbol": "365000-day millennium",
+          "transform": "scale",
+          "scale": 31536000000.0
+        }
+      ]
+    },
+    {
+      "id": "torque",
+      "name": "Torque",
+      "canonical": "N_m",
+      "default_from": "lbf_ft",
+      "default_to": "N_m",
+      "units": [
+        {
+          "id": "N_m",
+          "name": "Newton-meter",
+          "symbol": "N·m",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "mN_m",
+          "name": "Millinewton-meter",
+          "symbol": "mN·m",
+          "transform": "scale",
+          "scale": 0.001
+        },
+        {
+          "id": "kN_m",
+          "name": "Kilonewton-meter",
+          "symbol": "kN·m",
+          "transform": "scale",
+          "scale": 1000.0
+        },
+        {
+          "id": "lbf_ft",
+          "name": "Pound-force foot",
+          "symbol": "lbf·ft",
+          "transform": "scale",
+          "scale": 1.3558179483314003
+        },
+        {
+          "id": "lbf_in",
+          "name": "Pound-force inch",
+          "symbol": "lbf·in",
+          "transform": "scale",
+          "scale": 0.11298482902761668
+        },
+        {
+          "id": "ozf_in",
+          "name": "Ounce-force inch",
+          "symbol": "ozf·in",
+          "transform": "scale",
+          "scale": 0.007061551814226043
+        },
+        {
+          "id": "kgf_m",
+          "name": "Kilogram-force meter",
+          "symbol": "kgf·m",
+          "transform": "scale",
+          "scale": 9.80665
+        },
+        {
+          "id": "uN_m",
+          "name": "Micronewton-meter",
+          "symbol": "µN·m",
+          "transform": "scale",
+          "scale": 1e-06
+        },
+        {
+          "id": "MN_m",
+          "name": "Meganewton-meter",
+          "symbol": "MN·m",
+          "transform": "scale",
+          "scale": 1000000.0
+        },
+        {
+          "id": "N_cm",
+          "name": "Newton-centimeter",
+          "symbol": "N·cm",
+          "transform": "scale",
+          "scale": 0.01
+        },
+        {
+          "id": "ozf_ft",
+          "name": "Ounce-force foot",
+          "symbol": "ozf·ft",
+          "transform": "scale",
+          "scale": 0.08473862177071252
+        },
+        {
+          "id": "gf_cm",
+          "name": "Gram-force centimeter",
+          "symbol": "gf·cm",
+          "transform": "scale",
+          "scale": 9.80665e-05
+        }
+      ]
+    },
+    {
+      "id": "kinematic_viscosity",
+      "name": "Kinematic Viscosity",
+      "canonical": "m2_s",
+      "default_from": "cSt",
+      "default_to": "m2_s",
+      "units": [
+        {
+          "id": "m2_s",
+          "name": "Square meter per second",
+          "symbol": "m²/s",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "St",
+          "name": "Stokes",
+          "symbol": "St",
+          "transform": "scale",
+          "scale": 0.0001
+        },
+        {
+          "id": "cSt",
+          "name": "Centistokes",
+          "symbol": "cSt",
+          "transform": "scale",
+          "scale": 1e-06
+        }
+      ]
+    },
+    {
+      "id": "volume",
+      "name": "Volume",
+      "canonical": "L",
+      "default_from": "us_gal",
+      "default_to": "L",
+      "units": [
+        {
+          "id": "L",
+          "name": "Liter",
+          "symbol": "L",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "mL",
+          "name": "Milliliter",
+          "symbol": "mL",
+          "transform": "scale",
+          "scale": 0.001
+        },
+        {
+          "id": "uL",
+          "name": "Microliter",
+          "symbol": "µL",
+          "transform": "scale",
+          "scale": 1e-06
+        },
+        {
+          "id": "m3",
+          "name": "Cubic meter",
+          "symbol": "m³",
+          "transform": "scale",
+          "scale": 1000
+        },
+        {
+          "id": "cm3",
+          "name": "Cubic centimeter",
+          "symbol": "cm³",
+          "transform": "scale",
+          "scale": 0.001
+        },
+        {
+          "id": "in3",
+          "name": "Cubic inch",
+          "symbol": "in³",
+          "transform": "scale",
+          "scale": 0.016387064
+        },
+        {
+          "id": "ft3",
+          "name": "Cubic foot",
+          "symbol": "ft³",
+          "transform": "scale",
+          "scale": 28.316846592
+        },
+        {
+          "id": "yd3",
+          "name": "Cubic yard",
+          "symbol": "yd³",
+          "transform": "scale",
+          "scale": 764.554857984
+        },
+        {
+          "id": "us_gal",
+          "name": "Gallon (US liquid)",
+          "symbol": "US gal",
+          "transform": "scale",
+          "scale": 3.785411784
+        },
+        {
+          "id": "imp_gal",
+          "name": "Gallon (Imperial)",
+          "symbol": "imp gal",
+          "transform": "scale",
+          "scale": 4.54609
+        },
+        {
+          "id": "us_qt",
+          "name": "Quart (US liquid)",
+          "symbol": "US qt",
+          "transform": "scale",
+          "scale": 0.946352946
+        },
+        {
+          "id": "us_pt",
+          "name": "Pint (US liquid)",
+          "symbol": "US pt",
+          "transform": "scale",
+          "scale": 0.473176473
+        },
+        {
+          "id": "us_cup",
+          "name": "Cup (US customary)",
+          "symbol": "US cup",
+          "transform": "scale",
+          "scale": 0.2365882365
+        },
+        {
+          "id": "us_floz",
+          "name": "Fluid ounce (US)",
+          "symbol": "US fl oz",
+          "transform": "scale",
+          "scale": 0.0295735295625
+        },
+        {
+          "id": "imp_floz",
+          "name": "Fluid ounce (Imperial)",
+          "symbol": "imp fl oz",
+          "transform": "scale",
+          "scale": 0.028413062500000003
+        },
+        {
+          "id": "us_tbsp",
+          "name": "Tablespoon (US)",
+          "symbol": "US tbsp",
+          "transform": "scale",
+          "scale": 0.01478676478125
+        },
+        {
+          "id": "us_tsp",
+          "name": "Teaspoon (US)",
+          "symbol": "US tsp",
+          "transform": "scale",
+          "scale": 0.00492892159375
+        },
+        {
+          "id": "imp_pt",
+          "name": "Pint (Imperial)",
+          "symbol": "imp pt",
+          "transform": "scale",
+          "scale": 0.56826125
+        },
+        {
+          "id": "imp_qt",
+          "name": "Quart (Imperial)",
+          "symbol": "imp qt",
+          "transform": "scale",
+          "scale": 1.1365225
+        },
+        {
+          "id": "us_fldr",
+          "name": "Fluid dram (US)",
+          "symbol": "US fl dr",
+          "transform": "scale",
+          "scale": 0.0036966911953125
+        },
+        {
+          "id": "us_minim",
+          "name": "Minim (US)",
+          "symbol": "US min",
+          "transform": "scale",
+          "scale": 6.161151992187499e-05
+        }
+      ]
+    },
+    {
+      "id": "dry_volume",
+      "name": "Dry Volume",
+      "canonical": "L",
+      "default_from": "us_bushel",
+      "default_to": "L",
+      "units": [
+        {
+          "id": "L",
+          "name": "Liter",
+          "symbol": "L",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "us_dry_pt",
+          "name": "Pint (US dry)",
+          "symbol": "US dry pt",
+          "transform": "scale",
+          "scale": 0.5506104713575
+        },
+        {
+          "id": "us_dry_qt",
+          "name": "Quart (US dry)",
+          "symbol": "US dry qt",
+          "transform": "scale",
+          "scale": 1.101220942715
+        },
+        {
+          "id": "us_peck",
+          "name": "Peck (US)",
+          "symbol": "US pk",
+          "transform": "scale",
+          "scale": 8.80976754172
+        },
+        {
+          "id": "us_bushel",
+          "name": "Bushel (US)",
+          "symbol": "US bu",
+          "transform": "scale",
+          "scale": 35.23907016688
+        },
+        {
+          "id": "us_dry_barrel",
+          "name": "Dry barrel (US)",
+          "symbol": "US dry bbl",
+          "transform": "scale",
+          "scale": 115.627123584
+        }
+      ]
+    },
+    {
+      "id": "frequency",
+      "name": "Frequency",
+      "canonical": "Hz",
+      "default_from": "GHz",
+      "default_to": "MHz",
+      "units": [
+        {
+          "id": "Hz",
+          "name": "Hertz",
+          "symbol": "Hz",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "kHz",
+          "name": "Kilohertz",
+          "symbol": "kHz",
+          "transform": "scale",
+          "scale": 1000.0
+        },
+        {
+          "id": "MHz",
+          "name": "Megahertz",
+          "symbol": "MHz",
+          "transform": "scale",
+          "scale": 1000000.0
+        },
+        {
+          "id": "GHz",
+          "name": "Gigahertz",
+          "symbol": "GHz",
+          "transform": "scale",
+          "scale": 1000000000.0
+        },
+        {
+          "id": "THz",
+          "name": "Terahertz",
+          "symbol": "THz",
+          "transform": "scale",
+          "scale": 1000000000000.0
+        }
+      ]
+    },
+    {
+      "id": "data_rate",
+      "name": "Data Rate",
+      "canonical": "bit_s",
+      "default_from": "Gbit_s",
+      "default_to": "MB_s",
+      "units": [
+        {
+          "id": "bit_s",
+          "name": "Bit per second",
+          "symbol": "bit/s",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "B_s",
+          "name": "Byte per second",
+          "symbol": "B/s",
+          "transform": "scale",
+          "scale": 8
+        },
+        {
+          "id": "kbit_s",
+          "name": "Kilobit per second",
+          "symbol": "kbit/s",
+          "transform": "scale",
+          "scale": 1000
+        },
+        {
+          "id": "kB_s",
+          "name": "Kilobyte per second",
+          "symbol": "kB/s",
+          "transform": "scale",
+          "scale": 8000
+        },
+        {
+          "id": "Mbit_s",
+          "name": "Megabit per second",
+          "symbol": "Mbit/s",
+          "transform": "scale",
+          "scale": 1000000
+        },
+        {
+          "id": "MB_s",
+          "name": "Megabyte per second",
+          "symbol": "MB/s",
+          "transform": "scale",
+          "scale": 8000000
+        },
+        {
+          "id": "Gbit_s",
+          "name": "Gigabit per second",
+          "symbol": "Gbit/s",
+          "transform": "scale",
+          "scale": 1000000000
+        },
+        {
+          "id": "GB_s",
+          "name": "Gigabyte per second",
+          "symbol": "GB/s",
+          "transform": "scale",
+          "scale": 8000000000
+        },
+        {
+          "id": "Tbit_s",
+          "name": "Terabit per second",
+          "symbol": "Tbit/s",
+          "transform": "scale",
+          "scale": 1000000000000
+        },
+        {
+          "id": "TB_s",
+          "name": "Terabyte per second",
+          "symbol": "TB/s",
+          "transform": "scale",
+          "scale": 8000000000000
+        },
+        {
+          "id": "Pbit_s",
+          "name": "Petabit per second",
+          "symbol": "Pbit/s",
+          "transform": "scale",
+          "scale": 1000000000000000
+        },
+        {
+          "id": "PB_s",
+          "name": "Petabyte per second",
+          "symbol": "PB/s",
+          "transform": "scale",
+          "scale": 8000000000000000
+        },
+        {
+          "id": "Kibit_s",
+          "name": "Kibibit per second",
+          "symbol": "Kibit/s",
+          "transform": "scale",
+          "scale": 1024
+        },
+        {
+          "id": "KiB_s",
+          "name": "Kibibyte per second",
+          "symbol": "KiB/s",
+          "transform": "scale",
+          "scale": 8192
+        },
+        {
+          "id": "Mibit_s",
+          "name": "Mebibit per second",
+          "symbol": "Mibit/s",
+          "transform": "scale",
+          "scale": 1048576
+        },
+        {
+          "id": "MiB_s",
+          "name": "Mebibyte per second",
+          "symbol": "MiB/s",
+          "transform": "scale",
+          "scale": 8388608
+        },
+        {
+          "id": "Gibit_s",
+          "name": "Gibibit per second",
+          "symbol": "Gibit/s",
+          "transform": "scale",
+          "scale": 1073741824
+        },
+        {
+          "id": "GiB_s",
+          "name": "Gibibyte per second",
+          "symbol": "GiB/s",
+          "transform": "scale",
+          "scale": 8589934592
+        },
+        {
+          "id": "Tibit_s",
+          "name": "Tebibit per second",
+          "symbol": "Tibit/s",
+          "transform": "scale",
+          "scale": 1099511627776
+        },
+        {
+          "id": "TiB_s",
+          "name": "Tebibyte per second",
+          "symbol": "TiB/s",
+          "transform": "scale",
+          "scale": 8796093022208
+        },
+        {
+          "id": "Pibit_s",
+          "name": "Pebibit per second",
+          "symbol": "Pibit/s",
+          "transform": "scale",
+          "scale": 1125899906842624
+        },
+        {
+          "id": "PiB_s",
+          "name": "Pebibyte per second",
+          "symbol": "PiB/s",
+          "transform": "scale",
+          "scale": 9007199254740992
+        }
+      ]
+    },
+    {
+      "id": "electric_current",
+      "name": "Electric Current",
+      "canonical": "A",
+      "default_from": "mA",
+      "default_to": "A",
+      "units": [
+        {
+          "id": "nA",
+          "name": "Nanoampere",
+          "symbol": "nA",
+          "transform": "scale",
+          "scale": 1e-09
+        },
+        {
+          "id": "uA",
+          "name": "Microampere",
+          "symbol": "µA",
+          "transform": "scale",
+          "scale": 1e-06
+        },
+        {
+          "id": "mA",
+          "name": "Milliampere",
+          "symbol": "mA",
+          "transform": "scale",
+          "scale": 0.001
+        },
+        {
+          "id": "A",
+          "name": "Ampere",
+          "symbol": "A",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "kA",
+          "name": "Kiloampere",
+          "symbol": "kA",
+          "transform": "scale",
+          "scale": 1000.0
+        },
+        {
+          "id": "MA",
+          "name": "Megaampere",
+          "symbol": "MA",
+          "transform": "scale",
+          "scale": 1000000.0
+        }
+      ]
+    },
+    {
+      "id": "voltage",
+      "name": "Voltage",
+      "canonical": "V",
+      "default_from": "V",
+      "default_to": "mV",
+      "units": [
+        {
+          "id": "uV",
+          "name": "Microvolt",
+          "symbol": "µV",
+          "transform": "scale",
+          "scale": 1e-06
+        },
+        {
+          "id": "mV",
+          "name": "Millivolt",
+          "symbol": "mV",
+          "transform": "scale",
+          "scale": 0.001
+        },
+        {
+          "id": "V",
+          "name": "Volt",
+          "symbol": "V",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "kV",
+          "name": "Kilovolt",
+          "symbol": "kV",
+          "transform": "scale",
+          "scale": 1000.0
+        },
+        {
+          "id": "MV",
+          "name": "Megavolt",
+          "symbol": "MV",
+          "transform": "scale",
+          "scale": 1000000.0
+        }
+      ]
+    },
+    {
+      "id": "electrical_resistance",
+      "name": "Electrical Resistance",
+      "canonical": "ohm",
+      "default_from": "kohm",
+      "default_to": "ohm",
+      "units": [
+        {
+          "id": "mohm",
+          "name": "Milliohm",
+          "symbol": "mΩ",
+          "transform": "scale",
+          "scale": 0.001
+        },
+        {
+          "id": "ohm",
+          "name": "Ohm",
+          "symbol": "Ω",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "kohm",
+          "name": "Kiloohm",
+          "symbol": "kΩ",
+          "transform": "scale",
+          "scale": 1000.0
+        },
+        {
+          "id": "Mohm",
+          "name": "Megaohm",
+          "symbol": "MΩ",
+          "transform": "scale",
+          "scale": 1000000.0
+        },
+        {
+          "id": "Gohm",
+          "name": "Gigaohm",
+          "symbol": "GΩ",
+          "transform": "scale",
+          "scale": 1000000000.0
+        }
+      ]
+    },
+    {
+      "id": "capacitance",
+      "name": "Capacitance",
+      "canonical": "F",
+      "default_from": "uF",
+      "default_to": "nF",
+      "units": [
+        {
+          "id": "pF",
+          "name": "Picofarad",
+          "symbol": "pF",
+          "transform": "scale",
+          "scale": 1e-12
+        },
+        {
+          "id": "nF",
+          "name": "Nanofarad",
+          "symbol": "nF",
+          "transform": "scale",
+          "scale": 1e-09
+        },
+        {
+          "id": "uF",
+          "name": "Microfarad",
+          "symbol": "µF",
+          "transform": "scale",
+          "scale": 1e-06
+        },
+        {
+          "id": "mF",
+          "name": "Millifarad",
+          "symbol": "mF",
+          "transform": "scale",
+          "scale": 0.001
+        },
+        {
+          "id": "F",
+          "name": "Farad",
+          "symbol": "F",
+          "transform": "scale",
+          "scale": 1
+        }
+      ]
+    },
+    {
+      "id": "inductance",
+      "name": "Inductance",
+      "canonical": "H",
+      "default_from": "mH",
+      "default_to": "uH",
+      "units": [
+        {
+          "id": "nH",
+          "name": "Nanohenry",
+          "symbol": "nH",
+          "transform": "scale",
+          "scale": 1e-09
+        },
+        {
+          "id": "uH",
+          "name": "Microhenry",
+          "symbol": "µH",
+          "transform": "scale",
+          "scale": 1e-06
+        },
+        {
+          "id": "mH",
+          "name": "Millihenry",
+          "symbol": "mH",
+          "transform": "scale",
+          "scale": 0.001
+        },
+        {
+          "id": "H",
+          "name": "Henry",
+          "symbol": "H",
+          "transform": "scale",
+          "scale": 1
+        }
+      ]
+    },
+    {
+      "id": "electric_charge",
+      "name": "Electric Charge",
+      "canonical": "C",
+      "default_from": "mAh",
+      "default_to": "C",
+      "units": [
+        {
+          "id": "C",
+          "name": "Coulomb",
+          "symbol": "C",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "mC",
+          "name": "Millicoulomb",
+          "symbol": "mC",
+          "transform": "scale",
+          "scale": 0.001
+        },
+        {
+          "id": "uC",
+          "name": "Microcoulomb",
+          "symbol": "µC",
+          "transform": "scale",
+          "scale": 1e-06
+        },
+        {
+          "id": "nC",
+          "name": "Nanocoulomb",
+          "symbol": "nC",
+          "transform": "scale",
+          "scale": 1e-09
+        },
+        {
+          "id": "Ah",
+          "name": "Ampere-hour",
+          "symbol": "Ah",
+          "transform": "scale",
+          "scale": 3600
+        },
+        {
+          "id": "mAh",
+          "name": "Milliampere-hour",
+          "symbol": "mAh",
+          "transform": "scale",
+          "scale": 3.6
+        },
+        {
+          "id": "elementary_charge",
+          "name": "Elementary charge",
+          "symbol": "e",
+          "transform": "scale",
+          "scale": 1.602176634e-19
+        }
+      ]
+    },
+    {
+      "id": "fuel_economy",
+      "name": "Fuel Economy",
+      "canonical": "L_100km",
+      "default_from": "mpg_us",
+      "default_to": "L_100km",
+      "units": [
+        {
+          "id": "L_100km",
+          "name": "Liter per 100 kilometers",
+          "symbol": "L/100 km",
+          "transform": "scale",
+          "scale": 1
+        },
+        {
+          "id": "km_L",
+          "name": "Kilometer per liter",
+          "symbol": "km/L",
+          "transform": "reciprocal",
+          "constant": 100
+        },
+        {
+          "id": "mpg_us",
+          "name": "Mile per gallon (US)",
+          "symbol": "mpg US",
+          "transform": "reciprocal",
+          "constant": 235.21458333333334
+        },
+        {
+          "id": "mpg_imp",
+          "name": "Mile per gallon (Imperial)",
+          "symbol": "mpg imp",
+          "transform": "reciprocal",
+          "constant": 282.4809363318227
+        }
+      ],
+      "notes": "Reciprocal units use canonical = constant / value."
+    }
+  ]
+}
