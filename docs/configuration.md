@@ -33,6 +33,7 @@
   - [Weather](#weather)
   - [Todo](#todo)
   - [Timer](#timer)
+  - [Unit Converter](#unit-converter)
   - [Monitor](#monitor)
   - [Releases](#releases)
   - [Docker Containers](#docker-containers)
@@ -2561,7 +2562,30 @@ Whether target times are displayed in 12-hour or 24-hour format. Possible values
 
 Dates and times entered in the widget are interpreted as local calendar time in the browser. The Timer widget does not perform server-side timezone conversion or synchronization.
 
+### Unit Converter
+
+Convert values between commonly used measurement, scientific, electrical, and digital-information units directly in the browser.
+
+Select a category, source unit, value, and destination unit. The result updates immediately whenever the value or either unit selection changes.
+
+Example:
+
+```yaml
+- type: unit-converter
+```
+
+Preview:
+
+![](images/unit-converter-preview.png)
+
+The widget includes 35 conversion categories and 379 units covering common measurement, scientific, digital-information, electrical, and fuel-economy conversions.
+
+No external service or network connection is required. The conversion catalog is built into Glance and conversions are performed locally in the browser.
+
+The widget has no required configuration properties beyond the standard [shared widget properties](#shared-properties). Each category provides default source and destination units, which can be changed interactively in the widget.
+
 ### Monitor
+
 Display a list of sites and whether they are reachable (online) or not. This is determined by sending a GET request to the specified URL, if the response is 200 then the site is OK. The time it took to receive a response is also shown in milliseconds.
 
 Example:
