@@ -376,3 +376,74 @@ func TestWidgetRefreshSchedulerRefreshesImmediately(t *testing.T) {
 		t.Fatalf("update count = %d, want 1", got)
 	}
 }
+
+func TestRefreshTelemetryRecordsAttemptAndDuration(t *testing.T) {
+	testWidget := newRefreshTestWidget()
+	close(testWidget.updateBlock)
+
+	refreshDueWidgets(
+		context.Background(),
+		[]widget{testWidget},
+		1,
+		nil,
+	)
+
+	if testWidget.refreshAttempts != 1 {
+		t.Fatalf("refresh attempts = %d, want 1", testWidget.refreshAttempts)
+	}
+	if testWidget.lastRefreshAttempt.IsZero() {
+		t.Fatal("last refresh attempt was not recorded")
+	}
+	if testWidget.refreshStartedAt.IsZero() == false {
+		t.Fatal("refresh remained marked in progress after completion")
+	}
+	if testWidget.lastRefreshDuration < 0 {
+		t.Fatalf("refresh duration = %v, want non-negative", testWidget.lastRefreshDuration)
+	}
+}
+
+func TestRefreshTelemetryRecordsSchedulerLag(t *testing.T) {
+	testWidget := newRefreshTestWidget()
+	close(testWidget.updateBlock)
+
+	testWidget.setNextUpdateTime(time.Now().Add(-2 * time.Second))
+
+	refreshDueWidgets(
+		context.Background(),
+		[]widget{testWidget},
+		1,
+		nil,
+	)
+
+	if testWidget.lastSchedulerLag <= 0 {
+		t.Fatalf("scheduler lag = %v, want positive", testWidget.lastSchedulerLag)
+	}
+	if testWidget.maxSchedulerLag < testWidget.lastSchedulerLag {
+		t.Fatalf(
+			"max scheduler lag = %v, want at least last lag %v",
+			testWidget.maxSchedulerLag,
+			testWidget.lastSchedulerLag,
+		)
+	}
+}
+
+func TestRefreshTelemetryRecordsBusySkip(t *testing.T) {
+	testWidget := newRefreshTestWidget()
+
+	now := time.Now()
+	testWidget.lockRefresh()
+	refreshDueWidgetIfAvailable(
+		context.Background(),
+		testWidget,
+		&now,
+		nil,
+	)
+	testWidget.unlockRefresh()
+
+	if testWidget.refreshLockSkips != 1 {
+		t.Fatalf("refresh lock skips = %d, want 1", testWidget.refreshLockSkips)
+	}
+	if testWidget.refreshAttempts != 0 {
+		t.Fatalf("refresh attempts = %d, want 0", testWidget.refreshAttempts)
+	}
+}
