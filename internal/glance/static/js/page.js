@@ -1086,7 +1086,11 @@ async function changeTheme(key, onChanged) {
     });
 
     try {
-        const response = await fetch(`${pageData.baseURL}/api/set-theme/${key}`, {
+        const pageQuery = pageData.slug
+            ? `?page=${encodeURIComponent(pageData.slug)}`
+            : "";
+
+        const response = await fetch(`${pageData.baseURL}/api/set-theme/${key}${pageQuery}`, {
             method: "POST",
         });
 

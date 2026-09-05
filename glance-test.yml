@@ -15,8 +15,7 @@ server:
 branding:
   app-name: "Glance Test"
 
-theme:
-  light: false
+$include: testdata/expanded-theme.yml
 
 # ---------------------------------------------------------------------------
 # Hierarchical widget defaults
@@ -365,6 +364,8 @@ pages:
   # ---------------------------------------------------------------------------
   - name: Layout
     slug: layout
+    theme:
+      accent-color: 37 84 65
     width: wide
 
     columns:
@@ -433,6 +434,10 @@ pages:
   # ---------------------------------------------------------------------------
   - name: Groups & Stack
     slug: groups-stack
+    theme:
+      accent-color: 135 60 63
+      groups:
+        active-color: 145 65 82
     width: wide
 
     columns:
@@ -561,6 +566,8 @@ pages:
   # ---------------------------------------------------------------------------
   - name: Widgets
     slug: widgets
+    theme:
+      accent-color: 349 100 72
     width: wide
 
     columns:
@@ -709,6 +716,10 @@ pages:
   # ---------------------------------------------------------------------------
   - name: Home
     slug: home
+    theme:
+      accent-color: 204 100 72
+      page:
+        ambient-accent: strong
 
     columns:
       - size: full
@@ -722,6 +733,8 @@ pages:
 
   - name: Personal
     slug: personal-page
+    theme:
+      accent-color: 350 100 72
 
     columns:
       - size: full
@@ -740,6 +753,8 @@ pages:
 
   - name: Shared
     slug: shared
+    theme:
+      accent-color: 40 74 63
 
     columns:
       - size: full

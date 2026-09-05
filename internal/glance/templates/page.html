@@ -126,9 +126,8 @@
             <div class="theme-picker flex justify-between items-center" data-popover-type="html" data-popover-position="above" data-popover-show-delay="0" data-popover-hide-delay="100" data-popover-anchor=".current-theme-preview" data-popover-trigger="click">
                 <div data-popover-html>
                     <div class="theme-choices">
-                        {{ .App.Config.Theme.PreviewHTML }}
-                        {{ range $_, $preset := .App.Config.Theme.Presets.Items }}
-                        {{ $preset.PreviewHTML }}
+                        {{ range $theme := .Request.ThemeChoices }}
+                        {{ $theme.PreviewHTML }}
                         {{ end }}
                     </div>
                 </div>

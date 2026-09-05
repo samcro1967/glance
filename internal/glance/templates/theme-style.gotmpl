@@ -9,4 +9,90 @@
     {{ if .PrimaryColor }}--color-primary: {{ .PrimaryColor.String | safeCSS }};{{ end }}
     {{ if .PositiveColor }}--color-positive: {{ .PositiveColor.String | safeCSS }};{{ end }}
     {{ if .NegativeColor }}--color-negative: {{ .NegativeColor.String | safeCSS }};{{ end }}
+
+    {{ if .AccentColor }}--theme-accent-color: {{ .AccentColor.String | safeCSS }};{{ end }}
+    {{ if .WarningColor }}--theme-warning-color: {{ .WarningColor.String | safeCSS }};{{ end }}
+
+    {{ if .Typography.FontFamily }}--theme-font-family: {{ .TypographyFontFamilyCSS }};{{ end }}
+    {{ if .Typography.FontSize }}--theme-font-size: {{ .TypographyFontSizeCSS }};{{ end }}
+    {{ if .Typography.FontWeight }}--theme-font-weight: {{ .TypographyFontWeightCSS }};{{ end }}
+    {{ if .Typography.TextColor }}--theme-text-color: {{ .Typography.TextColor.String | safeCSS }};{{ end }}
+    {{ if .Typography.SecondaryTextColor }}--theme-secondary-text-color: {{ .Typography.SecondaryTextColor.String | safeCSS }};{{ end }}
+    {{ if .Typography.MutedTextColor }}--theme-muted-text-color: {{ .Typography.MutedTextColor.String | safeCSS }};{{ end }}
+
+    {{ if .Typography.Headings.FontFamily }}--theme-heading-font-family: {{ .HeadingFontFamilyCSS }};{{ end }}
+    {{ if .Typography.Headings.FontSize }}--theme-heading-font-size: {{ .HeadingFontSizeCSS }};{{ end }}
+    {{ if .Typography.Headings.FontWeight }}--theme-heading-font-weight: {{ .HeadingFontWeightCSS }};{{ end }}
+    {{ if .Typography.Headings.TextColor }}--theme-heading-text-color: {{ .Typography.Headings.TextColor.String | safeCSS }};{{ end }}
+
+
+    {{ if .Page.BackgroundImage }}--theme-page-background-image: url("{{ .Page.BackgroundImage }}");{{ end }}
+    {{ if .Page.BackgroundPosition }}--theme-page-background-position: {{ .Page.BackgroundPosition }};{{ end }}
+    {{ if .Page.BackgroundSize }}--theme-page-background-size: {{ .Page.BackgroundSize }};{{ end }}
+    {{ if .Page.BackgroundRepeat }}--theme-page-background-repeat: {{ .Page.BackgroundRepeat }};{{ end }}
+    {{ if .Page.BackgroundAttachment }}--theme-page-background-attachment: {{ .Page.BackgroundAttachment }};{{ end }}
+    {{ if .Page.AmbientAccent }}--theme-page-ambient-accent-opacity: {{ .PageAmbientAccentCSS }};{{ end }}
+    {{ if .Page.Overlay.Color }}--theme-page-overlay-color: {{ .Page.Overlay.Color.String | safeCSS }};{{ end }}
+    {{ if .Page.Overlay.Opacity }}--theme-page-overlay-opacity: {{ .Page.Overlay.Opacity }};{{ end }}
+
+    {{ if .Header.BackgroundColor }}--theme-header-background-color: {{ .Header.BackgroundColor.String | safeCSS }};{{ end }}
+    {{ if .Header.TextColor }}--theme-header-text-color: {{ .Header.TextColor.String | safeCSS }};{{ end }}
+    {{ if .Header.BorderColor }}--theme-header-border-color: {{ .Header.BorderColor.String | safeCSS }};{{ end }}
+    {{ if .Header.Radius }}--theme-header-radius: {{ .HeaderRadiusCSS }};{{ end }}
+    {{ if .Header.Shadow }}--theme-header-shadow: {{ .HeaderShadowCSS }};{{ end }}
+    {{ if .Header.Blur }}--theme-header-blur: {{ .HeaderBlurCSS }};{{ end }}
+
+    {{ if .Navigation.TextColor }}--theme-navigation-text-color: {{ .Navigation.TextColor.String | safeCSS }};{{ end }}
+    {{ if .Navigation.HoverColor }}--theme-navigation-hover-color: {{ .Navigation.HoverColor.String | safeCSS }};{{ end }}
+    {{ if .Navigation.ActiveColor }}--theme-navigation-active-color: {{ .Navigation.ActiveColor.String | safeCSS }};{{ end }}
+    {{ if .Navigation.AccentColor }}--theme-navigation-accent-color: {{ .Navigation.AccentColor.String | safeCSS }};{{ end }}
+    {{ if .Navigation.FontSize }}--theme-navigation-font-size: {{ .NavigationFontSizeCSS }};{{ end }}
+    {{ if .Navigation.FontWeight }}--theme-navigation-font-weight: {{ .NavigationFontWeightCSS }};{{ end }}
+
+    {{ if .Widgets.BackgroundColor }}--theme-widget-background-color: {{ .Widgets.BackgroundColor.String | safeCSS }};{{ end }}
+    {{ if .Widgets.BorderColor }}--theme-widget-border-color: {{ .Widgets.BorderColor.String | safeCSS }};{{ end }}
+    {{ if .Widgets.Radius }}--theme-widget-radius: {{ .WidgetRadiusCSS }};{{ end }}
+    {{ if .Widgets.Shadow }}--theme-widget-shadow: {{ .WidgetShadowCSS }};{{ end }}
+    {{ if .Widgets.Blur }}--theme-widget-blur: {{ .WidgetBlurCSS }};{{ end }}
+
+
+    {{ if .WidgetHeader.BackgroundColor }}--theme-widget-header-background-color: {{ .WidgetHeader.BackgroundColor.String | safeCSS }};{{ end }}
+    {{ if .WidgetHeader.TextColor }}--theme-widget-header-text-color: {{ .WidgetHeader.TextColor.String | safeCSS }};{{ end }}
+    {{ if .WidgetHeader.AccentColor }}--theme-widget-header-accent-color: {{ .WidgetHeader.AccentColor.String | safeCSS }};{{ end }}
+    {{ if .WidgetHeader.BorderColor }}--theme-widget-header-border-color: {{ .WidgetHeader.BorderColor.String | safeCSS }};{{ end }}
+    {{ if .WidgetHeader.FontSize }}--theme-widget-header-font-size: {{ .WidgetHeaderFontSizeCSS }};{{ end }}
+    {{ if .WidgetHeader.FontWeight }}--theme-widget-header-font-weight: {{ .WidgetHeaderFontWeightCSS }};{{ end }}
+
+    {{ if .Cards.BackgroundColor }}--theme-card-background-color: {{ .Cards.BackgroundColor.String | safeCSS }};{{ end }}
+    {{ if .Cards.BorderColor }}--theme-card-border-color: {{ .Cards.BorderColor.String | safeCSS }};{{ end }}
+    {{ if .Cards.Radius }}--theme-card-radius: {{ .CardRadiusCSS }};{{ end }}
+    {{ if .Cards.Shadow }}--theme-card-shadow: {{ .CardShadowCSS }};{{ end }}
+
+    {{ if .Groups.BackgroundColor }}--theme-group-background-color: {{ .Groups.BackgroundColor.String | safeCSS }};{{ end }}
+    {{ if .Groups.TextColor }}--theme-group-text-color: {{ .Groups.TextColor.String | safeCSS }};{{ end }}
+    {{ if .Groups.HoverColor }}--theme-group-hover-color: {{ .Groups.HoverColor.String | safeCSS }};{{ end }}
+    {{ if .Groups.ActiveColor }}--theme-group-active-color: {{ .Groups.ActiveColor.String | safeCSS }};{{ end }}
+    {{ if .Groups.AccentColor }}--theme-group-accent-color: {{ .Groups.AccentColor.String | safeCSS }};{{ end }}
+    {{ if .Groups.BorderColor }}--theme-group-border-color: {{ .Groups.BorderColor.String | safeCSS }};{{ end }}
+
+
+    {{ if .Controls.BackgroundColor }}--theme-control-background-color: {{ .Controls.BackgroundColor.String | safeCSS }};{{ end }}
+    {{ if .Controls.TextColor }}--theme-control-text-color: {{ .Controls.TextColor.String | safeCSS }};{{ end }}
+    {{ if .Controls.MutedColor }}--theme-control-muted-color: {{ .Controls.MutedColor.String | safeCSS }};{{ end }}
+    {{ if .Controls.BorderColor }}--theme-control-border-color: {{ .Controls.BorderColor.String | safeCSS }};{{ end }}
+    {{ if .Controls.FocusColor }}--theme-control-focus-color: {{ .Controls.FocusColor.String | safeCSS }};{{ end }}
+    {{ if .Controls.Radius }}--theme-control-radius: {{ .ControlRadiusCSS }};{{ end }}
+    {{ if .Controls.Button.BackgroundColor }}--theme-control-button-background-color: {{ .Controls.Button.BackgroundColor.String | safeCSS }};{{ end }}
+    {{ if .Controls.Button.TextColor }}--theme-control-button-text-color: {{ .Controls.Button.TextColor.String | safeCSS }};{{ end }}
+
+    {{ if .Footer.BackgroundColor }}--theme-footer-background-color: {{ .Footer.BackgroundColor.String | safeCSS }};{{ end }}
+    {{ if .Footer.TextColor }}--theme-footer-text-color: {{ .Footer.TextColor.String | safeCSS }};{{ end }}
+    {{ if .Footer.AccentColor }}--theme-footer-accent-color: {{ .Footer.AccentColor.String | safeCSS }};{{ end }}
+    {{ if .Footer.BorderColor }}--theme-footer-border-color: {{ .Footer.BorderColor.String | safeCSS }};{{ end }}
+    {{ if .Footer.FontSize }}--theme-footer-font-size: {{ .FooterFontSizeCSS }};{{ end }}
+    {{ if .Footer.FontWeight }}--theme-footer-font-weight: {{ .FooterFontWeightCSS }};{{ end }}
+
+    {{ if .Surfaces.ElevatedBackgroundColor }}--theme-elevated-background-color: {{ .Surfaces.ElevatedBackgroundColor.String | safeCSS }};{{ end }}
+    {{ if .Surfaces.ElevatedBorderColor }}--theme-elevated-border-color: {{ .Surfaces.ElevatedBorderColor.String | safeCSS }};{{ end }}
+    {{ if .Surfaces.SeparatorColor }}--theme-separator-color: {{ .Surfaces.SeparatorColor.String | safeCSS }};{{ end }}
 }

@@ -70,20 +70,32 @@
 }
 
 .widget-content:not(.widget-content-frameless), .widget-content-frame {
-    background: var(--color-widget-background);
-    border-radius: var(--border-radius);
-    border: 1px solid var(--color-widget-content-border);
-    box-shadow: 0px 3px 0px 0px hsl(var(--bghs), calc(var(--scheme) (var(--scheme) var(--bgl)) - 0.5%));
+    background: var(--theme-widget-background-color, var(--color-widget-background));
+    border-radius: var(--theme-widget-radius, var(--border-radius));
+    border: 1px solid var(--theme-widget-border-color, var(--color-widget-content-border));
+    box-shadow: var(--theme-widget-shadow, 0px 3px 0px 0px hsl(var(--bghs), calc(var(--scheme) (var(--scheme) var(--bgl)) - 0.5%)));
+    backdrop-filter: var(--theme-widget-blur, none);
+    -webkit-backdrop-filter: var(--theme-widget-blur, none);
 }
 
 .widget-header {
     padding: 0 calc(var(--widget-content-horizontal-padding) + 1px);
-    font-size: var(--font-size-h4);
+    font-size: var(--theme-widget-header-font-size, var(--font-size-h4));
+    font-weight: var(--theme-widget-header-font-weight, inherit);
+    color: var(--theme-widget-header-text-color, inherit);
+    background-color: var(--theme-widget-header-background-color, transparent);
+    border-bottom: 1px solid var(--theme-widget-header-border-color, transparent);
     margin-bottom: 0.9rem;
     display: flex;
     align-items: center;
     gap: 1rem;
 }
+
+.widget-header a,
+.widget-header button {
+    color: var(--theme-widget-header-accent-color, var(--theme-accent-color, var(--color-primary)));
+}
+
 
 .widget-beta-icon {
     width: 1.6rem;
@@ -101,4 +113,42 @@
 
 .widget + .widget {
     margin-top: var(--widget-gap);
+}
+
+
+/* Native theme presentation */
+
+.widget-header {
+    position: relative;
+    overflow: hidden;
+}
+
+.widget-header::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background-color: var(--theme-widget-header-accent-color, var(--theme-accent-color, var(--color-primary)));
+    pointer-events: none;
+}
+
+.widget-content:not(.widget-content-frameless),
+.widget-content-frame {
+    transition: border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease;
+}
+
+.widget-content:not(.widget-content-frameless):hover,
+.widget-content-frame:hover {
+    border-color: var(--theme-accent-color, var(--theme-widget-border-color, var(--color-widget-content-border)));
+    transform: translateY(-1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .widget-content:not(.widget-content-frameless),
+    .widget-content-frame {
+        transition: none;
+        transform: none;
+    }
 }

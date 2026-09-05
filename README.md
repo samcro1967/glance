@@ -65,7 +65,9 @@ Because you'll want to take it with you on the go.
 ![](docs/images/mobile-preview.png)
 
 ### Themeable
-Easily create your own theme by tweaking a few numbers or choose from one of the [already available themes](docs/themes.md).
+Customize Glance without writing CSS using native themes for colors, typography, page backgrounds, navigation, widgets, cards, groups, controls, surfaces, and more. Themes can be configured globally, overridden per page, and switched between Glance Dark, Glance Light, and your own named themes. Custom CSS remains available for advanced styling.
+
+See the **[Themes documentation](docs/themes.md)** for the complete theme reference, examples, and available customization options.
 
 ![](docs/images/themes-example.png)
 

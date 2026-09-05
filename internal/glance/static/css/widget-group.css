@@ -1,6 +1,8 @@
 .widget-group-header {
     overflow-x: auto;
     scrollbar-width: thin;
+    background-color: var(--theme-group-background-color, transparent);
+    border-bottom: 1px solid var(--theme-group-border-color, transparent);
 }
 
 .widget-group-title {
@@ -12,17 +14,17 @@
     cursor: pointer;
     flex-shrink: 0;
     transition: color .3s, border-color .3s;
-    color: var(--color-text-subdue);
+    color: var(--theme-group-text-color, var(--color-text-subdue));
     line-height: calc(1.6em - 1px);
 }
 
 .widget-group-title:hover:not(.widget-group-title-current) {
-    color: var(--color-text-base);
+    color: var(--theme-group-hover-color, var(--color-text-base));
 }
 
 .widget-group-title-current {
-    border-bottom-color: var(--color-text-base-muted);
-    color: var(--color-text-base);
+    border-bottom-color: var(--theme-group-accent-color, var(--theme-accent-color, var(--color-text-base-muted)));
+    color: var(--theme-group-active-color, var(--color-text-base));
 }
 
 .widget-group-content {
@@ -46,4 +48,30 @@
 
 .widget-group-content:not(.widget-group-content-current) {
     display: none;
+}
+
+
+/* Native theme presentation */
+
+.widget-group-title {
+    position: relative;
+    transition: color 150ms ease, border-color 150ms ease;
+}
+
+.widget-group-title-current::after {
+    content: "";
+    position: absolute;
+    left: 16%;
+    right: 16%;
+    bottom: -2px;
+    height: 1px;
+    border-radius: 999px;
+    background-color: var(--theme-group-accent-color, var(--theme-accent-color, var(--color-primary)));
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .widget-group-title {
+        transition: none;
+    }
 }
