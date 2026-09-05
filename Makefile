@@ -18,6 +18,11 @@ TEST_CONFIG ?= glance-test.yml
 TEST_PID_FILE ?= .glance-test.pid
 TEST_LOG ?= .glance-test.log
 TEST_URL ?= http://127.0.0.1:$(TEST_PORT)
+TEST_CONTAINER ?= glance-test
+TEST_CONTAINER_IMAGE ?= glance-test:local
+TEST_CONTAINER_PORT ?= 18080
+TEST_CONTAINER_URL ?= http://127.0.0.1:$(TEST_CONTAINER_PORT)
+TEST_RUNTIME_CONTAINER ?=
 
 CI_RUN_RETRIES ?= 12
 CI_RUN_RETRY_DELAY ?= 5
@@ -40,7 +45,7 @@ DEPLOY_IMAGE ?= ghcr.io/samcro1967/glance:latest
 DEPLOY_DEV_IMAGE ?= ghcr.io/samcro1967/glance:dev
 DEPLOY_CONTAINER ?= glance
 DEPLOY_SERVICE ?= glance
-DEPLOY_DIR ?= /home/osuhickeys/Documents/Docker
+DEPLOY_DIR ?= ..
 DEPLOY_COMPOSE_FILE ?= docker-compose.yml
 DEPLOY_URL ?= http://127.0.0.1:8092/
 DEPLOY_RETRIES ?= 6
@@ -55,6 +60,10 @@ help:
 	@echo "  make test-instance-start     Start isolated Glance using $(TEST_CONFIG)"
 	@echo "  make test-instance-status    Show isolated Glance status"
 	@echo "  make test-instance-stop      Stop isolated Glance and clean runtime artifacts"
+	@echo "  make test-container-start    Build current source and start isolated container"
+	@echo "                               Requires TEST_RUNTIME_CONTAINER=name"
+	@echo "  make test-container-status   Show isolated container status"
+	@echo "  make test-container-stop     Remove isolated container and local test image"
 	@echo
 	@echo "Testing:"
 	@echo "  make test                    Run the Go test suite"
@@ -1265,3 +1274,117 @@ test-instance-stop:
 	rm -f "$(TEST_PID_FILE)" "$(TEST_BINARY)" "$(TEST_LOG)"; \
 	echo "Test instance stopped and runtime artifacts removed."; \
 	echo "Preserved $(TEST_CONFIG)."
+
+.PHONY: test-container-start test-container-status test-container-stop
+
+test-container-start:
+	@set -euo pipefail; \
+	if [ -z "$(TEST_RUNTIME_CONTAINER)" ]; then \
+		echo "TEST_RUNTIME_CONTAINER is required."; \
+		echo "Example: make test-container-start TEST_RUNTIME_CONTAINER=<container>"; \
+		exit 1; \
+	fi; \
+	if ! docker inspect "$(TEST_RUNTIME_CONTAINER)" >/dev/null 2>&1; then \
+		echo "Runtime reference container does not exist: $(TEST_RUNTIME_CONTAINER)"; \
+		exit 1; \
+	fi; \
+	if docker inspect "$(TEST_CONTAINER)" >/dev/null 2>&1; then \
+		echo "Test container already exists: $(TEST_CONTAINER)"; \
+		echo "Run make test-container-stop first."; \
+		exit 1; \
+	fi; \
+	echo "=== BUILD TEST CONTAINER IMAGE ==="; \
+	docker build \
+		--build-arg BUILD_REVISION="$$(git rev-parse HEAD)" \
+		-t "$(TEST_CONTAINER_IMAGE)" .; \
+	echo; \
+	echo "=== START TEST CONTAINER ==="; \
+	declare -a env_args mount_args network_args sysctl_args; \
+		while IFS= read -r entry; do \
+		[ -n "$$entry" ] || continue; \
+		key="$${entry%%=*}"; \
+		value="$${entry#*=}"; \
+		printf -v "$$key" '%s' "$$value"; \
+		export "$$key"; \
+		env_args+=(-e "$$key"); \
+	done < <(docker inspect "$(TEST_RUNTIME_CONTAINER)" --format '{{range .Config.Env}}{{println .}}{{end}}'); \
+	while IFS=$$'\t' read -r type source destination rw; do \
+		[ -n "$$destination" ] || continue; \
+		case "$$type" in \
+			bind) \
+				if [ "$$rw" = "false" ]; then \
+					mount_args+=(-v "$${source}:$${destination}:ro"); \
+				else \
+					mount_args+=(-v "$${source}:$${destination}"); \
+				fi \
+				;; \
+		esac; \
+	done < <(docker inspect "$(TEST_RUNTIME_CONTAINER)" --format '{{range .Mounts}}{{printf "%s\t%s\t%s\t%t\n" .Type .Source .Destination .RW}}{{end}}'); \
+	while IFS= read -r network; do \
+		[ -n "$$network" ] || continue; \
+		network_args+=(--network "$$network"); \
+	done < <(docker inspect "$(TEST_RUNTIME_CONTAINER)" --format '{{range $$name, $$network := .NetworkSettings.Networks}}{{println $$name}}{{end}}'); \
+	while IFS= read -r sysctl; do \
+		[ -n "$$sysctl" ] || continue; \
+		sysctl_args+=(--sysctl "$$sysctl"); \
+	done < <(docker inspect "$(TEST_RUNTIME_CONTAINER)" --format '{{range $$key, $$value := .HostConfig.Sysctls}}{{printf "%s=%s\n" $$key $$value}}{{end}}'); \
+	docker run -d \
+		--name "$(TEST_CONTAINER)" \
+		--hostname "$(TEST_CONTAINER)" \
+		--restart=no \
+		-p "$(TEST_CONTAINER_PORT):8080" \
+		"$${env_args[@]}" \
+		"$${mount_args[@]}" \
+		"$${network_args[@]}" \
+		"$${sysctl_args[@]}" \
+		"$(TEST_CONTAINER_IMAGE)" >/dev/null; \
+	ready=0; \
+	for attempt in $$(seq 1 20); do \
+		code="$$(curl -sS -o /dev/null -w '%{http_code}' "$(TEST_CONTAINER_URL)/" 2>/dev/null || true)"; \
+		if [ "$$code" = "200" ]; then \
+			ready=1; \
+			break; \
+		fi; \
+		if [ "$$(docker inspect "$(TEST_CONTAINER)" --format '{{.State.Running}}' 2>/dev/null || true)" != "true" ]; then \
+			break; \
+		fi; \
+		sleep 1; \
+	done; \
+	if [ "$$ready" -ne 1 ]; then \
+		echo "Test container failed to become ready."; \
+		docker logs --tail 80 "$(TEST_CONTAINER)" 2>&1 || true; \
+		exit 1; \
+	fi; \
+	echo "Test container started."; \
+	echo "Runtime reference=$(TEST_RUNTIME_CONTAINER)"; \
+	echo "Container=$(TEST_CONTAINER)"; \
+	echo "Image=$(TEST_CONTAINER_IMAGE)"; \
+	echo "URL=$(TEST_CONTAINER_URL)"
+
+test-container-status:
+	@set -euo pipefail; \
+	if ! docker inspect "$(TEST_CONTAINER)" >/dev/null 2>&1; then \
+		echo "Test container does not exist."; \
+		exit 1; \
+	fi; \
+	state="$$(docker inspect "$(TEST_CONTAINER)" --format '{{.State.Status}}')"; \
+	code="$$(curl -sS -o /dev/null -w '%{http_code}' "$(TEST_CONTAINER_URL)/" 2>/dev/null || true)"; \
+	echo "Container=$(TEST_CONTAINER)"; \
+	echo "State=$$state"; \
+	echo "URL=$(TEST_CONTAINER_URL)"; \
+	echo "HTTP=$${code:-unavailable}"
+
+test-container-stop:
+	@set -euo pipefail; \
+	if docker inspect "$(TEST_CONTAINER)" >/dev/null 2>&1; then \
+		docker rm -f "$(TEST_CONTAINER)" >/dev/null; \
+		echo "Removed container $(TEST_CONTAINER)."; \
+	else \
+		echo "Test container is not present."; \
+	fi; \
+	if docker image inspect "$(TEST_CONTAINER_IMAGE)" >/dev/null 2>&1; then \
+		docker image rm "$(TEST_CONTAINER_IMAGE)" >/dev/null; \
+		echo "Removed image $(TEST_CONTAINER_IMAGE)."; \
+	else \
+		echo "Test image is not present."; \
+	fi
