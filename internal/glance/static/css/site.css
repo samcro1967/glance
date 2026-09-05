@@ -276,6 +276,7 @@ kbd:active {
 
 .header-container-spacer {
     height: var(--header-container-height);
+    flex-shrink: 0;
 }
 
 .header {
