@@ -389,15 +389,14 @@ func newApplication(c *config) (*application, error) {
 	return app, nil
 }
 
-func (p *page) updateOutdatedWidgets() {
+func (p *page) updateOutdatedWidgets(ctx context.Context) {
 	now := time.Now()
 
 	var wg sync.WaitGroup
-	context := context.Background()
 
 	refreshWidget := func(widget widget) {
 		defer wg.Done()
-		refreshWidgetIfNeeded(context, widget, &now)
+		refreshWidgetIfNeeded(ctx, widget, &now)
 	}
 
 	for w := range p.HeadWidgets {
@@ -602,7 +601,7 @@ func (a *application) handlePageContentRequest(w http.ResponseWriter, r *http.Re
 		page.mu.Lock()
 		defer page.mu.Unlock()
 
-		page.updateOutdatedWidgets()
+		page.updateOutdatedWidgets(r.Context())
 		err = pageContentTemplate.Execute(&responseBytes, pageData)
 	}()
 

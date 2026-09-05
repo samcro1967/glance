@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+const openMeteoResourceIdleRetention = 24 * time.Hour
+
 type openMeteoPlaceResourceCall struct {
 	done chan struct{}
 	val  *openMeteoPlaceResponseJson
@@ -13,9 +15,10 @@ type openMeteoPlaceResourceCall struct {
 }
 
 type openMeteoPlaceResourceCacheEntry struct {
-	mu      sync.Mutex
-	cached  cachedEntry[*openMeteoPlaceResponseJson]
-	current *openMeteoPlaceResourceCall
+	mu       sync.Mutex
+	cached   cachedEntry[*openMeteoPlaceResponseJson]
+	current  *openMeteoPlaceResourceCall
+	lastUsed time.Time
 }
 
 var openMeteoPlaceResourceCache = struct {
@@ -26,12 +29,34 @@ var openMeteoPlaceResourceCache = struct {
 }
 
 func fetchOpenMeteoPlaceResource(ctx context.Context, location string) (*openMeteoPlaceResponseJson, error) {
+	now := time.Now()
+
 	openMeteoPlaceResourceCache.Lock()
+	for cachedLocation, cachedEntry := range openMeteoPlaceResourceCache.entries {
+		if cachedLocation == location {
+			continue
+		}
+
+		cachedEntry.mu.Lock()
+		idle := cachedEntry.current == nil &&
+			!cachedEntry.lastUsed.IsZero() &&
+			now.Sub(cachedEntry.lastUsed) >= openMeteoResourceIdleRetention
+		cachedEntry.mu.Unlock()
+
+		if idle {
+			delete(openMeteoPlaceResourceCache.entries, cachedLocation)
+		}
+	}
+
 	entry, ok := openMeteoPlaceResourceCache.entries[location]
 	if !ok {
 		entry = &openMeteoPlaceResourceCacheEntry{}
 		openMeteoPlaceResourceCache.entries[location] = entry
 	}
+
+	entry.mu.Lock()
+	entry.lastUsed = now
+	entry.mu.Unlock()
 	openMeteoPlaceResourceCache.Unlock()
 
 	return entry.fetch(ctx, location)
@@ -92,9 +117,10 @@ type openMeteoWeatherResourceCall struct {
 }
 
 type openMeteoWeatherResourceCacheEntry struct {
-	mu      sync.Mutex
-	cached  cachedEntry[*openMeteoWeatherResponseJson]
-	current *openMeteoWeatherResourceCall
+	mu       sync.Mutex
+	cached   cachedEntry[*openMeteoWeatherResponseJson]
+	current  *openMeteoWeatherResourceCall
+	lastUsed time.Time
 }
 
 var openMeteoWeatherResourceCache = struct {
@@ -112,12 +138,34 @@ func fetchOpenMeteoWeatherResource(ctx context.Context, place *openMeteoPlaceRes
 		Units:     units,
 	}
 
+	now := time.Now()
+
 	openMeteoWeatherResourceCache.Lock()
+	for cachedKey, cachedEntry := range openMeteoWeatherResourceCache.entries {
+		if cachedKey == key {
+			continue
+		}
+
+		cachedEntry.mu.Lock()
+		idle := cachedEntry.current == nil &&
+			!cachedEntry.lastUsed.IsZero() &&
+			now.Sub(cachedEntry.lastUsed) >= openMeteoResourceIdleRetention
+		cachedEntry.mu.Unlock()
+
+		if idle {
+			delete(openMeteoWeatherResourceCache.entries, cachedKey)
+		}
+	}
+
 	entry, ok := openMeteoWeatherResourceCache.entries[key]
 	if !ok {
 		entry = &openMeteoWeatherResourceCacheEntry{}
 		openMeteoWeatherResourceCache.entries[key] = entry
 	}
+
+	entry.mu.Lock()
+	entry.lastUsed = now
+	entry.mu.Unlock()
 	openMeteoWeatherResourceCache.Unlock()
 
 	responseJson, err := entry.fetch(ctx, place, units)

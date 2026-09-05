@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"sort"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/shirou/gopsutil/v4/cpu"
@@ -94,7 +95,10 @@ type cacheableHostInfo struct {
 	bootTime  timestampJSON
 }
 
-var cachedHostInfo cacheableHostInfo
+var (
+	cachedHostInfo   cacheableHostInfo
+	cachedHostInfoMu sync.Mutex
+)
 
 func getHostInfo() (cacheableHostInfo, error) {
 	var err error
@@ -136,24 +140,26 @@ func Collect(req *SystemInfoRequest) (*SystemInfo, []error) {
 		Mountpoints: []MountpointInfo{},
 	}
 
-	applyCachedHostInfo := func() {
+	applyHostInfo := func(hostInfo cacheableHostInfo) {
 		info.HostInfoIsAvailable = true
-		info.BootTime = cachedHostInfo.bootTime
-		info.Hostname = cachedHostInfo.hostname
-		info.Platform = cachedHostInfo.platform
+		info.BootTime = hostInfo.bootTime
+		info.Hostname = hostInfo.hostname
+		info.Platform = hostInfo.platform
 	}
 
+	cachedHostInfoMu.Lock()
 	if cachedHostInfo.available {
-		applyCachedHostInfo()
+		applyHostInfo(cachedHostInfo)
 	} else {
 		hostInfo, err := getHostInfo()
 		if err == nil {
 			cachedHostInfo = hostInfo
-			applyCachedHostInfo()
+			applyHostInfo(hostInfo)
 		} else {
 			addErr(fmt.Errorf("getting host info: %v", err))
 		}
 	}
+	cachedHostInfoMu.Unlock()
 
 	coreCount, err := cpu.Counts(true)
 	if err == nil {

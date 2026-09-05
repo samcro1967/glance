@@ -2,6 +2,9 @@ package sysinfo
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -174,4 +177,53 @@ func TestSystemInfoRequestFilterNilInputs(t *testing.T) {
 
 	request = &SystemInfoRequest{}
 	request.Filter(nil)
+}
+
+func TestCollectConcurrentHostInfoCacheAccess(t *testing.T) {
+	cachedHostInfoMu.Lock()
+	previous := cachedHostInfo
+	cachedHostInfo = cacheableHostInfo{}
+	cachedHostInfoMu.Unlock()
+
+	t.Cleanup(func() {
+		cachedHostInfoMu.Lock()
+		cachedHostInfo = previous
+		cachedHostInfoMu.Unlock()
+	})
+
+	const callers = 16
+
+	var wg sync.WaitGroup
+	errs := make(chan error, callers)
+
+	wg.Add(callers)
+
+	for range callers {
+		go func() {
+			defer wg.Done()
+
+			info, collectErrs := Collect(&SystemInfoRequest{
+				HideMountpointsByDefault: true,
+			})
+
+			if info == nil {
+				errs <- fmt.Errorf("Collect returned nil info")
+				return
+			}
+
+			for _, err := range collectErrs {
+				if strings.Contains(err.Error(), "getting host info:") {
+					errs <- err
+					return
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(errs)
+
+	for err := range errs {
+		t.Error(err)
+	}
 }

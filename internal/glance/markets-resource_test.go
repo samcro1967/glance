@@ -187,6 +187,74 @@ func TestYahooMarketResourceWaitingCallerCanCancel(t *testing.T) {
 	}
 }
 
+func TestYahooMarketResourceEvictsIdleEntries(t *testing.T) {
+	resetYahooMarketResourceCache(t)
+
+	stale := &yahooMarketResourceCacheEntry{
+		lastUsed: time.Now().Add(-yahooMarketResourceIdleRetention),
+	}
+	active := &yahooMarketResourceCacheEntry{
+		lastUsed: time.Now().Add(-yahooMarketResourceIdleRetention),
+		current: &yahooMarketResourceCall{
+			done: make(chan struct{}),
+		},
+	}
+
+	yahooMarketResourceCache.Lock()
+	yahooMarketResourceCache.entries["STALE"] = stale
+	yahooMarketResourceCache.entries["ACTIVE"] = active
+	yahooMarketResourceCache.Unlock()
+
+	wave3Transport(t, func(request *http.Request) (*http.Response, error) {
+		return yahooMarketResourceTestResponse(request, "NSIT"), nil
+	})
+
+	if _, err := fetchYahooMarketResource(context.Background(), "NSIT"); err != nil {
+		t.Fatalf("fetch: %v", err)
+	}
+
+	yahooMarketResourceCache.Lock()
+	_, staleExists := yahooMarketResourceCache.entries["STALE"]
+	_, activeExists := yahooMarketResourceCache.entries["ACTIVE"]
+	_, requestedExists := yahooMarketResourceCache.entries["NSIT"]
+	yahooMarketResourceCache.Unlock()
+
+	if staleExists {
+		t.Fatal("idle stale entry was not evicted")
+	}
+	if !activeExists {
+		t.Fatal("active stale entry was evicted")
+	}
+	if !requestedExists {
+		t.Fatal("requested entry is missing")
+	}
+}
+
+func TestYahooMarketResourceRefreshesLastUsed(t *testing.T) {
+	resetYahooMarketResourceCache(t)
+
+	wave3Transport(t, func(request *http.Request) (*http.Response, error) {
+		return yahooMarketResourceTestResponse(request, "NSIT"), nil
+	})
+
+	before := time.Now()
+	if _, err := fetchYahooMarketResource(context.Background(), "NSIT"); err != nil {
+		t.Fatalf("fetch: %v", err)
+	}
+
+	yahooMarketResourceCache.Lock()
+	entry := yahooMarketResourceCache.entries["NSIT"]
+	yahooMarketResourceCache.Unlock()
+
+	entry.mu.Lock()
+	lastUsed := entry.lastUsed
+	entry.mu.Unlock()
+
+	if lastUsed.Before(before) {
+		t.Fatalf("last used = %v, want at or after %v", lastUsed, before)
+	}
+}
+
 func TestMarketsShareResourceWithoutSharingWidgetConfiguration(t *testing.T) {
 	resetYahooMarketResourceCache(t)
 
