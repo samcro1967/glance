@@ -59,6 +59,39 @@ func (widget *refreshTestWidget) Render() template.HTML {
 	return ""
 }
 
+func TestPageUpdateOutdatedWidgetsPropagatesCancellation(t *testing.T) {
+	testWidget := newRefreshTestWidget()
+	page := &page{
+		HeadWidgets: []widget{testWidget},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		page.updateOutdatedWidgets(ctx)
+	}()
+
+	select {
+	case <-testWidget.updateStart:
+	case <-time.After(time.Second):
+		t.Fatal("widget refresh did not start")
+	}
+
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("page refresh did not stop after context cancellation")
+	}
+
+	if got := testWidget.updateCount.Load(); got != 1 {
+		t.Fatalf("update count = %d, want 1", got)
+	}
+}
+
 func TestRefreshWidgetIfNeededSingleFlight(t *testing.T) {
 	widget := newRefreshTestWidget()
 	now := time.Now()

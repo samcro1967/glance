@@ -8,7 +8,10 @@ import (
 	"time"
 )
 
-const yahooMarketResourceCacheDuration = time.Hour
+const (
+	yahooMarketResourceCacheDuration = time.Hour
+	yahooMarketResourceIdleRetention = 24 * time.Hour
+)
 
 type yahooMarketResourceCall struct {
 	done chan struct{}
@@ -17,9 +20,10 @@ type yahooMarketResourceCall struct {
 }
 
 type yahooMarketResourceCacheEntry struct {
-	mu      sync.Mutex
-	cached  cachedEntry[marketResponseJson]
-	current *yahooMarketResourceCall
+	mu       sync.Mutex
+	cached   cachedEntry[marketResponseJson]
+	current  *yahooMarketResourceCall
+	lastUsed time.Time
 }
 
 var yahooMarketResourceCache = struct {
@@ -30,12 +34,34 @@ var yahooMarketResourceCache = struct {
 }
 
 func fetchYahooMarketResource(ctx context.Context, symbol string) (marketResponseJson, error) {
+	now := time.Now()
+
 	yahooMarketResourceCache.Lock()
+	for cachedSymbol, cachedEntry := range yahooMarketResourceCache.entries {
+		if cachedSymbol == symbol {
+			continue
+		}
+
+		cachedEntry.mu.Lock()
+		idle := cachedEntry.current == nil &&
+			!cachedEntry.lastUsed.IsZero() &&
+			now.Sub(cachedEntry.lastUsed) >= yahooMarketResourceIdleRetention
+		cachedEntry.mu.Unlock()
+
+		if idle {
+			delete(yahooMarketResourceCache.entries, cachedSymbol)
+		}
+	}
+
 	entry, ok := yahooMarketResourceCache.entries[symbol]
 	if !ok {
 		entry = &yahooMarketResourceCacheEntry{}
 		yahooMarketResourceCache.entries[symbol] = entry
 	}
+
+	entry.mu.Lock()
+	entry.lastUsed = now
+	entry.mu.Unlock()
 	yahooMarketResourceCache.Unlock()
 
 	return entry.fetch(ctx, symbol)

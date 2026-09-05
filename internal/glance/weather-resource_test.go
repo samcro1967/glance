@@ -104,6 +104,54 @@ func TestOpenMeteoPlaceResourceDoesNotCacheFailure(t *testing.T) {
 	}
 }
 
+func TestOpenMeteoPlaceResourceEvictsIdleEntries(t *testing.T) {
+	resetOpenMeteoPlaceResourceCache(t)
+
+	stale := &openMeteoPlaceResourceCacheEntry{
+		lastUsed: time.Now().Add(-openMeteoResourceIdleRetention),
+	}
+	active := &openMeteoPlaceResourceCacheEntry{
+		lastUsed: time.Now().Add(-openMeteoResourceIdleRetention),
+		current: &openMeteoPlaceResourceCall{
+			done: make(chan struct{}),
+		},
+	}
+
+	openMeteoPlaceResourceCache.Lock()
+	openMeteoPlaceResourceCache.entries["stale"] = stale
+	openMeteoPlaceResourceCache.entries["active"] = active
+	openMeteoPlaceResourceCache.Unlock()
+
+	wave3Transport(t, func(request *http.Request) (*http.Response, error) {
+		return wave3Response(
+			http.StatusOK,
+			`{"results":[{"name":"Saint Peters","admin1":"Missouri","latitude":38.8,"longitude":-90.6,"timezone":"America/Chicago","country":"United States"}]}`,
+			nil,
+		), nil
+	})
+
+	location := "Saint Peters, Missouri, US"
+	if _, err := fetchOpenMeteoPlaceResource(context.Background(), location); err != nil {
+		t.Fatalf("fetch: %v", err)
+	}
+
+	openMeteoPlaceResourceCache.Lock()
+	_, staleExists := openMeteoPlaceResourceCache.entries["stale"]
+	_, activeExists := openMeteoPlaceResourceCache.entries["active"]
+	_, requestedExists := openMeteoPlaceResourceCache.entries[location]
+	openMeteoPlaceResourceCache.Unlock()
+
+	if staleExists {
+		t.Fatal("idle stale place entry was not evicted")
+	}
+	if !activeExists {
+		t.Fatal("active stale place entry was evicted")
+	}
+	if !requestedExists {
+		t.Fatal("requested place entry is missing")
+	}
+}
+
 func resetOpenMeteoWeatherResourceCache(t *testing.T) {
 	t.Helper()
 
@@ -379,6 +427,75 @@ func TestOpenMeteoWeatherResourceWaitingCallerCanCancel(t *testing.T) {
 
 	if got := calls.Load(); got != 1 {
 		t.Fatalf("HTTP calls = %d, want 1", got)
+	}
+}
+
+func TestOpenMeteoWeatherResourceEvictsIdleEntries(t *testing.T) {
+	resetOpenMeteoWeatherResourceCache(t)
+
+	staleKey := openMeteoWeatherResourceKey{
+		Latitude:  1,
+		Longitude: 2,
+		Timezone:  "UTC",
+		Units:     "metric",
+	}
+	activeKey := openMeteoWeatherResourceKey{
+		Latitude:  3,
+		Longitude: 4,
+		Timezone:  "UTC",
+		Units:     "metric",
+	}
+
+	stale := &openMeteoWeatherResourceCacheEntry{
+		lastUsed: time.Now().Add(-openMeteoResourceIdleRetention),
+	}
+	active := &openMeteoWeatherResourceCacheEntry{
+		lastUsed: time.Now().Add(-openMeteoResourceIdleRetention),
+		current: &openMeteoWeatherResourceCall{
+			done: make(chan struct{}),
+		},
+	}
+
+	openMeteoWeatherResourceCache.Lock()
+	openMeteoWeatherResourceCache.entries[staleKey] = stale
+	openMeteoWeatherResourceCache.entries[activeKey] = active
+	openMeteoWeatherResourceCache.Unlock()
+
+	wave3Transport(t, func(request *http.Request) (*http.Response, error) {
+		return openMeteoWeatherResourceTestResponse(), nil
+	})
+
+	place := &openMeteoPlaceResponseJson{
+		Latitude:  38.8,
+		Longitude: -90.6,
+		Timezone:  "America/Chicago",
+		location:  time.UTC,
+	}
+	requestedKey := openMeteoWeatherResourceKey{
+		Latitude:  place.Latitude,
+		Longitude: place.Longitude,
+		Timezone:  place.Timezone,
+		Units:     "metric",
+	}
+
+	if _, err := fetchOpenMeteoWeatherResource(context.Background(), place, "metric"); err != nil {
+		t.Fatalf("fetch: %v", err)
+	}
+
+	openMeteoWeatherResourceCache.Lock()
+	_, staleExists := openMeteoWeatherResourceCache.entries[staleKey]
+	_, activeExists := openMeteoWeatherResourceCache.entries[activeKey]
+	_, requestedExists := openMeteoWeatherResourceCache.entries[requestedKey]
+	openMeteoWeatherResourceCache.Unlock()
+
+	if staleExists {
+		t.Fatal("idle stale weather entry was not evicted")
+	}
+	if !activeExists {
+		t.Fatal("active stale weather entry was evicted")
+	}
+	if !requestedExists {
+		t.Fatal("requested weather entry is missing")
 	}
 }
 
