@@ -254,14 +254,28 @@ kbd:active {
     flex-direction: column;
 }
 
-.header-container {
-    padding-top: calc(var(--widget-gap) / 2);
+.header-container,
+.header-container-spacer {
     --header-height: 45px;
+    --header-container-height: calc(var(--header-height) + var(--widget-gap));
+}
+
+.header-container {
     --header-items-gap: 2.5rem;
-    position: sticky;
+    position: fixed;
     top: 0;
+    left: 50%;
     z-index: 10;
+    width: 100%;
+    min-height: var(--header-container-height);
+    padding-top: calc(var(--widget-gap) / 2);
+    padding-bottom: calc(var(--widget-gap) / 2);
+    transform: translateX(-50%);
     background-color: var(--color-background);
+}
+
+.header-container-spacer {
+    height: var(--header-container-height);
 }
 
 .header {

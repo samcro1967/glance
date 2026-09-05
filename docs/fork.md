@@ -48,7 +48,7 @@ Because the fork identifier follows the hyphen in the tag, fork releases are pre
 - **Calculator widget** — Adds a native `calculator` widget for performing calculations directly in the browser without requiring an external service or network request. The calculator provides standard arithmetic operations, percentage, reciprocal, square, square root, exponent, nth-root, parentheses, sign change, clear-entry, clear, and backspace controls, with operator precedence and keyboard input support.
 - **Named dashboards** — Allows configured pages to be organized into multiple independently addressable dashboards with dashboard-specific navigation.
 - **Medium page columns** — Adds a `medium` page column size for proportional desktop layouts. Three `medium` columns create an equal three-column layout, while `medium` + `full` creates an approximately one-third/two-thirds layout and can be reversed as `full` + `medium`. Existing `small` and `full` layouts remain unchanged, and medium columns use the standard one-column-at-a-time navigation on mobile.
-- **Sticky desktop navigation** — Keeps the global desktop page navigation visible at the top of the viewport while scrolling. The pinned navigation uses the configured page background so page content passes cleanly underneath without showing through, while mobile navigation retains its existing behavior.
+- **Fixed desktop navigation** — Keeps the global desktop page navigation fixed to the top of the viewport while scrolling, independent of page length and surrounding layout. Dedicated document-flow spacing prevents page content from being obscured beneath the fixed navigation, while the configured header appearance and existing mobile navigation behavior are preserved.
 - **Bottom widgets** — Adds a `bottom-widgets` page section that mirrors `head-widgets`, allowing standard Glance widgets to span the full page width below the configured columns. Bottom widgets participate in the same initialization, provider setup, refresh, caching, and recovery lifecycle as widgets elsewhere on the page. Existing configurations without `bottom-widgets` remain unchanged.
 - **Status Bar widget** — Adds a compact full-width `status-bar` widget for presenting existing Weather, Markets, and RSS data in either a continuously scrolling `ticker` or static wrapping `wrap` layout. Status bars can be placed only directly in `head-widgets` or `bottom-widgets`; supported child widgets retain their normal configuration, provider fetching, caching, refresh, recovery, and error behavior while using dedicated compact renderers. Equivalent underlying Markets, Weather, and RSS resource requests are shared where applicable so adding a status bar does not unnecessarily duplicate provider requests already being made by another configured widget.
 - **Hierarchical widget defaults** — Adds optional `widget-defaults` configuration for defining shared widget settings once and inheriting them across the dashboard. Defaults can be defined globally and per widget type, with more specific configuration taking precedence over broader defaults and explicit widget or child/source settings taking precedence over inherited values. Supported shared capabilities include common widget presentation and caching settings, link behavior, list sizing and collapsing, and applicable HTTP request settings such as timeouts, TLS handling, headers, and authentication. Capabilities are applied only to widget types and configuration scopes for which they are semantically valid. Existing Glance configurations remain fully compatible: `widget-defaults` is optional, existing widget-specific properties retain their current behavior, and built-in widget defaults remain unchanged when no hierarchical defaults are configured.
@@ -117,6 +117,9 @@ make build
 make test-instance-start
 make test-instance-status
 make test-instance-stop
+make test-container-start TEST_RUNTIME_CONTAINER=<container>
+make test-container-status
+make test-container-stop
 make fmt-check
 make diff-check
 make staged-check
@@ -153,6 +156,8 @@ make deploy
 `make check` runs the standard local pre-pull-request validation suite. Repeated test targets are available for concurrency-sensitive or high-risk changes where a single successful test execution may not provide sufficient confidence.
 
 For interactive development and browser validation, `make test-instance-start` builds the current source tree and starts an isolated Glance instance using a generated minimal configuration on port `18080`. `make test-instance-status` reports the process and HTTP status, and `make test-instance-stop` stops the instance and removes its generated binary, configuration, PID file, and log. The port can be overridden when needed, for example with `make test-instance-start TEST_PORT=18081`.
+
+For validation against an existing container's real runtime configuration, `make test-container-start TEST_RUNTIME_CONTAINER=<container>` builds the current source tree into a local test image and starts an isolated container on port `18080`. The test container derives its environment, bind mounts, Docker networks, and sysctls from the specified runtime reference container without modifying or replacing that container. `make test-container-status` reports container and HTTP status, while `make test-container-stop` removes the isolated test container and its local image. Container names, image names, ports, URLs, and the runtime reference remain configurable through Makefile variables.
 
 ## Security and dependency maintenance
 
