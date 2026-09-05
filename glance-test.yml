@@ -312,6 +312,14 @@ pages:
                   username: ""
                   password: ""
 
+          # Status Bar Custom API uses a locked compact response contract.
+          # Enable when a compatible endpoint is available.
+          # - type: custom-api
+          #   title: Live Scores
+          #   url: https://example.com/status.json
+          #   cache: 1m
+          # Expected response has an items array with icon1, url, line1, line2, and icon2.
+
     columns:
       - size: full
         widgets:

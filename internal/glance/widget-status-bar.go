@@ -19,6 +19,12 @@ type statusBarCompactItem struct {
 
 	ErrorTitle string
 
+	// Custom API fields
+	Icon1 string
+	Line1 string
+	Line2 string
+	Icon2 string
+
 	WeatherCondition   string
 	WeatherTemperature int
 	WeatherFeelsLike   int
@@ -64,12 +70,16 @@ func (widget *statusBarWidget) initialize() error {
 
 	for i := range widget.Widgets {
 		switch widget.Widgets[i].GetType() {
-		case "weather", "markets", "rss":
+		case "weather", "markets", "rss", "custom-api":
 		default:
-			return errors.New("only weather, markets and rss widgets are supported")
+			return errors.New("only weather, markets, rss and custom-api widgets are supported")
 		}
 
 		widget.Widgets[i].setHideHeader(true)
+
+		if customAPI, ok := widget.Widgets[i].(*customAPIWidget); ok {
+			customAPI.statusBarCompactMode = true
+		}
 	}
 
 	return widget.containerWidgetBase._initializeWidgets()
@@ -157,6 +167,31 @@ func (widget *statusBarWidget) CompactItems() []statusBarCompactItem {
 					MarketPrice:          market.Price,
 					MarketPriceHint:      market.PriceHint,
 					MarketPercentChange:  market.PercentChange,
+				})
+			}
+
+		case *customAPIWidget:
+			if len(child.StatusBarCompactItems) == 0 && child.Error != nil {
+				items = append(items, statusBarCompactItem{
+					Kind:       "error",
+					Error:      child.Error,
+					ErrorTitle: child.Title,
+				})
+				continue
+			}
+
+			for j := range child.StatusBarCompactItems {
+				item := child.StatusBarCompactItems[j]
+				items = append(items, statusBarCompactItem{
+					Kind:              "custom-api",
+					Error:             child.Error,
+					Notice:            child.Notice,
+					URL:               item.URL,
+					OpenLinksInNewTab: child.OpenLinksInNewTab,
+					Icon1:             item.Icon1,
+					Line1:             item.Line1,
+					Line2:             item.Line2,
+					Icon2:             item.Icon2,
 				})
 			}
 

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -822,5 +823,226 @@ func TestFetchCustomAPIResponseInvalidJSONNon2xxPreservesStatusIdentity(t *testi
 			classifyRefreshFailure(err),
 			refreshFailureTransient,
 		)
+	}
+}
+
+func TestStatusBarCustomAPIContract(t *testing.T) {
+	tests := []struct {
+		name      string
+		body      string
+		wantItems []statusBarCustomAPIItem
+		wantErr   string
+	}{
+		{
+			name: "complete item",
+			body: `{"items":[{"icon1":"away.png","url":"https://example.com/game","line1":"UNT 13 · IU 24","line2":"11:40 - 3rd Quarter","icon2":"home.png"}]}`,
+			wantItems: []statusBarCustomAPIItem{
+				{
+					Icon1: "away.png",
+					URL:   "https://example.com/game",
+					Line1: "UNT 13 · IU 24",
+					Line2: "11:40 - 3rd Quarter",
+					Icon2: "home.png",
+				},
+			},
+		},
+		{
+			name:      "empty items",
+			body:      `{"items":[]}`,
+			wantItems: []statusBarCustomAPIItem{},
+		},
+		{
+			name: "minimal item",
+			body: `{"items":[{"line1":"OSU 28 · MICH 0"}]}`,
+			wantItems: []statusBarCustomAPIItem{
+				{Line1: "OSU 28 · MICH 0"},
+			},
+		},
+		{
+			name: "preserves order",
+			body: `{"items":[{"line1":"first"},{"line1":"second"},{"line1":"third"}]}`,
+			wantItems: []statusBarCustomAPIItem{
+				{Line1: "first"},
+				{Line1: "second"},
+				{Line1: "third"},
+			},
+		},
+		{
+			name:    "missing items",
+			body:    `{}`,
+			wantErr: "status-bar custom API response must contain only the items field",
+		},
+		{
+			name:    "unknown root field",
+			body:    `{"items":[],"generated_at":"now"}`,
+			wantErr: "status-bar custom API response must contain only the items field",
+		},
+		{
+			name:    "items not array",
+			body:    `{"items":{}}`,
+			wantErr: "status-bar custom API items must be an array",
+		},
+		{
+			name:    "missing line1",
+			body:    `{"items":[{"line2":"Live"}]}`,
+			wantErr: "status-bar custom API item 0 is missing required field line1",
+		},
+		{
+			name:    "blank line1",
+			body:    `{"items":[{"line1":"   "}]}`,
+			wantErr: "status-bar custom API item 0 field line1 must not be empty",
+		},
+		{
+			name:    "null line1",
+			body:    `{"items":[{"line1":null}]}`,
+			wantErr: "status-bar custom API item 0 field line1 must be a string",
+		},
+		{
+			name:    "numeric line1",
+			body:    `{"items":[{"line1":123}]}`,
+			wantErr: "status-bar custom API item 0 field line1 must be a string",
+		},
+		{
+			name:    "null optional string",
+			body:    `{"items":[{"line1":"game","icon1":null}]}`,
+			wantErr: "status-bar custom API item 0 field icon1 must be a string",
+		},
+		{
+			name:    "numeric optional string",
+			body:    `{"items":[{"line1":"game","line2":42}]}`,
+			wantErr: "status-bar custom API item 0 field line2 must be a string",
+		},
+		{
+			name:    "unknown item field",
+			body:    `{"items":[{"line1":"game","league":"ncaaf"}]}`,
+			wantErr: `status-bar custom API item 0 contains unsupported field "league"`,
+		},
+		{
+			name:    "trailing JSON",
+			body:    `{"items":[]}{"items":[]}`,
+			wantErr: "invalid response JSON",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = io.WriteString(w, tt.body)
+			}))
+			defer server.Close()
+
+			request := &CustomAPIRequest{
+				URL: server.URL,
+			}
+
+			if err := request.initialize(); err != nil {
+				t.Fatalf("request.initialize() error = %v", err)
+			}
+
+			items, err := fetchStatusBarCustomAPIItems(context.Background(), request)
+
+			if tt.wantErr != "" {
+				if err == nil {
+					t.Fatalf("fetchStatusBarCustomAPIItems() error = nil, want %q", tt.wantErr)
+				}
+				if !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf(
+						"fetchStatusBarCustomAPIItems() error = %q, want containing %q",
+						err.Error(),
+						tt.wantErr,
+					)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("fetchStatusBarCustomAPIItems() error = %v", err)
+			}
+
+			if !reflect.DeepEqual(items, tt.wantItems) {
+				t.Fatalf(
+					"fetchStatusBarCustomAPIItems() items = %#v, want %#v",
+					items,
+					tt.wantItems,
+				)
+			}
+		})
+	}
+}
+
+func TestStatusBarCustomAPICompactInitialization(t *testing.T) {
+	tests := []struct {
+		name      string
+		configure func(*customAPIWidget)
+		wantErr   string
+	}{
+		{
+			name: "minimal configuration accepted",
+		},
+		{
+			name: "subrequests rejected",
+			configure: func(widget *customAPIWidget) {
+				widget.Subrequests = customAPISubrequests{
+					"other": &CustomAPIRequest{URL: "https://example.com"},
+				}
+			},
+			wantErr: "subrequests are not supported inside a status-bar",
+		},
+		{
+			name: "options rejected",
+			configure: func(widget *customAPIWidget) {
+				widget.Options = customAPIOptions{
+					"key": "value",
+				}
+			},
+			wantErr: "options are not supported inside a status-bar",
+		},
+		{
+			name: "template rejected",
+			configure: func(widget *customAPIWidget) {
+				widget.Template = "{{ .JSON.String \"name\" }}"
+			},
+			wantErr: "template is not supported inside a status-bar",
+		},
+		{
+			name: "skip json validation rejected",
+			configure: func(widget *customAPIWidget) {
+				widget.SkipJSONValidation = true
+			},
+			wantErr: "skip-json-validation is not supported inside a status-bar",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			widget := &customAPIWidget{
+				CustomAPIRequest: &CustomAPIRequest{
+					URL: "https://example.com",
+				},
+				statusBarCompactMode: true,
+			}
+
+			if tt.configure != nil {
+				tt.configure(widget)
+			}
+
+			err := widget.initialize()
+
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("initialize() error = %v, want nil", err)
+				}
+				return
+			}
+
+			if err == nil {
+				t.Fatalf("initialize() error = nil, want %q", tt.wantErr)
+			}
+
+			if err.Error() != tt.wantErr {
+				t.Fatalf("initialize() error = %q, want %q", err.Error(), tt.wantErr)
+			}
+		})
 	}
 }

@@ -118,6 +118,22 @@ func (requests *customAPISubrequests) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
+// statusBarCustomAPIItem is the locked compact item contract accepted when a
+// Custom API widget is embedded directly in a Status Bar. Keeping this
+// contract separate from the general Custom API template model prevents
+// presentation-specific arbitrary JSON handling from leaking into Status Bar.
+type statusBarCustomAPIItem struct {
+	Icon1 string `json:"icon1,omitempty"`
+	URL   string `json:"url,omitempty"`
+	Line1 string `json:"line1"`
+	Line2 string `json:"line2,omitempty"`
+	Icon2 string `json:"icon2,omitempty"`
+}
+
+type statusBarCustomAPIEnvelope struct {
+	Items []statusBarCustomAPIItem `json:"items"`
+}
+
 type customAPIWidget struct {
 	widgetBase           `yaml:",inline"`
 	*CustomAPIRequest    `yaml:",inline"`     // the primary request
@@ -129,6 +145,9 @@ type customAPIWidget struct {
 	CompiledHTML         template.HTML        `yaml:"-"`
 	Stale                bool                 `yaml:"-"`
 	LastSuccessfulUpdate time.Time            `yaml:"-"`
+
+	statusBarCompactMode  bool                     `yaml:"-"`
+	StatusBarCompactItems []statusBarCustomAPIItem `yaml:"-"`
 }
 
 func (widget *customAPIWidget) initialize() error {
@@ -136,6 +155,23 @@ func (widget *customAPIWidget) initialize() error {
 
 	if err := widget.CustomAPIRequest.initialize(); err != nil {
 		return fmt.Errorf("initializing primary request: %v", err)
+	}
+
+	if widget.statusBarCompactMode {
+		if len(widget.Subrequests) != 0 {
+			return errors.New("subrequests are not supported inside a status-bar")
+		}
+		if len(widget.Options) != 0 {
+			return errors.New("options are not supported inside a status-bar")
+		}
+		if widget.Template != "" {
+			return errors.New("template is not supported inside a status-bar")
+		}
+		if widget.SkipJSONValidation {
+			return errors.New("skip-json-validation is not supported inside a status-bar")
+		}
+
+		return nil
 	}
 
 	for key := range widget.Subrequests {
@@ -161,7 +197,155 @@ func (widget *customAPIWidget) initialize() error {
 	return nil
 }
 
+// fetchStatusBarCustomAPIItems fetches and strictly validates the locked
+// Status Bar Custom API contract. Unknown fields, malformed types, missing
+// items, and blank line1 values are rejected so producers cannot silently
+// expand the presentation contract.
+func fetchStatusBarCustomAPIItems(
+	ctx context.Context,
+	request *CustomAPIRequest,
+) ([]statusBarCustomAPIItem, error) {
+	response, err := fetchCustomAPIResponse(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+
+	var rawEnvelope map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(response.Body), &rawEnvelope); err != nil {
+		return nil, fmt.Errorf("decoding status-bar custom API response: %w", err)
+	}
+
+	if len(rawEnvelope) != 1 {
+		return nil, errors.New("status-bar custom API response must contain only the items field")
+	}
+
+	rawItems, ok := rawEnvelope["items"]
+	if !ok {
+		return nil, errors.New("status-bar custom API response is missing items")
+	}
+
+	var rawItemList []json.RawMessage
+	if err := json.Unmarshal(rawItems, &rawItemList); err != nil {
+		return nil, errors.New("status-bar custom API items must be an array")
+	}
+
+	items := make([]statusBarCustomAPIItem, 0, len(rawItemList))
+
+	for index, rawItem := range rawItemList {
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(rawItem, &fields); err != nil {
+			return nil, fmt.Errorf(
+				"status-bar custom API item %d must be an object",
+				index,
+			)
+		}
+
+		for field := range fields {
+			switch field {
+			case "icon1", "url", "line1", "line2", "icon2":
+			default:
+				return nil, fmt.Errorf(
+					"status-bar custom API item %d contains unsupported field %q",
+					index,
+					field,
+				)
+			}
+		}
+
+		rawLine1, ok := fields["line1"]
+		if !ok {
+			return nil, fmt.Errorf(
+				"status-bar custom API item %d is missing required field line1",
+				index,
+			)
+		}
+
+		decodeString := func(field string, raw json.RawMessage) (string, error) {
+			if len(raw) == 0 || string(raw) == "null" {
+				return "", fmt.Errorf(
+					"status-bar custom API item %d field %s must be a string",
+					index,
+					field,
+				)
+			}
+
+			var value string
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return "", fmt.Errorf(
+					"status-bar custom API item %d field %s must be a string",
+					index,
+					field,
+				)
+			}
+
+			return value, nil
+		}
+
+		line1, err := decodeString("line1", rawLine1)
+		if err != nil {
+			return nil, err
+		}
+
+		if strings.TrimSpace(line1) == "" {
+			return nil, fmt.Errorf(
+				"status-bar custom API item %d field line1 must not be empty",
+				index,
+			)
+		}
+
+		item := statusBarCustomAPIItem{
+			Line1: line1,
+		}
+
+		for field, target := range map[string]*string{
+			"icon1": &item.Icon1,
+			"url":   &item.URL,
+			"line2": &item.Line2,
+			"icon2": &item.Icon2,
+		} {
+			raw, exists := fields[field]
+			if !exists {
+				continue
+			}
+
+			value, err := decodeString(field, raw)
+			if err != nil {
+				return nil, err
+			}
+
+			*target = value
+		}
+
+		items = append(items, item)
+	}
+
+	return items, nil
+}
+
 func (widget *customAPIWidget) update(ctx context.Context) {
+	if widget.statusBarCompactMode {
+		items, err := fetchStatusBarCustomAPIItems(
+			ctx,
+			widget.CustomAPIRequest,
+		)
+
+		if err != nil {
+			widget.withError(err)
+
+			if !widget.LastSuccessfulUpdate.IsZero() {
+				widget.Stale = true
+			}
+
+			return
+		}
+
+		widget.StatusBarCompactItems = items
+		widget.LastSuccessfulUpdate = time.Now()
+		widget.Stale = false
+		widget.withError(nil)
+		return
+	}
+
 	compiledHTML, err := fetchAndRenderCustomAPIRequest(
 		ctx,
 		widget.CustomAPIRequest,
@@ -301,6 +485,7 @@ func (req *CustomAPIRequest) initialize() error {
 type customAPIResponseData struct {
 	JSON     decoratedGJSONResult
 	Response *http.Response
+	Body     string
 }
 
 type customAPITemplateData struct {
@@ -380,6 +565,7 @@ func fetchCustomAPIResponse(ctx context.Context, req *CustomAPIRequest) (*custom
 	return &customAPIResponseData{
 		JSON:     decoratedGJSONResult{gjson.Parse(body)},
 		Response: resp,
+		Body:     body,
 	}, nil
 }
 
