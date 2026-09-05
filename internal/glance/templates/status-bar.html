@@ -39,6 +39,15 @@
                     <span class="{{ if eq .MarketPercentChange 0.0 }}{{ else if gt .MarketPercentChange 0.0 }}color-positive{{ else }}color-negative{{ end }}">{{ printf "%+.2f" .MarketPercentChange }}%</span>
                 {{ if .MarketChartURL }}</a>{{ else }}</span>{{ end }}
             </div>
+        {{ else if eq .Kind "custom-api" }}
+            {{ if .URL }}<a href="{{ .URL }}"{{ if .OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }} class="status-bar-custom-api-content">{{ else }}<div class="status-bar-custom-api-content">{{ end }}
+                {{ if .Icon1 }}<img class="status-bar-custom-api-icon" src="{{ .Icon1 }}" alt="" loading="lazy">{{ end }}
+                <span class="status-bar-custom-api-text">
+                    <span class="status-bar-primary">{{ .Line1 }}</span>
+                    {{ if .Line2 }}<span class="status-bar-custom-api-secondary color-subdue">{{ .Line2 }}</span>{{ end }}
+                </span>
+                {{ if .Icon2 }}<img class="status-bar-custom-api-icon" src="{{ .Icon2 }}" alt="" loading="lazy">{{ end }}
+            {{ if .URL }}</a>{{ else }}</div>{{ end }}
         {{ else if eq .Kind "rss" }}
             <div class="status-bar-rss-content">
                 {{ if .URL }}<a href="{{ .URL }}"{{ if .OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }} class="status-bar-primary status-bar-rss-title">{{ .RSSTitle }}</a>{{ else }}<span class="status-bar-primary status-bar-rss-title">{{ .RSSTitle }}</span>{{ end }}
