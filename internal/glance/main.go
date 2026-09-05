@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -152,17 +153,20 @@ func serveApp(configPath string) error {
 	exitChannel := make(chan error, 1)
 	hadValidConfigOnStartup := false
 	var stopServer func() error
+	configDiagnostics := newConfigRuntimeDiagnostics(configPath)
 
 	onChange := func(newParsed *parsedYAMLConfig) {
 		isReload := stopServer != nil
 
 		if isReload {
+			configDiagnostics.recordReloadAttempt(time.Now())
 			slog.Info("Configuration changed, reloading")
 		}
 
 		config, err := newConfigFromParsedYAML(newParsed)
 		if err != nil {
 			if isReload {
+				configDiagnostics.recordReloadRejected(err)
 				logConfigDiagnostic(
 					slog.LevelWarn,
 					"Configuration reload rejected; keeping existing application",
@@ -182,6 +186,7 @@ func serveApp(configPath string) error {
 		app, err := newApplication(config)
 		if err != nil {
 			if isReload {
+				configDiagnostics.recordReloadRejected(err)
 				slog.Warn(
 					"Application reload rejected; keeping existing application",
 					"error", err,
@@ -201,6 +206,8 @@ func serveApp(configPath string) error {
 			hadValidConfigOnStartup = true
 		}
 
+		app.configDiagnostics = configDiagnostics
+
 		if stopServer != nil {
 			if err := stopServer(); err != nil {
 				slog.Error("Failed to stop server during configuration reload", "error", err)
@@ -212,8 +219,10 @@ func serveApp(configPath string) error {
 		go startServerAndReport(startServer, exitChannel)
 
 		if isReload {
+			configDiagnostics.recordReloadAccepted(time.Now())
 			slog.Info("Configuration reload accepted")
 		} else {
+			configDiagnostics.recordLoaded(time.Now())
 			slog.Info("Application configuration loaded successfully")
 		}
 	}
