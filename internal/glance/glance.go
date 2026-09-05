@@ -176,33 +176,37 @@ func newApplication(c *config) (*application, error) {
 	//
 
 	if !config.Theme.DisablePicker {
-		themeKeys := make([]string, 0, 2)
-		themeProps := make([]*themeProperties, 0, 2)
-
-		defaultDarkTheme, ok := config.Theme.Presets.Get("default-dark")
-		if ok && (!config.Theme.SameAs(defaultDarkTheme) || !config.Theme.SameAs(&themeProperties{})) {
-			themeKeys = append(themeKeys, "default-dark")
-			themeProps = append(themeProps, &themeProperties{})
+		themeKeys := []string{"glance-dark", "glance-light"}
+		themeProps := []*themeProperties{
+			{
+				Key:  "glance-dark",
+				Name: "Glance Dark",
+			},
+			{
+				Key:                      "glance-light",
+				Name:                     "Glance Light",
+				Light:                    true,
+				BackgroundColor:          &hslColorField{240, 13, 95},
+				PrimaryColor:             &hslColorField{230, 100, 30},
+				NegativeColor:            &hslColorField{0, 70, 50},
+				ContrastMultiplier:       1.3,
+				TextSaturationMultiplier: 0.5,
+			},
 		}
 
-		themeKeys = append(themeKeys, "default-light")
-		themeProps = append(themeProps, &themeProperties{
-			Light:                    true,
-			BackgroundColor:          &hslColorField{240, 13, 95},
-			PrimaryColor:             &hslColorField{230, 100, 30},
-			NegativeColor:            &hslColorField{0, 70, 50},
-			ContrastMultiplier:       1.3,
-			TextSaturationMultiplier: 0.5,
-		})
-
-		themePresets, err := newOrderedYAMLMap(themeKeys, themeProps)
+		builtInThemes, err := newOrderedYAMLMap(themeKeys, themeProps)
 		if err != nil {
-			return nil, fmt.Errorf("creating theme presets: %v", err)
+			return nil, fmt.Errorf("creating built-in themes: %v", err)
 		}
-		config.Theme.Presets = *themePresets.Merge(&config.Theme.Presets)
+		config.Theme.Presets = *builtInThemes.Merge(&config.Theme.Presets)
 
 		for key, properties := range config.Theme.Presets.Items() {
-			properties.Key = key
+			if properties.Key == "" {
+				properties.Key = key
+			}
+			if properties.Name == "" {
+				properties.Name = themeDisplayName(key)
+			}
 			if err := properties.init(); err != nil {
 				return nil, fmt.Errorf("initializing preset theme %s: %v", key, err)
 			}
@@ -428,7 +432,8 @@ func (a *application) resolveUserDefinedAssetPath(path string) string {
 }
 
 type templateRequestData struct {
-	Theme *themeProperties
+	Theme        *themeProperties
+	ThemeChoices []*themeProperties
 }
 
 type templateData struct {
@@ -441,7 +446,18 @@ type templateData struct {
 	Request         templateRequestData
 }
 
-func (a *application) populateTemplateRequestData(data *templateRequestData, r *http.Request) {
+func themeDisplayName(key string) string {
+	words := strings.Fields(strings.NewReplacer("-", " ", "_", " ").Replace(key))
+	for i := range words {
+		if len(words[i]) == 0 {
+			continue
+		}
+		words[i] = strings.ToUpper(words[i][:1]) + words[i][1:]
+	}
+	return strings.Join(words, " ")
+}
+
+func (a *application) populateTemplateRequestData(data *templateRequestData, r *http.Request, page *page) {
 	theme := &a.Config.Theme.themeProperties
 
 	if !a.Config.Theme.DisablePicker {
@@ -454,7 +470,34 @@ func (a *application) populateTemplateRequestData(data *templateRequestData, r *
 		}
 	}
 
-	data.Theme = theme
+	var pageOverride *themeProperties
+	if page != nil {
+		pageOverride = &page.Theme
+	}
+
+	resolved, err := resolveTheme(theme, pageOverride)
+	if err != nil {
+		data.Theme = theme
+		return
+	}
+
+	data.Theme = resolved
+
+	if a.Config.Theme.DisablePicker {
+		return
+	}
+
+	choices := make([]*themeProperties, 0, len(a.Config.Theme.Presets.keys))
+
+	for _, preset := range a.Config.Theme.Presets.Items() {
+		choice, err := resolveTheme(preset, pageOverride)
+		if err != nil {
+			return
+		}
+		choices = append(choices, choice)
+	}
+
+	data.ThemeChoices = choices
 }
 
 func (a *application) renderPage(
@@ -477,7 +520,7 @@ func (a *application) renderPage(
 		Dashboard:       dashboard,
 		DashboardPath:   dashboardPath,
 	}
-	a.populateTemplateRequestData(&data.Request, r)
+	a.populateTemplateRequestData(&data.Request, r, page)
 
 	var responseBytes bytes.Buffer
 	err := pageTemplate.Execute(&responseBytes, data)
@@ -669,7 +712,7 @@ func (a *application) handleNotFound(
 		Dashboard:       dashboard,
 		DashboardPath:   dashboardPath,
 	}
-	a.populateTemplateRequestData(&data.Request, r)
+	a.populateTemplateRequestData(&data.Request, r, nil)
 
 	var responseBytes bytes.Buffer
 	if err := notFoundTemplate.Execute(&responseBytes, data); err != nil {

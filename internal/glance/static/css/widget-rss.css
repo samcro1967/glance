@@ -54,3 +54,27 @@
     aspect-ratio: 3 / 2;
     height: 8.7rem;
 }
+
+
+/* Native theme presentation */
+
+.rss-card-2 {
+    overflow: hidden;
+    background-color: var(--theme-card-background-color, transparent);
+    border: 1px solid var(--theme-card-border-color, var(--color-widget-content-border));
+    border-radius: var(--theme-card-radius, var(--border-radius));
+    box-shadow: var(--theme-card-shadow, none);
+    transition: border-color 150ms ease, transform 150ms ease;
+}
+
+.rss-card-2:hover {
+    border-color: var(--theme-accent-color, var(--theme-card-border-color, var(--color-widget-content-border)));
+    transform: translateY(-1px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rss-card-2 {
+        transition: none;
+        transform: none;
+    }
+}

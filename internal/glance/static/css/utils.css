@@ -303,6 +303,10 @@ details[open] .summary::after {
     font-size: var(--font-size-h4);
     padding: var(--widget-content-vertical-padding) 0;
     background: var(--color-widget-background);
+
+    background-color: var(--theme-control-button-background-color, transparent);
+    color: var(--theme-control-button-text-color, var(--theme-control-text-color, var(--color-text-base)));
+    border-radius: var(--theme-control-radius, var(--border-radius));
 }
 
 .expand-toggle-button.container-expanded {
@@ -634,4 +638,30 @@ details[open] .summary::after {
 
 @media (max-width: 1190px) {
     .size-base-on-mobile { font-size: var(--font-size-base); }
+}
+
+
+/* Native themed expand control */
+
+.expand-toggle-button {
+    border-top-color: var(--theme-control-border-color, var(--color-widget-content-border));
+    background-color: var(--theme-control-button-background-color, transparent);
+    color: var(--theme-control-button-text-color, var(--theme-control-text-color, var(--color-text-base)));
+    transition: color 150ms ease, background-color 150ms ease, border-color 150ms ease;
+}
+
+.expand-toggle-button:hover,
+.expand-toggle-button-icon {
+    color: var(--theme-accent-color, var(--color-primary));
+}
+
+.expand-toggle-button.container-expanded {
+    background-color: var(--theme-elevated-background-color, var(--theme-control-button-background-color, var(--color-widget-background)));
+    border-color: var(--theme-elevated-border-color, var(--theme-control-border-color, var(--color-widget-content-border)));
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .expand-toggle-button {
+        transition: none;
+    }
 }
