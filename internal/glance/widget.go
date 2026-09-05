@@ -190,7 +190,53 @@ func refreshWidgetIfNeeded(ctx context.Context, widget widget, now *time.Time) {
 		return
 	}
 
+	refreshWidget(ctx, widget, nil)
+}
+
+func refreshWidget(ctx context.Context, widget widget, schedulerNow *time.Time) {
+	base, hasBase := widgetBaseOf(widget)
+	started := time.Now()
+
+	if hasBase {
+		base.refreshTelemetryMu.Lock()
+		base.lastRefreshAttempt = started
+		base.refreshStartedAt = started
+		base.refreshAttempts++
+
+		if schedulerNow != nil && !base.nextUpdate.IsZero() {
+			lag := started.Sub(base.nextUpdate)
+			if lag < 0 {
+				lag = 0
+			}
+			base.lastSchedulerLag = lag
+			if lag > base.maxSchedulerLag {
+				base.maxSchedulerLag = lag
+			}
+		}
+		base.refreshTelemetryMu.Unlock()
+	}
+
 	widget.update(ctx)
+
+	if hasBase {
+		finished := time.Now()
+
+		base.refreshTelemetryMu.Lock()
+		base.lastRefreshDuration = finished.Sub(started)
+		base.refreshStartedAt = time.Time{}
+
+		if ctx.Err() == nil {
+			if base.refreshDegraded {
+				base.refreshFailures++
+				base.lastRefreshFailure = finished
+			} else {
+				base.refreshSuccesses++
+				base.lastRefreshSuccess = finished
+			}
+		}
+
+		base.refreshTelemetryMu.Unlock()
+	}
 }
 
 func renderWidget(widget widget) template.HTML {
@@ -231,6 +277,18 @@ type widgetBase struct {
 	refreshDegraded     bool                 `yaml:"-"`
 	refreshFailureClass refreshFailureClass  `yaml:"-"`
 	refreshFailureCount int                  `yaml:"-"`
+	lastRefreshAttempt  time.Time            `yaml:"-"`
+	lastRefreshSuccess  time.Time            `yaml:"-"`
+	lastRefreshFailure  time.Time            `yaml:"-"`
+	lastRefreshDuration time.Duration        `yaml:"-"`
+	refreshStartedAt    time.Time            `yaml:"-"`
+	refreshAttempts     uint64               `yaml:"-"`
+	refreshSuccesses    uint64               `yaml:"-"`
+	refreshFailures     uint64               `yaml:"-"`
+	refreshLockSkips    uint64               `yaml:"-"`
+	lastSchedulerLag    time.Duration        `yaml:"-"`
+	maxSchedulerLag     time.Duration        `yaml:"-"`
+	refreshTelemetryMu  sync.Mutex           `yaml:"-"`
 	refreshMu           sync.Mutex           `yaml:"-"`
 }
 
@@ -243,11 +301,25 @@ func (w *widgetBase) requiresUpdate(now *time.Time) bool {
 		return false
 	}
 
-	if w.nextUpdate.IsZero() {
+	nextUpdate := w.nextUpdateTime()
+	if nextUpdate.IsZero() {
 		return true
 	}
 
-	return now.After(w.nextUpdate)
+	return now.After(nextUpdate)
+}
+
+func (w *widgetBase) nextUpdateTime() time.Time {
+	w.refreshTelemetryMu.Lock()
+	defer w.refreshTelemetryMu.Unlock()
+
+	return w.nextUpdate
+}
+
+func (w *widgetBase) setNextUpdateTime(nextUpdate time.Time) {
+	w.refreshTelemetryMu.Lock()
+	w.nextUpdate = nextUpdate
+	w.refreshTelemetryMu.Unlock()
 }
 
 func (w *widgetBase) lockRefresh() {
@@ -395,10 +467,14 @@ func (w *widgetBase) canContinueUpdateAfterHandlingErr(err error) bool {
 			w.scheduleNextUpdate()
 		}
 
+		w.refreshTelemetryMu.Lock()
+		firstDegraded := !w.refreshDegraded
 		w.refreshFailureCount++
 		w.refreshFailureClass = failureClass
+		w.refreshDegraded = true
+		w.refreshTelemetryMu.Unlock()
 
-		if !w.refreshDegraded {
+		if firstDegraded {
 			message := "Widget refresh failed"
 			content := "no-content"
 			if partialContent {
@@ -422,10 +498,9 @@ func (w *widgetBase) canContinueUpdateAfterHandlingErr(err error) bool {
 				args = append(args, "retry_attempt", w.updateRetriedTimes)
 			}
 
-			args = append(args, "next_update", w.nextUpdate)
+			args = append(args, "next_update", w.nextUpdateTime())
 
 			slog.Warn(message, args...)
-			w.refreshDegraded = true
 		}
 
 		if !partialContent {
@@ -439,16 +514,18 @@ func (w *widgetBase) canContinueUpdateAfterHandlingErr(err error) bool {
 		return true
 	}
 
-	wasDegraded := w.refreshDegraded
-	previousFailureClass := w.refreshFailureClass
-	previousFailures := w.refreshFailureCount
-
 	w.withNotice(nil)
 	w.withError(nil)
 	w.scheduleNextUpdate()
+
+	w.refreshTelemetryMu.Lock()
+	wasDegraded := w.refreshDegraded
+	previousFailureClass := w.refreshFailureClass
+	previousFailures := w.refreshFailureCount
 	w.refreshDegraded = false
 	w.refreshFailureClass = refreshFailureUnknown
 	w.refreshFailureCount = 0
+	w.refreshTelemetryMu.Unlock()
 
 	if wasDegraded {
 		slog.Info(
@@ -481,7 +558,7 @@ func (w *widgetBase) getNextUpdateTime() time.Time {
 }
 
 func (w *widgetBase) scheduleNextUpdate() *widgetBase {
-	w.nextUpdate = w.getNextUpdateTime()
+	w.setNextUpdateTime(w.getNextUpdateTime())
 	w.updateRetriedTimes = 0
 
 	return w
@@ -498,9 +575,9 @@ func (w *widgetBase) scheduleEarlyUpdate() *widgetBase {
 	nextUsualUpdate := w.getNextUpdateTime()
 
 	if nextEarlyUpdate.After(nextUsualUpdate) {
-		w.nextUpdate = nextUsualUpdate
+		w.setNextUpdateTime(nextUsualUpdate)
 	} else {
-		w.nextUpdate = nextEarlyUpdate
+		w.setNextUpdateTime(nextEarlyUpdate)
 	}
 
 	return w

@@ -255,9 +255,13 @@ kbd:active {
 }
 
 .header-container {
-    margin-top: calc(var(--widget-gap) / 2);
+    padding-top: calc(var(--widget-gap) / 2);
     --header-height: 45px;
     --header-items-gap: 2.5rem;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background-color: var(--color-background);
 }
 
 .header {

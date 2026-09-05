@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"html/template"
-	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -43,57 +42,89 @@ func (widget *serverStatsWidget) initialize() error {
 }
 
 func (widget *serverStatsWidget) update(ctx context.Context) {
-	// Refactor later, most of it may change depending on feedback
 	var wg sync.WaitGroup
+	var resultMu sync.Mutex
+	succeeded := 0
+	failed := 0
+	var firstFailure error
+
+	recordSuccess := func() {
+		resultMu.Lock()
+		succeeded++
+		resultMu.Unlock()
+	}
+
+	recordFailure := func(err error) {
+		resultMu.Lock()
+		failed++
+		if firstFailure == nil {
+			firstFailure = err
+		}
+		resultMu.Unlock()
+	}
 
 	for i := range widget.Servers {
 		serv := &widget.Servers[i]
 
 		if serv.Type == "local" {
-			info, errs := sysinfo.Collect(serv.SystemInfoRequest)
+			info, _ := sysinfo.Collect(serv.SystemInfoRequest)
 
-			if len(errs) > 0 {
-				for _, err := range errs {
-					slog.Warn("Failed to get local system info", "error", err)
+			serv.Info = info
+			serv.IsReachable = true
+			recordSuccess()
+
+			continue
+		}
+
+		wg.Add(1)
+		go func(serv *serverStatsRequest, index int) {
+			defer wg.Done()
+
+			info, err := fetchRemoteServerInfo(ctx, serv)
+			if err != nil {
+				serv.IsReachable = false
+				serv.Info = &sysinfo.SystemInfo{
+					Hostname: "Unnamed server #" + strconv.Itoa(index+1),
 				}
+				recordFailure(err)
+				return
 			}
 
 			serv.IsReachable = true
 			serv.Info = info
-		} else {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				info, err := fetchRemoteServerInfo(ctx, serv)
-				if err != nil {
-					if serv.Name != "" {
-						slog.Warn(
-							"Failed to get remote system info",
-							"server", serv.Name,
-							"error", err,
-						)
-					} else {
-						slog.Warn(
-							"Failed to get remote system info",
-							"server", i+1,
-							"error", err,
-						)
-					}
-
-					serv.IsReachable = false
-					serv.Info = &sysinfo.SystemInfo{
-						Hostname: "Unnamed server #" + strconv.Itoa(i+1),
-					}
-				} else {
-					serv.IsReachable = true
-					serv.Info = info
-				}
-			}()
-		}
+			recordSuccess()
+		}(serv, i)
 	}
 
 	wg.Wait()
-	widget.withError(nil).scheduleNextUpdate()
+
+	if err := ctx.Err(); err != nil {
+		widget.canContinueUpdateAfterHandlingErr(err)
+		return
+	}
+
+	var err error
+	switch {
+	case failed == 0:
+	case succeeded == 0:
+		err = contentFetchError(
+			errNoContent,
+			failed,
+			len(widget.Servers),
+			"servers",
+			firstFailure,
+		)
+	default:
+		err = contentFetchError(
+			errPartialContent,
+			failed,
+			len(widget.Servers),
+			"servers",
+			firstFailure,
+		)
+	}
+
+	widget.canContinueUpdateAfterHandlingErr(err)
 }
 
 func (widget *serverStatsWidget) Render() template.HTML {

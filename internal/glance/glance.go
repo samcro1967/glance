@@ -52,13 +52,14 @@ type application struct {
 	releaseStatus  releaseStatusCache
 	parsedManifest []byte
 
-	slugToPage       map[string]*page
-	slugToDashboard  map[string]*dashboard
-	dashboards       []*dashboard
-	defaultDashboard *dashboard
-	widgetByID       map[uint64]widget
-	refreshWidgets   []widget
-	liveUpdates      *liveUpdateBroker
+	slugToPage        map[string]*page
+	slugToDashboard   map[string]*dashboard
+	dashboards        []*dashboard
+	defaultDashboard  *dashboard
+	widgetByID        map[uint64]widget
+	refreshWidgets    []widget
+	liveUpdates       *liveUpdateBroker
+	configDiagnostics *configRuntimeDiagnostics
 
 	RequiresAuth           bool
 	authSecretKey          []byte
@@ -779,6 +780,7 @@ func (a *application) router() http.Handler {
 	mux.HandleFunc("GET /api/widgets/{widget}/content/{$}", a.handleWidgetContentRequest)
 	mux.HandleFunc("GET /api/live-updates", a.handleLiveUpdatesRequest)
 	mux.HandleFunc("POST /api/frontend-diagnostics", a.handleFrontendDiagnosticsRequest)
+	mux.HandleFunc("GET /api/diagnostics", a.handleRuntimeDiagnosticsRequest)
 	mux.HandleFunc("/api/widgets/{widget}/{path...}", a.handleWidgetRequest)
 	mux.HandleFunc("GET /api/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -830,8 +832,10 @@ func (a *application) server() (func() error, func() error) {
 	}
 
 	server := http.Server{
-		Addr:    fmt.Sprintf("%s:%d", a.Config.Server.Host, a.Config.Server.Port),
-		Handler: a.router(),
+		Addr:              fmt.Sprintf("%s:%d", a.Config.Server.Host, a.Config.Server.Port),
+		Handler:           a.router(),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
 	}
 
 	schedulerCtx, stopScheduler := context.WithCancel(context.Background())

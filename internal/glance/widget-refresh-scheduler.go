@@ -19,6 +19,11 @@ func refreshDueWidgetIfAvailable(
 	liveUpdates *liveUpdateBroker,
 ) {
 	if !widget.tryLockRefresh() {
+		if base, ok := widgetBaseOf(widget); ok {
+			base.refreshTelemetryMu.Lock()
+			base.refreshLockSkips++
+			base.refreshTelemetryMu.Unlock()
+		}
 		return
 	}
 	defer widget.unlockRefresh()
@@ -27,7 +32,7 @@ func refreshDueWidgetIfAvailable(
 		return
 	}
 
-	widget.update(ctx)
+	refreshWidget(ctx, widget, now)
 
 	if liveUpdates != nil {
 		liveUpdates.publish(widget.GetID())
