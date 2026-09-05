@@ -183,3 +183,36 @@
     height: 1.8rem;
     white-space: nowrap;
 }
+
+.status-bar-custom-api-content {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    min-width: 0;
+    height: 3.6rem;
+    line-height: 1.8rem;
+}
+
+.status-bar-custom-api-icon {
+    width: 2.8rem;
+    height: 2.8rem;
+    flex: 0 0 2.8rem;
+    object-fit: contain;
+}
+
+.status-bar-custom-api-text {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+}
+
+.status-bar-custom-api-text > span {
+    height: 1.8rem;
+    white-space: nowrap;
+}
+
+.status-bar-custom-api-secondary {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

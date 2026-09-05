@@ -1,6 +1,7 @@
 package glance
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"strings"
@@ -119,7 +120,7 @@ func TestStatusBarWidgetSupportedChildren(t *testing.T) {
 				if err == nil {
 					t.Fatal("initialize() error = nil, want unsupported child error")
 				}
-				if err.Error() != "only weather, markets and rss widgets are supported" {
+				if err.Error() != "only weather, markets, rss and custom-api widgets are supported" {
 					t.Errorf("initialize() error = %q", err.Error())
 				}
 				return
@@ -536,5 +537,104 @@ func TestStatusBarCompactItemsPreserveZeroContentErrors(t *testing.T) {
 	}
 	if count := strings.Count(html, "notice-icon-major"); count != 6 {
 		t.Errorf("ticker rendered major error indicator %d times, want 6", count)
+	}
+}
+
+func TestStatusBarCustomAPICompactItems(t *testing.T) {
+	customAPI := &customAPIWidget{
+		widgetBase: widgetBase{
+			OpenLinksInNewTab: true,
+		},
+		StatusBarCompactItems: []statusBarCustomAPIItem{
+			{
+				Icon1: "away.png",
+				URL:   "https://example.com/game",
+				Line1: "UNT 13 · IU 24",
+				Line2: "11:40 - 3rd Quarter",
+				Icon2: "home.png",
+			},
+		},
+	}
+
+	statusBar := &statusBarWidget{}
+	statusBar.Widgets = []widget{customAPI}
+
+	items := statusBar.CompactItems()
+	if len(items) != 1 {
+		t.Fatalf("CompactItems() length = %d, want 1", len(items))
+	}
+
+	item := items[0]
+
+	if item.Kind != "custom-api" {
+		t.Errorf("Kind = %q, want custom-api", item.Kind)
+	}
+	if item.Icon1 != "away.png" {
+		t.Errorf("Icon1 = %q, want away.png", item.Icon1)
+	}
+	if item.URL != "https://example.com/game" {
+		t.Errorf("URL = %q, want game URL", item.URL)
+	}
+	if item.Line1 != "UNT 13 · IU 24" {
+		t.Errorf("Line1 = %q", item.Line1)
+	}
+	if item.Line2 != "11:40 - 3rd Quarter" {
+		t.Errorf("Line2 = %q", item.Line2)
+	}
+	if item.Icon2 != "home.png" {
+		t.Errorf("Icon2 = %q, want home.png", item.Icon2)
+	}
+	if !item.OpenLinksInNewTab {
+		t.Error("OpenLinksInNewTab = false, want true")
+	}
+}
+
+func TestStatusBarCustomAPIRendering(t *testing.T) {
+	statusBar := &statusBarWidget{
+		Mode: "wrap",
+	}
+
+	customAPI := &customAPIWidget{
+		widgetBase: widgetBase{
+			OpenLinksInNewTab: true,
+		},
+		StatusBarCompactItems: []statusBarCustomAPIItem{
+			{
+				Icon1: "https://example.com/away.png",
+				URL:   "https://example.com/game",
+				Line1: "UNT 13 · IU 24",
+				Line2: "11:40 - 3rd Quarter",
+				Icon2: "https://example.com/home.png",
+			},
+		},
+	}
+
+	statusBar.Widgets = []widget{customAPI}
+
+	var rendered bytes.Buffer
+	if err := statusBarWidgetTemplate.ExecuteTemplate(
+		&rendered,
+		"status-bar-items",
+		statusBar,
+	); err != nil {
+		t.Fatalf("executing status-bar-items template: %v", err)
+	}
+
+	html := rendered.String()
+
+	for _, expected := range []string{
+		`status-bar-item-custom-api`,
+		`status-bar-custom-api-content`,
+		`href="https://example.com/game"`,
+		`target="_blank"`,
+		`rel="noreferrer"`,
+		`src="https://example.com/away.png"`,
+		`UNT 13 · IU 24`,
+		`11:40 - 3rd Quarter`,
+		`src="https://example.com/home.png"`,
+	} {
+		if !strings.Contains(html, expected) {
+			t.Errorf("rendered Status Bar missing %q", expected)
+		}
 	}
 }

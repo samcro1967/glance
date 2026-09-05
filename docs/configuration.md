@@ -101,7 +101,7 @@ Works with any type of value, not just strings:
   limit: ${RSS_LIMIT}
 ```
 
-If you need to use the syntax `${NAME}` in your config without it being interpreted as an environment variable, you can escape it by prefixing with a backslash `\`:
+If you need to use the syntax `${NAME}` in your config without it being interpreted as an environment variable, you can escape it by prefixing with a backslash ``:
 
 ```yaml
 something: \${NOT_AN_ENV_VAR}
@@ -1845,8 +1845,11 @@ Supported child widget types are:
 * `weather`
 * `markets`
 * `rss`
+* `custom-api`
 
-Child widgets are configured through the `widgets` property using their normal widget configuration. They retain their existing provider fetching, caching, refresh, recovery, error handling, limits, sorting, and link behavior, but are displayed using a compact status-bar presentation rather than their normal full widget layout.
+Weather, Markets, and RSS children are configured through the `widgets` property using their normal widget configuration. They retain their existing provider fetching, caching, refresh, recovery, error handling, limits, sorting, and link behavior, but are displayed using a compact status-bar presentation rather than their normal full widget layout.
+
+A `custom-api` child uses a dedicated compact mode. It retains the normal Custom API request, HTTP, caching, refresh, stale-content, recovery, and link behavior, but does not accept `template`, `subrequests`, `options`, or `skip-json-validation` inside a Status Bar. Its response must instead conform to the locked Status Bar Custom API contract described below.
 
 Example:
 
@@ -1874,6 +1877,10 @@ pages:
               - url: https://example.com/feed.xml
                 title: News
 
+          - type: custom-api
+            url: https://example.com/status.json
+            cache: 1m
+
     columns:
       - size: full
         widgets:
@@ -1898,7 +1905,45 @@ Possible values are `ticker` and `wrap`.
 
 ##### `widgets`
 
-An array of supported Glance widgets to display in compact form. Each child uses the normal configuration for its widget type.
+An array of supported Glance widgets to display in compact form.
+
+A Custom API child must return this exact response envelope:
+
+```json
+{
+  "items": [
+    {
+      "icon1": "https://example.com/away.png",
+      "url": "https://example.com/game",
+      "line1": "AWAY 2 · HOME 4",
+      "line2": "Top 7th",
+      "icon2": "https://example.com/home.png"
+    }
+  ]
+}
+```
+
+The root object must contain exactly one field, `items`, and `items` must be an array.
+
+Each item permits exactly five fields:
+
+| Field | Type | Required | Description |
+| ----- | ---- | -------- | ----------- |
+| `icon1` | string | no | Image displayed before the text |
+| `url` | string | no | Link applied to the complete compact item |
+| `line1` | string | yes | Primary text; must not be empty or whitespace-only |
+| `line2` | string | no | Secondary text |
+| `icon2` | string | no | Image displayed after the text |
+
+Unknown root or item fields are rejected. Every field that is present must be a JSON string; `null`, numeric, boolean, object, and array values are not accepted. Item order is preserved. An empty data set is represented by:
+
+```json
+{"items":[]}
+```
+
+The optional `url` applies to the complete compact item and honors the normal link destination behavior, including `new-tab` where configured. Omitting `url` renders a non-link item. Either icon may be omitted independently.
+
+Inside a Status Bar, Custom API is deliberately restricted to this contract. Do not configure `template`, `subrequests`, `options`, or `skip-json-validation` on the child. This keeps the Status Bar presentation deterministic and prevents arbitrary Custom API templates from becoming a second Status Bar rendering system.
 
 The status bar intentionally provides an alternate presentation of existing widgets rather than a separate data-source system. Weather uses the configured location and units, Markets preserves configured symbols, names, sorting and links, and RSS preserves its configured feeds, limits, ordering and article links.
 
