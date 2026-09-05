@@ -24,7 +24,7 @@
     padding: 0 0.8rem;
     color: var(--color-text-highlight);
     background: var(--color-background);
-    border: 1px solid var(--color-widget-content-border);
+    border: 1px solid var(--theme-control-border-color, var(--color-widget-content-border));
     border-radius: var(--border-radius);
     outline: none;
 }

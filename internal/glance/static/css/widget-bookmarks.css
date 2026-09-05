@@ -29,3 +29,43 @@
     height: 20px;
     opacity: 0.8;
 }
+
+
+/* Native theme presentation */
+
+.bookmarks-group {
+    --bookmarks-group-color: var(--theme-accent-color, var(--color-primary));
+}
+
+.bookmarks-group-title {
+    color: var(--theme-heading-text-color, var(--theme-text-color, var(--color-text-base)));
+}
+
+.bookmarks-link {
+    border-radius: var(--theme-control-radius, var(--border-radius));
+    transition: color 150ms ease, background-color 150ms ease;
+}
+
+.bookmarks-link:hover {
+    color: var(--theme-accent-color, var(--color-primary));
+}
+
+.bookmarks-link:not(.bookmarks-link-no-arrow)::after {
+    color: var(--theme-accent-color, var(--color-primary));
+}
+
+.bookmarks-icon-container {
+    background-color: var(--theme-card-background-color, var(--color-widget-background-highlight));
+    border: 1px solid var(--theme-card-border-color, var(--color-widget-content-border));
+    border-radius: var(--theme-card-radius, var(--border-radius));
+}
+
+.bookmarks-link:hover .bookmarks-icon-container {
+    border-color: var(--theme-accent-color, var(--theme-card-border-color, var(--color-widget-content-border)));
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .bookmarks-link {
+        transition: none;
+    }
+}

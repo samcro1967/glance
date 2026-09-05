@@ -63,3 +63,11 @@
         transform: translateY(var(--entrance-direction));
     }
 }
+
+
+/* Native theme presentation */
+
+.popover-frame {
+    background-color: var(--theme-elevated-background-color, var(--color-widget-background));
+    border-color: var(--theme-elevated-border-color, var(--color-widget-content-border));
+}
