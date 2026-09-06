@@ -2,9 +2,52 @@
 
 {{ define "widget-content" }}
 <div class="widget-small-content-bounds">
-    <div class="size-h2 color-highlight text-center">{{ .Weather.WeatherCodeAsString }}</div>
-    <div class="size-h4 text-center">Feels like {{ .Weather.ApparentTemperature }}°{{ if eq .Units "metric" }}C{{ else }}F{{ end }}</div>
+    {{ if .ShowCurrent }}
+    <div class="weather-current">
+        <div class="size-h2 color-highlight text-center">{{ .Weather.WeatherCodeAsString }}</div>
+        <div class="weather-current-temperature text-center">{{ .Weather.Temperature }}°{{ if eq .Units "metric" }}C{{ else }}F{{ end }}</div>
+        <div class="size-h4 text-center">Feels like {{ .Weather.ApparentTemperature }}°{{ if eq .Units "metric" }}C{{ else }}F{{ end }}</div>
+    </div>
+    {{ end }}
 
+    {{ if .ShowDetails }}
+    <div class="weather-details">
+        <div class="weather-detail">
+            <span class="weather-detail-label">High / Low</span>
+            <span class="weather-detail-value">{{ .Weather.Details.HighTemperature }}° / {{ .Weather.Details.LowTemperature }}°</span>
+        </div>
+        <div class="weather-detail">
+            <span class="weather-detail-label">Humidity</span>
+            <span class="weather-detail-value">{{ .Weather.Details.Humidity }}%</span>
+        </div>
+        <div class="weather-detail">
+            <span class="weather-detail-label">Precipitation</span>
+            <span class="weather-detail-value">{{ .Weather.Details.PrecipitationProbability }}%</span>
+        </div>
+        <div class="weather-detail">
+            <span class="weather-detail-label">Wind</span>
+            <span class="weather-detail-value">{{ printf "%.0f" .Weather.Details.WindSpeed }} {{ if eq .Units "metric" }}km/h{{ else }}mph{{ end }} {{ .Weather.Details.WindDirectionAsString }}</span>
+        </div>
+        <div class="weather-detail">
+            <span class="weather-detail-label">UV</span>
+            <span class="weather-detail-value">{{ printf "%.1f" .Weather.Details.UVIndex }}</span>
+        </div>
+        <div class="weather-detail">
+            <span class="weather-detail-label">Visibility</span>
+            <span class="weather-detail-value">{{ .Weather.Details.VisibilityAsString .Units }}</span>
+        </div>
+        <div class="weather-detail">
+            <span class="weather-detail-label">Pressure</span>
+            <span class="weather-detail-value">{{ .Weather.Details.PressureAsString .Units }}</span>
+        </div>
+        <div class="weather-detail">
+            <span class="weather-detail-label">Sunrise / Sunset</span>
+            <span class="weather-detail-value">{{ .Weather.Details.SunriseSunsetAsString .HourFormat }}</span>
+        </div>
+    </div>
+    {{ end }}
+
+    {{ if .ShowHourly }}
     <div class="weather-columns flex margin-top-15 justify-center">
         {{ range $i, $column := .Weather.Columns }}
         <div class="weather-column{{ if eq $i $.Weather.CurrentColumn }} weather-column-current{{ end }}">
@@ -20,9 +63,23 @@
         </div>
         {{ end }}
     </div>
+    {{ end }}
+
+    {{ if .ShowForecast }}
+    <div class="weather-forecast">
+        {{ range $i, $day := .Weather.Forecast }}
+        <div class="weather-forecast-day">
+            <div class="weather-forecast-date">{{ if eq $i 0 }}Today{{ else }}{{ $day.Time.Format "Mon" }}{{ end }}</div>
+            <div class="weather-forecast-condition text-truncate">{{ $day.WeatherCodeAsString }}</div>
+            <div class="weather-forecast-precipitation">{{ if gt $day.PrecipitationProbability 0 }}{{ $day.PrecipitationProbability }}%{{ else }}—{{ end }}</div>
+            <div class="weather-forecast-temperature"><span class="color-highlight">{{ $day.HighTemperature }}°</span> <span class="color-subdue">{{ $day.LowTemperature }}°</span></div>
+        </div>
+        {{ end }}
+    </div>
+    {{ end }}
 
     {{ if not .HideLocation }}
-    <div class="flex items-center justify-center margin-top-15 gap-7 size-h5">
+    <div class="weather-location flex items-center justify-center gap-7 size-h5">
         <div class="location-icon"></div>
         <div class="text-truncate">{{ .Place.Name }},{{ if .ShowAreaName }} {{ .Place.Area }},{{ end }} {{ .Place.Country }}</div>
     </div>
