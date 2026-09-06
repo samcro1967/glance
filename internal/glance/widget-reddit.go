@@ -15,6 +15,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	utls "github.com/refraction-networking/utls"
@@ -207,10 +208,13 @@ func (widget *redditWidget) fetchSubredditPosts(ctx context.Context) (forumPostL
 		requestURL = fmt.Sprintf("%s/r/%s/%s.json?%s", baseURL, widget.Subreddit, widget.SortBy, query.Encode())
 	}
 
+	loidRoute := "direct"
+
 	if widget.RequestURLTemplate != "" {
 		requestURL = strings.ReplaceAll(widget.RequestURLTemplate, "{REQUEST-URL}", requestURL)
 	} else if widget.Proxy.client != nil {
 		client = widget.Proxy.client
+		loidRoute = "proxy:" + widget.Proxy.URL
 	}
 
 	request, err := http.NewRequestWithContext(ctx, "GET", requestURL, nil)
@@ -219,7 +223,7 @@ func (widget *redditWidget) fetchSubredditPosts(ctx context.Context) (forumPostL
 	}
 	request.Header = headers
 
-	loid, err := getRedditLoidCookie()
+	loid, err := getRedditLoidCookie(ctx, loidRoute, client)
 	if err != nil {
 		return nil, fmt.Errorf("solving Reddit challenge: %w", err)
 	}
@@ -383,45 +387,76 @@ func parseRedditChallengeForm(body []byte) (string, string, string, error) {
 	return string(challengeMatches[1]), string(tokenMatches[1]), string(origRMatches[1]), nil
 }
 
-// Allows all widget instances to share a single loid cookie, since we don't want to draw
-// too much attention by making a lot of requests to the flow that allows us to obtain
-// the cookie required to access the .json endpoints
-var getRedditLoidCookie = func() func() (string, error) {
-	var lastUpdate time.Time
-	var cachedLoid string
+// Allows widget instances using the same request route to share a LOID cookie,
+// since we don't want to draw too much attention by making unnecessary requests
+// to the flow that obtains the cookie required to access the .json endpoints.
+// Direct requests and distinct proxies use separate cookies so the challenge and
+// subsequent Reddit requests remain on the same network route.
+type redditLoidRouteState struct {
+	mu         sync.Mutex
+	lastUpdate time.Time
+	loid       string
+}
 
-	return NewSingleflight(func() (string, error) {
-		// Caching for 6 hours is a bit arbitrary, presumably the cookie is valid for 24 hours,
-		// but we want to keep the cache time short in the event that a cookie becomes invalid
-		// for whatever reason, since we don't have a way to force refresh it
-		if time.Since(lastUpdate) < 6*time.Hour && cachedLoid != "" {
-			return cachedLoid, nil
+var redditLoidRoutes = struct {
+	sync.Mutex
+	states map[string]*redditLoidRouteState
+}{
+	states: make(map[string]*redditLoidRouteState),
+}
+
+var getRedditLoidCookie = func(
+	ctx context.Context,
+	route string,
+	client requestDoer,
+) (string, error) {
+	redditLoidRoutes.Lock()
+	state := redditLoidRoutes.states[route]
+	if state == nil {
+		state = &redditLoidRouteState{}
+		redditLoidRoutes.states[route] = state
+	}
+	redditLoidRoutes.Unlock()
+
+	state.mu.Lock()
+	defer state.mu.Unlock()
+
+	// Caching for 6 hours is a bit arbitrary, presumably the cookie is valid for 24 hours,
+	// but we want to keep the cache time short in the event that a cookie becomes invalid
+	// for whatever reason, since we don't have a way to force refresh it.
+	if time.Since(state.lastUpdate) < 6*time.Hour && state.loid != "" {
+		return state.loid, nil
+	}
+
+	loid, err := fetchRedditLoidCookie(ctx, client)
+	if err != nil {
+		if state.loid != "" {
+			slog.Warn(
+				"Failed to refresh Reddit LOID cookie; using cached value",
+				"route",
+				route,
+				"error",
+				err,
+			)
+			return state.loid, nil
 		}
+		return "", err
+	}
 
-		loid, err := fetchRedditLoidCookie()
-		if err != nil {
-			if cachedLoid != "" {
-				slog.Warn("Failed to refresh Reddit LOID cookie; using cached value", "error", err)
-				return cachedLoid, nil
-			}
-			return "", err
-		}
+	state.lastUpdate = time.Now()
+	state.loid = loid
+	return loid, nil
+}
 
-		lastUpdate = time.Now()
-		cachedLoid = loid
-		return loid, nil
-	})
-}()
-
-func fetchRedditLoidCookie() (string, error) {
-	request, err := http.NewRequest("GET", "https://www.reddit.com/", nil)
+func fetchRedditLoidCookie(ctx context.Context, client requestDoer) (string, error) {
+	request, err := http.NewRequestWithContext(ctx, "GET", "https://www.reddit.com/", nil)
 	if err != nil {
 		return "", err
 	}
 
 	setBrowserUserAgentHeader(request)
 
-	response, err := redditHTTPClient.Do(request)
+	response, err := client.Do(request)
 	if err != nil {
 		return "", safeHTTPTransportError(err)
 	}
@@ -449,14 +484,19 @@ func fetchRedditLoidCookie() (string, error) {
 		"jsc_token":    {token},
 		"jsc_orig_r":   {origR},
 	}
-	request, err = http.NewRequest("GET", "https://www.reddit.com/?"+params.Encode(), nil)
+	request, err = http.NewRequestWithContext(
+		ctx,
+		"GET",
+		"https://www.reddit.com/?"+params.Encode(),
+		nil,
+	)
 	if err != nil {
 		return "", err
 	}
 
 	setBrowserUserAgentHeader(request)
 
-	response, err = redditHTTPClient.Do(request)
+	response, err = client.Do(request)
 	if err != nil {
 		return "", safeHTTPTransportError(err)
 	}

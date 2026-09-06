@@ -986,7 +986,11 @@ func TestRemainingValueRedditFetchUpdateTokenAndRender(t *testing.T) {
 		getRedditLoidCookie = oldLoid
 	})
 
-	getRedditLoidCookie = func() (string, error) {
+	getRedditLoidCookie = func(
+		context.Context,
+		string,
+		requestDoer,
+	) (string, error) {
 		return "test-loid", nil
 	}
 
