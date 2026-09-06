@@ -162,3 +162,25 @@ func TestMakefileWorkflowFinishTargets(t *testing.T) {
 		})
 	}
 }
+
+func TestMakefilePRWatchRefreshesHeadDuringPolling(t *testing.T) {
+	makefile := readRepositoryMakefile(t)
+	recipe := makeTargetRecipe(t, makefile, "pr-watch")
+
+	loop := strings.Index(recipe, `for i in $$(seq 1 "$(CI_RUN_RETRIES)"); do`)
+	refresh := strings.Index(recipe, `current_revision="$$(gh pr view "$(PR)" --repo "$(REPO)" --json headRefOid`)
+	runLookup := strings.Index(recipe, `run_id="$$(gh run list`)
+
+	if loop == -1 {
+		t.Fatal("pr-watch missing retry loop")
+	}
+	if refresh == -1 {
+		t.Fatal("pr-watch missing headRefOid refresh")
+	}
+	if runLookup == -1 {
+		t.Fatal("pr-watch missing validation run lookup")
+	}
+	if refresh < loop || refresh > runLookup {
+		t.Fatal("pr-watch must refresh headRefOid inside the retry loop before looking up the validation run")
+	}
+}

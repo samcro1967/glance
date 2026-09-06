@@ -517,6 +517,11 @@ pr-watch:
 	echo "Revision=$$revision"; \
 	run_id=""; \
 	for i in $$(seq 1 "$(CI_RUN_RETRIES)"); do \
+		current_revision="$$(gh pr view "$(PR)" --repo "$(REPO)" --json headRefOid --jq '.headRefOid')"; \
+		if [ "$$current_revision" != "$$revision" ]; then \
+			echo "PR head changed: $$revision -> $$current_revision"; \
+			revision="$$current_revision"; \
+		fi; \
 		run_id="$$(gh run list \
 			--repo "$(REPO)" \
 			--workflow "$(PR_WORKFLOW)" \
