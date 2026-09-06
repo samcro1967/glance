@@ -7,3 +7,6 @@
 /.glance-test
 /.glance-test.pid
 /.glance-test.log
+
+# Local test-instance environment
+.env.test

@@ -630,6 +630,15 @@ pages:
               - file: testdata/screenshot-calendar.ics
                 title: Example Calendar
 
+          - type: calendar
+            title: Media Calendar
+            first-day-of-week: monday
+            sources:
+              - url: ${RADARR_ICS_URL}
+                title: Movies
+              - url: ${SONARR_ICS_URL}
+                title: TV
+
   # ---------------------------------------------------------------------------
   # Request-oriented widgets
   # ---------------------------------------------------------------------------
