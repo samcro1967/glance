@@ -40,7 +40,7 @@
 
 .status-bar-mode-ticker .status-bar-track {
     width: max-content;
-    animation: statusBarTicker 60s linear infinite;
+    animation: statusBarTicker var(--status-bar-ticker-duration, 60s) linear infinite;
 }
 
 .status-bar-mode-ticker:hover .status-bar-track,

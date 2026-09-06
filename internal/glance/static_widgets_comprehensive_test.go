@@ -3,6 +3,8 @@ package glance
 import (
 	"context"
 	"html/template"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -414,5 +416,106 @@ func TestComprehensiveContainerRejectsUnsupportedNesting(t *testing.T) {
 		if err := stack.initialize(); err == nil {
 			t.Fatalf("stack should reject %s", typ)
 		}
+	}
+}
+
+func TestStatusBarTickerBrowserContract(t *testing.T) {
+	pageJS, err := os.ReadFile(filepath.Join("static", "js", "page.js"))
+	if err != nil {
+		t.Fatalf("read page.js: %v", err)
+	}
+
+	source := string(pageJS)
+
+	required := []string{
+		`const STATUS_BAR_TICKER_PIXELS_PER_SECOND = {`,
+		`slow: 30`,
+		`normal: 45`,
+		`fast: 70`,
+		`function setupStatusBarTickers(root = document)`,
+		`statusBar.dataset.tickerSpeed`,
+		`items.getBoundingClientRect().width`,
+		`distance / pixelsPerSecond`,
+		`--status-bar-ticker-duration`,
+		`new ResizeObserver(updateDuration)`,
+		`event.pointerType !== "mouse"`,
+		`event.target.closest("a")`,
+		`link.blur()`,
+		`"status_bar_tickers"`,
+		`() => setupStatusBarTickers()`,
+	}
+
+	for _, fragment := range required {
+		if !strings.Contains(source, fragment) {
+			t.Fatalf("page.js missing Status Bar ticker contract fragment %q", fragment)
+		}
+	}
+}
+
+func TestSearchOpenDomainsConfigurationAndRendering(t *testing.T) {
+	config, err := newConfigFromYAML([]byte(`
+pages:
+  - name: Test
+    columns:
+      - size: full
+        widgets:
+          - type: search
+          - type: search
+            open-domains: true
+`))
+	if err != nil {
+		t.Fatalf("newConfigFromYAML: %v", err)
+	}
+
+	disabled := config.Pages[0].Columns[0].Widgets[0].(*searchWidget)
+	enabled := config.Pages[0].Columns[0].Widgets[1].(*searchWidget)
+
+	if disabled.OpenDomains {
+		t.Fatal("open-domains default = true, want false")
+	}
+
+	if !enabled.OpenDomains {
+		t.Fatal("explicit open-domains=true was not preserved")
+	}
+
+	disabledHTML := string(disabled.Render())
+	enabledHTML := string(enabled.Render())
+
+	if !strings.Contains(disabledHTML, `data-open-domains="false"`) {
+		t.Fatalf("disabled search render missing open-domains=false: %s", disabledHTML)
+	}
+
+	if !strings.Contains(enabledHTML, `data-open-domains="true"`) {
+		t.Fatalf("enabled search render missing open-domains=true: %s", enabledHTML)
+	}
+}
+
+func TestSearchOpenDomainsBrowserContract(t *testing.T) {
+	pageJS, err := os.ReadFile(filepath.Join("static", "js", "page.js"))
+	if err != nil {
+		t.Fatalf("read page.js: %v", err)
+	}
+
+	source := string(pageJS)
+
+	required := []string{
+		`const SEARCH_DOMAIN_PATTERN =`,
+		`const openDomains = widget.dataset.openDomains === "true";`,
+		`openDomains && currentBang == null && SEARCH_DOMAIN_PATTERN.test(query)`,
+		`query.includes("://") ? query : "https://" + query`,
+		`searchUrlTemplate.replace("!QUERY!", encodeURIComponent(query))`,
+		`const openedWindow = window.open(url, target);`,
+		`if (openedWindow != null)`,
+		`openedWindow.focus();`,
+	}
+
+	for _, fragment := range required {
+		if !strings.Contains(source, fragment) {
+			t.Fatalf("page.js missing Search open-domains contract fragment %q", fragment)
+		}
+	}
+
+	if strings.Contains(source, `window.open(url, target).focus()`) {
+		t.Fatal("Search popup handling must not call focus directly on window.open result")
 	}
 }

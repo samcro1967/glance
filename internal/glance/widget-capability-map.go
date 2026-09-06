@@ -55,6 +55,13 @@ var widgetTypeCapabilities = map[string][]widgetCapabilityDefinition{
 		{widgetCapabilityLimit, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 		{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 	},
+	"calendar": {
+		{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+		{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
+		{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
+		{widgetCapabilityHeaders, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
+		{widgetCapabilityBasicAuth, widgetCapabilityScopeType | widgetCapabilityScopeChild},
+	},
 	"ics-events": {
 		{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 		{widgetCapabilityLimit, widgetCapabilityScopeType | widgetCapabilityScopeInstance},

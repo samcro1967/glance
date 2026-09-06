@@ -6,7 +6,7 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps build test-instance-start test-instance-status test-instance-stop test test-race test-count test-race-count fmt-check diff-check staged-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy
+.PHONY: help deps build test-instance-start test-instance-status test-instance-stop test test-race test-count test-race-count fmt-check diff-check staged-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish workflow-status
 
 COUNT ?= 10
 COVERAGE_FILE ?= coverage.out
@@ -14,12 +14,20 @@ BASE_REF ?= origin/dev
 
 TEST_PORT := 18080
 TEST_BINARY ?= .glance-test
+
+TEST_ENV_FILE ?= .env.test
+
+ifneq (,$(wildcard $(TEST_ENV_FILE)))
+include $(TEST_ENV_FILE)
+export
+endif
+
 TEST_CONFIG ?= glance-test.yml
 TEST_PID_FILE ?= .glance-test.pid
 TEST_LOG ?= .glance-test.log
 TEST_URL ?= http://127.0.0.1:$(TEST_PORT)
 TEST_CONTAINER ?= glance-test
-TEST_CONTAINER_IMAGE ?= glance-test:local
+TEST_CONTAINER_IMAGE ?= $(DEPLOY_DEV_IMAGE)
 TEST_CONTAINER_PORT ?= 18080
 TEST_CONTAINER_URL ?= http://127.0.0.1:$(TEST_CONTAINER_PORT)
 TEST_RUNTIME_CONTAINER ?=
@@ -52,75 +60,100 @@ DEPLOY_RETRIES ?= 6
 DEPLOY_RETRY_DELAY ?= 2
 
 help:
-	@echo "Available targets:"
+	@echo "GLANCE FORK WORKFLOW"
 	@echo
-	@echo "Development:"
-	@echo "  make deps                    Download Go module dependencies"
-	@echo "  make build                   Build all Go packages"
-	@echo "  make test-instance-start     Start isolated Glance using $(TEST_CONFIG)"
-	@echo "  make test-instance-status    Show isolated Glance status"
-	@echo "  make test-instance-stop      Stop isolated Glance and clean runtime artifacts"
-	@echo "  make test-container-start    Build current source and start isolated container"
-	@echo "                               Requires TEST_RUNTIME_CONTAINER=name"
-	@echo "  make test-container-status   Show isolated container status"
-	@echo "  make test-container-stop     Remove isolated container and local test image"
+	@echo "SAFE END-TO-END STAGES:"
+	@echo "  make pr-finish PR=55          feature -> dev: CI, merge, cleanup, dev image"
+	@echo "  make promote-finish PR=56     dev -> main: CI, merge, update/verify main"
+	@echo "  make release-finish           main: validate, tag, push, watch formal release"
+	@echo "                               DOES NOT deploy production"
+	@echo "  make sync-finish PR=57        main -> dev: CI, merge, update dev, dev image"
+	@echo "  make workflow-status          Combined repository/release/CI/deployment status"
 	@echo
-	@echo "Testing:"
-	@echo "  make test                    Run the Go test suite"
-	@echo "  make test-race               Run the Go test suite with the race detector"
-	@echo "  make test-count COUNT=10     Run the Go test suite repeatedly"
-	@echo "  make test-race-count COUNT=10"
-	@echo "                               Run the race test suite repeatedly"
-	@echo "  make coverage                Generate test coverage"
-	@echo "  make vuln                    Run Go vulnerability analysis"
+	@echo "LIFECYCLE:"
+	@echo "  feature -> dev PR -> PR CI -> merge -> dev image"
+	@echo "  dev -> main PR -> PR CI -> merge -> formal release -> release image"
+	@echo "  explicit production deploy"
+	@echo "  main -> dev sync PR -> PR CI -> merge -> dev image"
 	@echo
-	@echo "Validation:"
-	@echo "  make fmt-check               Verify formatting of changed Go files"
-	@echo "  make diff-check              Check working-tree whitespace errors"
-	@echo "  make staged-check            Check staged whitespace errors"
-	@echo "  make check                   Run standard pre-PR validation"
+	@echo "SAFEGUARDS:"
+	@echo "  Composite stages fail immediately when any required command fails."
+	@echo "  PR finish targets verify feature/dev/main direction before merging."
+	@echo "  PR CI watches match the exact PR head SHA, not merely the branch name."
+	@echo "  Dev image watches match the exact current dev SHA."
+	@echo "  Feature push refuses dev/main and requires a clean worktree."
+	@echo "  Release requires clean/current main containing origin/dev and upstream/main."
+	@echo "  Release refuses an existing release tag and runs full make check."
+	@echo "  Deploy requires current main to have a formal release tag."
+	@echo "  Deploy pulls latest and verifies its embedded version matches that tag."
+	@echo "  Deploy verifies running container version, image ID, and HTTP readiness."
+	@echo "  dev/main are preserved; merged feature branches are cleaned."
+	@echo "  No composite PR/release stage deploys production."
 	@echo
-	@echo "Repository inspection:"
-	@echo "  make status                  Show branch, latest commit, and status"
-	@echo "  make staged-diff             Show staged diff summary and contents"
-	@echo "  make upstream-status         Refresh and compare dev/main with remotes"
-	@echo "  make upstream-dev-status     Inspect differences with upstream dev"
-	@echo "  make verify-dev              Verify dev repository state"
-	@echo "  make verify-main             Verify main repository state"
-	@echo "  make branch NEW_BRANCH=name  Create a feature branch from clean, current dev"
-	@echo "  make push                    Push current feature branch to origin"
+	@echo "DEVELOPMENT:"
+	@echo "  make deps                     Download Go module dependencies"
+	@echo "  make build                    Build all Go packages"
+	@echo "  make test-instance-start      Build/validate/start isolated test instance"
+	@echo "  make test-instance-status     Show isolated test instance status"
+	@echo "  make test-instance-stop       Stop test instance and remove runtime artifacts"
+	@echo "  make test-container-start TEST_RUNTIME_CONTAINER=name"
+	@echo "                                Pull and start isolated published dev container"
+	@echo "  make test-container-status    Show isolated container status"
+	@echo "  make test-container-stop      Remove isolated container"
 	@echo
-	@echo "GitHub pull requests:"
-	@echo "  make pr-create TITLE='...' BODY_FILE=file"
-	@echo "                               Create a PR from feature branch to dev"
-	@echo "  make promote-create TITLE='...' BODY_FILE=file"
-	@echo "                               Create a promotion PR from dev to main"
-	@echo "  make sync-dev-create TITLE='...' BODY_FILE=file"
-	@echo "                               Create a synchronization PR from main to dev"
-	@echo "  make pr-view PR=55           Show a pull request"
-	@echo "  make pr-runs                 Show recent validation runs for current branch"
-	@echo "  make pr-runs BRANCH=dev      Show recent validation runs for a branch"
-	@echo "  make pr-watch PR=55          Find and watch validation for the exact PR head"
-	@echo "  make pr-merge PR=55          Merge a pull request; delete feature branches only"
-	@echo "  make post-merge PR=55        Update PR base and clean merged feature branch"
+	@echo "TESTING / VALIDATION:"
+	@echo "  make test                     Go tests"
+	@echo "  make test-race                Go tests with race detector"
+	@echo "  make test-count COUNT=10      Repeated Go tests"
+	@echo "  make test-race-count COUNT=10 Repeated race tests"
+	@echo "  make coverage                 Generate test coverage"
+	@echo "  make vuln                     Go vulnerability analysis"
+	@echo "  make fmt-check                Verify changed Go files are formatted"
+	@echo "  make diff-check               Working-tree whitespace validation"
+	@echo "  make staged-check             Staged whitespace validation"
+	@echo "  make check                    Tests + race + build + format + whitespace"
 	@echo
-	@echo "GitHub Actions:"
-	@echo "  make image-runs              Show recent dev container image builds"
-	@echo "  make image-watch             Find and watch image build for current dev HEAD"
-	@echo "  make release-runs            Show recent formal release builds"
-	@echo "  make release-watch           Find and watch release build for current main tag"
-	@echo "  make ci-watch RUN=12345      Watch a GitHub Actions run"
-	@echo "  make ci-view RUN=12345       Show a GitHub Actions run result"
+	@echo "REPOSITORY:"
+	@echo "  make status                   Branch, HEAD, worktree"
+	@echo "  make staged-diff              Staged summary and diff"
+	@echo "  make upstream-status          dev/main vs origin/upstream"
+	@echo "  make upstream-dev-status      Upstream dev patches requiring review"
+	@echo "  make verify-dev               Refresh origin and inspect dev"
+	@echo "  make verify-main              Refresh origin/upstream and inspect main"
+	@echo "  make branch NEW_BRANCH=name   Create feature branch from clean/current dev"
+	@echo "  make push                     Push clean feature branch; refuses dev/main"
 	@echo
-	@echo "Releases:"
-	@echo "  make release-status          Show upstream baseline and next fork release"
-	@echo "  make release-check           Validate main for a formal fork release"
-	@echo "  make release                 Validate, tag, and push the next fork release"
+	@echo "PULL REQUESTS:"
+	@echo "  make pr-create TITLE=... BODY_FILE=file"
+	@echo "                                Create feature -> dev PR"
+	@echo "  make promote-create TITLE=... BODY_FILE=file"
+	@echo "                                Create dev -> main promotion PR"
+	@echo "  make sync-dev-create TITLE=... BODY_FILE=file"
+	@echo "                                Create main -> dev synchronization PR"
+	@echo "  make pr-view PR=55            Show PR identity/direction/state"
+	@echo "  make pr-runs [BRANCH=name]    Recent PR validation runs"
+	@echo "  make pr-watch PR=55           Watch CI for exact PR head SHA"
+	@echo "  make pr-merge PR=55           Merge; delete feature branches only"
+	@echo "  make post-merge PR=55         Update base locally and clean feature branch"
 	@echo
-	@echo "Production:"
-	@echo "  make deploy-status           Compare source, Compose config, GHCR, and production"
-	@echo "  make deploy-dev              Deploy the current dev GHCR image for validation"
-	@echo "  make deploy                  Deploy the current formal GHCR release"
+	@echo "GITHUB ACTIONS:"
+	@echo "  make image-runs               Recent dev image builds"
+	@echo "  make image-watch              Watch dev image for exact current dev SHA"
+	@echo "  make release-runs             Recent formal release workflows"
+	@echo "  make release-watch            Watch release for current tagged main SHA"
+	@echo "  make ci-watch RUN=12345       Watch run; nonzero exit on workflow failure"
+	@echo "  make ci-view RUN=12345        Show workflow result"
+	@echo
+	@echo "RELEASES:"
+	@echo "  make release-status           Current upstream/fork release relationship"
+	@echo "  make release-check            Full guarded formal-release validation"
+	@echo "  make release                  Validate, tag, push next formal release"
+	@echo "  make release-finish           Release + watch + status; NEVER deploys"
+	@echo
+	@echo "PRODUCTION -- EXPLICIT BOUNDARY:"
+	@echo "  make deploy-status            Source/Compose/images/running production"
+	@echo "  make deploy-dev               Explicit validated dev-image deployment"
+	@echo "  make deploy                   Explicit formal production deployment"
 
 deps:
 	go mod download
@@ -492,6 +525,11 @@ pr-watch:
 	echo "Revision=$$revision"; \
 	run_id=""; \
 	for i in $$(seq 1 "$(CI_RUN_RETRIES)"); do \
+		current_revision="$$(gh pr view "$(PR)" --repo "$(REPO)" --json headRefOid --jq '.headRefOid')"; \
+		if [ "$$current_revision" != "$$revision" ]; then \
+			echo "PR head changed: $$revision -> $$current_revision"; \
+			revision="$$current_revision"; \
+		fi; \
 		run_id="$$(gh run list \
 			--repo "$(REPO)" \
 			--workflow "$(PR_WORKFLOW)" \
@@ -591,6 +629,63 @@ post-merge:
 	else \
 		$(MAKE) verify-main; \
 	fi
+
+
+pr-finish:
+	@set -euo pipefail; \
+	if [ -z "$(PR)" ]; then \
+		echo "PR is required. Example: make pr-finish PR=55"; \
+		exit 2; \
+	fi; \
+	head="$$(gh pr view "$(PR)" --repo "$(REPO)" --json headRefName --jq '.headRefName')"; \
+	base="$$(gh pr view "$(PR)" --repo "$(REPO)" --json baseRefName --jq '.baseRefName')"; \
+	if [ "$$base" != "$(DEV_BRANCH)" ] || [ "$$head" = "$(DEV_BRANCH)" ] || [ "$$head" = "$(STABLE_BRANCH)" ]; then \
+		echo "Refusing pr-finish: expected feature -> $(DEV_BRANCH); found $$head -> $$base."; \
+		exit 1; \
+	fi
+	@echo "=== FEATURE PR #$(PR) ==="
+	@$(MAKE) pr-watch PR="$(PR)"
+	@$(MAKE) pr-merge PR="$(PR)"
+	@$(MAKE) post-merge PR="$(PR)"
+	@$(MAKE) image-watch
+	@$(MAKE) status
+
+promote-finish:
+	@set -euo pipefail; \
+	if [ -z "$(PR)" ]; then \
+		echo "PR is required. Example: make promote-finish PR=55"; \
+		exit 2; \
+	fi; \
+	head="$$(gh pr view "$(PR)" --repo "$(REPO)" --json headRefName --jq '.headRefName')"; \
+	base="$$(gh pr view "$(PR)" --repo "$(REPO)" --json baseRefName --jq '.baseRefName')"; \
+	if [ "$$head" != "$(DEV_BRANCH)" ] || [ "$$base" != "$(STABLE_BRANCH)" ]; then \
+		echo "Refusing promote-finish: expected $(DEV_BRANCH) -> $(STABLE_BRANCH); found $$head -> $$base."; \
+		exit 1; \
+	fi
+	@echo "=== PROMOTION PR #$(PR) ==="
+	@$(MAKE) pr-watch PR="$(PR)"
+	@$(MAKE) pr-merge PR="$(PR)"
+	@$(MAKE) post-merge PR="$(PR)"
+	@$(MAKE) verify-main
+
+sync-finish:
+	@set -euo pipefail; \
+	if [ -z "$(PR)" ]; then \
+		echo "PR is required. Example: make sync-finish PR=55"; \
+		exit 2; \
+	fi; \
+	head="$$(gh pr view "$(PR)" --repo "$(REPO)" --json headRefName --jq '.headRefName')"; \
+	base="$$(gh pr view "$(PR)" --repo "$(REPO)" --json baseRefName --jq '.baseRefName')"; \
+	if [ "$$head" != "$(STABLE_BRANCH)" ] || [ "$$base" != "$(DEV_BRANCH)" ]; then \
+		echo "Refusing sync-finish: expected $(STABLE_BRANCH) -> $(DEV_BRANCH); found $$head -> $$base."; \
+		exit 1; \
+	fi
+	@echo "=== SYNC PR #$(PR) ==="
+	@$(MAKE) pr-watch PR="$(PR)"
+	@$(MAKE) pr-merge PR="$(PR)"
+	@$(MAKE) post-merge PR="$(PR)"
+	@$(MAKE) image-watch
+	@$(MAKE) status
 
 image-runs:
 	@gh run list \
@@ -900,6 +995,48 @@ release: release-check
 	echo "=== RELEASE STARTED ==="; \
 	echo "Tag=$$release_tag"; \
 	echo "The tag push will invoke the GitHub Actions GoReleaser workflow."
+
+
+release-finish:
+	@set -euo pipefail; \
+	branch="$$(git branch --show-current)"; \
+	if [ "$$branch" != "$(STABLE_BRANCH)" ]; then \
+		echo "release-finish requires $(STABLE_BRANCH); current branch is $$branch."; \
+		exit 1; \
+	fi
+	@echo "=== FORMAL RELEASE PIPELINE ==="
+	@$(MAKE) release
+	@$(MAKE) release-watch
+	@$(MAKE) release-status
+	@$(MAKE) deploy-status
+	@echo
+	@echo "Release pipeline complete. Production was NOT deployed."
+
+workflow-status:
+	@echo "=== REPOSITORY ==="
+	@$(MAKE) status
+	@echo
+	@echo "=== BRANCH RELATIONSHIPS ==="
+	@$(MAKE) upstream-status
+	@echo
+	@echo "=== RELEASE ==="
+	@$(MAKE) release-status
+	@echo
+	@echo "=== RECENT PR VALIDATION ==="
+	@gh run list \
+		--repo "$(REPO)" \
+		--workflow "$(PR_WORKFLOW)" \
+		--limit 3 \
+		--json databaseId,headBranch,headSha,status,conclusion,displayTitle
+	@echo
+	@echo "=== RECENT DEV IMAGES ==="
+	@$(MAKE) image-runs
+	@echo
+	@echo "=== RECENT RELEASES ==="
+	@$(MAKE) release-runs
+	@echo
+	@echo "=== DEPLOYMENT ==="
+	@$(MAKE) deploy-status
 
 deploy-status:
 	@set -euo pipefail; \
@@ -1293,14 +1430,39 @@ test-container-start:
 		echo "Run make test-container-stop first."; \
 		exit 1; \
 	fi; \
-	echo "=== BUILD TEST CONTAINER IMAGE ==="; \
-	docker build \
-		--build-arg BUILD_REVISION="$$(git rev-parse HEAD)" \
-		-t "$(TEST_CONTAINER_IMAGE)" .; \
+	echo "=== VERIFY DEVELOPMENT IMAGE ==="; \
+	git fetch origin --prune; \
+	dev_revision="$$(git rev-parse origin/$(DEV_BRANCH))"; \
+	run_id="$$(gh run list \
+		--repo "$(REPO)" \
+		--workflow "$(IMAGE_WORKFLOW)" \
+		--branch "$(DEV_BRANCH)" \
+		--limit 20 \
+		--json databaseId,headSha,status,conclusion \
+		--jq '.[] | select(.headSha == "'"$$dev_revision"'" and .status == "completed" and .conclusion == "success") | .databaseId' \
+		| head -1)"; \
+	if [ -z "$$run_id" ]; then \
+		echo "Refusing container test: no successful dev image build found for $$dev_revision."; \
+		echo "Run make image-watch after the dev image workflow starts."; \
+		exit 1; \
+	fi; \
+	echo "Dev revision: $$dev_revision"; \
+	echo "Image run:    $$run_id"; \
+	echo; \
+	echo "=== PULL DEVELOPMENT IMAGE ==="; \
+	docker pull "$(TEST_CONTAINER_IMAGE)"; \
+	image_id="$$(docker image inspect "$(TEST_CONTAINER_IMAGE)" --format '{{.Id}}')"; \
+	image_version="$$(docker run --rm --entrypoint /app/glance "$(TEST_CONTAINER_IMAGE)" --version)"; \
+	echo "Image version: $$image_version"; \
+	echo "Image ID:      $$image_id"; \
+	if [ "$$image_version" != "dev" ]; then \
+		echo "Refusing container test: $(TEST_CONTAINER_IMAGE) does not identify as dev."; \
+		exit 1; \
+	fi; \
 	echo; \
 	echo "=== START TEST CONTAINER ==="; \
 	declare -a env_args mount_args network_args sysctl_args; \
-		while IFS= read -r entry; do \
+	while IFS= read -r entry; do \
 		[ -n "$$entry" ] || continue; \
 		key="$${entry%%=*}"; \
 		value="$${entry#*=}"; \
@@ -1341,7 +1503,7 @@ test-container-start:
 	ready=0; \
 	for attempt in $$(seq 1 20); do \
 		code="$$(curl -sS -o /dev/null -w '%{http_code}' "$(TEST_CONTAINER_URL)/" 2>/dev/null || true)"; \
-		if [ "$$code" = "200" ]; then \
+		if [ "$$code" = "200" ] || [ "$$code" = "302" ]; then \
 			ready=1; \
 			break; \
 		fi; \
@@ -1355,8 +1517,22 @@ test-container-start:
 		docker logs --tail 80 "$(TEST_CONTAINER)" 2>&1 || true; \
 		exit 1; \
 	fi; \
+	short_revision="$${dev_revision:0:7}"; \
+	if ! docker logs "$(TEST_CONTAINER)" 2>&1 | grep -Fq "revision=$$short_revision"; then \
+		echo "Test container revision does not match origin/$(DEV_BRANCH): $$short_revision"; \
+		docker logs --tail 80 "$(TEST_CONTAINER)" 2>&1 || true; \
+		exit 1; \
+	fi; \
+	container_image="$$(docker inspect "$(TEST_CONTAINER)" --format '{{.Image}}')"; \
+	if [ "$$container_image" != "$$image_id" ]; then \
+		echo "Test container image does not match pulled dev image."; \
+		echo "Pulled:    $$image_id"; \
+		echo "Container: $$container_image"; \
+		exit 1; \
+	fi; \
 	echo "Test container started."; \
 	echo "Runtime reference=$(TEST_RUNTIME_CONTAINER)"; \
+	echo "Revision=$$dev_revision"; \
 	echo "Container=$(TEST_CONTAINER)"; \
 	echo "Image=$(TEST_CONTAINER_IMAGE)"; \
 	echo "URL=$(TEST_CONTAINER_URL)"
@@ -1382,9 +1558,4 @@ test-container-stop:
 	else \
 		echo "Test container is not present."; \
 	fi; \
-	if docker image inspect "$(TEST_CONTAINER_IMAGE)" >/dev/null 2>&1; then \
-		docker image rm "$(TEST_CONTAINER_IMAGE)" >/dev/null; \
-		echo "Removed image $(TEST_CONTAINER_IMAGE)."; \
-	else \
-		echo "Test image is not present."; \
-	fi
+	echo "Preserved image $(TEST_CONTAINER_IMAGE).";
