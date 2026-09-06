@@ -281,6 +281,7 @@ pages:
       - type: status-bar
         title: Status Bar Ticker
         mode: ticker
+        speed: normal
         widgets:
           - type: weather
             title: Weather
@@ -328,6 +329,20 @@ pages:
             collapse-after: 5
 
     bottom-widgets:
+      # Short ticker intentionally uses the same speed as the much longer
+      # head ticker. They should move at the same visual pixels-per-second
+      # rate despite having very different content widths.
+      - type: status-bar
+        title: Status Bar Short Ticker
+        mode: ticker
+        speed: normal
+        widgets:
+          - type: markets
+            title: Markets
+            markets:
+              - symbol: SPY
+                name: S&P 500
+
       - type: status-bar
         title: Status Bar Wrap
         mode: wrap

@@ -353,6 +353,68 @@ function updateRelativeTimeForElements(elements)
     }
 }
 
+const STATUS_BAR_TICKER_PIXELS_PER_SECOND = {
+    slow: 30,
+    normal: 45,
+    fast: 70,
+};
+
+function setupStatusBarTickers(root = document) {
+    const statusBars = root.querySelectorAll(".status-bar-mode-ticker");
+
+    for (const statusBar of statusBars) {
+        if (statusBar.dataset.tickerInitialized === "true") {
+            continue;
+        }
+
+        const track = statusBar.querySelector(".status-bar-track");
+        const items = statusBar.querySelector(".status-bar-items:not(.status-bar-items-duplicate)");
+
+        if (track == null || items == null) {
+            continue;
+        }
+
+        const speed = statusBar.dataset.tickerSpeed;
+        const pixelsPerSecond = STATUS_BAR_TICKER_PIXELS_PER_SECOND[speed]
+            || STATUS_BAR_TICKER_PIXELS_PER_SECOND.normal;
+
+        const updateDuration = () => {
+            const distance = items.getBoundingClientRect().width;
+
+            if (distance <= 0) {
+                return;
+            }
+
+            track.style.setProperty(
+                "--status-bar-ticker-duration",
+                `${distance / pixelsPerSecond}s`
+            );
+        };
+
+        updateDuration();
+
+        if (typeof ResizeObserver !== "undefined") {
+            const resizeObserver = new ResizeObserver(updateDuration);
+            resizeObserver.observe(items);
+        }
+
+        statusBar.addEventListener("pointerup", (event) => {
+            if (event.pointerType !== "mouse") {
+                return;
+            }
+
+            const link = event.target.closest("a");
+            if (link != null) {
+                link.blur();
+            }
+        });
+
+        statusBar.dataset.tickerInitialized = "true";
+    }
+}
+
+const SEARCH_DOMAIN_PATTERN = /^(https?:\/\/\S+|[a-z0-9-]+(\.[a-z0-9-]+)+(:\d+)?([/?#]\S*)?)$/i;
+
 function setupSearchBoxes() {
     const searchWidgets = document.getElementsByClassName("search");
 
@@ -365,6 +427,7 @@ function setupSearchBoxes() {
         const defaultSearchUrl = widget.dataset.defaultSearchUrl;
         const target = widget.dataset.target || "_blank";
         const newTab = widget.dataset.newTab === "true";
+        const openDomains = widget.dataset.openDomains === "true";
         const inputElement = widget.getElementsByClassName("search-input")[0];
         const bangElement = widget.getElementsByClassName("search-bang")[0];
         const bangs = widget.querySelectorAll(".search-bangs > input");
@@ -400,10 +463,19 @@ function setupSearchBoxes() {
                     return;
                 }
 
-                const url = searchUrlTemplate.replace("!QUERY!", encodeURIComponent(query));
+                let url;
+
+                if (openDomains && currentBang == null && SEARCH_DOMAIN_PATTERN.test(query)) {
+                    url = query.includes("://") ? query : "https://" + query;
+                } else {
+                    url = searchUrlTemplate.replace("!QUERY!", encodeURIComponent(query));
+                }
 
                 if (newTab && !event.ctrlKey || !newTab && event.ctrlKey) {
-                    window.open(url, target).focus();
+                    const openedWindow = window.open(url, target);
+                    if (openedWindow != null) {
+                        openedWindow.focus();
+                    }
                 } else {
                     window.location.href = url;
                 }
@@ -1568,6 +1640,10 @@ async function setupPage() {
             () => setupCalculators()
         );
         runFrontendDiagnosticStage("carousels", () => setupCarousels());
+        runFrontendDiagnosticStage(
+            "status_bar_tickers",
+            () => setupStatusBarTickers()
+        );
         runFrontendDiagnosticStage("search_boxes", () => setupSearchBoxes());
         runFrontendDiagnosticStage(
             "collapsible_lists",

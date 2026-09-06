@@ -50,6 +50,7 @@ type statusBarWidget struct {
 	widgetBase          `yaml:",inline"`
 	containerWidgetBase `yaml:",inline"`
 	Mode                string `yaml:"mode"`
+	Speed               string `yaml:"speed"`
 }
 
 func (widget *statusBarWidget) initialize() error {
@@ -62,6 +63,14 @@ func (widget *statusBarWidget) initialize() error {
 
 	if widget.Mode != "ticker" && widget.Mode != "wrap" {
 		return errors.New("mode can only be either ticker or wrap")
+	}
+
+	if widget.Speed == "" {
+		widget.Speed = "normal"
+	}
+
+	if widget.Speed != "slow" && widget.Speed != "normal" && widget.Speed != "fast" {
+		return errors.New("speed can only be slow, normal or fast")
 	}
 
 	if len(widget.Widgets) == 0 {
@@ -158,7 +167,7 @@ func (widget *statusBarWidget) CompactItems() []statusBarCompactItem {
 					Error:                child.Error,
 					Notice:               child.Notice,
 					URL:                  market.SymbolLink,
-					OpenLinksInNewTab:    child.OpenLinksInNewTab,
+					OpenLinksInNewTab:    widget.OpenLinksInNewTab,
 					MarketSymbol:         market.Symbol,
 					MarketName:           market.Name,
 					MarketChartURL:       market.ChartLink,
@@ -187,7 +196,7 @@ func (widget *statusBarWidget) CompactItems() []statusBarCompactItem {
 					Error:             child.Error,
 					Notice:            child.Notice,
 					URL:               item.URL,
-					OpenLinksInNewTab: child.OpenLinksInNewTab,
+					OpenLinksInNewTab: widget.OpenLinksInNewTab,
 					Icon1:             item.Icon1,
 					Line1:             item.Line1,
 					Line2:             item.Line2,
@@ -212,7 +221,7 @@ func (widget *statusBarWidget) CompactItems() []statusBarCompactItem {
 					Error:             child.Error,
 					Notice:            child.Notice,
 					URL:               item.Link,
-					OpenLinksInNewTab: child.OpenLinksInNewTab,
+					OpenLinksInNewTab: widget.OpenLinksInNewTab,
 					RSSTitle:          item.Title,
 					RSSChannelName:    item.ChannelName,
 					RSSChannelURL:     item.ChannelURL,
