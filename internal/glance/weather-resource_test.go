@@ -168,21 +168,205 @@ func resetOpenMeteoWeatherResourceCache(t *testing.T) {
 }
 
 func openMeteoWeatherResourceTestResponse() *http.Response {
-	temps := make([]string, 24)
-	precip := make([]string, 24)
+	temps := make([]string, 168)
+	precip := make([]string, 168)
 
 	for i := range temps {
 		temps[i] = "20"
 		precip[i] = "0"
 	}
 
-	body := `{"daily":{"sunrise":[0],"sunset":[3600]},"hourly":{"temperature_2m":[` +
-		strings.Join(temps, ",") +
-		`],"precipitation_probability":[` +
-		strings.Join(precip, ",") +
-		`]},"current":{"temperature_2m":20,"apparent_temperature":19,"weather_code":1}}`
+	body := `{
+		"daily":{
+			"time":[1788667200,1788753600,1788840000,1788926400,1789012800,1789099200,1789185600],
+			"weather_code":[1,2,3,61,0,80,2],
+			"temperature_2m_max":[25,26,24,22,27,23,25],
+			"temperature_2m_min":[15,16,14,13,17,15,16],
+			"apparent_temperature_max":[26,27,25,22,28,24,26],
+			"apparent_temperature_min":[14,15,13,12,16,14,15],
+			"sunrise":[1788688800,1788775200,1788861600,1788948000,1789034400,1789120800,1789207200],
+			"sunset":[1788735600,1788822000,1788908400,1788994800,1789081200,1789167600,1789254000],
+			"daylight_duration":[46800,46800,46800,46800,46800,46800,46800],
+			"sunshine_duration":[36000,35000,30000,18000,40000,22000,32000],
+			"uv_index_max":[6.0,6.2,5.8,3.1,6.5,4.0,5.7],
+			"precipitation_sum":[0,0.2,0,4.5,0,2.1,0.1],
+			"rain_sum":[0,0.2,0,4.5,0,2.1,0.1],
+			"showers_sum":[0,0,0,0,0,0,0],
+			"snowfall_sum":[0,0,0,0,0,0,0],
+			"precipitation_hours":[0,1,0,5,0,3,1],
+			"precipitation_probability_max":[5,20,10,80,5,65,15],
+			"wind_speed_10m_max":[12,14,10,18,9,16,11],
+			"wind_gusts_10m_max":[20,22,18,30,16,27,19],
+			"wind_direction_10m_dominant":[180,190,200,225,160,240,210]
+		},
+		"hourly":{
+			"temperature_2m":[` + strings.Join(temps, ",") + `],
+			"precipitation_probability":[` + strings.Join(precip, ",") + `]
+		},
+		"current":{
+			"temperature_2m":20,
+			"apparent_temperature":19,
+			"weather_code":1,
+			"relative_humidity_2m":61,
+			"precipitation":0,
+			"rain":0,
+			"showers":0,
+			"snowfall":0,
+			"cloud_cover":35,
+			"pressure_msl":1015.2,
+			"wind_speed_10m":8.5,
+			"wind_direction_10m":225,
+			"wind_gusts_10m":14.2,
+			"visibility":16000,
+			"dew_point_2m":12.4
+		}
+	}`
 
 	return wave3Response(http.StatusOK, body, nil)
+}
+
+func TestFetchOpenMeteoWeatherResponseRequestsExpandedForecast(t *testing.T) {
+	var captured *http.Request
+
+	wave3Transport(t, func(request *http.Request) (*http.Response, error) {
+		captured = request
+		return openMeteoWeatherResourceTestResponse(), nil
+	})
+
+	place := &openMeteoPlaceResponseJson{
+		Latitude:  38.8,
+		Longitude: -90.6,
+		Timezone:  "America/Chicago",
+		location:  time.UTC,
+	}
+
+	if _, err := fetchOpenMeteoWeatherResponse(
+		context.Background(),
+		place,
+		"metric",
+	); err != nil {
+		t.Fatalf("fetch: %v", err)
+	}
+
+	if captured == nil {
+		t.Fatal("weather request was not captured")
+	}
+
+	query := captured.URL.Query()
+
+	if got := query.Get("forecast_days"); got != "7" {
+		t.Fatalf("forecast_days = %q, want 7", got)
+	}
+
+	if got := query.Get("temperature_unit"); got != "celsius" {
+		t.Fatalf("temperature_unit = %q, want celsius", got)
+	}
+	if got := query.Get("wind_speed_unit"); got != "kmh" {
+		t.Fatalf("wind_speed_unit = %q, want kmh", got)
+	}
+	if got := query.Get("precipitation_unit"); got != "mm" {
+		t.Fatalf("precipitation_unit = %q, want mm", got)
+	}
+
+	current := query.Get("current")
+	for _, field := range []string{
+		"temperature_2m",
+		"apparent_temperature",
+		"weather_code",
+		"relative_humidity_2m",
+		"precipitation",
+		"rain",
+		"showers",
+		"snowfall",
+		"cloud_cover",
+		"pressure_msl",
+		"wind_speed_10m",
+		"wind_direction_10m",
+		"wind_gusts_10m",
+		"visibility",
+		"dew_point_2m",
+	} {
+		if !strings.Contains(current, field) {
+			t.Errorf("current fields missing %q: %q", field, current)
+		}
+	}
+
+	hourly := query.Get("hourly")
+	for _, field := range []string{
+		"temperature_2m",
+		"precipitation_probability",
+	} {
+		if !strings.Contains(hourly, field) {
+			t.Errorf("hourly fields missing %q: %q", field, hourly)
+		}
+	}
+
+	daily := query.Get("daily")
+	for _, field := range []string{
+		"weather_code",
+		"temperature_2m_max",
+		"temperature_2m_min",
+		"apparent_temperature_max",
+		"apparent_temperature_min",
+		"sunrise",
+		"sunset",
+		"daylight_duration",
+		"sunshine_duration",
+		"uv_index_max",
+		"precipitation_sum",
+		"rain_sum",
+		"showers_sum",
+		"snowfall_sum",
+		"precipitation_hours",
+		"precipitation_probability_max",
+		"wind_speed_10m_max",
+		"wind_gusts_10m_max",
+		"wind_direction_10m_dominant",
+	} {
+		if !strings.Contains(daily, field) {
+			t.Errorf("daily fields missing %q: %q", field, daily)
+		}
+	}
+}
+
+func TestFetchOpenMeteoWeatherResponseRequestsImperialUnits(t *testing.T) {
+	var captured *http.Request
+
+	wave3Transport(t, func(request *http.Request) (*http.Response, error) {
+		captured = request
+		return openMeteoWeatherResourceTestResponse(), nil
+	})
+
+	place := &openMeteoPlaceResponseJson{
+		Latitude:  38.8,
+		Longitude: -90.6,
+		Timezone:  "America/Chicago",
+		location:  time.UTC,
+	}
+
+	if _, err := fetchOpenMeteoWeatherResponse(
+		context.Background(),
+		place,
+		"imperial",
+	); err != nil {
+		t.Fatalf("fetch: %v", err)
+	}
+
+	if captured == nil {
+		t.Fatal("weather request was not captured")
+	}
+
+	query := captured.URL.Query()
+
+	if got := query.Get("temperature_unit"); got != "fahrenheit" {
+		t.Fatalf("temperature_unit = %q, want fahrenheit", got)
+	}
+	if got := query.Get("wind_speed_unit"); got != "mph" {
+		t.Fatalf("wind_speed_unit = %q, want mph", got)
+	}
+	if got := query.Get("precipitation_unit"); got != "inch" {
+		t.Fatalf("precipitation_unit = %q, want inch", got)
+	}
 }
 
 func TestOpenMeteoWeatherResourceCachesSameForecast(t *testing.T) {
@@ -527,17 +711,25 @@ func TestWeatherWidgetsShareResourcesWithoutSharingWidgetConfiguration(t *testin
 	})
 
 	first := &weatherWidget{
-		Location:     "Saint Peters, Missouri, US",
-		Units:        "imperial",
-		HourFormat:   "12h",
-		ShowAreaName: true,
+		Location:        "Saint Peters, Missouri, US",
+		Units:           "imperial",
+		HourFormat:      "12h",
+		ShowAreaName:    true,
+		ShowCurrentRaw:  boolPointer(true),
+		ShowDetailsRaw:  boolPointer(false),
+		ShowHourlyRaw:   boolPointer(true),
+		ShowForecastRaw: boolPointer(false),
 	}
 
 	second := &weatherWidget{
-		Location:     "Saint Peters, Missouri, US",
-		Units:        "imperial",
-		HourFormat:   "24h",
-		HideLocation: true,
+		Location:        "Saint Peters, Missouri, US",
+		Units:           "imperial",
+		HourFormat:      "24h",
+		HideLocation:    true,
+		ShowCurrentRaw:  boolPointer(false),
+		ShowDetailsRaw:  boolPointer(true),
+		ShowHourlyRaw:   boolPointer(false),
+		ShowForecastRaw: boolPointer(true),
 	}
 
 	if err := first.initialize(); err != nil {
@@ -589,6 +781,26 @@ func TestWeatherWidgetsShareResourcesWithoutSharingWidgetConfiguration(t *testin
 	}
 	if second.HourFormat != "24h" {
 		t.Fatalf("second hour format = %q, want 24h", second.HourFormat)
+	}
+
+	if !first.ShowCurrent || first.ShowDetails || !first.ShowHourly || first.ShowForecast {
+		t.Fatalf(
+			"first presentation configuration changed: current=%t details=%t hourly=%t forecast=%t",
+			first.ShowCurrent,
+			first.ShowDetails,
+			first.ShowHourly,
+			first.ShowForecast,
+		)
+	}
+
+	if second.ShowCurrent || !second.ShowDetails || second.ShowHourly || !second.ShowForecast {
+		t.Fatalf(
+			"second presentation configuration changed: current=%t details=%t hourly=%t forecast=%t",
+			second.ShowCurrent,
+			second.ShowDetails,
+			second.ShowHourly,
+			second.ShowForecast,
+		)
 	}
 
 	if first.TimeLabels[0] == second.TimeLabels[0] {

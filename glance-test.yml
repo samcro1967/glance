@@ -253,6 +253,10 @@ pages:
             title-url: https://open-meteo.com/
             location: St. Louis, Missouri, United States
             units: imperial
+            show-current: true
+            show-details: true
+            show-hourly: true
+            show-forecast: true
 
           # markets and stocks intentionally have different type defaults even
           # though both resolve to the same implementation.
