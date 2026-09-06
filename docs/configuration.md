@@ -1533,6 +1533,7 @@ Preview:
 | autofocus | boolean | no | false |
 | target | string | no | _blank |
 | placeholder | string | no | Type here to search… |
+| open-domains | boolean | no | false |
 | bangs | array | no | |
 
 ##### `search-engine`
@@ -1558,6 +1559,9 @@ The target to use when opening the search results in a new tab. Possible values 
 
 ##### `placeholder`
 When set, modifies the text displayed in the input field before typing.
+
+##### `open-domains`
+When set to `true`, an input that looks like a domain or HTTP(S) URL is opened directly instead of being searched for. `example.com`, `sub.example.com:8080/path`, and `https://example.com` all navigate directly; `https://` is added when no scheme is present. The input must contain no spaces and bare hostnames such as `localhost` are still searched for. Bang searches always take precedence, and non-HTTP schemes are treated as normal search input.
 
 ##### `bangs`
 What now? [Bangs](https://duckduckgo.com/bangs). They're shortcuts that allow you to use the same search box for many different sites. Assuming you have it configured, if for example you start your search input with `!yt` you'd be able to perform a search on YouTube:

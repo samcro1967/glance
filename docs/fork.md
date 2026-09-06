@@ -79,6 +79,8 @@ Because the fork identifier follows the hyphen in the tag, fork releases are pre
 - **YouTube uploads feed fallback** — Falls back from the Shorts-filtered `UULF` channel uploads feed to the standard `UU` uploads feed when the primary feed fails, while preserving existing cache and error behavior. Adapted from `JacksonMcDonaldDev/glance` commit `b6082e3355c36644a3eb31dadada1ea75d7d78e1`.
 - **Remote Server Stats mountpoint configuration** — Applies mountpoint visibility, naming, and ordering settings to system information returned by remote Glance agents. Adapted from `rakkateichou/glance` commit `64d3b1c1`.
 
+- **Search direct domain navigation** — Adapts upstream [PR #1073](https://github.com/glanceapp/glance/pull/1073) by adding an opt-in `open-domains` setting to the Search widget. Domain names and HTTP(S) URLs can be opened directly while bang searches retain precedence, non-domain input continues through the configured search engine, and blocked popup handling avoids dereferencing a missing browser window.
+
 ## Testing and regression protection
 
 The fork includes substantially expanded automated regression coverage intended both to protect fork-specific behavior and to make future upstream synchronization safer.
