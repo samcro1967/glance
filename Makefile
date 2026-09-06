@@ -906,6 +906,12 @@ release-check:
 	git fetch origin --prune --tags; \
 	git fetch upstream --prune --tags; \
 	local_revision="$$(git rev-parse HEAD)"; \
+	existing_release="$$(git tag --points-at HEAD --list 'v*-$(FORK_RELEASE_ID).r*' --sort=-version:refname | head -1)"; \
+	if [ -n "$$existing_release" ]; then \
+		echo "Current $(STABLE_BRANCH) revision $$local_revision is already formally released as $$existing_release."; \
+		echo "Refusing to create another formal release tag for the same revision."; \
+		exit 1; \
+	fi; \
 	origin_revision="$$(git rev-parse origin/$(STABLE_BRANCH))"; \
 	if [ "$$local_revision" != "$$origin_revision" ]; then \
 		echo "Local $(STABLE_BRANCH) does not match origin/$(STABLE_BRANCH)."; \
