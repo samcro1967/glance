@@ -27,7 +27,7 @@ TEST_PID_FILE ?= .glance-test.pid
 TEST_LOG ?= .glance-test.log
 TEST_URL ?= http://127.0.0.1:$(TEST_PORT)
 TEST_CONTAINER ?= glance-test
-TEST_CONTAINER_IMAGE ?= glance-test:local
+TEST_CONTAINER_IMAGE ?= $(DEPLOY_DEV_IMAGE)
 TEST_CONTAINER_PORT ?= 18080
 TEST_CONTAINER_URL ?= http://127.0.0.1:$(TEST_CONTAINER_PORT)
 TEST_RUNTIME_CONTAINER ?=
@@ -97,9 +97,9 @@ help:
 	@echo "  make test-instance-status     Show isolated test instance status"
 	@echo "  make test-instance-stop       Stop test instance and remove runtime artifacts"
 	@echo "  make test-container-start TEST_RUNTIME_CONTAINER=name"
-	@echo "                                Build source and start isolated container"
+	@echo "                                Pull and start isolated published dev container"
 	@echo "  make test-container-status    Show isolated container status"
-	@echo "  make test-container-stop      Remove isolated container and image"
+	@echo "  make test-container-stop      Remove isolated container"
 	@echo
 	@echo "TESTING / VALIDATION:"
 	@echo "  make test                     Go tests"
@@ -1430,14 +1430,39 @@ test-container-start:
 		echo "Run make test-container-stop first."; \
 		exit 1; \
 	fi; \
-	echo "=== BUILD TEST CONTAINER IMAGE ==="; \
-	docker build \
-		--build-arg BUILD_REVISION="$$(git rev-parse HEAD)" \
-		-t "$(TEST_CONTAINER_IMAGE)" .; \
+	echo "=== VERIFY DEVELOPMENT IMAGE ==="; \
+	git fetch origin --prune; \
+	dev_revision="$$(git rev-parse origin/$(DEV_BRANCH))"; \
+	run_id="$$(gh run list \
+		--repo "$(REPO)" \
+		--workflow "$(IMAGE_WORKFLOW)" \
+		--branch "$(DEV_BRANCH)" \
+		--limit 20 \
+		--json databaseId,headSha,status,conclusion \
+		--jq '.[] | select(.headSha == "'"$$dev_revision"'" and .status == "completed" and .conclusion == "success") | .databaseId' \
+		| head -1)"; \
+	if [ -z "$$run_id" ]; then \
+		echo "Refusing container test: no successful dev image build found for $$dev_revision."; \
+		echo "Run make image-watch after the dev image workflow starts."; \
+		exit 1; \
+	fi; \
+	echo "Dev revision: $$dev_revision"; \
+	echo "Image run:    $$run_id"; \
+	echo; \
+	echo "=== PULL DEVELOPMENT IMAGE ==="; \
+	docker pull "$(TEST_CONTAINER_IMAGE)"; \
+	image_id="$$(docker image inspect "$(TEST_CONTAINER_IMAGE)" --format '{{.Id}}')"; \
+	image_version="$$(docker run --rm --entrypoint /app/glance "$(TEST_CONTAINER_IMAGE)" --version)"; \
+	echo "Image version: $$image_version"; \
+	echo "Image ID:      $$image_id"; \
+	if [ "$$image_version" != "dev" ]; then \
+		echo "Refusing container test: $(TEST_CONTAINER_IMAGE) does not identify as dev."; \
+		exit 1; \
+	fi; \
 	echo; \
 	echo "=== START TEST CONTAINER ==="; \
 	declare -a env_args mount_args network_args sysctl_args; \
-		while IFS= read -r entry; do \
+	while IFS= read -r entry; do \
 		[ -n "$$entry" ] || continue; \
 		key="$${entry%%=*}"; \
 		value="$${entry#*=}"; \
@@ -1478,7 +1503,7 @@ test-container-start:
 	ready=0; \
 	for attempt in $$(seq 1 20); do \
 		code="$$(curl -sS -o /dev/null -w '%{http_code}' "$(TEST_CONTAINER_URL)/" 2>/dev/null || true)"; \
-		if [ "$$code" = "200" ]; then \
+		if [ "$$code" = "200" ] || [ "$$code" = "302" ]; then \
 			ready=1; \
 			break; \
 		fi; \
@@ -1492,8 +1517,22 @@ test-container-start:
 		docker logs --tail 80 "$(TEST_CONTAINER)" 2>&1 || true; \
 		exit 1; \
 	fi; \
+	short_revision="$${dev_revision:0:7}"; \
+	if ! docker logs "$(TEST_CONTAINER)" 2>&1 | grep -Fq "revision=$$short_revision"; then \
+		echo "Test container revision does not match origin/$(DEV_BRANCH): $$short_revision"; \
+		docker logs --tail 80 "$(TEST_CONTAINER)" 2>&1 || true; \
+		exit 1; \
+	fi; \
+	container_image="$$(docker inspect "$(TEST_CONTAINER)" --format '{{.Image}}')"; \
+	if [ "$$container_image" != "$$image_id" ]; then \
+		echo "Test container image does not match pulled dev image."; \
+		echo "Pulled:    $$image_id"; \
+		echo "Container: $$container_image"; \
+		exit 1; \
+	fi; \
 	echo "Test container started."; \
 	echo "Runtime reference=$(TEST_RUNTIME_CONTAINER)"; \
+	echo "Revision=$$dev_revision"; \
 	echo "Container=$(TEST_CONTAINER)"; \
 	echo "Image=$(TEST_CONTAINER_IMAGE)"; \
 	echo "URL=$(TEST_CONTAINER_URL)"
@@ -1519,9 +1558,4 @@ test-container-stop:
 	else \
 		echo "Test container is not present."; \
 	fi; \
-	if docker image inspect "$(TEST_CONTAINER_IMAGE)" >/dev/null 2>&1; then \
-		docker image rm "$(TEST_CONTAINER_IMAGE)" >/dev/null; \
-		echo "Removed image $(TEST_CONTAINER_IMAGE)."; \
-	else \
-		echo "Test image is not present."; \
-	fi
+	echo "Preserved image $(TEST_CONTAINER_IMAGE).";

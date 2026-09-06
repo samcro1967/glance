@@ -184,3 +184,35 @@ func TestMakefilePRWatchRefreshesHeadDuringPolling(t *testing.T) {
 		t.Fatal("pr-watch must refresh headRefOid inside the retry loop before looking up the validation run")
 	}
 }
+
+func TestMakefileTestContainerUsesPublishedDevArtifact(t *testing.T) {
+	makefile := readRepositoryMakefile(t)
+	start := makeTargetRecipe(t, makefile, "test-container-start")
+	stop := makeTargetRecipe(t, makefile, "test-container-stop")
+
+	if !strings.Contains(makefile, "TEST_CONTAINER_IMAGE ?= $(DEPLOY_DEV_IMAGE)") {
+		t.Fatal("test container must use the published development image")
+	}
+
+	requireRecipeFragmentsInOrder(
+		t,
+		start,
+		`git fetch origin --prune`,
+		`dev_revision="$$(git rev-parse origin/$(DEV_BRANCH))"`,
+		`run_id="$$(gh run list`,
+		`docker pull "$(TEST_CONTAINER_IMAGE)"`,
+		`image_version="$$(docker run --rm --entrypoint /app/glance "$(TEST_CONTAINER_IMAGE)" --version)"`,
+		`-p "$(TEST_CONTAINER_PORT):8080"`,
+		`"$(TEST_CONTAINER_IMAGE)" >/dev/null`,
+		`short_revision="$${dev_revision:0:7}"`,
+		`grep -Fq "revision=$$short_revision"`,
+	)
+
+	if strings.Contains(start, "docker build") {
+		t.Fatal("test-container-start must not rebuild source locally")
+	}
+
+	if strings.Contains(stop, "docker image rm") {
+		t.Fatal("test-container-stop must preserve the shared development image")
+	}
+}
