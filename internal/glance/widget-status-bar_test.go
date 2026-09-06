@@ -217,6 +217,7 @@ func TestStatusBarCompactItems(t *testing.T) {
 	}
 
 	widget := &statusBarWidget{
+		widgetBase: widgetBase{OpenLinksInNewTab: true},
 		containerWidgetBase: containerWidgetBase{
 			Widgets: widgets{weatherChild, marketsChild, rssChild},
 		},
@@ -235,7 +236,7 @@ func TestStatusBarCompactItems(t *testing.T) {
 		t.Errorf("market item = %+v", got)
 	}
 
-	if got := items[2]; got.Kind != "rss" || got.RSSTitle != "Example headline" || got.URL != "https://example.com/article" || got.RSSChannelName != "Example News" || !got.RSSPublishedAt.Equal(published) || got.OpenLinksInNewTab {
+	if got := items[2]; got.Kind != "rss" || got.RSSTitle != "Example headline" || got.URL != "https://example.com/article" || got.RSSChannelName != "Example News" || !got.RSSPublishedAt.Equal(published) || !got.OpenLinksInNewTab {
 		t.Errorf("rss item = %+v", got)
 	}
 }
@@ -556,7 +557,9 @@ func TestStatusBarCustomAPICompactItems(t *testing.T) {
 		},
 	}
 
-	statusBar := &statusBarWidget{}
+	statusBar := &statusBarWidget{
+		widgetBase: widgetBase{OpenLinksInNewTab: true},
+	}
 	statusBar.Widgets = []widget{customAPI}
 
 	items := statusBar.CompactItems()
@@ -591,7 +594,8 @@ func TestStatusBarCustomAPICompactItems(t *testing.T) {
 
 func TestStatusBarCustomAPIRendering(t *testing.T) {
 	statusBar := &statusBarWidget{
-		Mode: "wrap",
+		widgetBase: widgetBase{OpenLinksInNewTab: true},
+		Mode:       "wrap",
 	}
 
 	customAPI := &customAPIWidget{
@@ -636,5 +640,85 @@ func TestStatusBarCustomAPIRendering(t *testing.T) {
 		if !strings.Contains(html, expected) {
 			t.Errorf("rendered Status Bar missing %q", expected)
 		}
+	}
+}
+
+func TestStatusBarWidgetSpeeds(t *testing.T) {
+	tests := []struct {
+		name      string
+		speed     string
+		wantSpeed string
+		wantErr   string
+	}{
+		{name: "default", wantSpeed: "normal"},
+		{name: "slow", speed: "slow", wantSpeed: "slow"},
+		{name: "normal", speed: "normal", wantSpeed: "normal"},
+		{name: "fast", speed: "fast", wantSpeed: "fast"},
+		{name: "invalid", speed: "warp", wantErr: "speed can only be slow, normal or fast"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			child := &rssWidget{}
+			child.Type = "rss"
+			child.FeedRequests = []rssFeedRequest{{URL: "https://example.com/feed.xml"}}
+
+			widget := &statusBarWidget{
+				Speed: tt.speed,
+				containerWidgetBase: containerWidgetBase{
+					Widgets: widgets{child},
+				},
+			}
+			widget.Type = "status-bar"
+
+			err := widget.initialize()
+			if tt.wantErr != "" {
+				if err == nil {
+					t.Fatalf("initialize() error = nil, want %q", tt.wantErr)
+				}
+				if err.Error() != tt.wantErr {
+					t.Fatalf("initialize() error = %q, want %q", err.Error(), tt.wantErr)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("initialize() error = %v, want nil", err)
+			}
+
+			if widget.Speed != tt.wantSpeed {
+				t.Errorf("Speed = %q, want %q", widget.Speed, tt.wantSpeed)
+			}
+		})
+	}
+}
+
+func TestStatusBarRenderTickerSpeed(t *testing.T) {
+	widget := &statusBarWidget{
+		Mode:  "ticker",
+		Speed: "fast",
+		containerWidgetBase: containerWidgetBase{
+			Widgets: widgets{
+				&marketsWidget{
+					Markets: marketList{{
+						marketRequest:  marketRequest{Symbol: "TEST"},
+						Name:           "Test Market",
+						Currency:       "USD",
+						CurrencySymbol: "$",
+						Price:          10,
+						PriceHint:      2,
+					}},
+				},
+			},
+		},
+	}
+	widget.Type = "status-bar"
+	widget.HideHeader = true
+	widget.ContentAvailable = true
+
+	html := string(widget.Render())
+
+	if !strings.Contains(html, `data-ticker-speed="fast"`) {
+		t.Errorf("Render() missing ticker speed in %q", html)
 	}
 }

@@ -1785,6 +1785,8 @@ pages:
 | Name | Type | Required | Default |
 | ---- | ---- | -------- | ------- |
 | mode | string | no | ticker |
+| speed | string | no | normal |
+| open-links-in-new-tab | boolean | no | true |
 | widgets | array | yes | |
 
 ##### `mode`
@@ -1795,6 +1797,20 @@ Controls how the compact items are laid out.
 * `wrap` displays the items statically and allows them to wrap onto additional lines when necessary.
 
 Possible values are `ticker` and `wrap`.
+
+##### `speed`
+
+Controls the horizontal scrolling speed when `mode` is `ticker`. The speed is normalized to the rendered width of the ticker content so Status Bars with different amounts of content move at a consistent visual rate.
+
+Possible values are `slow`, `normal`, and `fast`. The default is `normal`.
+
+##### `open-links-in-new-tab`
+
+Controls whether links rendered by the Status Bar open in a new browser tab. The default is `true`, consistent with the standard Glance widget link behavior.
+
+The Status Bar owns this setting for links in its compact Markets, RSS, and Custom API items. A child widget's own `open-links-in-new-tab` setting continues to control that widget when rendered normally, but does not override the Status Bar's link policy while rendered inside the Status Bar.
+
+Set `open-links-in-new-tab: false` on the Status Bar to open its compact links in the current tab.
 
 ##### `widgets`
 

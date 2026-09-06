@@ -1290,7 +1290,7 @@ pages:
 	}
 }
 
-func TestStatusBarPreservesChildNewTabDefaults(t *testing.T) {
+func TestStatusBarChildrenResolveNewTabIndependentlyFromCompactPolicy(t *testing.T) {
 	config, err := newConfigFromYAML([]byte(`
 widget-defaults:
   global:
@@ -1356,17 +1356,17 @@ pages:
 	if len(items) != 2 {
 		t.Fatalf("CompactItems() length = %d, want 2", len(items))
 	}
-	if items[0].Kind != "market" || !items[0].OpenLinksInNewTab {
-		t.Fatalf("market compact policy not preserved: %+v", items[0])
+	if items[0].Kind != "market" || items[0].OpenLinksInNewTab {
+		t.Fatalf("market compact policy did not follow Status Bar: %+v", items[0])
 	}
 	if items[1].Kind != "rss" || items[1].OpenLinksInNewTab {
-		t.Fatalf("rss compact policy not preserved: %+v", items[1])
+		t.Fatalf("rss compact policy did not follow Status Bar: %+v", items[1])
 	}
 
 	rendered := string(statusBar.Render())
 
-	if !strings.Contains(rendered, `href="https://example.com/apple" target="_blank" rel="noreferrer"`) {
-		t.Fatalf("market link did not open in new tab: %s", rendered)
+	if strings.Contains(rendered, `href="https://example.com/apple" target="_blank"`) {
+		t.Fatalf("market compact link ignored Status Bar policy: %s", rendered)
 	}
 	if strings.Contains(rendered, `href="https://example.com/article" target="_blank"`) {
 		t.Fatalf("rss link unexpectedly opened in new tab: %s", rendered)
