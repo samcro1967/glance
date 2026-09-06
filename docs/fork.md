@@ -263,7 +263,7 @@ Upstream changes are reviewed before integration rather than being automatically
 
 Where functionality in this fork originates from an existing upstream pull request or another Glance-derived project, the corresponding source is identified in this document. Other changes were developed specifically for this fork based on functionality or reliability requirements encountered while operating it.
 
-When a merged and tested fork implementation directly addresses an existing upstream issue, discussion, or pull request, a brief informational reference to the fork implementation is also left on the relevant upstream thread where appropriate.
+Upstream issues, discussions, and pull requests relevant to fork implementations are referenced within this repository for provenance and traceability.
 
 The fork intentionally avoids unnecessary divergence from upstream. Production changes are made when they provide required functionality, address an observed defect, improve operational reliability, or provide meaningful regression protection. Areas that are functioning correctly are generally left unchanged rather than modified solely to increase test coverage or introduce speculative abstractions.
 
