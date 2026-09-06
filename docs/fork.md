@@ -59,10 +59,11 @@ Because the fork identifier follows the hyphen in the tag, fork releases are pre
 - **Custom API stale fallback** — Preserves the last successfully rendered `custom-api` content when a refresh fails, displays a visible stale indicator with the age of the last successful update, and automatically clears the stale state after a successful refresh.
 - **Automatic widget recovery** — Adds server-side background refresh and recovery for updateable widgets. Expired or previously failed widgets are retried automatically without requiring a page to be open or manually refreshed. Refreshes are synchronized per widget to prevent duplicate concurrent updates while preserving parallel updates across different widgets, use bounded concurrency and progressive retry backoff after failures, and are cancelled cleanly during shutdown and configuration reloads. Normal successful refresh timing continues to respect each widget's configured cache duration. The `custom-api` widget additionally preserves its last successfully rendered content while a refresh is failing.
 - **Live widget updates** — Addresses upstream [issue #1042](https://github.com/glanceapp/glance/issues/1042) by automatically updating visible widgets in the browser when their server-side refresh completes, without requiring a full page reload. Live updates reuse the existing widget refresh scheduler and cache timing rather than introducing a separate polling cycle. The server sends lightweight widget ID notifications over Server-Sent Events (SSE), and the browser fetches and replaces only the affected widget while preserving surrounding page and container state such as selected group tabs. Nested refreshable widgets are supported, concurrent notifications are coalesced safely, and browser-side behaviors are reinitialized only within replaced widget content. The feature requires no additional configuration and falls back to existing static page behavior when SSE is unavailable.
+- **Reddit proxy challenge routing** — Addresses upstream [issue #1016](https://github.com/glanceapp/glance/issues/1016) by ensuring Reddit LOID challenge acquisition uses the same configured proxy route as subsequent Reddit requests. LOID cookies are cached independently per network route so direct requests and distinct proxies do not incorrectly share challenge state, while preserving the existing six-hour cache and request synchronization behavior.
 - **Versioned asset base URL fix** — Corrects versioned asset paths when Glance is configured with a base URL, ensuring assets such as the web manifest resolve beneath the configured base path instead of producing malformed paths or HTTP 404 responses.
 - **HTTP server startup failure handling** — Incorporates upstream [PR #1047](https://github.com/glanceapp/glance/pull/1047), causing Glance to exit with a nonzero status when the HTTP server fails to start instead of remaining running in a broken state. This allows container restart policies and external monitoring to correctly detect and respond to startup failures.
 - **Mountpoint CLI fix** — Incorporates upstream [PR #1065](https://github.com/glanceapp/glance/pull/1065), fixing the `mountpoint:info <path>` command so it can be invoked as documented instead of being rejected as an unknown command.
-- **Mountpoint auto-detection fix** — Incorporates upstream [PR #1070](https://github.com/glanceapp/glance/pull/1070), fixing automatic mountpoint discovery in plain containers by including Docker `overlay` filesystems while filtering out virtual filesystems such as proc, sysfs, tmpfs, and cgroups.
+- **Mountpoint auto-detection fix** — Incorporates upstream [PR #1070](https://github.com/glanceapp/glance/pull/1070), addressing upstream [issue #1074](https://github.com/glanceapp/glance/issues/1074) by fixing automatic mountpoint discovery in plain containers to include Docker `overlay` filesystems while filtering out virtual filesystems such as proc, sysfs, tmpfs, and cgroups.
 - **IPv6 Docker remote sources** — Incorporates upstream [PR #1064](https://github.com/glanceapp/glance/pull/1064), correctly formatting IPv6 addresses used by remote Docker sources while preserving TCP, HTTP, HTTPS, explicit-port, and default-port behavior.
 - **YAML comment variable parsing** — Incorporates upstream [PR #965](https://github.com/glanceapp/glance/pull/965), preventing configuration variables inside YAML comments from being expanded while correctly preserving hashes inside quoted values and handling escaped or doubled quotes.
 - **Search autofocus fix** — Incorporates upstream [PR #885](https://github.com/glanceapp/glance/pull/885), ensuring search widgets configured with `autofocus` reliably receive focus after dynamic initialization, including in browsers such as Firefox.
@@ -78,6 +79,8 @@ Because the fork identifier follows the hyphen in the tag, fork releases are pre
 - **HTTP connection reuse hardening** — Adds a finite idle connection timeout and consistent connection-pool settings to the shared HTTP transports, preventing idle connections from being retained indefinitely. Adapted from `matt2k7/glance` commit `b13c1f98699da36232933cbb3619003f8922ee5e`.
 - **YouTube uploads feed fallback** — Falls back from the Shorts-filtered `UULF` channel uploads feed to the standard `UU` uploads feed when the primary feed fails, while preserving existing cache and error behavior. Adapted from `JacksonMcDonaldDev/glance` commit `b6082e3355c36644a3eb31dadada1ea75d7d78e1`.
 - **Remote Server Stats mountpoint configuration** — Applies mountpoint visibility, naming, and ordering settings to system information returned by remote Glance agents. Adapted from `rakkateichou/glance` commit `64d3b1c1`.
+
+- **Search direct domain navigation** — Adapts upstream [PR #1073](https://github.com/glanceapp/glance/pull/1073) by adding an opt-in `open-domains` setting to the Search widget. Domain names and HTTP(S) URLs can be opened directly while bang searches retain precedence, non-domain input continues through the configured search engine, and blocked popup handling avoids dereferencing a missing browser window.
 
 ## Testing and regression protection
 
@@ -140,12 +143,17 @@ make pr-view PR=<number>
 make pr-runs
 make pr-merge PR=<number>
 make post-merge PR=<number>
+make pr-finish PR=<number>
+make promote-finish PR=<number>
+make sync-finish PR=<number>
+make workflow-status
 make image-runs
 make ci-watch RUN=<id>
 make ci-view RUN=<id>
 make release-status
 make release-check
 make release
+make release-finish
 make deploy-status
 make deploy
 ```
@@ -153,6 +161,10 @@ make deploy
 `make branch` creates normal development branches from a clean `dev` branch that exactly matches `origin/dev`. `make pr-create` creates the normal feature-to-`dev` pull request and intentionally refuses to operate from either long-lived branch. `make promote-create` is the explicit path for creating a `dev`-to-`main` promotion pull request.
 
 `make post-merge` determines the merged pull request's base branch automatically. After a normal feature merge it updates and leaves the repository on `dev`; after a promotion merge it updates and leaves the repository on `main`. Long-lived branches are preserved while merged local feature branches are cleaned up.
+
+The composite workflow targets provide guarded end-to-end lifecycle stages while retaining the individual targets for inspection and recovery. `make pr-finish` validates a feature-to-`dev` pull request, watches its exact-head CI run, merges it, performs post-merge cleanup, and watches publication of the resulting `dev` image. `make promote-finish` performs the corresponding guarded `dev`-to-`main` promotion through validation, merge, cleanup, and stable-branch verification. `make sync-finish` handles the post-release `main`-to-`dev` synchronization and resulting `dev` image. `make workflow-status` provides a combined view of repository relationships, release state, recent CI and image activity, and deployment state.
+
+`make release-finish` is the guarded formal-release pipeline for `main`: it performs release validation and tag creation, watches the formal release workflow, and reports release and deployment status. It intentionally does **not** deploy production. Production deployment remains a separate explicit action through `make deploy`, preserving a deliberate boundary between creating a release and changing the running production service.
 
 `make check` runs the standard local pre-pull-request validation suite. Repeated test targets are available for concurrency-sensitive or high-risk changes where a single successful test execution may not provide sufficient confidence.
 

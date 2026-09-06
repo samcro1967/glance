@@ -413,6 +413,8 @@ function setupStatusBarTickers(root = document) {
     }
 }
 
+const SEARCH_DOMAIN_PATTERN = /^(https?:\/\/\S+|[a-z0-9-]+(\.[a-z0-9-]+)+(:\d+)?([/?#]\S*)?)$/i;
+
 function setupSearchBoxes() {
     const searchWidgets = document.getElementsByClassName("search");
 
@@ -425,6 +427,7 @@ function setupSearchBoxes() {
         const defaultSearchUrl = widget.dataset.defaultSearchUrl;
         const target = widget.dataset.target || "_blank";
         const newTab = widget.dataset.newTab === "true";
+        const openDomains = widget.dataset.openDomains === "true";
         const inputElement = widget.getElementsByClassName("search-input")[0];
         const bangElement = widget.getElementsByClassName("search-bang")[0];
         const bangs = widget.querySelectorAll(".search-bangs > input");
@@ -460,10 +463,19 @@ function setupSearchBoxes() {
                     return;
                 }
 
-                const url = searchUrlTemplate.replace("!QUERY!", encodeURIComponent(query));
+                let url;
+
+                if (openDomains && currentBang == null && SEARCH_DOMAIN_PATTERN.test(query)) {
+                    url = query.includes("://") ? query : "https://" + query;
+                } else {
+                    url = searchUrlTemplate.replace("!QUERY!", encodeURIComponent(query));
+                }
 
                 if (newTab && !event.ctrlKey || !newTab && event.ctrlKey) {
-                    window.open(url, target).focus();
+                    const openedWindow = window.open(url, target);
+                    if (openedWindow != null) {
+                        openedWindow.focus();
+                    }
                 } else {
                     window.location.href = url;
                 }
