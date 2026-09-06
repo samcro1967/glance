@@ -1076,15 +1076,28 @@ function setupAnalogClocks() {
     updateAnalogClocks();
 }
 
-async function setupCalendars() {
-    const elems = document.getElementsByClassName("calendar");
-    if (elems.length == 0) return;
+async function setupCalendars(root = document) {
+    const elems = Array.from(root.getElementsByClassName("calendar"));
 
-    // TODO: implement prefetching, currently loads as a nasty waterfall of requests
-    const calendar = await import ('./calendar.js');
+    if (elems.length === 0) {
+        return [];
+    }
 
-    for (let i = 0; i < elems.length; i++)
-        calendar.default(elems[i]);
+    // Calendar is loaded lazily because most pages do not contain one.
+    // Returning cleanup callbacks also lets live widget replacement stop
+    // Calendar-owned timers before discarding the old DOM.
+    const calendarModule = await import('./calendar.js');
+    const cleanupCallbacks = [];
+
+    for (const element of elems) {
+        const calendar = calendarModule.default(element);
+
+        if (calendar?.component?.suspend) {
+            cleanupCallbacks.push(() => calendar.component.suspend());
+        }
+    }
+
+    return cleanupCallbacks;
 }
 
 async function setupTimers() {
@@ -1292,12 +1305,13 @@ function cleanupLiveWidget(widgetElement) {
     liveWidgetCleanupCallbacks.delete(widgetElement);
 }
 
-function initializeLiveWidget(widgetElement) {
+async function initializeLiveWidget(widgetElement) {
     const cleanupCallbacks = [];
 
     cleanupCallbacks.push(...setupCarousels(widgetElement));
     cleanupCallbacks.push(...setupCollapsibleGrids(widgetElement));
     cleanupCallbacks.push(...setupMasonries(widgetElement));
+    cleanupCallbacks.push(...await setupCalendars(widgetElement));
 
     setupPopovers(widgetElement);
     setupCollapsibleLists(widgetElement);
@@ -1418,6 +1432,28 @@ async function refreshLiveWidget(widgetID) {
                 true
             );
 
+            const currentCalendar =
+                liveCurrentWidget.querySelector(".calendar");
+            const replacementCalendar =
+                replacement.querySelector(".calendar");
+
+            if (currentCalendar !== null && replacementCalendar !== null) {
+                const displayedMonth =
+                    currentCalendar.dataset.calendarDisplayedMonth;
+                const selectedDate =
+                    currentCalendar.dataset.calendarSelectedDate;
+
+                if (displayedMonth) {
+                    replacementCalendar.dataset.calendarDisplayedMonth =
+                        displayedMonth;
+                }
+
+                if (selectedDate) {
+                    replacementCalendar.dataset.calendarSelectedDate =
+                        selectedDate;
+                }
+            }
+
             cleanupLiveWidget(liveCurrentWidget);
 
             frontendDiagnostic("widget_cleanup_complete", {
@@ -1446,7 +1482,7 @@ async function refreshLiveWidget(widgetID) {
                 true
             );
 
-            initializeLiveWidget(replacement);
+            await initializeLiveWidget(replacement);
 
             frontendDiagnostic("widget_initialize_complete", {
                 widget: widgetID,

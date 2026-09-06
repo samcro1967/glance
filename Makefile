@@ -14,6 +14,14 @@ BASE_REF ?= origin/dev
 
 TEST_PORT := 18080
 TEST_BINARY ?= .glance-test
+
+TEST_ENV_FILE ?= .env.test
+
+ifneq (,$(wildcard $(TEST_ENV_FILE)))
+include $(TEST_ENV_FILE)
+export
+endif
+
 TEST_CONFIG ?= glance-test.yml
 TEST_PID_FILE ?= .glance-test.pid
 TEST_LOG ?= .glance-test.log
