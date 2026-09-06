@@ -1,5 +1,7 @@
 # Extensions
 
+[Glance README](../README.md) · [Configuration](configuration.md) · [Widgets](widgets.md)
+
 > [!IMPORTANT]
 >
 > **This document as well as the extensions feature are a work in progress. The API may change in the future. You are responsible for maintaining your own extensions.**
@@ -8,7 +10,7 @@
 
 With the intention of requiring minimal knowledge in order to develop extensions, rather than being a convoluted protocol they are nothing more than an HTTP request to a server that returns a few special headers. The exchange between Glance and extensions can be seen in the following diagram:
 
-![](images/extension-overview.png)
+![Overview of the Glance extension request and response flow](images/extension-overview.png)
 
 If you know how to setup an HTTP server and a bit of HTML and CSS you're ready to start building your own extensions.
 
@@ -159,6 +161,10 @@ Most of the features seen throughout Glance can easily be used in your custom HT
 
 All of that will result in the following:
 
-![](images/extension-html-reusing-existing-features-preview.png)
+![Extension HTML reusing Glance presentation features](images/extension-html-reusing-existing-features-preview.png)
 
 **Class names or features may change, once again, you are responsible for maintaining your own extensions.**
+
+---
+
+[Glance README](../README.md) · [Configuration](configuration.md) · [Widgets](widgets.md) · [Back to top](#extensions)
