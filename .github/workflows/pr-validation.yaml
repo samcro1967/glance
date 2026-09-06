@@ -33,6 +33,9 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
+      - name: Validate documentation
+        run: make docs-check
+
       - name: Run tests
         run: go test ./...
 

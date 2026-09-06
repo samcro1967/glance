@@ -6,7 +6,7 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps build test-instance-start test-instance-status test-instance-stop test test-race test-count test-race-count fmt-check diff-check staged-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish workflow-status
+.PHONY: help deps build test-instance-start test-instance-status test-instance-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish workflow-status
 
 COUNT ?= 10
 COVERAGE_FILE ?= coverage.out
@@ -111,7 +111,7 @@ help:
 	@echo "  make fmt-check                Verify changed Go files are formatted"
 	@echo "  make diff-check               Working-tree whitespace validation"
 	@echo "  make staged-check             Staged whitespace validation"
-	@echo "  make check                    Tests + race + build + format + whitespace"
+	@echo "  make check                    Tests + race + build + format + whitespace + docs"
 	@echo
 	@echo "REPOSITORY:"
 	@echo "  make status                   Branch, HEAD, worktree"
@@ -193,7 +193,10 @@ diff-check:
 staged-check:
 	git diff --cached --check
 
-check: test test-race build fmt-check diff-check staged-check
+docs-check:
+	python3 scripts/check_docs.py
+
+check: test test-race build fmt-check diff-check staged-check docs-check
 
 coverage:
 	go test ./... -coverprofile=$(COVERAGE_FILE)
