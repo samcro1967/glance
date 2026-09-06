@@ -1,3 +1,7 @@
+# Custom API template reference
+
+[Glance README](../README.md) · [Configuration](configuration.md) · [Widgets](widgets.md) · [Custom API widget](widgets/custom-api.md)
+
 [Jump to function definitions](#functions)
 
 ## Examples
@@ -515,3 +519,7 @@ The following helper functions provided by Go's `text/template` are available:
 - `print(args ...any) string`: Formats arguments using Go's default formatting.
 - `printf(format string, args ...any) string`: Formats arguments according to a format specifier.
 - `println(args ...any) string`: Formats arguments using Go's default formatting and appends a newline.
+
+---
+
+[Glance README](../README.md) · [Configuration](configuration.md) · [Widgets](widgets.md) · [Custom API widget](widgets/custom-api.md) · [Back to top](#custom-api-template-reference)

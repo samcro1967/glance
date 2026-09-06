@@ -1,5 +1,7 @@
 # Themes
 
+[Glance README](../README.md) · [Configuration](configuration.md) · [Widgets](widgets.md)
+
 Glance includes a native theme system for customizing the visual
 appearance of the dashboard through YAML configuration. Most dashboard
 styling can be changed without writing CSS, while custom CSS remains
@@ -768,3 +770,7 @@ theme:
 
 These compact themes can be expanded with any of the native semantic
 properties documented above.
+
+---
+
+[Glance README](../README.md) · [Configuration](configuration.md) · [Widgets](widgets.md) · [Back to top](#themes)

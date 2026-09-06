@@ -1,5 +1,7 @@
 # About this fork
 
+[Glance README](../README.md) · [Configuration](configuration.md) · [Widgets](widgets.md)
+
 This repository is a fork of [Glance](https://github.com/glanceapp/glance) maintained by [samcro1967](https://github.com/samcro1967/glance).
 
 It tracks the upstream Glance project while incorporating additional functionality, reliability fixes, operational hardening, expanded regression testing, and deployment tooling not currently available in the upstream release.
@@ -45,7 +47,7 @@ Because the fork identifier follows the hyphen in the tag, fork releases are pre
 - **ICS Events widget** — Adds a native `ics-events` widget for displaying events from iCalendar (ICS) feeds. The widget fetches and parses calendar data server-side, supports configurable date ranges and event limits, handles recurring events and timezone-aware dates, and participates in the standard Glance caching, refresh, recovery, and live-update lifecycle.
 - **Calendar ICS sources** — Extends the native `calendar` widget with optional generic iCalendar (ICS) sources, directly addressing the calendar use case requested in upstream [issue #90](https://github.com/glanceapp/glance/issues/90) without coupling Glance to Radarr, Sonarr, or another application-specific API. Multiple URL or file sources can be combined, with server-side handling of recurring events, cancellations, overrides, all-day and timed events, timezones, conditional HTTP caching, partial-source failures, and the standard Glance refresh, recovery, and live-update lifecycle. Calendar months remain browser-local and immediately navigable across a bounded 25-month range, while dates display event counts and selectable days expose event details including time, title, source, location, and links. Source HTTP configuration participates in hierarchical widget defaults, and source URLs, authentication data, and other feed credentials are not exposed in the browser event payload. Applications such as Radarr and Sonarr can therefore be used through their existing ICS feeds while the Calendar integration itself remains provider-independent. Upstream [issue #95](https://github.com/glanceapp/glance/issues/95) is related *Arr integration work but concerns recent releases/grabs rather than calendar events and is not implemented by this feature.
 
-  ![](images/calendar-ics-sources.png)
+  ![Calendar widget using ICS sources](images/calendar-ics-sources.png)
 - **Markdown widget** — Adds a native `markdown` widget for rendering configured Markdown content using Glance styling. Markdown is rendered server-side with HTML sanitization and supports standard Markdown formatting without requiring an external service or Custom API endpoint.
 - **Unit Converter widget** — Adds a native `unit-converter` widget for performing unit conversions directly in the browser without requiring an external service or network request. The widget provides 35 conversion categories and 379 units spanning common measurement, scientific, digital-information, electrical, and fuel-economy conversions. Category and unit selections update the result immediately as the input value changes. Conversion definitions are embedded with Glance and use scale, affine, and reciprocal transforms to support standard linear conversions, temperature conversions, and fuel-economy conversions while remaining fully self-contained.
 - **Calculator widget** — Adds a native `calculator` widget for performing calculations directly in the browser without requiring an external service or network request. The calculator provides standard arithmetic operations, percentage, reciprocal, square, square root, exponent, nth-root, parentheses, sign change, clear-entry, clear, and backspace controls, with operator precedence and keyboard input support.
@@ -77,7 +79,7 @@ Because the fork identifier follows the hyphen in the tag, fork releases are pre
 - **DNS statistics zero-value handling** — Prevents invalid percentage values when DNS providers return zero queries or zero blocked queries. Graph normalization and blocked-domain percentages safely remain at zero when their denominator is zero, covering AdGuard Home, Pi-hole v5, Pi-hole v6, and Technitium DNS Server.
 - **Themed page-not-found response** — Addresses upstream [issue #1062](https://github.com/glanceapp/glance/issues/1062) by replacing the plain-text response for unknown page URLs with a themed Glance 404 page that preserves HTTP 404 semantics and provides links to the configured pages available in the current dashboard. Dashboard paths and configured base URLs are preserved, while API page-content requests continue to return a plain HTTP 404.
 
-  ![](images/themed-404-preview.png)
+  ![Themed Glance 404 page](images/themed-404-preview.png)
 - **RSS parsing and rendering hardening** — Improves RSS title and image parsing based on upstream [PR #1044](https://github.com/glanceapp/glance/pull/1044) and addresses upstream [issue #1011](https://github.com/glanceapp/glance/issues/1011), including HTML title sanitization, image discovery from item metadata and feed content, and safe resolution of relative image URLs. Also addresses upstream [issue #919](https://github.com/glanceapp/glance/issues/919) by removing embedded HTML comments from feed descriptions, and [issue #962](https://github.com/glanceapp/glance/issues/962) by validating and resolving RSS item links before rendering so malformed or unsafe URLs cannot produce Go template `ZgotmplZ` output.
 - **GitHub release fetching optimization** — Optimizes GitHub release requests for repositories configured with `include-prereleases: true` by requesting only the single release that Glance consumes instead of GitHub's default page of results, reducing response size and processing overhead without changing release selection behavior. Based on [Dynacat PR #97](https://github.com/Panonim/dynacat/pull/97).
 - **HTTP connection reuse hardening** — Adds a finite idle connection timeout and consistent connection-pool settings to the shared HTTP transports, preventing idle connections from being retained indefinitely. Adapted from [`matt2k7/glance` commit `b13c1f9`](https://github.com/matt2k7/glance/commit/b13c1f98699da36232933cbb3619003f8922ee5e).
@@ -275,4 +277,8 @@ The codebase is now treated as a production baseline rather than an active stabi
 
 The intent is to keep the fork maintainable and transparent while minimizing unnecessary divergence from upstream.
 
-See the [configuration documentation](docs/configuration.md#configuring-glance) for details on using the additional widgets and functionality.
+See the [configuration documentation](configuration.md#configuring-glance) for details on using the additional widgets and functionality.
+
+---
+
+[Glance README](../README.md) · [Configuration](configuration.md) · [Widgets](widgets.md) · [Back to top](#about-this-fork)

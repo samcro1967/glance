@@ -3,6 +3,7 @@
 <p align="center">
   <a href="#installation">Install</a> •
   <a href="docs/configuration.md#configuring-glance">Configuration</a> •
+  <a href="docs/widgets.md">Widgets</a> •
   <a href="https://github.com/sponsors/glanceapp">Sponsor</a>
 </p>
 <p align="center">
@@ -13,7 +14,7 @@
 
 <p align="center">A lightweight, highly customizable dashboard that displays<br> your feeds in a beautiful, streamlined interface</p>
 
-![](docs/images/readme-main-image.png)
+![Glance dashboard preview](docs/images/readme-main-image.png)
 
 ## About this fork
 
@@ -42,7 +43,7 @@ deployment safeguards, and upstream synchronization.
 * Docker containers status
 * Server stats
 * Custom widgets
-* [and many more...](docs/configuration.md#configuring-glance)
+* [and many more...](docs/widgets.md)
 
 ### Fast and lightweight
 * Low memory usage
@@ -62,19 +63,19 @@ deployment safeguards, and upstream synchronization.
 ### Optimized for mobile devices
 Because you'll want to take it with you on the go.
 
-![](docs/images/mobile-preview.png)
+![Glance dashboard on a mobile device](docs/images/mobile-preview.png)
 
 ### Themeable
 Customize Glance without writing CSS using native themes for colors, typography, page backgrounds, navigation, widgets, cards, groups, controls, surfaces, and more. Themes can be configured globally, overridden per page, and switched between Glance Dark, Glance Light, and your own named themes. Custom CSS remains available for advanced styling.
 
 See the **[Themes documentation](docs/themes.md)** for the complete theme reference, examples, and available customization options.
 
-![](docs/images/themes-example.png)
+![Examples of Glance themes](docs/images/themes-example.png)
 
 <br>
 
 ## Configuration
-Configuration is done through YAML files, to learn more about how the layout works, how to add more pages and how to configure widgets, visit the [configuration documentation](docs/configuration.md#configuring-glance).
+Configuration is done through YAML files, to learn more about how the layout works, how to add more pages and how to configure widgets, visit the [configuration documentation](docs/configuration.md#configuring-glance). Individual widgets are documented in the [widget catalog](docs/widgets.md).
 <details>
 <summary><strong>Preview example configuration file</strong></summary>
 <br>

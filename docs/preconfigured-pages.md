@@ -1,5 +1,7 @@
 # Preconfigured pages
 
+[Glance README](../README.md) · [Configuration](configuration.md) · [Widgets](widgets.md)
+
 Don't want to spend time configuring pages from scratch? No problem! Simply copy the config from the ones below.
 
 Pull requests with your page configurations are welcome!
@@ -10,7 +12,7 @@ Pull requests with your page configurations are welcome!
 
 ## Startpage
 
-![](images/startpage-preview.png)
+![Startpage preconfigured page preview](images/startpage-preview.png)
 
 <details>
 <summary>View config (requires Glance <code>v0.6.0</code> or higher)</summary>
@@ -80,7 +82,7 @@ Pull requests with your page configurations are welcome!
 
 ## Markets
 
-![](images/markets-page-preview.png)
+![Markets preconfigured page preview](images/markets-page-preview.png)
 
 <details>
 <summary>View config (requires Glance <code>v0.6.0</code> or higher)</summary>
@@ -177,7 +179,7 @@ Pull requests with your page configurations are welcome!
 
 ## Gaming
 
-![](images/gaming-page-preview.png)
+![Gaming preconfigured page preview](images/gaming-page-preview.png)
 
 <details>
 <summary>View config (requires Glance <code>v0.6.0</code> or higher)</summary>
@@ -224,3 +226,7 @@ Pull requests with your page configurations are welcome!
           style: vertical-cards
 ```
 </details>
+
+---
+
+[Glance README](../README.md) · [Configuration](configuration.md) · [Widgets](widgets.md) · [Back to top](#preconfigured-pages)
