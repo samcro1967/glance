@@ -419,6 +419,39 @@ func TestComprehensiveContainerRejectsUnsupportedNesting(t *testing.T) {
 	}
 }
 
+func TestStatusBarTickerBrowserContract(t *testing.T) {
+	pageJS, err := os.ReadFile(filepath.Join("static", "js", "page.js"))
+	if err != nil {
+		t.Fatalf("read page.js: %v", err)
+	}
+
+	source := string(pageJS)
+
+	required := []string{
+		`const STATUS_BAR_TICKER_PIXELS_PER_SECOND = {`,
+		`slow: 30`,
+		`normal: 45`,
+		`fast: 70`,
+		`function setupStatusBarTickers(root = document)`,
+		`statusBar.dataset.tickerSpeed`,
+		`items.getBoundingClientRect().width`,
+		`distance / pixelsPerSecond`,
+		`--status-bar-ticker-duration`,
+		`new ResizeObserver(updateDuration)`,
+		`event.pointerType !== "mouse"`,
+		`event.target.closest("a")`,
+		`link.blur()`,
+		`"status_bar_tickers"`,
+		`() => setupStatusBarTickers()`,
+	}
+
+	for _, fragment := range required {
+		if !strings.Contains(source, fragment) {
+			t.Fatalf("page.js missing Status Bar ticker contract fragment %q", fragment)
+		}
+	}
+}
+
 func TestSearchOpenDomainsConfigurationAndRendering(t *testing.T) {
 	config, err := newConfigFromYAML([]byte(`
 pages:

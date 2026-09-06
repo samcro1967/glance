@@ -62,7 +62,7 @@
 {{ end }}
 
 {{ define "widget-content" }}
-<div class="status-bar status-bar-mode-{{ .Mode }}">
+<div class="status-bar status-bar-mode-{{ .Mode }}" data-ticker-speed="{{ .Speed }}">
     <div class="status-bar-track">
         <div class="status-bar-items">
             {{ template "status-bar-items" . }}
