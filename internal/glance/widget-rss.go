@@ -439,7 +439,7 @@ func resolveRSSURL(value string, bases ...string) string {
 			continue
 		}
 
-		if parsedBase.Scheme != "http" && parsedBase.Scheme != "https" {
+		if parsedBase.Host == "" || (parsedBase.Scheme != "http" && parsedBase.Scheme != "https") {
 			continue
 		}
 

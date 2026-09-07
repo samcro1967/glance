@@ -705,11 +705,11 @@ func gJsonResultArrayToDecoratedResultArray(results []gjson.Result) []decoratedG
 	return decoratedResults
 }
 
-func (r *decoratedGJSONResult) Exists(key string) bool {
+func (r decoratedGJSONResult) Exists(key string) bool {
 	return r.Result.Get(key).Exists()
 }
 
-func (r *decoratedGJSONResult) Array(key string) []decoratedGJSONResult {
+func (r decoratedGJSONResult) Array(key string) []decoratedGJSONResult {
 	if key == "" {
 		return gJsonResultArrayToDecoratedResultArray(r.Result.Array())
 	}
@@ -717,7 +717,7 @@ func (r *decoratedGJSONResult) Array(key string) []decoratedGJSONResult {
 	return gJsonResultArrayToDecoratedResultArray(r.Result.Get(key).Array())
 }
 
-func (r *decoratedGJSONResult) String(key string) string {
+func (r decoratedGJSONResult) String(key string) string {
 	if key == "" {
 		return r.Result.String()
 	}
@@ -725,7 +725,7 @@ func (r *decoratedGJSONResult) String(key string) string {
 	return r.Result.Get(key).String()
 }
 
-func (r *decoratedGJSONResult) Int(key string) int {
+func (r decoratedGJSONResult) Int(key string) int {
 	if key == "" {
 		return int(r.Result.Int())
 	}
@@ -733,7 +733,7 @@ func (r *decoratedGJSONResult) Int(key string) int {
 	return int(r.Result.Get(key).Int())
 }
 
-func (r *decoratedGJSONResult) Float(key string) float64 {
+func (r decoratedGJSONResult) Float(key string) float64 {
 	if key == "" {
 		return r.Result.Float()
 	}
@@ -741,7 +741,7 @@ func (r *decoratedGJSONResult) Float(key string) float64 {
 	return r.Result.Get(key).Float()
 }
 
-func (r *decoratedGJSONResult) Bool(key string) bool {
+func (r decoratedGJSONResult) Bool(key string) bool {
 	if key == "" {
 		return r.Result.Bool()
 	}
@@ -749,7 +749,7 @@ func (r *decoratedGJSONResult) Bool(key string) bool {
 	return r.Result.Get(key).Bool()
 }
 
-func (r *decoratedGJSONResult) Get(key string) *decoratedGJSONResult {
+func (r decoratedGJSONResult) Get(key string) *decoratedGJSONResult {
 	return &decoratedGJSONResult{r.Result.Get(key)}
 }
 
@@ -1063,6 +1063,13 @@ var customAPITemplateFuncs = func() template.FuncMap {
 		if _, exists := funcs[key]; !exists {
 			funcs[key] = value
 		}
+	}
+
+	for key, value := range customAPISproutTemplateFuncs() {
+		if _, exists := funcs[key]; exists {
+			panic("duplicate Custom API template function: " + key)
+		}
+		funcs[key] = value
 	}
 
 	return funcs
