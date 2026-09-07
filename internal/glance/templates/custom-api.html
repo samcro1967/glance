@@ -10,5 +10,8 @@
     <span {{ dynamicRelativeTimeAttrs .LastSuccessfulUpdate }}></span>
 </div>
 {{ end }}
+{{ if .PresentationJSON }}
+<script type="application/json" data-glance-presentation-config>{{ .PresentationJSON }}</script>
+{{ end }}
 {{ .CompiledHTML }}
 {{ end }}

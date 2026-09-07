@@ -1,3 +1,4 @@
+import { setupPresentation, refreshPresentationTheme } from './presentation.js';
 import { cleanupPopoversWithin, setupPopovers } from './popover.js';
 import { setupMasonries } from './masonry.js';
 import { throttledDebounce, isElementVisible, openURLInNewTab } from './utils.js';
@@ -1206,6 +1207,7 @@ async function changeTheme(key, onChanged) {
         document.documentElement.setAttribute("data-theme", key);
         document.documentElement.setAttribute("data-scheme", response.headers.get("X-Scheme"));
         typeof onChanged == "function" && onChanged();
+        refreshPresentationTheme();
         setTimeout(() => { tempStyle.remove(); }, 10);
 
         frontendDiagnostic("theme_change_complete", {
@@ -1308,6 +1310,7 @@ function cleanupLiveWidget(widgetElement) {
 async function initializeLiveWidget(widgetElement) {
     const cleanupCallbacks = [];
 
+    cleanupCallbacks.push(...setupPresentation(widgetElement));
     cleanupCallbacks.push(...setupCarousels(widgetElement));
     cleanupCallbacks.push(...setupCollapsibleGrids(widgetElement));
     cleanupCallbacks.push(...setupMasonries(widgetElement));
@@ -1616,6 +1619,7 @@ async function setupPage() {
     });
 
     try {
+        runFrontendDiagnosticStage("presentation", () => setupPresentation());
         runFrontendDiagnosticStage("popovers", () => setupPopovers());
         runFrontendDiagnosticStage("clocks", () => setupClocks());
         runFrontendDiagnosticStage("analog_clocks", () => setupAnalogClocks());

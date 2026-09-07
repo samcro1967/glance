@@ -1,0 +1,236 @@
+.glance-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
+    gap: 1rem;
+}
+
+.glance-metric {
+    min-width: 0;
+}
+
+.glance-metric-value {
+    color: var(--color-text-highlight);
+    font-size: var(--font-size-h2);
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.glance-metric-label {
+    margin-top: 0.2rem;
+    color: var(--theme-muted-text-color, var(--color-text-subdue));
+    font-size: var(--font-size-h6);
+}
+
+.glance-badge,
+.glance-status {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    border-radius: var(--theme-control-radius, var(--border-radius));
+    padding: 0.15rem 0.55rem;
+    font-size: var(--font-size-h6);
+    line-height: 1.4;
+}
+
+.glance-badge {
+    background: var(--color-widget-background-highlight);
+    color: var(--color-text-base);
+}
+
+.glance-status {
+    gap: 0.45rem;
+}
+
+.glance-status::before {
+    content: "";
+    width: 0.6rem;
+    height: 0.6rem;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.glance-status-positive {
+    color: var(--color-positive);
+}
+
+.glance-status-negative {
+    color: var(--color-negative);
+}
+
+.glance-status-warning {
+    color: var(--theme-warning-color, var(--color-primary));
+}
+
+.glance-status-neutral {
+    color: var(--theme-muted-text-color, var(--color-text-subdue));
+}
+
+.glance-key-values {
+    display: grid;
+    gap: 0.6rem;
+}
+
+.glance-key-value {
+    display: grid;
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+    align-items: baseline;
+    gap: 1rem;
+}
+
+.glance-key {
+    color: var(--theme-muted-text-color, var(--color-text-subdue));
+}
+
+.glance-value {
+    min-width: 0;
+    color: var(--color-text-highlight);
+    text-align: right;
+    overflow-wrap: anywhere;
+}
+
+.glance-card {
+    display: flex;
+    flex-direction: column;
+    padding: 0.8rem 1rem;
+    background: var(--theme-card-background-color, var(--color-widget-background));
+    border: 1px solid var(--theme-card-border-color, var(--color-widget-content-border));
+    border-radius: var(--theme-card-radius, var(--border-radius));
+    box-shadow: var(--theme-card-shadow);
+}
+
+.glance-progress {
+    border: 1px solid var(--color-progress-border);
+    border-radius: var(--border-radius);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 2px;
+    height: 1.5rem;
+    margin-inline: -3px;
+}
+
+.glance-progress-value {
+    --half-border-radius: calc(var(--border-radius) / 2);
+    border-radius: var(--half-border-radius);
+    background: var(--color-progress-value);
+    width: calc(var(--percent) * 1%);
+    min-width: 1px;
+    flex: 1;
+}
+
+.glance-details {
+    color: inherit;
+}
+
+.glance-summary {
+    cursor: pointer;
+}
+
+
+.glance-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
+    gap: 1rem;
+}
+
+.glance-state {
+    border: 1px solid var(--color-separator);
+    border-left-width: 3px;
+    border-radius: var(--border-radius);
+    padding: 0.8rem 1rem;
+    background: var(--color-widget-background-highlight);
+    color: var(--color-text-base);
+}
+
+.glance-state-empty {
+    border-left-color: var(--color-text-subdue);
+    color: var(--theme-muted-text-color, var(--color-text-subdue));
+}
+
+.glance-state-warning {
+    border-left-color: var(--theme-warning-color, var(--color-primary));
+}
+
+.glance-state-degraded {
+    border-left-color: var(--theme-warning-color, var(--color-primary));
+    border-left-style: dashed;
+}
+
+.glance-state-error {
+    border-left-color: var(--color-negative);
+}
+
+
+@container widget (max-width: 399px) {
+
+    .glance-key-value {
+        grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+        gap: 0.6rem;
+    }
+}
+
+
+.glance-table {
+    width: 100%;
+    border-collapse: collapse;
+    color: var(--color-text-base);
+}
+
+.glance-table th,
+.glance-table td {
+    padding: 0.55rem 0.7rem;
+    border-bottom: 1px solid var(--color-separator);
+    text-align: left;
+}
+
+.glance-table th {
+    color: var(--color-text-highlight);
+    font-weight: 600;
+}
+
+.glance-table tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.glance-chart {
+    position: relative;
+    width: 100%;
+    height: 180px;
+}
+
+
+.glance-chart canvas {
+    display: block;
+    max-width: 100%;
+}
+
+.glance-chart > script[type="application/json"] {
+    display: none;
+}
+
+.glance-chart-failed canvas {
+    display: none;
+}
+
+.glance-chart-gauge-value,
+.glance-chart-gauge-label {
+    position: absolute;
+    left: 50%;
+    z-index: 1;
+    transform: translateX(-50%);
+    pointer-events: none;
+}
+
+.glance-chart-gauge-value {
+    bottom: 30%;
+    color: var(--color-text-highlight);
+    font-size: 1.6rem;
+    font-weight: 700;
+}
+
+.glance-chart-gauge-label {
+    bottom: 18%;
+    color: var(--color-text-subdue);
+    font-size: 0.9rem;
+}

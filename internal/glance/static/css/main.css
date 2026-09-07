@@ -63,4 +63,7 @@
 @import "widgets.css";
 @import "popover.css";
 @import "utils.css";
+@import "vendor/datatables/dataTables.dataTables.min.css";
+@import "vendor/datatables/responsive.dataTables.min.css";
+@import "presentation.css";
 @import "mobile.css";
