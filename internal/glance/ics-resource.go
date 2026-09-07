@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -541,6 +542,49 @@ func fetchICSSource(ctx context.Context, source icsEventSource, cache *icsSource
 	cache.mutex.Unlock()
 
 	return body, nil
+}
+
+func applyICSSourceTimeoutDefault(sources []icsEventSource, value durationField) {
+	for i := range sources {
+		if !sources[i].configuredFields["timeout"] {
+			sources[i].Timeout = value
+		}
+	}
+}
+
+func applyICSSourceAllowInsecureDefault(sources []icsEventSource, value bool) {
+	for i := range sources {
+		if !sources[i].configuredFields["allow-insecure"] {
+			sources[i].AllowInsecure = value
+		}
+	}
+}
+
+func applyICSSourceHeadersDefault(sources []icsEventSource, value map[string]string) {
+	for i := range sources {
+		sources[i].Headers = mergeStringMaps(value, sources[i].Headers)
+	}
+}
+
+func applyICSSourceBasicAuthDefault(sources []icsEventSource, value basicAuthDefaults) {
+	for i := range sources {
+		source := &sources[i]
+		if source.configuredFields["basic-auth"] {
+			continue
+		}
+
+		source.BasicAuth.Username = value.Username
+		source.BasicAuth.Password = value.Password
+	}
+}
+
+func sortICSEvents(events []icsEvent) {
+	sort.SliceStable(events, func(i, j int) bool {
+		if events[i].Start.Equal(events[j].Start) {
+			return events[i].Title < events[j].Title
+		}
+		return events[i].Start.Before(events[j].Start)
+	})
 }
 
 func validateICSSources(sources []icsEventSource, requireSources bool) error {
