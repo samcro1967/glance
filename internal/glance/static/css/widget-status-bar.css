@@ -40,17 +40,42 @@
 
 .status-bar-mode-ticker .status-bar-track {
     width: max-content;
-    animation: statusBarTicker var(--status-bar-ticker-duration, 60s) linear infinite;
 }
 
-.status-bar-mode-ticker:hover .status-bar-track,
-.status-bar-mode-ticker:focus-within .status-bar-track {
+.status-bar-mode-ticker[data-ticker-ready="true"][data-ticker-short="false"] .status-bar-track {
+    animation: statusBarTicker var(--status-bar-ticker-duration) linear infinite;
+}
+
+.status-bar-mode-ticker[data-ticker-ready="true"][data-ticker-short="true"] .status-bar-track {
+    animation: statusBarTickerShort var(--status-bar-ticker-duration) linear infinite;
+}
+
+.status-bar-mode-ticker[data-ticker-short="true"] .status-bar-items-duplicate {
+    display: none;
+}
+
+.status-bar-mode-ticker[data-ticker-ready="true"]:hover .status-bar-track,
+.status-bar-mode-ticker[data-ticker-ready="true"]:focus-within .status-bar-track {
     animation-play-state: paused;
 }
 
 @keyframes statusBarTicker {
+    from {
+        transform: translateX(0);
+    }
+
     to {
-        transform: translateX(-50%);
+        transform: translateX(calc(-1 * var(--status-bar-ticker-content-width)));
+    }
+}
+
+@keyframes statusBarTickerShort {
+    from {
+        transform: translateX(var(--status-bar-ticker-container-width));
+    }
+
+    to {
+        transform: translateX(calc(-1 * var(--status-bar-ticker-content-width)));
     }
 }
 
