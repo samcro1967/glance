@@ -3,7 +3,7 @@
 }
 
 .todo-plus-icon {
-    --icon-color: var(--color-text-subdue);
+    --icon-color: var(--theme-muted-text-color, var(--color-text-subdue));
     position: relative;
     width: 1.4rem;
     height: 1.4rem;
@@ -31,16 +31,16 @@
 }
 
 .todo-input textarea::placeholder {
-    color: var(--color-text-base-muted);
+    color: var(--theme-muted-text-color, var(--color-text-base-muted));
 }
 
 .todo-input {
     position: relative;
-    color: var(--color-text-highlight);
+    color: var(--theme-text-color, var(--color-text-highlight));
 }
 
 .todo-input:focus-within .todo-plus-icon {
-    --icon-color: var(--color-text-base);
+    --icon-color: var(--theme-text-color, var(--color-text-base));
 }
 
 .todo-item {
@@ -51,7 +51,7 @@
 .todo-item-checkbox {
     -webkit-appearance: none;
     appearance: none;
-    border: 2px solid var(--color-text-subdue);
+    border: 2px solid var(--theme-muted-text-color, var(--color-text-subdue));
     width: 1.4rem;
     height: 1.4rem;
     position: relative;
@@ -76,22 +76,22 @@
 }
 
 .todo-item-checkbox:checked::after {
-    background: var(--color-primary);
+    background: var(--theme-accent-color, var(--color-primary));
     opacity: 1;
 }
 
 .todo-item-checkbox:focus-visible {
     outline: none;
-    border-color: var(--color-primary);
+    border-color: var(--theme-control-focus-color, var(--theme-accent-color, var(--color-primary)));
 }
 
 .todo-item-text {
-    color: var(--color-text-base);
+    color: var(--theme-text-color, var(--color-text-base));
     transition: color .35s;
 }
 
 .todo-item-text:focus {
-    color: var(--color-text-highlight);
+    color: var(--theme-heading-text-color, var(--color-text-highlight));
 }
 
 .todo-item-drag-handle {
@@ -109,7 +109,7 @@
 
 .todo-item:has(.todo-item-checkbox:checked) .todo-item-text {
     text-decoration: line-through;
-    color: var(--color-text-subdue);
+    color: var(--theme-muted-text-color, var(--color-text-subdue));
 }
 
 .todo-item-delete {

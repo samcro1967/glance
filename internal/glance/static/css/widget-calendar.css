@@ -7,7 +7,7 @@
 .old-calendar-day-today {
     border-radius: var(--border-radius);
     background-color: hsl(var(--bghs), calc(var(--scheme) (var(--scheme) (var(--bgl)) + 6%)));
-    color: var(--color-text-highlight);
+    color: var(--theme-heading-text-color, var(--color-text-highlight));
 }
 
 .calendar-dates {
@@ -19,7 +19,7 @@
 
 .calendar-date {
     padding: 0.4rem 0;
-    color: var(--color-text-base);
+    color: var(--theme-text-color, var(--color-text-base));
     position: relative;
     border-radius: var(--border-radius);
     background: none;
@@ -30,11 +30,11 @@
 .calendar-current-date {
     border-radius: var(--border-radius);
     background-color: var(--color-popover-border);
-    color: var(--color-text-highlight);
+    color: var(--theme-heading-text-color, var(--color-text-highlight));
 }
 
 .calendar-spillover-date {
-    color: var(--color-text-subdue);
+    color: var(--theme-muted-text-color, var(--color-text-subdue));
 }
 
 .calendar-header-button {
@@ -52,7 +52,7 @@
     position: absolute;
     inset: -0.2rem;
     border-radius: var(--border-radius);
-    background-color: var(--color-text-subdue);
+    background-color: var(--theme-muted-text-color, var(--color-text-subdue));
     opacity: 0;
     transition: opacity 0.2s;
     z-index: -1;
@@ -75,7 +75,7 @@
 }
 
 .calendar-date:focus-visible {
-    outline: 2px solid var(--color-primary);
+    outline: 2px solid var(--theme-control-focus-color, var(--theme-accent-color, var(--color-primary)));
     outline-offset: -2px;
 }
 
@@ -89,7 +89,7 @@
     vertical-align: super;
     font-size: 0.65em;
     line-height: 1;
-    color: var(--color-primary);
+    color: var(--theme-accent-color, var(--color-primary));
 }
 
 .calendar-date-has-events {
@@ -97,7 +97,7 @@
 }
 
 .calendar-selected-date {
-    background-color: var(--color-primary);
+    background-color: var(--theme-accent-color, var(--color-primary));
     color: var(--color-background);
 }
 
@@ -115,7 +115,7 @@
 }
 
 .calendar-details {
-    border-top: 1px solid var(--color-widget-content-border);
+    border-top: 1px solid var(--theme-separator-color, var(--color-widget-content-border));
     padding-top: 1rem;
 }
 

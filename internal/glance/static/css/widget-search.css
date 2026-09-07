@@ -31,14 +31,16 @@
 .search {
     transition: border-color .2s;
     position: relative;
-\n    background-color: var(--theme-control-background-color, var(--color-widget-background));\n    border-radius: var(--theme-control-radius, var(--border-radius));}
+    background-color: var(--theme-control-background-color, var(--color-widget-background));
+    border-radius: var(--theme-control-radius, var(--border-radius));
+}
 
 .search:hover {
     border-color: var(--theme-control-muted-color, var(--theme-muted-text-color, var(--color-text-subdue)));
 }
 
 .search:focus-within {
-    border-color: var(--color-primary);
+    border-color: var(--theme-control-focus-color, var(--theme-accent-color, var(--color-primary)));
 }
 
 .search-input {
@@ -48,19 +50,17 @@
     height: 6rem;
     font: inherit;
     outline: none;
-    color: var(--color-text-highlight);
-\n    color: var(--theme-control-text-color, var(--color-text-base));}
+    color: var(--theme-control-text-color, var(--color-text-highlight));
+}
 
 .search-input::placeholder {
-    color: var(--color-text-base-muted);
+    color: var(--theme-control-muted-color, var(--theme-muted-text-color, var(--color-text-base-muted)));
     opacity: 1;
 }
 
 .search-bangs { display: none; }
 
 .search-bang {
-    border-radius: calc(var(--border-radius) * 2);
-    background: var(--color-widget-background-highlight);
     padding: 0.3rem 1rem;
     flex-shrink: 0;
     font-size: var(--font-size-h5);

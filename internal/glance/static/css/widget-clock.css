@@ -3,5 +3,5 @@
 }
 
 .clock-time span {
-    color: var(--color-text-highlight);
+    color: var(--theme-heading-text-color, var(--color-text-highlight));
 }

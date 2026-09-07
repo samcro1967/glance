@@ -11,7 +11,7 @@
     position: absolute;
     inset: 0;
     overflow: hidden;
-    border-radius: var(--border-radius);
+    border-radius: var(--theme-card-radius, var(--border-radius));
 }
 
 .reddit-card-thumbnail-container::after {
