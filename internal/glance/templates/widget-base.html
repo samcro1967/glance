@@ -2,9 +2,9 @@
     {{- if not .HideHeader }}
     <div class="widget-header">
         {{- if ne "" .TitleURL }}
-        <h2><a href="{{ .TitleURL | safeURL }}"{{ if .OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }} class="uppercase">{{ .Title }}</a></h2>
+        <h2><a href="{{ .TitleURL | safeURL }}"{{ if .OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }}>{{ .Title }}</a></h2>
         {{- else }}
-        <h2 class="uppercase">{{ .Title }}</h2>
+        <h2>{{ .Title }}</h2>
         {{- end }}
         {{- if .IsWIP }}
         <div data-popover-type="html" data-popover-position="above">
