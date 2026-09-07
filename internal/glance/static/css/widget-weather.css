@@ -10,7 +10,7 @@
 
 .weather-column-value, .weather-columns:hover .weather-column-value {
     font-size: 13px;
-    color: var(--color-text-highlight);
+    color: var(--theme-heading-text-color, var(--color-text-highlight));
     letter-spacing: -0.1rem;
     margin-right: 0.1rem;
     position: relative;
@@ -30,7 +30,7 @@
     position: absolute;
     content: '°';
     left: 100%;
-    color: var(--color-text-subdue);
+    color: var(--theme-muted-text-color, var(--color-text-subdue));
 }
 
 .weather-column-value.weather-column-value-negative::before {
@@ -132,7 +132,7 @@
     width: .4em;
     height: .4em;
     border-radius: 50%;
-    background-color: var(--color-widget-background);
+    background-color: var(--theme-widget-background-color, var(--color-widget-background));
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
@@ -142,7 +142,7 @@
 /* Expanded weather sections */
 .weather-current-temperature {
     margin: 0.15rem 0;
-    color: var(--color-text-highlight);
+    color: var(--theme-heading-text-color, var(--color-text-highlight));
     font-size: 2rem;
     font-weight: 500;
     line-height: 1;
@@ -154,7 +154,7 @@
     gap: 0.45rem 1rem;
     margin-top: 1.2rem;
     padding-top: 1rem;
-    border-top: 1px solid var(--color-widget-content-border);
+    border-top: 1px solid var(--theme-separator-color, var(--color-widget-content-border));
 }
 
 .weather-detail {
@@ -165,21 +165,15 @@
     font-size: var(--font-size-h6);
 }
 
-.weather-detail-label {
-    color: var(--color-text-subdue);
-    white-space: nowrap;
-}
-
+.weather-detail-label,
 .weather-detail-value {
-    color: var(--color-text-highlight);
-    text-align: right;
     white-space: nowrap;
 }
 
 .weather-forecast {
     margin-top: 1.2rem;
     padding-top: 0.7rem;
-    border-top: 1px solid var(--color-widget-content-border);
+    border-top: 1px solid var(--theme-separator-color, var(--color-widget-content-border));
 }
 
 .weather-forecast-day {
@@ -192,12 +186,12 @@
 }
 
 .weather-forecast-date {
-    color: var(--color-text-highlight);
+    color: var(--theme-heading-text-color, var(--color-text-highlight));
     font-weight: 500;
 }
 
 .weather-forecast-condition {
-    color: var(--color-text-base);
+    color: var(--theme-text-color, var(--color-text-base));
 }
 
 .weather-forecast-precipitation {

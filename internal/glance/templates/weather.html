@@ -13,36 +13,36 @@
     {{ if .ShowDetails }}
     <div class="weather-details">
         <div class="weather-detail">
-            <span class="weather-detail-label">High / Low</span>
-            <span class="weather-detail-value">{{ .Weather.Details.HighTemperature }}° / {{ .Weather.Details.LowTemperature }}°</span>
+            <span class="weather-detail-label glance-key">High / Low</span>
+            <span class="weather-detail-value glance-value">{{ .Weather.Details.HighTemperature }}° / {{ .Weather.Details.LowTemperature }}°</span>
         </div>
         <div class="weather-detail">
-            <span class="weather-detail-label">Humidity</span>
-            <span class="weather-detail-value">{{ .Weather.Details.Humidity }}%</span>
+            <span class="weather-detail-label glance-key">Humidity</span>
+            <span class="weather-detail-value glance-value">{{ .Weather.Details.Humidity }}%</span>
         </div>
         <div class="weather-detail">
-            <span class="weather-detail-label">Precipitation</span>
-            <span class="weather-detail-value">{{ .Weather.Details.PrecipitationProbability }}%</span>
+            <span class="weather-detail-label glance-key">Precipitation</span>
+            <span class="weather-detail-value glance-value">{{ .Weather.Details.PrecipitationProbability }}%</span>
         </div>
         <div class="weather-detail">
-            <span class="weather-detail-label">Wind</span>
-            <span class="weather-detail-value">{{ printf "%.0f" .Weather.Details.WindSpeed }} {{ if eq .Units "metric" }}km/h{{ else }}mph{{ end }} {{ .Weather.Details.WindDirectionAsString }}</span>
+            <span class="weather-detail-label glance-key">Wind</span>
+            <span class="weather-detail-value glance-value">{{ printf "%.0f" .Weather.Details.WindSpeed }} {{ if eq .Units "metric" }}km/h{{ else }}mph{{ end }} {{ .Weather.Details.WindDirectionAsString }}</span>
         </div>
         <div class="weather-detail">
-            <span class="weather-detail-label">UV</span>
-            <span class="weather-detail-value">{{ printf "%.1f" .Weather.Details.UVIndex }}</span>
+            <span class="weather-detail-label glance-key">UV</span>
+            <span class="weather-detail-value glance-value">{{ printf "%.1f" .Weather.Details.UVIndex }}</span>
         </div>
         <div class="weather-detail">
-            <span class="weather-detail-label">Visibility</span>
-            <span class="weather-detail-value">{{ .Weather.Details.VisibilityAsString .Units }}</span>
+            <span class="weather-detail-label glance-key">Visibility</span>
+            <span class="weather-detail-value glance-value">{{ .Weather.Details.VisibilityAsString .Units }}</span>
         </div>
         <div class="weather-detail">
-            <span class="weather-detail-label">Pressure</span>
-            <span class="weather-detail-value">{{ .Weather.Details.PressureAsString .Units }}</span>
+            <span class="weather-detail-label glance-key">Pressure</span>
+            <span class="weather-detail-value glance-value">{{ .Weather.Details.PressureAsString .Units }}</span>
         </div>
         <div class="weather-detail">
-            <span class="weather-detail-label">Sunrise / Sunset</span>
-            <span class="weather-detail-value">{{ .Weather.Details.SunriseSunsetAsString .HourFormat }}</span>
+            <span class="weather-detail-label glance-key">Sunrise / Sunset</span>
+            <span class="weather-detail-value glance-value">{{ .Weather.Details.SunriseSunsetAsString .HourFormat }}</span>
         </div>
     </div>
     {{ end }}

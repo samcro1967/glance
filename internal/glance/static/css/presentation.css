@@ -9,7 +9,7 @@
 }
 
 .glance-metric-value {
-    color: var(--color-text-highlight);
+    color: var(--theme-heading-text-color, var(--color-text-highlight));
     font-size: var(--font-size-h2);
     font-weight: 600;
     line-height: 1.2;
@@ -33,8 +33,8 @@
 }
 
 .glance-badge {
-    background: var(--color-widget-background-highlight);
-    color: var(--color-text-base);
+    background: var(--theme-elevated-background-color, var(--color-widget-background-highlight));
+    color: var(--theme-text-color, var(--color-text-base));
 }
 
 .glance-status {
@@ -84,7 +84,7 @@
 
 .glance-value {
     min-width: 0;
-    color: var(--color-text-highlight);
+    color: var(--theme-text-color, var(--color-text-highlight));
     text-align: right;
     overflow-wrap: anywhere;
 }
@@ -100,8 +100,8 @@
 }
 
 .glance-progress {
-    border: 1px solid var(--color-progress-border);
-    border-radius: var(--border-radius);
+    border: 1px solid var(--theme-control-border-color, var(--color-progress-border));
+    border-radius: var(--theme-control-radius, var(--border-radius));
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -111,9 +111,9 @@
 }
 
 .glance-progress-value {
-    --half-border-radius: calc(var(--border-radius) / 2);
+    --half-border-radius: calc(var(--theme-control-radius, var(--border-radius)) / 2);
     border-radius: var(--half-border-radius);
-    background: var(--color-progress-value);
+    background: var(--theme-accent-color, var(--color-progress-value));
     width: calc(var(--percent) * 1%);
     min-width: 1px;
     flex: 1;
@@ -135,16 +135,16 @@
 }
 
 .glance-state {
-    border: 1px solid var(--color-separator);
+    border: 1px solid var(--theme-elevated-border-color, var(--color-separator));
     border-left-width: 3px;
-    border-radius: var(--border-radius);
+    border-radius: var(--theme-card-radius, var(--border-radius));
     padding: 0.8rem 1rem;
-    background: var(--color-widget-background-highlight);
-    color: var(--color-text-base);
+    background: var(--theme-elevated-background-color, var(--color-widget-background-highlight));
+    color: var(--theme-text-color, var(--color-text-base));
 }
 
 .glance-state-empty {
-    border-left-color: var(--color-text-subdue);
+    border-left-color: var(--theme-muted-text-color, var(--color-text-subdue));
     color: var(--theme-muted-text-color, var(--color-text-subdue));
 }
 
@@ -174,18 +174,18 @@
 .glance-table {
     width: 100%;
     border-collapse: collapse;
-    color: var(--color-text-base);
+    color: var(--theme-text-color, var(--color-text-base));
 }
 
 .glance-table th,
 .glance-table td {
     padding: 0.55rem 0.7rem;
-    border-bottom: 1px solid var(--color-separator);
+    border-bottom: 1px solid var(--theme-separator-color, var(--color-separator));
     text-align: left;
 }
 
 .glance-table th {
-    color: var(--color-text-highlight);
+    color: var(--theme-heading-text-color, var(--color-text-highlight));
     font-weight: 600;
 }
 
@@ -224,13 +224,13 @@
 
 .glance-chart-gauge-value {
     bottom: 30%;
-    color: var(--color-text-highlight);
+    color: var(--theme-heading-text-color, var(--color-text-highlight));
     font-size: 1.6rem;
     font-weight: 700;
 }
 
 .glance-chart-gauge-label {
     bottom: 18%;
-    color: var(--color-text-subdue);
+    color: var(--theme-muted-text-color, var(--color-text-subdue));
     font-size: 0.9rem;
 }

@@ -1,8 +1,8 @@
 .widget-type-status-bar .widget-content {
     overflow: hidden;
-    background: var(--color-widget-background);
-    border: 1px solid var(--color-widget-content-border);
-    border-radius: var(--border-radius);
+    background: var(--theme-widget-background-color, var(--color-widget-background));
+    border: 1px solid var(--theme-widget-border-color, var(--color-widget-content-border));
+    border-radius: var(--theme-widget-radius, var(--border-radius));
     box-shadow: 0px 3px 0px 0px hsl(var(--bghs), calc(var(--scheme) (var(--scheme) var(--bgl)) - 0.5%));
 }
 
@@ -30,11 +30,11 @@
 }
 
 .status-bar-item + .status-bar-item {
-    border-left: 1px solid var(--color-separator);
+    border-left: 1px solid var(--theme-separator-color, var(--color-separator));
 }
 
 .status-bar-primary {
-    color: var(--color-text-highlight);
+    color: var(--theme-heading-text-color, var(--color-text-highlight));
     font-weight: 600;
 }
 
@@ -145,7 +145,7 @@
     align-self: end;
     padding-left: 0.7rem;
     white-space: nowrap;
-    background: var(--color-widget-background);
+    background: var(--theme-widget-background-color, var(--color-widget-background));
 }
 
 .status-bar-rss-meta > * + * {
