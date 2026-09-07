@@ -517,7 +517,7 @@ pr-watch:
 		if [ "$$head" = "$(DEV_BRANCH)" ]; then base="$(STABLE_BRANCH)"; \
 		elif [ "$$head" = "$(STABLE_BRANCH)" ]; then base="$(DEV_BRANCH)"; \
 		else base="$(DEV_BRANCH)"; fi; \
-		pr="$$(scripts/resolve_pr.py --repo "$(REPO)" --head "$$head" --base "$$base")"; \
+		pr="$$(python3 scripts/resolve_pr.py --repo "$(REPO)" --head "$$head" --base "$$base")"; \
 		echo "Resolved PR #$$pr for $$head -> $$base."; \
 	fi; \
 	pr_state="$$(gh pr view "$$pr" --repo "$(REPO)" --json state --jq '.state')"; \
@@ -649,7 +649,7 @@ pr-finish:
 	fi; \
 	pr="$(PR)"; \
 	if [ -z "$$pr" ]; then \
-		pr="$$(scripts/resolve_pr.py --repo "$(REPO)" --head "$$head" --base "$(DEV_BRANCH)")"; \
+		pr="$$(python3 scripts/resolve_pr.py --repo "$(REPO)" --head "$$head" --base "$(DEV_BRANCH)")"; \
 		echo "Resolved feature PR #$$pr."; \
 	fi; \
 	base="$$(gh pr view "$$pr" --repo "$(REPO)" --json baseRefName --jq '.baseRefName')"; \
@@ -676,9 +676,18 @@ promote-finish:
 		echo "Promotion finish requires branch $(DEV_BRANCH); current branch is $$branch."; \
 		exit 1; \
 	fi; \
+	git fetch origin --prune; \
+	local_revision="$$(git rev-parse $(DEV_BRANCH))"; \
+	origin_revision="$$(git rev-parse origin/$(DEV_BRANCH))"; \
+	if [ "$$local_revision" != "$$origin_revision" ]; then \
+		echo "Refusing promote-finish: local $(DEV_BRANCH) does not match origin/$(DEV_BRANCH)."; \
+		echo "Local:  $$local_revision"; \
+		echo "Origin: $$origin_revision"; \
+		exit 1; \
+	fi; \
 	pr="$(PR)"; \
 	if [ -z "$$pr" ]; then \
-		pr="$$(scripts/resolve_pr.py --repo "$(REPO)" --head "$(DEV_BRANCH)" --base "$(STABLE_BRANCH)")"; \
+		pr="$$(python3 scripts/resolve_pr.py --repo "$(REPO)" --head "$(DEV_BRANCH)" --base "$(STABLE_BRANCH)")"; \
 		echo "Resolved promotion PR #$$pr."; \
 	fi; \
 	head="$$(gh pr view "$$pr" --repo "$(REPO)" --json headRefName --jq '.headRefName')"; \
@@ -700,9 +709,18 @@ sync-finish:
 		echo "Synchronization finish requires branch $(DEV_BRANCH); current branch is $$branch."; \
 		exit 1; \
 	fi; \
+	git fetch origin --prune; \
+	local_revision="$$(git rev-parse $(DEV_BRANCH))"; \
+	origin_revision="$$(git rev-parse origin/$(DEV_BRANCH))"; \
+	if [ "$$local_revision" != "$$origin_revision" ]; then \
+		echo "Refusing sync-finish: local $(DEV_BRANCH) does not match origin/$(DEV_BRANCH)."; \
+		echo "Local:  $$local_revision"; \
+		echo "Origin: $$origin_revision"; \
+		exit 1; \
+	fi; \
 	pr="$(PR)"; \
 	if [ -z "$$pr" ]; then \
-		pr="$$(scripts/resolve_pr.py --repo "$(REPO)" --head "$(STABLE_BRANCH)" --base "$(DEV_BRANCH)")"; \
+		pr="$$(python3 scripts/resolve_pr.py --repo "$(REPO)" --head "$(STABLE_BRANCH)" --base "$(DEV_BRANCH)")"; \
 		echo "Resolved synchronization PR #$$pr."; \
 	fi; \
 	head="$$(gh pr view "$$pr" --repo "$(REPO)" --json headRefName --jq '.headRefName')"; \
