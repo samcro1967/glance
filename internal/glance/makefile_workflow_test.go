@@ -183,7 +183,7 @@ func TestMakefilePRAutoResolution(t *testing.T) {
 			if !strings.Contains(recipe, `pr="$(PR)"`) {
 				t.Fatalf("%s must preserve explicit PR override", test.target)
 			}
-			if !strings.Contains(recipe, `scripts/resolve_pr.py`) {
+			if !strings.Contains(recipe, `python3 scripts/resolve_pr.py`) {
 				t.Fatalf("%s must auto-resolve PR when PR is omitted", test.target)
 			}
 			if !strings.Contains(recipe, test.head) {
@@ -199,7 +199,7 @@ func TestMakefilePRAutoResolution(t *testing.T) {
 	if !strings.Contains(watch, `pr="$(PR)"`) {
 		t.Fatal("pr-watch must preserve explicit PR override")
 	}
-	if !strings.Contains(watch, `scripts/resolve_pr.py`) {
+	if !strings.Contains(watch, `python3 scripts/resolve_pr.py`) {
 		t.Fatal("pr-watch must auto-resolve PR when PR is omitted")
 	}
 }
