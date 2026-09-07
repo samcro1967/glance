@@ -502,6 +502,77 @@ The following helper functions provided by Glance are available:
 > [!WARNING]
 > Values rendered by Custom API templates are HTML-escaped by default. `safeHTML` bypasses that protection and should only be used with HTML from a source you trust. Untrusted HTML may contain scripts, event handlers, or other active content that executes in the browser.
 
+### Sprout functions
+
+Custom API templates also provide a curated set of functions from [Sprout](https://github.com/go-sprout/sprout), currently based on Sprout v1.1.1. Sprout functions are exposed with a `sprout` prefix so they do not replace or change the behavior of existing Glance helpers. For example, Glance `add` remains `add`, while Sprout `add` is available as `sproutAdd`.
+
+Only the functions listed below are part of the Custom API Sprout surface. Sprout aliases and functions from other Sprout registries are not automatically exposed. This keeps dependency upgrades from silently expanding the Custom API template environment.
+
+#### Conversion
+
+`sproutToBool`, `sproutToInt`, `sproutToInt64`, `sproutToUint`, `sproutToUint64`, `sproutToFloat64`, `sproutToOctal`, `sproutToString`, `sproutToDate`, `sproutToLocalDate`, `sproutToDuration`
+
+#### Strings
+
+`sproutNospace`, `sproutTrim`, `sproutTrimAll`, `sproutTrimPrefix`, `sproutTrimSuffix`, `sproutContains`, `sproutHasPrefix`, `sproutHasSuffix`, `sproutToLower`, `sproutToUpper`, `sproutReplace`, `sproutRepeat`, `sproutJoin`, `sproutTrunc`, `sproutEllipsis`, `sproutEllipsisBoth`, `sproutInitials`, `sproutPlural`, `sproutWrap`, `sproutWrapWith`, `sproutQuote`, `sproutSquote`, `sproutToCamelCase`, `sproutToKebabCase`, `sproutToPascalCase`, `sproutToDotCase`, `sproutToPathCase`, `sproutToConstantCase`, `sproutToSnakeCase`, `sproutToTitleCase`, `sproutUntitle`, `sproutSwapCase`, `sproutCapitalize`, `sproutUncapitalize`, `sproutSplit`, `sproutSplitn`, `sproutSubstr`, `sproutIndent`, `sproutNindent`, `sproutSeq`, `sproutEscape`, `sproutUnescape`
+
+#### Slices
+
+`sproutList`, `sproutAppend`, `sproutPrepend`, `sproutConcat`, `sproutChunk`, `sproutUniq`, `sproutCompact`, `sproutFlatten`, `sproutFlattenDepth`, `sproutSlice`, `sproutHas`, `sproutWithout`, `sproutRest`, `sproutInitial`, `sproutFirst`, `sproutLast`, `sproutReverse`, `sproutSortAlpha`, `sproutSplitList`, `sproutStrSlice`, `sproutUntil`, `sproutUntilStep`
+
+#### Maps
+
+`sproutDict`, `sproutGet`, `sproutSet`, `sproutUnset`, `sproutKeys`, `sproutValues`, `sproutPluck`, `sproutPick`, `sproutOmit`, `sproutDig`, `sproutHasKey`, `sproutMerge`, `sproutMergeOverwrite`
+
+#### Regular expressions
+
+`sproutRegexFind`, `sproutRegexFindAll`, `sproutRegexMatch`, `sproutRegexSplit`, `sproutRegexReplaceAll`, `sproutRegexReplaceAllLiteral`, `sproutRegexQuoteMeta`, `sproutRegexFindGroups`, `sproutRegexFindAllGroups`, `sproutRegexFindNamed`, `sproutRegexFindAllNamed`
+
+#### Numeric
+
+`sproutFloor`, `sproutCeil`, `sproutRound`, `sproutAdd`, `sproutAdd1`, `sproutSub`, `sproutMul`, `sproutMulf`, `sproutDiv`, `sproutDivf`, `sproutMod`, `sproutMin`, `sproutMinf`, `sproutMax`, `sproutMaxf`
+
+#### Standard helpers
+
+`sproutDefault`, `sproutEmpty`, `sproutAll`, `sproutAny`, `sproutCoalesce`, `sproutTernary`, `sproutCat`
+
+#### Encoding
+
+`sproutBase64Encode`, `sproutBase64Decode`, `sproutBase32Encode`, `sproutBase32Decode`, `sproutFromJSON`, `sproutToJSON`, `sproutToPrettyJSON`, `sproutToRawJSON`, `sproutFromYAML`, `sproutToYAML`, `sproutToIndentYAML`
+
+#### Semantic versions
+
+`sproutSemver`, `sproutSemverCompare`
+
+The Sprout `shuffle` and `hello` functions are intentionally not exposed. Custom API also does not expose Sprout checksum, crypto, environment, filesystem, random, network, reflection, time, UUID/unique-ID, or deprecated regexp registries. Sprout aliases, including `must*` compatibility aliases, are not exposed.
+
+Existing Glance helpers keep their existing behavior even when Sprout provides a similarly named function. This distinction can be meaningful: Glance `div` returns `0` when dividing by zero, while `sproutDiv` reports a template execution error.
+
+Sprout slice helpers work directly with arrays returned by `.JSON.Array`. The resulting JSON elements retain their normal `String`, `Int`, `Float`, `Bool`, `Exists`, `Array`, and `Get` methods.
+
+For example:
+
+```go-html-template
+{{ $items := .JSON.Array "items" }}
+First: {{ ($items | sproutFirst).String "name" }}
+Last: {{ ($items | sproutLast).String "name" }}
+
+{{ range $items | sproutReverse }}
+  <div>{{ .String "name" }}</div>
+{{ end }}
+```
+
+Sprout helpers can also be used independently of JSON data:
+
+```go-html-template
+{{ sproutToUpper "glance" }}
+{{ sproutDefault "fallback" "" }}
+{{ sproutRegexMatch "^g.*e$" "glance" }}
+{{ sproutAdd 2 3 }}
+```
+
+See the [Sprout documentation](https://docs.atom.codes/sprout) for detailed behavior and argument conventions of the underlying functions. Remember to add the `sprout` prefix to the supported function names when using them in Custom API templates.
+
 The following helper functions provided by Go's `text/template` are available:
 
 - `eq(a, b any) bool`: Compares two values for equality.

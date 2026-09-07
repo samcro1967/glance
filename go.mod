@@ -5,6 +5,7 @@ go 1.27.1
 require (
 	github.com/arran4/golang-ical v0.3.6
 	github.com/fsnotify/fsnotify v1.10.1
+	github.com/go-sprout/sprout v1.1.1
 	github.com/mmcdole/gofeed v1.4.2
 	github.com/refraction-networking/utls v1.8.2
 	github.com/shirou/gopsutil/v4 v4.26.8
@@ -18,6 +19,8 @@ require (
 )
 
 require (
+	dario.cat/mergo v1.0.2 // indirect
+	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/andybalholm/brotli v1.2.3 // indirect
 	github.com/ebitengine/purego v0.11.0 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
@@ -25,10 +28,12 @@ require (
 	github.com/lufia/plan9stats v0.0.0-20260802145828-341c2f0c90b5 // indirect
 	github.com/mmcdole/goxpp/v2 v2.0.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20260805114148-88456608a4f6 // indirect
+	github.com/spf13/cast v1.10.0 // indirect
 	github.com/tidwall/match v1.2.0 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tklauser/go-sysconf v0.4.0 // indirect
 	github.com/tklauser/numcpus v0.12.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 )

@@ -699,6 +699,31 @@ pages:
 
       - size: medium
         widgets:
+          - type: custom-api
+            title: Custom API - Sprout
+            url: https://api.github.com/repos/samcro1967/glance
+            basic-auth:
+              username: ""
+              password: ""
+            headers:
+              Accept: application/vnd.github+json
+              X-Glance-Test-Instance: custom-api-sprout
+            template: |
+              <div class="flex flex-column gap-5">
+                <div class="size-h4 color-highlight">Sprout Runtime Validation</div>
+                <div>Repository: {{ .JSON.String "full_name" }}</div>
+                <div>Legacy add: {{ add 2 3 }} | Sprout add: {{ sproutAdd 2 3 }}</div>
+                <div>Legacy div: {{ div 10 2 }} | Sprout div: {{ sproutDiv 10 2 }}</div>
+                <div>Legacy upper: {{ toUpper "glance" }} | Sprout upper: {{ sproutToUpper "glance" }}</div>
+                <div>Sprout default: {{ sproutDefault "fallback" "" }}</div>
+                <div>Sprout regex: {{ sproutRegexMatch "^samcro1967/.+$" (.JSON.String "full_name") }}</div>
+                <div>Sprout list: {{ sproutList "alpha" "bravo" "charlie" | sproutLast }}</div>
+                <div>Sprout reverse: {{ sproutList "alpha" "bravo" "charlie" | sproutReverse | sproutJoin ", " }}</div>
+                <div>Sprout map: {{ sproutDict "project" (.JSON.String "name") | sproutGet "project" }}</div>
+                <div>Sprout Base64: {{ sproutBase64Encode "glance" }}</div>
+                <div>Sprout semver: {{ sproutSemverCompare ">=1.0.0" "1.1.1" }}</div>
+              </div>
+
           - type: monitor
             title: Public Monitors
             sites:
