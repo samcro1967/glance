@@ -21,7 +21,7 @@ A page can contain one or multiple status bars in `head-widgets`, one or multipl
 
 Weather, Markets, and RSS children are configured through the `widgets` property using their normal widget configuration. They retain their existing provider fetching, caching, refresh, recovery, error handling, limits, sorting, and link behavior, but are displayed using a compact status-bar presentation rather than their normal full widget layout.
 
-A `custom-api` child uses a dedicated compact mode. It retains the normal Custom API request, HTTP, caching, refresh, stale-content, recovery, and link behavior, but does not accept `template`, `subrequests`, `options`, or `skip-json-validation` inside a Status Bar. Its response must instead conform to the locked Status Bar Custom API contract described below.
+A `custom-api` child uses a dedicated compact mode. It retains the normal Custom API request, HTTP, caching, refresh, stale-content, recovery, and link behavior, but does not accept `template`, `subrequests`, `options`, `skip-json-validation`, `tables`, or `charts` inside a Status Bar. Its response must instead conform to the locked Status Bar Custom API contract described below.
 
 ## Quick start
 
@@ -125,7 +125,7 @@ Unknown root or item fields are rejected. Every field that is present must be a 
 
 The optional `url` applies to the complete compact item and honors the normal link destination behavior, including `new-tab` where configured. Omitting `url` renders a non-link item. Either icon may be omitted independently.
 
-Inside a Status Bar, Custom API is deliberately restricted to this contract. Do not configure `template`, `subrequests`, `options`, or `skip-json-validation` on the child. This keeps the Status Bar presentation deterministic and prevents arbitrary Custom API templates from becoming a second Status Bar rendering system.
+Inside a Status Bar, Custom API is deliberately restricted to this contract. Do not configure `template`, `subrequests`, `options`, `skip-json-validation`, `tables`, or `charts` on the child. This keeps the Status Bar presentation deterministic and prevents arbitrary Custom API templates from becoming a second Status Bar rendering system.
 
 The status bar intentionally provides an alternate presentation of existing widgets rather than a separate data-source system. Weather uses the configured location and units, Markets preserves configured symbols, names, sorting and links, and RSS preserves its configured feeds, limits, ordering and article links.
 

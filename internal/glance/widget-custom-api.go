@@ -136,15 +136,18 @@ type statusBarCustomAPIEnvelope struct {
 
 type customAPIWidget struct {
 	widgetBase           `yaml:",inline"`
-	*CustomAPIRequest    `yaml:",inline"`     // the primary request
-	Subrequests          customAPISubrequests `yaml:"subrequests"`
-	Options              customAPIOptions     `yaml:"options"`
-	Template             string               `yaml:"template"`
-	Frameless            bool                 `yaml:"frameless"`
-	compiledTemplate     *template.Template   `yaml:"-"`
-	CompiledHTML         template.HTML        `yaml:"-"`
-	Stale                bool                 `yaml:"-"`
-	LastSuccessfulUpdate time.Time            `yaml:"-"`
+	*CustomAPIRequest    `yaml:",inline"`                      // the primary request
+	Subrequests          customAPISubrequests                  `yaml:"subrequests"`
+	Options              customAPIOptions                      `yaml:"options"`
+	Template             string                                `yaml:"template"`
+	Frameless            bool                                  `yaml:"frameless"`
+	Tables               map[string]customAPIPresentationTable `yaml:"tables"`
+	Charts               map[string]customAPIPresentationChart `yaml:"charts"`
+	PresentationJSON     template.JS                           `yaml:"-"`
+	compiledTemplate     *template.Template                    `yaml:"-"`
+	CompiledHTML         template.HTML                         `yaml:"-"`
+	Stale                bool                                  `yaml:"-"`
+	LastSuccessfulUpdate time.Time                             `yaml:"-"`
 
 	statusBarCompactMode  bool                     `yaml:"-"`
 	StatusBarCompactItems []statusBarCustomAPIItem `yaml:"-"`
@@ -160,6 +163,12 @@ func (widget *customAPIWidget) initialize() error {
 	if widget.statusBarCompactMode {
 		if len(widget.Subrequests) != 0 {
 			return errors.New("subrequests are not supported inside a status-bar")
+		}
+		if len(widget.Tables) != 0 {
+			return errors.New("tables are not supported inside a status-bar")
+		}
+		if len(widget.Charts) != 0 {
+			return errors.New("charts are not supported inside a status-bar")
 		}
 		if len(widget.Options) != 0 {
 			return errors.New("options are not supported inside a status-bar")
@@ -179,6 +188,20 @@ func (widget *customAPIWidget) initialize() error {
 			return fmt.Errorf("initializing subrequest %q: %v", key, err)
 		}
 	}
+
+	if err := normalizeCustomAPIPresentationTables(widget.Tables); err != nil {
+		return fmt.Errorf("invalid table presentation configuration: %w", err)
+	}
+
+	if err := normalizeCustomAPIPresentationCharts(widget.Charts); err != nil {
+		return fmt.Errorf("invalid chart presentation configuration: %w", err)
+	}
+
+	presentationJSON, err := customAPIPresentationJSON(widget.Tables, widget.Charts)
+	if err != nil {
+		return err
+	}
+	widget.PresentationJSON = presentationJSON
 
 	if widget.Template == "" {
 		return errors.New("template is required")
