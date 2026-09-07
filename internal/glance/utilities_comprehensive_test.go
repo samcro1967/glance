@@ -40,8 +40,31 @@ func TestComprehensiveURLAndStringUtilities(t *testing.T) {
 	if normalizeVersionFormat(" 1.2.3 ") != "v1.2.3" || normalizeVersionFormat("V2.0") != "v2.0" || normalizeVersionFormat("") != "" {
 		t.Fatal("normalizeVersionFormat mismatch")
 	}
-	if !stringToBool("true") || !stringToBool("yes") || stringToBool("TRUE") || stringToBool("1") {
-		t.Fatal("stringToBool mismatch")
+	trueValues := []string{
+		"true",
+		"TRUE",
+		"True",
+		"yes",
+		"YES",
+		" yes ",
+	}
+	for _, value := range trueValues {
+		if !stringToBool(value) {
+			t.Fatalf("stringToBool(%q) = false, want true", value)
+		}
+	}
+
+	falseValues := []string{
+		"false",
+		"FALSE",
+		"no",
+		"1",
+		"",
+	}
+	for _, value := range falseValues {
+		if stringToBool(value) {
+			t.Fatalf("stringToBool(%q) = true, want false", value)
+		}
 	}
 }
 
