@@ -121,12 +121,7 @@ dashboards:
     - missing
 `)
 
-	c, err := newConfigFromYAML([]byte(yaml))
-	if err != nil {
-		t.Fatalf("newConfigFromYAML() unexpected error = %v", err)
-	}
-
-	_, err = newApplication(c)
+	_, err := newConfigFromYAML([]byte(yaml))
 	if err == nil {
 		t.Fatal("expected unknown dashboard page reference to be rejected")
 	}
@@ -164,12 +159,7 @@ dashboards:
     - page3
 `)
 
-	c, err := newConfigFromYAML([]byte(yaml))
-	if err != nil {
-		t.Fatalf("newConfigFromYAML() unexpected error = %v", err)
-	}
-
-	_, err = newApplication(c)
+	_, err := newConfigFromYAML([]byte(yaml))
 	if err == nil {
 		t.Fatal("expected duplicate generated dashboard slug to be rejected")
 	}
@@ -189,12 +179,7 @@ dashboards:
     - page2
 `)
 
-	c, err := newConfigFromYAML([]byte(yaml))
-	if err != nil {
-		t.Fatalf("newConfigFromYAML() unexpected error = %v", err)
-	}
-
-	_, err = newApplication(c)
+	_, err := newConfigFromYAML([]byte(yaml))
 	if err == nil {
 		t.Fatal("expected reserved dashboard slug to be rejected")
 	}

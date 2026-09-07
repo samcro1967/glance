@@ -84,7 +84,7 @@ func (d widgetDefaultValues) configuredCapabilities() []widgetCapability {
 func validateWidgetDefaults(defaults widgetDefaultsConfig) error {
 	for _, capability := range defaults.Global.configuredCapabilities() {
 		supported := false
-		for widgetType := range registeredWidgetTypes {
+		for widgetType := range widgetRegistry {
 			if widgetSupportsCapability(widgetType, capability, widgetCapabilityScopeGlobal) {
 				supported = true
 				break
@@ -96,7 +96,7 @@ func validateWidgetDefaults(defaults widgetDefaultsConfig) error {
 	}
 
 	for widgetType, values := range defaults.Types {
-		if _, ok := registeredWidgetTypes[widgetType]; !ok {
+		if _, ok := widgetRegistry[widgetType]; !ok {
 			return fmt.Errorf("widget-defaults.types contains unknown widget type %q", widgetType)
 		}
 

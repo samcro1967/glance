@@ -3,7 +3,6 @@ package glance
 import (
 	"context"
 	"html/template"
-	"sort"
 	"time"
 )
 
@@ -72,12 +71,7 @@ func (widget *icsEventsWidget) update(ctx context.Context) {
 		return
 	}
 
-	sort.SliceStable(events, func(i, j int) bool {
-		if events[i].Start.Equal(events[j].Start) {
-			return events[i].Title < events[j].Title
-		}
-		return events[i].Start.Before(events[j].Start)
-	})
+	sortICSEvents(events)
 
 	if len(events) > widget.Limit {
 		events = events[:widget.Limit]
@@ -163,35 +157,17 @@ func (widget *icsEventsWidget) setDefaultCollapseAfter(value int) {
 }
 
 func (widget *icsEventsWidget) setDefaultTimeout(value durationField) {
-	for i := range widget.Sources {
-		if !widget.Sources[i].configuredFields["timeout"] {
-			widget.Sources[i].Timeout = value
-		}
-	}
+	applyICSSourceTimeoutDefault(widget.Sources, value)
 }
 
 func (widget *icsEventsWidget) setDefaultAllowInsecure(value bool) {
-	for i := range widget.Sources {
-		if !widget.Sources[i].configuredFields["allow-insecure"] {
-			widget.Sources[i].AllowInsecure = value
-		}
-	}
+	applyICSSourceAllowInsecureDefault(widget.Sources, value)
 }
 
 func (widget *icsEventsWidget) setDefaultHeaders(value map[string]string) {
-	for i := range widget.Sources {
-		widget.Sources[i].Headers = mergeStringMaps(value, widget.Sources[i].Headers)
-	}
+	applyICSSourceHeadersDefault(widget.Sources, value)
 }
 
 func (widget *icsEventsWidget) setDefaultBasicAuth(value basicAuthDefaults) {
-	for i := range widget.Sources {
-		source := &widget.Sources[i]
-		if source.configuredFields["basic-auth"] {
-			continue
-		}
-
-		source.BasicAuth.Username = value.Username
-		source.BasicAuth.Password = value.Password
-	}
+	applyICSSourceBasicAuthDefault(widget.Sources, value)
 }

@@ -358,18 +358,15 @@ func TestCollapseAfterRowsOnlyAppliesToSupportedWidgets(t *testing.T) {
 	}
 }
 
-func TestRegisteredWidgetTypesMatchNewWidget(t *testing.T) {
-	for widgetType := range registeredWidgetTypes {
-		if _, err := newWidget(widgetType); err != nil {
-			t.Fatalf("registered widget type %q cannot be constructed: %v", widgetType, err)
+func TestWidgetRegistryDescriptorsAreConstructible(t *testing.T) {
+	for widgetType, descriptor := range widgetRegistry {
+		if descriptor.constructor == nil {
+			t.Fatalf("widget type %q has no constructor", widgetType)
 		}
-	}
-}
 
-func TestCapabilityMapUsesRegisteredWidgetTypes(t *testing.T) {
-	for widgetType := range widgetTypeCapabilities {
-		if _, ok := registeredWidgetTypes[widgetType]; !ok {
-			t.Fatalf("capability map contains unregistered widget type %q", widgetType)
+		candidate := descriptor.constructor()
+		if candidate == nil {
+			t.Fatalf("widget type %q constructor returned nil", widgetType)
 		}
 	}
 }
@@ -1767,7 +1764,7 @@ func TestEveryRegisteredWidgetSupportsCommonCapabilities(t *testing.T) {
 		widgetCapabilityNewTab,
 	}
 
-	for widgetType := range registeredWidgetTypes {
+	for widgetType := range widgetRegistry {
 		for _, capability := range capabilities {
 			if !widgetSupportsCapability(
 				widgetType,

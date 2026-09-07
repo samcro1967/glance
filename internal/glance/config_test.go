@@ -747,6 +747,171 @@ func TestNewConfigFromParsedYAMLSemanticDiagnostics(t *testing.T) {
 	}
 }
 
+func TestConfigCompilationRejectsApplicationConfigurationErrors(t *testing.T) {
+	tests := []struct {
+		name    string
+		yaml    string
+		wantErr string
+	}{
+		{
+			name: "malformed auth secret",
+			yaml: `
+auth:
+  secret-key: not-valid-base64!!!
+  users:
+    admin:
+      password: example-password
+pages:
+  - name: Home
+    columns:
+      - size: full
+`,
+			wantErr: "decoding secret-key",
+		},
+		{
+			name: "wrong length auth secret",
+			yaml: `
+auth:
+  secret-key: c2hvcnQ=
+  users:
+    admin:
+      password: example-password
+pages:
+  - name: Home
+    columns:
+      - size: full
+`,
+			wantErr: "secret-key must be exactly",
+		},
+		{
+			name: "generated reserved page slug",
+			yaml: `
+pages:
+  - name: Login
+    columns:
+      - size: full
+`,
+			wantErr: "page slug \"login\" is reserved",
+		},
+		{
+			name: "explicit reserved page slug",
+			yaml: `
+pages:
+  - name: Home
+    slug: login
+    columns:
+      - size: full
+`,
+			wantErr: "page slug \"login\" is reserved",
+		},
+		{
+			name: "unknown dashboard page",
+			yaml: `
+dashboards:
+  Default:
+    - home
+    - missing
+pages:
+  - name: Home
+    slug: home
+    columns:
+      - size: full
+`,
+			wantErr: "references unknown page slug",
+		},
+		{
+			name: "duplicate generated dashboard slug",
+			yaml: `
+dashboards:
+  Default:
+    - home
+  Page Two:
+    - page2
+  Page-Two:
+    - page3
+pages:
+  - name: Home
+    slug: home
+    columns:
+      - size: full
+  - name: Page 2
+    slug: page2
+    columns:
+      - size: full
+  - name: Page 3
+    slug: page3
+    columns:
+      - size: full
+`,
+			wantErr: "dashboard slug \"page-two\" is duplicated",
+		},
+		{
+			name: "reserved dashboard slug",
+			yaml: `
+dashboards:
+  Default:
+    - home
+  API:
+    - page2
+pages:
+  - name: Home
+    slug: home
+    columns:
+      - size: full
+  - name: Page 2
+    slug: page2
+    columns:
+      - size: full
+`,
+			wantErr: "dashboard slug \"api\" is reserved",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := newConfigFromYAML([]byte(tt.yaml))
+			if err == nil {
+				t.Fatal("newConfigFromYAML() succeeded, want configuration error")
+			}
+
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("error = %q, want error containing %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestConfigCompilationNormalizesPageRoutingProperties(t *testing.T) {
+	c, err := newConfigFromYAML([]byte(`
+pages:
+  - name: Home Page
+    width: default
+    desktop-navigation-width: default
+    columns:
+      - size: full
+`))
+	if err != nil {
+		t.Fatalf("newConfigFromYAML() error = %v", err)
+	}
+
+	page := &c.Pages[0]
+
+	if page.Slug != "home-page" {
+		t.Fatalf("page slug = %q, want %q", page.Slug, "home-page")
+	}
+
+	if page.Width != "" {
+		t.Fatalf("page width = %q, want empty normalized default", page.Width)
+	}
+
+	if page.DesktopNavigationWidth != "" {
+		t.Fatalf(
+			"desktop navigation width = %q, want empty normalized page width",
+			page.DesktopNavigationWidth,
+		)
+	}
+}
+
 func TestNewConfigFromParsedYAMLSemanticServerAssetsPathDiagnostic(t *testing.T) {
 	dir := t.TempDir()
 	missingAssetsPath := filepath.Join(dir, "missing-assets")

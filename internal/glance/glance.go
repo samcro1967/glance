@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"net/http"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -138,10 +137,6 @@ func newApplication(c *config) (*application, error) {
 			return nil, fmt.Errorf("decoding secret-key: %v", err)
 		}
 
-		if len(secretBytes) != AUTH_SECRET_KEY_LENGTH {
-			return nil, fmt.Errorf("secret-key must be exactly %d bytes", AUTH_SECRET_KEY_LENGTH)
-		}
-
 		app.usernameHashToUsername = make(map[string]string)
 		app.failedAuthAttempts = make(map[string]*failedAuthAttempt)
 		app.RequiresAuth = true
@@ -232,23 +227,7 @@ func newApplication(c *config) (*application, error) {
 		page := &config.Pages[p]
 		page.PrimaryColumnIndex = -1
 
-		if page.Slug == "" {
-			page.Slug = titleToSlug(page.Title)
-		}
-
-		if slices.Contains(reservedPageSlugs, page.Slug) {
-			return nil, fmt.Errorf("page slug \"%s\" is reserved", page.Slug)
-		}
-
 		app.slugToPage[page.Slug] = page
-
-		if page.Width == "default" {
-			page.Width = ""
-		}
-
-		if page.DesktopNavigationWidth == "" || page.DesktopNavigationWidth == "default" {
-			page.DesktopNavigationWidth = page.Width
-		}
 
 		for i := range page.HeadWidgets {
 			widget := page.HeadWidgets[i]
@@ -289,19 +268,8 @@ func newApplication(c *config) (*application, error) {
 	if len(config.Dashboards.keys) > 0 {
 		for dashboardName, pageSlugs := range config.Dashboards.Items() {
 			dashboardSlug := titleToSlug(dashboardName)
-			if dashboardSlug == "" {
-				return nil, fmt.Errorf("dashboard %q has an invalid slug", dashboardName)
-			}
-
-			if dashboardName != "Default" && slices.Contains(reservedDashboardSlugs, dashboardSlug) {
-				return nil, fmt.Errorf("dashboard slug %q is reserved", dashboardSlug)
-			}
 
 			if dashboardName != "Default" {
-				if _, exists := app.slugToDashboard[dashboardSlug]; exists {
-					return nil, fmt.Errorf("dashboard slug %q is duplicated", dashboardSlug)
-				}
-
 				if _, exists := app.slugToPage[dashboardSlug]; exists {
 					slog.Warn(
 						"Ignoring dashboard because its slug conflicts with a page slug",
@@ -314,12 +282,7 @@ func newApplication(c *config) (*application, error) {
 
 			dashboardPages := make([]*page, 0, len(pageSlugs))
 			for _, pageSlug := range pageSlugs {
-				page, exists := app.slugToPage[pageSlug]
-				if !exists {
-					return nil, fmt.Errorf("dashboard %q references unknown page slug %q", dashboardName, pageSlug)
-				}
-
-				dashboardPages = append(dashboardPages, page)
+				dashboardPages = append(dashboardPages, app.slugToPage[pageSlug])
 			}
 
 			dashboard := &dashboard{

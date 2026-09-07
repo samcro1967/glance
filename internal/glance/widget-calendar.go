@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"html/template"
-	"sort"
 	"time"
 )
 
@@ -103,12 +102,7 @@ func (widget *calendarWidget) update(ctx context.Context) {
 		return
 	}
 
-	sort.SliceStable(events, func(i, j int) bool {
-		if events[i].Start.Equal(events[j].Start) {
-			return events[i].Title < events[j].Title
-		}
-		return events[i].Start.Before(events[j].Start)
-	})
+	sortICSEvents(events)
 
 	index := buildCalendarEventIndex(events)
 
@@ -230,35 +224,17 @@ func calendarEventDates(event icsEvent) []time.Time {
 }
 
 func (widget *calendarWidget) setDefaultTimeout(value durationField) {
-	for i := range widget.Sources {
-		if !widget.Sources[i].configuredFields["timeout"] {
-			widget.Sources[i].Timeout = value
-		}
-	}
+	applyICSSourceTimeoutDefault(widget.Sources, value)
 }
 
 func (widget *calendarWidget) setDefaultAllowInsecure(value bool) {
-	for i := range widget.Sources {
-		if !widget.Sources[i].configuredFields["allow-insecure"] {
-			widget.Sources[i].AllowInsecure = value
-		}
-	}
+	applyICSSourceAllowInsecureDefault(widget.Sources, value)
 }
 
 func (widget *calendarWidget) setDefaultHeaders(value map[string]string) {
-	for i := range widget.Sources {
-		widget.Sources[i].Headers = mergeStringMaps(value, widget.Sources[i].Headers)
-	}
+	applyICSSourceHeadersDefault(widget.Sources, value)
 }
 
 func (widget *calendarWidget) setDefaultBasicAuth(value basicAuthDefaults) {
-	for i := range widget.Sources {
-		source := &widget.Sources[i]
-		if source.configuredFields["basic-auth"] {
-			continue
-		}
-
-		source.BasicAuth.Username = value.Username
-		source.BasicAuth.Password = value.Password
-	}
+	applyICSSourceBasicAuthDefault(widget.Sources, value)
 }
