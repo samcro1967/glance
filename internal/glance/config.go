@@ -2,6 +2,7 @@ package glance
 
 import (
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"html/template"
@@ -11,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -264,6 +266,87 @@ func newConfigFromYAML(contents []byte) (*config, error) {
 	return newConfigFromParsedYAML(&parsedYAMLConfig{Contents: contents})
 }
 
+func normalizeAndValidateCompiledConfig(config *config) error {
+	if len(config.Auth.Users) > 0 {
+		secretBytes, err := base64.StdEncoding.DecodeString(config.Auth.SecretKey)
+		if err != nil {
+			return fmt.Errorf("decoding secret-key: %v", err)
+		}
+
+		if len(secretBytes) != AUTH_SECRET_KEY_LENGTH {
+			return fmt.Errorf("secret-key must be exactly %d bytes", AUTH_SECRET_KEY_LENGTH)
+		}
+	}
+
+	pageSlugs := make(map[string]struct{}, len(config.Pages))
+
+	for p := range config.Pages {
+		page := &config.Pages[p]
+
+		if page.Slug == "" {
+			page.Slug = titleToSlug(page.Title)
+		}
+
+		if slices.Contains(reservedPageSlugs, page.Slug) {
+			return fmt.Errorf("page slug %q is reserved", page.Slug)
+		}
+
+		pageSlugs[page.Slug] = struct{}{}
+
+		if page.Width == "default" {
+			page.Width = ""
+		}
+
+		if page.DesktopNavigationWidth == "" || page.DesktopNavigationWidth == "default" {
+			page.DesktopNavigationWidth = page.Width
+		}
+	}
+
+	if len(config.Dashboards.keys) == 0 {
+		return nil
+	}
+
+	acceptedDashboardSlugs := make(map[string]struct{})
+
+	for dashboardName, referencedPageSlugs := range config.Dashboards.Items() {
+		dashboardSlug := titleToSlug(dashboardName)
+		if dashboardSlug == "" {
+			return fmt.Errorf("dashboard %q has an invalid slug", dashboardName)
+		}
+
+		if dashboardName != "Default" && slices.Contains(reservedDashboardSlugs, dashboardSlug) {
+			return fmt.Errorf("dashboard slug %q is reserved", dashboardSlug)
+		}
+
+		if dashboardName != "Default" {
+			if _, exists := acceptedDashboardSlugs[dashboardSlug]; exists {
+				return fmt.Errorf("dashboard slug %q is duplicated", dashboardSlug)
+			}
+
+			// Preserve the existing runtime behavior: a dashboard whose slug
+			// conflicts with a page is ignored rather than rejected, and
+			// therefore does not participate in duplicate-dashboard checks.
+			if _, exists := pageSlugs[dashboardSlug]; exists {
+				continue
+			}
+
+			acceptedDashboardSlugs[dashboardSlug] = struct{}{}
+		}
+
+		for _, pageSlug := range referencedPageSlugs {
+			if _, exists := pageSlugs[pageSlug]; !exists {
+				return fmt.Errorf(
+					"dashboard %q references unknown page slug %q",
+					dashboardName,
+					pageSlug,
+				)
+			}
+		}
+	}
+
+	return nil
+}
+
 func newConfigFromParsedYAML(parsed *parsedYAMLConfig) (*config, error) {
 	contents, err := parseConfigVariablesWithSources(parsed.Contents, parsed)
 	if err != nil {
@@ -370,6 +453,10 @@ func newConfigFromParsedYAML(parsed *parsedYAMLConfig) (*config, error) {
 	}
 
 	logWidgetDefaultsConfigured(config.WidgetDefaults, defaultsLogSummary)
+
+	if err := normalizeAndValidateCompiledConfig(config); err != nil {
+		return nil, err
+	}
 
 	return config, nil
 }
@@ -1118,10 +1205,6 @@ func configPageDescription(page *page, index int) string {
 	return fmt.Sprintf("page %d", index+1)
 }
 
-// TODO: Refactor, we currently validate in two different places, this being
-// one of them, which doesn't modify the data and only checks for logical errors
-// and then again when creating the application which does modify the data and do
-// further validation. Would be better if validation was done in a single place.
 func isConfigStateValid(config *config) error {
 	return isConfigStateValidWithSources(config, nil, nil)
 }

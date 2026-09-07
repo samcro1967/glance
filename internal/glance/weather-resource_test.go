@@ -14,15 +14,15 @@ import (
 func resetOpenMeteoPlaceResourceCache(t *testing.T) {
 	t.Helper()
 
-	openMeteoPlaceResourceCache.Lock()
+	openMeteoPlaceResourceCache.mu.Lock()
 	old := openMeteoPlaceResourceCache.entries
-	openMeteoPlaceResourceCache.entries = make(map[string]*openMeteoPlaceResourceCacheEntry)
-	openMeteoPlaceResourceCache.Unlock()
+	openMeteoPlaceResourceCache.entries = make(map[string]*keyedResourceCacheEntry[*openMeteoPlaceResponseJson])
+	openMeteoPlaceResourceCache.mu.Unlock()
 
 	t.Cleanup(func() {
-		openMeteoPlaceResourceCache.Lock()
+		openMeteoPlaceResourceCache.mu.Lock()
 		openMeteoPlaceResourceCache.entries = old
-		openMeteoPlaceResourceCache.Unlock()
+		openMeteoPlaceResourceCache.mu.Unlock()
 	})
 }
 
@@ -107,20 +107,20 @@ func TestOpenMeteoPlaceResourceDoesNotCacheFailure(t *testing.T) {
 func TestOpenMeteoPlaceResourceEvictsIdleEntries(t *testing.T) {
 	resetOpenMeteoPlaceResourceCache(t)
 
-	stale := &openMeteoPlaceResourceCacheEntry{
+	stale := &keyedResourceCacheEntry[*openMeteoPlaceResponseJson]{
 		lastUsed: time.Now().Add(-openMeteoResourceIdleRetention),
 	}
-	active := &openMeteoPlaceResourceCacheEntry{
+	active := &keyedResourceCacheEntry[*openMeteoPlaceResponseJson]{
 		lastUsed: time.Now().Add(-openMeteoResourceIdleRetention),
-		current: &openMeteoPlaceResourceCall{
+		current: &keyedResourceCacheCall[*openMeteoPlaceResponseJson]{
 			done: make(chan struct{}),
 		},
 	}
 
-	openMeteoPlaceResourceCache.Lock()
+	openMeteoPlaceResourceCache.mu.Lock()
 	openMeteoPlaceResourceCache.entries["stale"] = stale
 	openMeteoPlaceResourceCache.entries["active"] = active
-	openMeteoPlaceResourceCache.Unlock()
+	openMeteoPlaceResourceCache.mu.Unlock()
 
 	wave3Transport(t, func(request *http.Request) (*http.Response, error) {
 		return wave3Response(
@@ -135,11 +135,11 @@ func TestOpenMeteoPlaceResourceEvictsIdleEntries(t *testing.T) {
 		t.Fatalf("fetch: %v", err)
 	}
 
-	openMeteoPlaceResourceCache.Lock()
+	openMeteoPlaceResourceCache.mu.Lock()
 	_, staleExists := openMeteoPlaceResourceCache.entries["stale"]
 	_, activeExists := openMeteoPlaceResourceCache.entries["active"]
 	_, requestedExists := openMeteoPlaceResourceCache.entries[location]
-	openMeteoPlaceResourceCache.Unlock()
+	openMeteoPlaceResourceCache.mu.Unlock()
 
 	if staleExists {
 		t.Fatal("idle stale place entry was not evicted")
@@ -155,15 +155,15 @@ func TestOpenMeteoPlaceResourceEvictsIdleEntries(t *testing.T) {
 func resetOpenMeteoWeatherResourceCache(t *testing.T) {
 	t.Helper()
 
-	openMeteoWeatherResourceCache.Lock()
+	openMeteoWeatherResourceCache.mu.Lock()
 	old := openMeteoWeatherResourceCache.entries
-	openMeteoWeatherResourceCache.entries = make(map[openMeteoWeatherResourceKey]*openMeteoWeatherResourceCacheEntry)
-	openMeteoWeatherResourceCache.Unlock()
+	openMeteoWeatherResourceCache.entries = make(map[openMeteoWeatherResourceKey]*keyedResourceCacheEntry[*openMeteoWeatherResponseJson])
+	openMeteoWeatherResourceCache.mu.Unlock()
 
 	t.Cleanup(func() {
-		openMeteoWeatherResourceCache.Lock()
+		openMeteoWeatherResourceCache.mu.Lock()
 		openMeteoWeatherResourceCache.entries = old
-		openMeteoWeatherResourceCache.Unlock()
+		openMeteoWeatherResourceCache.mu.Unlock()
 	})
 }
 
@@ -469,9 +469,9 @@ func TestOpenMeteoWeatherResourceExpiresAtNextClockHour(t *testing.T) {
 		t.Fatalf("first fetch: %v", err)
 	}
 
-	openMeteoWeatherResourceCache.Lock()
+	openMeteoWeatherResourceCache.mu.Lock()
 	entry := openMeteoWeatherResourceCache.entries[key]
-	openMeteoWeatherResourceCache.Unlock()
+	openMeteoWeatherResourceCache.mu.Unlock()
 
 	entry.mu.Lock()
 	entry.cached.timestamp = time.Now().Add(-time.Hour)
@@ -630,20 +630,20 @@ func TestOpenMeteoWeatherResourceEvictsIdleEntries(t *testing.T) {
 		Units:     "metric",
 	}
 
-	stale := &openMeteoWeatherResourceCacheEntry{
+	stale := &keyedResourceCacheEntry[*openMeteoWeatherResponseJson]{
 		lastUsed: time.Now().Add(-openMeteoResourceIdleRetention),
 	}
-	active := &openMeteoWeatherResourceCacheEntry{
+	active := &keyedResourceCacheEntry[*openMeteoWeatherResponseJson]{
 		lastUsed: time.Now().Add(-openMeteoResourceIdleRetention),
-		current: &openMeteoWeatherResourceCall{
+		current: &keyedResourceCacheCall[*openMeteoWeatherResponseJson]{
 			done: make(chan struct{}),
 		},
 	}
 
-	openMeteoWeatherResourceCache.Lock()
+	openMeteoWeatherResourceCache.mu.Lock()
 	openMeteoWeatherResourceCache.entries[staleKey] = stale
 	openMeteoWeatherResourceCache.entries[activeKey] = active
-	openMeteoWeatherResourceCache.Unlock()
+	openMeteoWeatherResourceCache.mu.Unlock()
 
 	wave3Transport(t, func(request *http.Request) (*http.Response, error) {
 		return openMeteoWeatherResourceTestResponse(), nil
@@ -666,11 +666,11 @@ func TestOpenMeteoWeatherResourceEvictsIdleEntries(t *testing.T) {
 		t.Fatalf("fetch: %v", err)
 	}
 
-	openMeteoWeatherResourceCache.Lock()
+	openMeteoWeatherResourceCache.mu.Lock()
 	_, staleExists := openMeteoWeatherResourceCache.entries[staleKey]
 	_, activeExists := openMeteoWeatherResourceCache.entries[activeKey]
 	_, requestedExists := openMeteoWeatherResourceCache.entries[requestedKey]
-	openMeteoWeatherResourceCache.Unlock()
+	openMeteoWeatherResourceCache.mu.Unlock()
 
 	if staleExists {
 		t.Fatal("idle stale weather entry was not evicted")

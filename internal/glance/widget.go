@@ -23,85 +23,12 @@ func newWidget(widgetType string) (widget, error) {
 		return nil, errors.New("widget 'type' property is empty or not specified")
 	}
 
-	var w widget
-
-	switch widgetType {
-	case "calendar":
-		w = &calendarWidget{}
-	case "calendar-legacy":
-		w = &oldCalendarWidget{}
-	case "ics-events":
-		w = &icsEventsWidget{}
-	case "clock":
-		w = &clockWidget{}
-	case "analog-clock":
-		w = &analogClockWidget{}
-	case "weather":
-		w = &weatherWidget{}
-	case "bookmarks":
-		w = &bookmarksWidget{}
-	case "iframe":
-		w = &iframeWidget{}
-	case "markdown":
-		w = &markdownWidget{}
-	case "html":
-		w = &htmlWidget{}
-	case "hacker-news":
-		w = &hackerNewsWidget{}
-	case "releases":
-		w = &releasesWidget{}
-	case "videos":
-		w = &videosWidget{}
-	case "markets", "stocks":
-		w = &marketsWidget{}
-	case "reddit":
-		w = &redditWidget{}
-	case "rss":
-		w = &rssWidget{}
-	case "monitor":
-		w = &monitorWidget{}
-	case "twitch-top-games":
-		w = &twitchGamesWidget{}
-	case "twitch-channels":
-		w = &twitchChannelsWidget{}
-	case "lobsters":
-		w = &lobstersWidget{}
-	case "change-detection":
-		w = &changeDetectionWidget{}
-	case "repository":
-		w = &repositoryWidget{}
-	case "search":
-		w = &searchWidget{}
-	case "extension":
-		w = &extensionWidget{}
-	case "group":
-		w = &groupWidget{}
-	case "dns-stats":
-		w = &dnsStatsWidget{}
-	case "split-column":
-		w = &splitColumnWidget{}
-	case "custom-api":
-		w = &customAPIWidget{}
-	case "docker-containers":
-		w = &dockerContainersWidget{}
-	case "server-stats":
-		w = &serverStatsWidget{}
-	case "timer":
-		w = &timerWidget{}
-	case "to-do":
-		w = &todoWidget{}
-	case "unit-converter":
-		w = &unitConverterWidget{}
-	case "calculator":
-		w = &calculatorWidget{}
-	case "stack":
-		w = &stackWidget{}
-	case "status-bar":
-		w = &statusBarWidget{}
-	default:
+	descriptor, ok := widgetRegistry[widgetType]
+	if !ok {
 		return nil, fmt.Errorf("unknown widget type: %s", widgetType)
 	}
 
+	w := descriptor.constructor()
 	w.setID(widgetIDCounter.Add(1))
 
 	if base, ok := widgetBaseOf(w); ok {

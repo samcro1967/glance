@@ -15,15 +15,15 @@ import (
 func resetYahooMarketResourceCache(t *testing.T) {
 	t.Helper()
 
-	yahooMarketResourceCache.Lock()
+	yahooMarketResourceCache.mu.Lock()
 	oldEntries := yahooMarketResourceCache.entries
-	yahooMarketResourceCache.entries = make(map[string]*yahooMarketResourceCacheEntry)
-	yahooMarketResourceCache.Unlock()
+	yahooMarketResourceCache.entries = make(map[string]*keyedResourceCacheEntry[marketResponseJson])
+	yahooMarketResourceCache.mu.Unlock()
 
 	t.Cleanup(func() {
-		yahooMarketResourceCache.Lock()
+		yahooMarketResourceCache.mu.Lock()
 		yahooMarketResourceCache.entries = oldEntries
-		yahooMarketResourceCache.Unlock()
+		yahooMarketResourceCache.mu.Unlock()
 	})
 }
 
@@ -190,20 +190,20 @@ func TestYahooMarketResourceWaitingCallerCanCancel(t *testing.T) {
 func TestYahooMarketResourceEvictsIdleEntries(t *testing.T) {
 	resetYahooMarketResourceCache(t)
 
-	stale := &yahooMarketResourceCacheEntry{
+	stale := &keyedResourceCacheEntry[marketResponseJson]{
 		lastUsed: time.Now().Add(-yahooMarketResourceIdleRetention),
 	}
-	active := &yahooMarketResourceCacheEntry{
+	active := &keyedResourceCacheEntry[marketResponseJson]{
 		lastUsed: time.Now().Add(-yahooMarketResourceIdleRetention),
-		current: &yahooMarketResourceCall{
+		current: &keyedResourceCacheCall[marketResponseJson]{
 			done: make(chan struct{}),
 		},
 	}
 
-	yahooMarketResourceCache.Lock()
+	yahooMarketResourceCache.mu.Lock()
 	yahooMarketResourceCache.entries["STALE"] = stale
 	yahooMarketResourceCache.entries["ACTIVE"] = active
-	yahooMarketResourceCache.Unlock()
+	yahooMarketResourceCache.mu.Unlock()
 
 	wave3Transport(t, func(request *http.Request) (*http.Response, error) {
 		return yahooMarketResourceTestResponse(request, "NSIT"), nil
@@ -213,11 +213,11 @@ func TestYahooMarketResourceEvictsIdleEntries(t *testing.T) {
 		t.Fatalf("fetch: %v", err)
 	}
 
-	yahooMarketResourceCache.Lock()
+	yahooMarketResourceCache.mu.Lock()
 	_, staleExists := yahooMarketResourceCache.entries["STALE"]
 	_, activeExists := yahooMarketResourceCache.entries["ACTIVE"]
 	_, requestedExists := yahooMarketResourceCache.entries["NSIT"]
-	yahooMarketResourceCache.Unlock()
+	yahooMarketResourceCache.mu.Unlock()
 
 	if staleExists {
 		t.Fatal("idle stale entry was not evicted")
@@ -242,9 +242,9 @@ func TestYahooMarketResourceRefreshesLastUsed(t *testing.T) {
 		t.Fatalf("fetch: %v", err)
 	}
 
-	yahooMarketResourceCache.Lock()
+	yahooMarketResourceCache.mu.Lock()
 	entry := yahooMarketResourceCache.entries["NSIT"]
-	yahooMarketResourceCache.Unlock()
+	yahooMarketResourceCache.mu.Unlock()
 
 	entry.mu.Lock()
 	lastUsed := entry.lastUsed
