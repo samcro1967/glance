@@ -1,17 +1,239 @@
 package glance
 
-var registeredWidgetTypes = map[string]struct{}{
-	"calendar": {}, "calendar-legacy": {}, "ics-events": {},
-	"clock": {}, "analog-clock": {}, "weather": {},
-	"bookmarks": {}, "iframe": {}, "markdown": {}, "html": {},
-	"hacker-news": {}, "releases": {}, "videos": {},
-	"markets": {}, "stocks": {}, "reddit": {}, "rss": {},
-	"monitor": {}, "twitch-top-games": {}, "twitch-channels": {},
-	"lobsters": {}, "change-detection": {}, "repository": {},
-	"search": {}, "extension": {}, "group": {}, "dns-stats": {},
-	"split-column": {}, "custom-api": {}, "docker-containers": {},
-	"server-stats": {}, "timer": {}, "to-do": {}, "unit-converter": {}, "calculator": {}, "stack": {},
-	"status-bar": {},
+type widgetDescriptor struct {
+	constructor  func() widget
+	capabilities []widgetCapabilityDefinition
+}
+
+// widgetRegistry is the authoritative registry of public widget types.
+// Each public type explicitly defines how it is constructed and which
+// reusable capabilities beyond widgetBase it supports.
+var widgetRegistry = map[string]widgetDescriptor{
+	"calendar": {
+		constructor: func() widget { return &calendarWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
+			{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
+			{widgetCapabilityHeaders, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
+			{widgetCapabilityBasicAuth, widgetCapabilityScopeType | widgetCapabilityScopeChild},
+		},
+	},
+	"calendar-legacy": {
+		constructor: func() widget { return &oldCalendarWidget{} },
+	},
+	"ics-events": {
+		constructor: func() widget { return &icsEventsWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityLimit, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
+			{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
+			{widgetCapabilityHeaders, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
+			{widgetCapabilityBasicAuth, widgetCapabilityScopeType | widgetCapabilityScopeChild},
+		},
+	},
+	"clock": {
+		constructor: func() widget { return &clockWidget{} },
+	},
+	"analog-clock": {
+		constructor: func() widget { return &analogClockWidget{} },
+	},
+	"weather": {
+		constructor: func() widget { return &weatherWidget{} },
+	},
+	"bookmarks": {
+		constructor: func() widget { return &bookmarksWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
+		},
+	},
+	"iframe": {
+		constructor: func() widget { return &iframeWidget{} },
+	},
+	"markdown": {
+		constructor: func() widget { return &markdownWidget{} },
+	},
+	"html": {
+		constructor: func() widget { return &htmlWidget{} },
+	},
+	"hacker-news": {
+		constructor: func() widget { return &hackerNewsWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityLimit, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+		},
+	},
+	"releases": {
+		constructor: func() widget { return &releasesWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityLimit, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+		},
+	},
+	"videos": {
+		constructor: func() widget { return &videosWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityLimit, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityCollapseAfterRows, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+		},
+	},
+	"markets": {
+		constructor: func() widget { return &marketsWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+		},
+	},
+	"stocks": {
+		constructor: func() widget { return &marketsWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+		},
+	},
+	"reddit": {
+		constructor: func() widget { return &redditWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityLimit, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityProxy, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+		},
+	},
+	"rss": {
+		constructor: func() widget { return &rssWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityLimit, widgetCapabilityScopeType | widgetCapabilityScopeInstance | widgetCapabilityScopeChild},
+			{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
+			{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
+			{widgetCapabilityHeaders, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
+			{widgetCapabilityBasicAuth, widgetCapabilityScopeType | widgetCapabilityScopeChild},
+		},
+	},
+	"monitor": {
+		constructor: func() widget { return &monitorWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
+			{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
+			{widgetCapabilityHeaders, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
+			{widgetCapabilityBasicAuth, widgetCapabilityScopeType | widgetCapabilityScopeChild},
+		},
+	},
+	"twitch-top-games": {
+		constructor: func() widget { return &twitchGamesWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityLimit, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+		},
+	},
+	"twitch-channels": {
+		constructor: func() widget { return &twitchChannelsWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+		},
+	},
+	"lobsters": {
+		constructor: func() widget { return &lobstersWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityLimit, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+		},
+	},
+	"change-detection": {
+		constructor: func() widget { return &changeDetectionWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityLimit, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityHeaders, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+		},
+	},
+	"repository": {
+		constructor: func() widget { return &repositoryWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+		},
+	},
+	"search": {
+		constructor: func() widget { return &searchWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+		},
+	},
+	"extension": {
+		constructor: func() widget { return &extensionWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityHeaders, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityBasicAuth, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+		},
+	},
+	"group": {
+		constructor: func() widget { return &groupWidget{} },
+	},
+	"dns-stats": {
+		constructor: func() widget { return &dnsStatsWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+		},
+	},
+	"split-column": {
+		constructor: func() widget { return &splitColumnWidget{} },
+	},
+	"custom-api": {
+		constructor: func() widget { return &customAPIWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance | widgetCapabilityScopeChild},
+			{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance | widgetCapabilityScopeChild},
+			{widgetCapabilityHeaders, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance | widgetCapabilityScopeChild},
+			{widgetCapabilityBasicAuth, widgetCapabilityScopeType | widgetCapabilityScopeInstance | widgetCapabilityScopeChild},
+		},
+	},
+	"docker-containers": {
+		constructor: func() widget { return &dockerContainersWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
+		},
+	},
+	"server-stats": {
+		constructor: func() widget { return &serverStatsWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
+			{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
+		},
+	},
+	"timer": {
+		constructor: func() widget { return &timerWidget{} },
+	},
+	"to-do": {
+		constructor: func() widget { return &todoWidget{} },
+	},
+	"unit-converter": {
+		constructor: func() widget { return &unitConverterWidget{} },
+	},
+	"calculator": {
+		constructor: func() widget { return &calculatorWidget{} },
+	},
+	"stack": {
+		constructor: func() widget { return &stackWidget{} },
+	},
+	"status-bar": {
+		constructor: func() widget { return &statusBarWidget{} },
+	},
 }
 
 var commonWidgetCapabilities = []widgetCapabilityDefinition{
@@ -23,127 +245,9 @@ var commonWidgetCapabilities = []widgetCapabilityDefinition{
 	{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 }
 
-// widgetTypeCapabilities contains capabilities beyond widgetBase. Entries are
-// explicit so a new widget must deliberately opt in to reusable behavior.
-var widgetTypeCapabilities = map[string][]widgetCapabilityDefinition{
-	"change-detection": {
-		{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityLimit, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityHeaders, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-	},
-	"custom-api": {
-		{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance | widgetCapabilityScopeChild},
-		{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance | widgetCapabilityScopeChild},
-		{widgetCapabilityHeaders, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance | widgetCapabilityScopeChild},
-		{widgetCapabilityBasicAuth, widgetCapabilityScopeType | widgetCapabilityScopeInstance | widgetCapabilityScopeChild},
-	},
-	"dns-stats": {
-		{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-	},
-	"extension": {
-		{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityHeaders, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityBasicAuth, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-	},
-	"hacker-news": {
-		{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityLimit, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-	},
-	"calendar": {
-		{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
-		{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
-		{widgetCapabilityHeaders, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
-		{widgetCapabilityBasicAuth, widgetCapabilityScopeType | widgetCapabilityScopeChild},
-	},
-	"ics-events": {
-		{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityLimit, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
-		{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
-		{widgetCapabilityHeaders, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
-		{widgetCapabilityBasicAuth, widgetCapabilityScopeType | widgetCapabilityScopeChild},
-	},
-	"lobsters": {
-		{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityLimit, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-	},
-	"bookmarks": {
-		{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
-	},
-	"docker-containers": {
-		{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
-	},
-	"monitor": {
-		{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
-		{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
-		{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
-		{widgetCapabilityHeaders, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
-		{widgetCapabilityBasicAuth, widgetCapabilityScopeType | widgetCapabilityScopeChild},
-	},
-	"reddit": {
-		{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityLimit, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityProxy, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-	},
-	"releases": {
-		{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityLimit, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-	},
-	"rss": {
-		{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityLimit, widgetCapabilityScopeType | widgetCapabilityScopeInstance | widgetCapabilityScopeChild},
-		{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
-		{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
-		{widgetCapabilityHeaders, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
-		{widgetCapabilityBasicAuth, widgetCapabilityScopeType | widgetCapabilityScopeChild},
-	},
-	"markets": {
-		{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-	},
-	"stocks": {
-		{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-	},
-	"repository": {
-		{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-	},
-	"search": {
-		{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-	},
-	"server-stats": {
-		{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
-		{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
-	},
-	"twitch-channels": {
-		{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-	},
-	"twitch-top-games": {
-		{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityLimit, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-	},
-	"videos": {
-		{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityLimit, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-		{widgetCapabilityCollapseAfterRows, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
-	},
-}
-
 func widgetSupportsCapability(widgetType string, capability widgetCapability, scope widgetCapabilityScope) bool {
-	if _, ok := registeredWidgetTypes[widgetType]; !ok {
+	descriptor, ok := widgetRegistry[widgetType]
+	if !ok {
 		return false
 	}
 
@@ -153,7 +257,7 @@ func widgetSupportsCapability(widgetType string, capability widgetCapability, sc
 		}
 	}
 
-	for _, definition := range widgetTypeCapabilities[widgetType] {
+	for _, definition := range descriptor.capabilities {
 		if definition.Capability == capability && definition.Scopes&scope != 0 {
 			return true
 		}
