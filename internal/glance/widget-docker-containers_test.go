@@ -193,10 +193,34 @@ func TestIsDockerContainerHidden(t *testing.T) {
 			want: true,
 		},
 		{
+			name:          "explicit hide is case insensitive",
+			hideByDefault: false,
+			labels: dockerContainerLabels{
+				dockerContainerLabelHide: "True",
+			},
+			want: true,
+		},
+		{
+			name:          "explicit hide trims whitespace",
+			hideByDefault: false,
+			labels: dockerContainerLabels{
+				dockerContainerLabelHide: " YES ",
+			},
+			want: true,
+		},
+		{
 			name:          "explicit show overrides hide by default",
 			hideByDefault: true,
 			labels: dockerContainerLabels{
 				dockerContainerLabelHide: "false",
+			},
+			want: false,
+		},
+		{
+			name:          "explicit show is case insensitive",
+			hideByDefault: true,
+			labels: dockerContainerLabels{
+				dockerContainerLabelHide: "False",
 			},
 			want: false,
 		},

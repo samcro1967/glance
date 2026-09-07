@@ -174,7 +174,12 @@ func executeTemplateToString(t *template.Template, data any) (string, error) {
 }
 
 func stringToBool(s string) bool {
-	return s == "true" || s == "yes"
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "true", "yes":
+		return true
+	default:
+		return false
+	}
 }
 
 func itemAtIndexOrDefault[T any](items []T, index int, def T) T {
