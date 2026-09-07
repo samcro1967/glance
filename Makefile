@@ -6,7 +6,7 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps build test-instance-start test-instance-status test-instance-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish workflow-status
+.PHONY: help deps build test-instance-start test-instance-status test-instance-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship deploy-finish workflow-status
 
 COUNT ?= 10
 COVERAGE_FILE ?= coverage.out
@@ -63,6 +63,16 @@ help:
 	@echo "GLANCE FORK WORKFLOW"
 	@echo
 	@echo "SAFE END-TO-END STAGES:"
+	@echo "  make ship TITLE='Description' Feature -> dev -> main -> formal release; NEVER deploys"
+	@echo "  make deploy-finish            Deploy formal release -> sync main back to dev -> final verification"
+	@echo
+	@echo "NORMAL WORKFLOW:"
+	@echo "  make branch NEW_BRANCH=feature/name"
+	@echo "  ... edit, stage, commit ..."
+	@echo "  make ship TITLE='Description'"
+	@echo "  make deploy-finish"
+	@echo
+	@echo "RECOVERY / INDIVIDUAL STAGES:"
 	@echo "  make pr-finish [PR=55]        feature -> dev: auto-resolve PR, CI, merge, cleanup, dev image"
 	@echo "  make promote-finish [PR=56]   dev -> main: auto-resolve PR, CI, merge, update/verify main"
 	@echo "  make release-finish           main: validate, tag, push, watch formal release"
@@ -1053,6 +1063,66 @@ release: release-check
 	echo "The tag push will invoke the GitHub Actions GoReleaser workflow."
 
 
+ship:
+	@set -euo pipefail; \
+	if [ -z "$(TITLE)" ]; then \
+		echo "TITLE is required. Example: make ship TITLE='Add feature'"; \
+		exit 2; \
+	fi; \
+	feature="$$(git branch --show-current)"; \
+	if [ -z "$$feature" ] || [ "$$feature" = "$(DEV_BRANCH)" ] || [ "$$feature" = "$(STABLE_BRANCH)" ]; then \
+		echo "ship must start on a feature branch; current branch is $${feature:-unknown}."; \
+		exit 1; \
+	fi; \
+	if [ -n "$$(git status --porcelain)" ]; then \
+		echo "ship requires a clean working tree with the feature already committed."; \
+		git status --short; \
+		exit 1; \
+	fi; \
+	echo "=== END-TO-END RELEASE PIPELINE ==="; \
+	echo "Feature=$$feature"; \
+	echo "Title=$(TITLE)"; \
+	echo; \
+	echo "=== PUSH FEATURE ==="; \
+	$(MAKE) push; \
+	feature_body="$$(mktemp)"; \
+	promotion_body="$$(mktemp)"; \
+	trap 'rm -f "$$feature_body" "$$promotion_body"' EXIT; \
+	printf '%s\n\n%s\n' \
+		'## Summary' \
+		'$(TITLE)' > "$$feature_body"; \
+	echo; \
+	echo "=== FEATURE -> $(DEV_BRANCH) ==="; \
+	feature_pr="$$(gh pr list --repo "$(REPO)" --head "$$feature" --base "$(DEV_BRANCH)" --state open --json number --jq '.[0].number // empty')"; \
+	if [ -z "$$feature_pr" ]; then \
+		$(MAKE) pr-create TITLE="$(TITLE)" BODY_FILE="$$feature_body"; \
+		feature_pr="$$(python3 scripts/resolve_pr.py --repo "$(REPO)" --head "$$feature" --base "$(DEV_BRANCH)")"; \
+	else \
+		echo "Reusing existing feature PR #$$feature_pr."; \
+	fi; \
+	$(MAKE) pr-finish PR="$$feature_pr"; \
+	echo; \
+	echo "=== $(DEV_BRANCH) -> $(STABLE_BRANCH) ==="; \
+	printf '%s\n\n%s\n' \
+		'## Summary' \
+		'Promote validated development changes to the stable branch for formal release.' > "$$promotion_body"; \
+	promotion_pr="$$(gh pr list --repo "$(REPO)" --head "$(DEV_BRANCH)" --base "$(STABLE_BRANCH)" --state open --json number --jq '.[0].number // empty')"; \
+	if [ -z "$$promotion_pr" ]; then \
+		$(MAKE) promote-create TITLE="Promote dev to main" BODY_FILE="$$promotion_body"; \
+		promotion_pr="$$(python3 scripts/resolve_pr.py --repo "$(REPO)" --head "$(DEV_BRANCH)" --base "$(STABLE_BRANCH)")"; \
+	else \
+		echo "Reusing existing promotion PR #$$promotion_pr."; \
+	fi; \
+	$(MAKE) promote-finish PR="$$promotion_pr"; \
+	echo; \
+	echo "=== FORMAL RELEASE ==="; \
+	$(MAKE) release-finish; \
+	echo; \
+	echo "=== SHIP COMPLETE ==="; \
+	echo "Formal release completed and verified."; \
+	echo "Production was NOT deployed."; \
+	echo "Run make deploy-finish to cross the explicit production boundary."
+
 release-finish:
 	@set -euo pipefail; \
 	branch="$$(git branch --show-current)"; \
@@ -1405,6 +1475,91 @@ deploy:
 	echo "Release=$$release_tag"; \
 	echo "Revision=$$local_revision"; \
 	echo "Image=$$container_image"
+
+deploy-finish:
+	@set -euo pipefail; \
+	branch="$$(git branch --show-current)"; \
+	if [ "$$branch" != "$(STABLE_BRANCH)" ]; then \
+		echo "deploy-finish requires $(STABLE_BRANCH); current branch is $$branch."; \
+		exit 1; \
+	fi; \
+	if [ -n "$$(git status --porcelain)" ]; then \
+		echo "deploy-finish requires a clean working tree."; \
+		git status --short; \
+		exit 1; \
+	fi; \
+	release_tag="$$(git tag --points-at HEAD --list 'v*-$(FORK_RELEASE_ID).r*' --sort=-version:refname | head -1)"; \
+	if [ -z "$$release_tag" ]; then \
+		echo "deploy-finish requires the current $(STABLE_BRANCH) revision to have a formal release tag."; \
+		exit 1; \
+	fi; \
+	echo "=== PRODUCTION + SYNCHRONIZATION PIPELINE ==="; \
+	echo "Release=$$release_tag"; \
+	echo; \
+	echo "=== EXPLICIT PRODUCTION DEPLOYMENT ==="; \
+	$(MAKE) deploy; \
+	echo; \
+	echo "=== PREPARE $(DEV_BRANCH) SYNCHRONIZATION ==="; \
+	git fetch origin --prune; \
+	git switch "$(DEV_BRANCH)"; \
+	git pull --ff-only origin "$(DEV_BRANCH)"; \
+	sync_body="$$(mktemp)"; \
+	trap 'rm -f "$$sync_body"' EXIT; \
+	printf '%s\n\n%s\n' \
+		'## Summary' \
+		'Synchronize the formally released stable branch back into development.' > "$$sync_body"; \
+	echo; \
+	echo "=== $(STABLE_BRANCH) -> $(DEV_BRANCH) ==="; \
+	sync_pr="$$(gh pr list --repo "$(REPO)" --head "$(STABLE_BRANCH)" --base "$(DEV_BRANCH)" --state open --json number --jq '.[0].number // empty')"; \
+	if [ -z "$$sync_pr" ]; then \
+		$(MAKE) sync-dev-create TITLE="Sync main back to dev after $$release_tag" BODY_FILE="$$sync_body"; \
+		sync_pr="$$(python3 scripts/resolve_pr.py --repo "$(REPO)" --head "$(STABLE_BRANCH)" --base "$(DEV_BRANCH)")"; \
+	else \
+		echo "Reusing existing synchronization PR #$$sync_pr."; \
+	fi; \
+	$(MAKE) sync-finish PR="$$sync_pr"; \
+	echo; \
+	echo "=== FINAL WORKFLOW VERIFICATION ==="; \
+	git fetch origin --prune; \
+	current="$$(git branch --show-current)"; \
+	if [ "$$current" != "$(DEV_BRANCH)" ]; then \
+		echo "Final verification failed: expected current branch $(DEV_BRANCH), found $$current."; \
+		exit 1; \
+	fi; \
+	if [ -n "$$(git status --porcelain)" ]; then \
+		echo "Final verification failed: working tree is not clean."; \
+		git status --short; \
+		exit 1; \
+	fi; \
+	if [ "$$(git rev-parse $(DEV_BRANCH))" != "$$(git rev-parse origin/$(DEV_BRANCH))" ]; then \
+		echo "Final verification failed: local $(DEV_BRANCH) does not match origin/$(DEV_BRANCH)."; \
+		exit 1; \
+	fi; \
+	if [ "$$(git rev-parse $(STABLE_BRANCH))" != "$$(git rev-parse origin/$(STABLE_BRANCH))" ]; then \
+		echo "Final verification failed: local $(STABLE_BRANCH) does not match origin/$(STABLE_BRANCH)."; \
+		exit 1; \
+	fi; \
+	if ! git merge-base --is-ancestor "$(STABLE_BRANCH)" "$(DEV_BRANCH)"; then \
+		echo "Final verification failed: $(STABLE_BRANCH) is not contained in $(DEV_BRANCH)."; \
+		exit 1; \
+	fi; \
+	container_version="$$(docker exec "$(DEPLOY_CONTAINER)" /app/glance --version 2>/dev/null || true)"; \
+	if [ "$$container_version" != "$$release_tag" ]; then \
+		echo "Final verification failed: production is not running $$release_tag."; \
+		echo "Production: $${container_version:-unknown}"; \
+		exit 1; \
+	fi; \
+	echo "Worktree:              clean"; \
+	echo "Current branch:        $(DEV_BRANCH)"; \
+	echo "Dev matches origin:    yes"; \
+	echo "Main matches origin:   yes"; \
+	echo "Main contained in dev: yes"; \
+	echo "Production release:    $$container_version"; \
+	echo "Production verified:   yes"; \
+	echo; \
+	$(MAKE) workflow-status; \
+	echo; \
+	echo "=== WORKFLOW COMPLETE ==="
 
 test-instance-start:
 	@set -euo pipefail; \
