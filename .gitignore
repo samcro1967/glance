@@ -9,4 +9,5 @@
 /.glance-test.log
 
 # Local test-instance environment
-.env.test
+.env.test__pycache__/
+*.pyc

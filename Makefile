@@ -63,11 +63,11 @@ help:
 	@echo "GLANCE FORK WORKFLOW"
 	@echo
 	@echo "SAFE END-TO-END STAGES:"
-	@echo "  make pr-finish PR=55          feature -> dev: CI, merge, cleanup, dev image"
-	@echo "  make promote-finish PR=56     dev -> main: CI, merge, update/verify main"
+	@echo "  make pr-finish [PR=55]        feature -> dev: auto-resolve PR, CI, merge, cleanup, dev image"
+	@echo "  make promote-finish [PR=56]   dev -> main: auto-resolve PR, CI, merge, update/verify main"
 	@echo "  make release-finish           main: validate, tag, push, watch formal release"
 	@echo "                               DOES NOT deploy production"
-	@echo "  make sync-finish PR=57        main -> dev: CI, merge, update dev, dev image"
+	@echo "  make sync-finish [PR=57]      main -> dev: auto-resolve PR, CI, merge, update dev, dev image"
 	@echo "  make workflow-status          Combined repository/release/CI/deployment status"
 	@echo
 	@echo "LIFECYCLE:"
@@ -132,7 +132,7 @@ help:
 	@echo "                                Create main -> dev synchronization PR"
 	@echo "  make pr-view PR=55            Show PR identity/direction/state"
 	@echo "  make pr-runs [BRANCH=name]    Recent PR validation runs"
-	@echo "  make pr-watch PR=55           Watch CI for exact PR head SHA"
+	@echo "  make pr-watch [PR=55]         Auto-resolve current PR and watch exact head SHA"
 	@echo "  make pr-merge PR=55           Merge; delete feature branches only"
 	@echo "  make post-merge PR=55         Update base locally and clean feature branch"
 	@echo
@@ -511,24 +511,29 @@ pr-runs:
 
 pr-watch:
 	@set -euo pipefail; \
-	if [ -z "$(PR)" ]; then \
-		echo "PR is required. Example: make pr-watch PR=55"; \
-		exit 2; \
+	pr="$(PR)"; \
+	if [ -z "$$pr" ]; then \
+		head="$$(git branch --show-current)"; \
+		if [ "$$head" = "$(DEV_BRANCH)" ]; then base="$(STABLE_BRANCH)"; \
+		elif [ "$$head" = "$(STABLE_BRANCH)" ]; then base="$(DEV_BRANCH)"; \
+		else base="$(DEV_BRANCH)"; fi; \
+		pr="$$(scripts/resolve_pr.py --repo "$(REPO)" --head "$$head" --base "$$base")"; \
+		echo "Resolved PR #$$pr for $$head -> $$base."; \
 	fi; \
-	pr_state="$$(gh pr view "$(PR)" --repo "$(REPO)" --json state --jq '.state')"; \
-	head_branch="$$(gh pr view "$(PR)" --repo "$(REPO)" --json headRefName --jq '.headRefName')"; \
-	revision="$$(gh pr view "$(PR)" --repo "$(REPO)" --json headRefOid --jq '.headRefOid')"; \
+	pr_state="$$(gh pr view "$$pr" --repo "$(REPO)" --json state --jq '.state')"; \
+	head_branch="$$(gh pr view "$$pr" --repo "$(REPO)" --json headRefName --jq '.headRefName')"; \
+	revision="$$(gh pr view "$$pr" --repo "$(REPO)" --json headRefOid --jq '.headRefOid')"; \
 	if [ "$$pr_state" != "OPEN" ]; then \
-		echo "PR #$(PR) is not open; current state is $$pr_state."; \
+		echo "PR #$$pr is not open; current state is $$pr_state."; \
 		exit 1; \
 	fi; \
 	echo "=== FIND PR VALIDATION RUN ==="; \
-	echo "PR=$(PR)"; \
+	echo "PR=$$pr"; \
 	echo "Branch=$$head_branch"; \
 	echo "Revision=$$revision"; \
 	run_id=""; \
 	for i in $$(seq 1 "$(CI_RUN_RETRIES)"); do \
-		current_revision="$$(gh pr view "$(PR)" --repo "$(REPO)" --json headRefOid --jq '.headRefOid')"; \
+		current_revision="$$(gh pr view "$$pr" --repo "$(REPO)" --json headRefOid --jq '.headRefOid')"; \
 		if [ "$$current_revision" != "$$revision" ]; then \
 			echo "PR head changed: $$revision -> $$current_revision"; \
 			revision="$$current_revision"; \
@@ -549,7 +554,7 @@ pr-watch:
 		sleep "$(CI_RUN_RETRY_DELAY)"; \
 	done; \
 	if [ -z "$$run_id" ]; then \
-		echo "No pull-request validation run found for PR #$(PR) at $$revision."; \
+		echo "No pull-request validation run found for PR #$$pr at $$revision."; \
 		exit 1; \
 	fi; \
 	echo "Run=$$run_id"; \
@@ -563,6 +568,7 @@ pr-watch:
 	gh run view "$$run_id" \
 		--repo "$(REPO)" \
 		--json status,conclusion,headSha,url
+
 
 pr-merge:
 	@set -euo pipefail; \
@@ -636,59 +642,82 @@ post-merge:
 
 pr-finish:
 	@set -euo pipefail; \
-	if [ -z "$(PR)" ]; then \
-		echo "PR is required. Example: make pr-finish PR=55"; \
-		exit 2; \
-	fi; \
-	head="$$(gh pr view "$(PR)" --repo "$(REPO)" --json headRefName --jq '.headRefName')"; \
-	base="$$(gh pr view "$(PR)" --repo "$(REPO)" --json baseRefName --jq '.baseRefName')"; \
-	if [ "$$base" != "$(DEV_BRANCH)" ] || [ "$$head" = "$(DEV_BRANCH)" ] || [ "$$head" = "$(STABLE_BRANCH)" ]; then \
-		echo "Refusing pr-finish: expected feature -> $(DEV_BRANCH); found $$head -> $$base."; \
+	head="$$(git branch --show-current)"; \
+	if [ "$$head" = "$(DEV_BRANCH)" ] || [ "$$head" = "$(STABLE_BRANCH)" ]; then \
+		echo "Refusing pr-finish: current branch must be a feature branch; found $$head."; \
 		exit 1; \
-	fi
-	@echo "=== FEATURE PR #$(PR) ==="
-	@$(MAKE) pr-watch PR="$(PR)"
-	@$(MAKE) pr-merge PR="$(PR)"
-	@$(MAKE) post-merge PR="$(PR)"
-	@$(MAKE) image-watch
-	@$(MAKE) status
+	fi; \
+	pr="$(PR)"; \
+	if [ -z "$$pr" ]; then \
+		pr="$$(scripts/resolve_pr.py --repo "$(REPO)" --head "$$head" --base "$(DEV_BRANCH)")"; \
+		echo "Resolved feature PR #$$pr."; \
+	fi; \
+	base="$$(gh pr view "$$pr" --repo "$(REPO)" --json baseRefName --jq '.baseRefName')"; \
+	pr_head="$$(gh pr view "$$pr" --repo "$(REPO)" --json headRefName --jq '.headRefName')"; \
+	if [ "$$base" != "$(DEV_BRANCH)" ] || [ "$$pr_head" = "$(DEV_BRANCH)" ] || [ "$$pr_head" = "$(STABLE_BRANCH)" ]; then \
+		echo "Refusing pr-finish: expected feature -> $(DEV_BRANCH); found $$pr_head -> $$base."; \
+		exit 1; \
+	fi; \
+	if [ "$$pr_head" != "$$head" ]; then \
+		echo "Refusing pr-finish: current branch $$head does not match PR head $$pr_head."; \
+		exit 1; \
+	fi; \
+	echo "=== FEATURE PR #$$pr ==="; \
+	$(MAKE) pr-watch PR="$$pr"; \
+	$(MAKE) pr-merge PR="$$pr"; \
+	$(MAKE) post-merge PR="$$pr"; \
+	$(MAKE) image-watch; \
+	$(MAKE) status
 
 promote-finish:
 	@set -euo pipefail; \
-	if [ -z "$(PR)" ]; then \
-		echo "PR is required. Example: make promote-finish PR=55"; \
-		exit 2; \
+	branch="$$(git branch --show-current)"; \
+	if [ "$$branch" != "$(DEV_BRANCH)" ]; then \
+		echo "Promotion finish requires branch $(DEV_BRANCH); current branch is $$branch."; \
+		exit 1; \
 	fi; \
-	head="$$(gh pr view "$(PR)" --repo "$(REPO)" --json headRefName --jq '.headRefName')"; \
-	base="$$(gh pr view "$(PR)" --repo "$(REPO)" --json baseRefName --jq '.baseRefName')"; \
+	pr="$(PR)"; \
+	if [ -z "$$pr" ]; then \
+		pr="$$(scripts/resolve_pr.py --repo "$(REPO)" --head "$(DEV_BRANCH)" --base "$(STABLE_BRANCH)")"; \
+		echo "Resolved promotion PR #$$pr."; \
+	fi; \
+	head="$$(gh pr view "$$pr" --repo "$(REPO)" --json headRefName --jq '.headRefName')"; \
+	base="$$(gh pr view "$$pr" --repo "$(REPO)" --json baseRefName --jq '.baseRefName')"; \
 	if [ "$$head" != "$(DEV_BRANCH)" ] || [ "$$base" != "$(STABLE_BRANCH)" ]; then \
 		echo "Refusing promote-finish: expected $(DEV_BRANCH) -> $(STABLE_BRANCH); found $$head -> $$base."; \
 		exit 1; \
-	fi
-	@echo "=== PROMOTION PR #$(PR) ==="
-	@$(MAKE) pr-watch PR="$(PR)"
-	@$(MAKE) pr-merge PR="$(PR)"
-	@$(MAKE) post-merge PR="$(PR)"
-	@$(MAKE) verify-main
+	fi; \
+	echo "=== PROMOTION PR #$$pr ==="; \
+	$(MAKE) pr-watch PR="$$pr"; \
+	$(MAKE) pr-merge PR="$$pr"; \
+	$(MAKE) post-merge PR="$$pr"; \
+	$(MAKE) verify-main
 
 sync-finish:
 	@set -euo pipefail; \
-	if [ -z "$(PR)" ]; then \
-		echo "PR is required. Example: make sync-finish PR=55"; \
-		exit 2; \
+	branch="$$(git branch --show-current)"; \
+	if [ "$$branch" != "$(DEV_BRANCH)" ]; then \
+		echo "Synchronization finish requires branch $(DEV_BRANCH); current branch is $$branch."; \
+		exit 1; \
 	fi; \
-	head="$$(gh pr view "$(PR)" --repo "$(REPO)" --json headRefName --jq '.headRefName')"; \
-	base="$$(gh pr view "$(PR)" --repo "$(REPO)" --json baseRefName --jq '.baseRefName')"; \
+	pr="$(PR)"; \
+	if [ -z "$$pr" ]; then \
+		pr="$$(scripts/resolve_pr.py --repo "$(REPO)" --head "$(STABLE_BRANCH)" --base "$(DEV_BRANCH)")"; \
+		echo "Resolved synchronization PR #$$pr."; \
+	fi; \
+	head="$$(gh pr view "$$pr" --repo "$(REPO)" --json headRefName --jq '.headRefName')"; \
+	base="$$(gh pr view "$$pr" --repo "$(REPO)" --json baseRefName --jq '.baseRefName')"; \
 	if [ "$$head" != "$(STABLE_BRANCH)" ] || [ "$$base" != "$(DEV_BRANCH)" ]; then \
 		echo "Refusing sync-finish: expected $(STABLE_BRANCH) -> $(DEV_BRANCH); found $$head -> $$base."; \
 		exit 1; \
-	fi
-	@echo "=== SYNC PR #$(PR) ==="
-	@$(MAKE) pr-watch PR="$(PR)"
-	@$(MAKE) pr-merge PR="$(PR)"
-	@$(MAKE) post-merge PR="$(PR)"
-	@$(MAKE) image-watch
-	@$(MAKE) status
+	fi; \
+	echo "=== SYNC PR #$$pr ==="; \
+	$(MAKE) pr-watch PR="$$pr"; \
+	$(MAKE) pr-merge PR="$$pr"; \
+	$(MAKE) post-merge PR="$$pr"; \
+	$(MAKE) image-watch; \
+	$(MAKE) status
+
 
 image-runs:
 	@gh run list \
@@ -1175,7 +1204,20 @@ deploy-dev:
 	docker compose -f "$(DEPLOY_COMPOSE_FILE)" -f "$$override_file" up -d --force-recreate --no-deps "$(DEPLOY_SERVICE)"; \
 	echo; \
 	echo "=== VERIFY DEVELOPMENT CONTAINER ==="; \
-	container_version="$$(docker exec "$(DEPLOY_CONTAINER)" /app/glance --version)"; \
+	container_version=""; \
+	for i in $$(seq 1 "$(DEPLOY_RETRIES)"); do \
+		container_version="$$(docker exec "$(DEPLOY_CONTAINER)" /app/glance --version 2>/dev/null || true)"; \
+		if [ -n "$$container_version" ]; then \
+			break; \
+		fi; \
+		echo "Glance container not exec-ready; retrying ($$i/$(DEPLOY_RETRIES))..."; \
+		sleep "$(DEPLOY_RETRY_DELAY)"; \
+	done; \
+	if [ -z "$$container_version" ]; then \
+		echo "Development deployment verification failed: container did not become exec-ready."; \
+		docker logs "$(DEPLOY_CONTAINER)" --since 2m 2>&1 | tail -50 || true; \
+		exit 1; \
+	fi; \
 	container_image="$$(docker inspect "$(DEPLOY_CONTAINER)" --format '{{.Image}}')"; \
 	echo "Container version: $$container_version"; \
 	echo "Container image:   $$container_image"; \
@@ -1290,7 +1332,20 @@ deploy:
 	docker compose up -d --force-recreate --no-deps "$(DEPLOY_SERVICE)"; \
 	echo; \
 	echo "=== VERIFY CONTAINER ==="; \
-	container_version="$$(docker exec "$(DEPLOY_CONTAINER)" /app/glance --version)"; \
+	container_version=""; \
+	for i in $$(seq 1 "$(DEPLOY_RETRIES)"); do \
+		container_version="$$(docker exec "$(DEPLOY_CONTAINER)" /app/glance --version 2>/dev/null || true)"; \
+		if [ -n "$$container_version" ]; then \
+			break; \
+		fi; \
+		echo "Glance container not exec-ready; retrying ($$i/$(DEPLOY_RETRIES))..."; \
+		sleep "$(DEPLOY_RETRY_DELAY)"; \
+	done; \
+	if [ -z "$$container_version" ]; then \
+		echo "Deployment verification failed: container did not become exec-ready."; \
+		docker logs "$(DEPLOY_CONTAINER)" --since 2m 2>&1 | tail -50 || true; \
+		exit 1; \
+	fi; \
 	container_image="$$(docker inspect "$(DEPLOY_CONTAINER)" --format '{{.Image}}')"; \
 	echo "Container version: $$container_version"; \
 	echo "Container image:   $$container_image"; \
