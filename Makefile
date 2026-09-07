@@ -63,13 +63,15 @@ help:
 	@echo "GLANCE FORK WORKFLOW"
 	@echo
 	@echo "SAFE END-TO-END STAGES:"
-	@echo "  make ship TITLE='Description' Feature -> dev -> main -> formal release; NEVER deploys"
+	@echo "  make ship TITLE='Description' [BODY_FILE=file]"
+	@echo "                                Feature -> dev -> main -> formal release; NEVER deploys"
+	@echo "                                BODY_FILE optionally supplies the feature PR body"
 	@echo "  make deploy-finish            Deploy formal release -> sync main back to dev -> final verification"
 	@echo
 	@echo "NORMAL WORKFLOW:"
 	@echo "  make branch NEW_BRANCH=feature/name"
 	@echo "  ... edit, stage, commit ..."
-	@echo "  make ship TITLE='Description'"
+	@echo "  make ship TITLE='Description' [BODY_FILE=file]"
 	@echo "  make deploy-finish"
 	@echo
 	@echo "RECOVERY / INDIVIDUAL STAGES:"
@@ -1069,6 +1071,10 @@ ship:
 		echo "TITLE is required. Example: make ship TITLE='Add feature'"; \
 		exit 2; \
 	fi; \
+	if [ -n "$(BODY_FILE)" ] && [ ! -f "$(BODY_FILE)" ]; then \
+		echo "BODY_FILE does not exist: $(BODY_FILE)"; \
+		exit 1; \
+	fi; \
 	feature="$$(git branch --show-current)"; \
 	if [ -z "$$feature" ] || [ "$$feature" = "$(DEV_BRANCH)" ] || [ "$$feature" = "$(STABLE_BRANCH)" ]; then \
 		echo "ship must start on a feature branch; current branch is $${feature:-unknown}."; \
@@ -1085,12 +1091,19 @@ ship:
 	echo; \
 	echo "=== PUSH FEATURE ==="; \
 	$(MAKE) push; \
-	feature_body="$$(mktemp)"; \
+	generated_feature_body="$$(mktemp)"; \
 	promotion_body="$$(mktemp)"; \
-	trap 'rm -f "$$feature_body" "$$promotion_body"' EXIT; \
-	printf '%s\n\n%s\n' \
-		'## Summary' \
-		'$(TITLE)' > "$$feature_body"; \
+	trap 'rm -f "$$generated_feature_body" "$$promotion_body"' EXIT; \
+	if [ -n "$(BODY_FILE)" ]; then \
+		feature_body="$(BODY_FILE)"; \
+		echo "Feature PR body: $(BODY_FILE)"; \
+	else \
+		feature_body="$$generated_feature_body"; \
+		printf '%s\n\n%s\n' \
+			'## Summary' \
+			'$(TITLE)' > "$$feature_body"; \
+		echo "Feature PR body: generated summary"; \
+	fi; \
 	echo; \
 	echo "=== FEATURE -> $(DEV_BRANCH) ==="; \
 	feature_pr="$$(gh pr list --repo "$(REPO)" --head "$$feature" --base "$(DEV_BRANCH)" --state open --json number --jq '.[0].number // empty')"; \
