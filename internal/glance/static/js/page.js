@@ -379,24 +379,43 @@ function setupStatusBarTickers(root = document) {
         const pixelsPerSecond = STATUS_BAR_TICKER_PIXELS_PER_SECOND[speed]
             || STATUS_BAR_TICKER_PIXELS_PER_SECOND.normal;
 
-        const updateDuration = () => {
-            const distance = items.getBoundingClientRect().width;
+        const updateTickerGeometry = () => {
+            const contentWidth = items.getBoundingClientRect().width;
+            const containerWidth = statusBar.getBoundingClientRect().width;
 
-            if (distance <= 0) {
+            if (contentWidth <= 0 || containerWidth <= 0) {
+                statusBar.dataset.tickerReady = "false";
                 return;
             }
 
+            const short = contentWidth < containerWidth;
+            const distance = short
+                ? containerWidth + contentWidth
+                : contentWidth;
+
+            track.style.setProperty(
+                "--status-bar-ticker-content-width",
+                `${contentWidth}px`
+            );
+            track.style.setProperty(
+                "--status-bar-ticker-container-width",
+                `${containerWidth}px`
+            );
             track.style.setProperty(
                 "--status-bar-ticker-duration",
                 `${distance / pixelsPerSecond}s`
             );
+
+            statusBar.dataset.tickerShort = short ? "true" : "false";
+            statusBar.dataset.tickerReady = "true";
         };
 
-        updateDuration();
+        updateTickerGeometry();
 
         if (typeof ResizeObserver !== "undefined") {
-            const resizeObserver = new ResizeObserver(updateDuration);
+            const resizeObserver = new ResizeObserver(updateTickerGeometry);
             resizeObserver.observe(items);
+            resizeObserver.observe(statusBar);
         }
 
         statusBar.addEventListener("pointerup", (event) => {
