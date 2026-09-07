@@ -204,6 +204,26 @@ func TestMakefilePRAutoResolution(t *testing.T) {
 	}
 }
 
+func TestMakefileDevFinishTargetsRequireCurrentDev(t *testing.T) {
+	makefile := readRepositoryMakefile(t)
+
+	for _, target := range []string{"promote-finish", "sync-finish"} {
+		t.Run(target, func(t *testing.T) {
+			recipe := makeTargetRecipe(t, makefile, target)
+
+			requireRecipeFragmentsInOrder(
+				t,
+				recipe,
+				`git fetch origin --prune`,
+				`local_revision="$$(git rev-parse $(DEV_BRANCH))"`,
+				`origin_revision="$$(git rev-parse origin/$(DEV_BRANCH))"`,
+				`if [ "$$local_revision" != "$$origin_revision" ]; then`,
+				`pr="$(PR)"`,
+			)
+		})
+	}
+}
+
 func TestMakefilePRWatchRefreshesHeadDuringPolling(t *testing.T) {
 	makefile := readRepositoryMakefile(t)
 	recipe := makeTargetRecipe(t, makefile, "pr-watch")

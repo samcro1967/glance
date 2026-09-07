@@ -676,6 +676,15 @@ promote-finish:
 		echo "Promotion finish requires branch $(DEV_BRANCH); current branch is $$branch."; \
 		exit 1; \
 	fi; \
+	git fetch origin --prune; \
+	local_revision="$$(git rev-parse $(DEV_BRANCH))"; \
+	origin_revision="$$(git rev-parse origin/$(DEV_BRANCH))"; \
+	if [ "$$local_revision" != "$$origin_revision" ]; then \
+		echo "Refusing promote-finish: local $(DEV_BRANCH) does not match origin/$(DEV_BRANCH)."; \
+		echo "Local:  $$local_revision"; \
+		echo "Origin: $$origin_revision"; \
+		exit 1; \
+	fi; \
 	pr="$(PR)"; \
 	if [ -z "$$pr" ]; then \
 		pr="$$(python3 scripts/resolve_pr.py --repo "$(REPO)" --head "$(DEV_BRANCH)" --base "$(STABLE_BRANCH)")"; \
@@ -698,6 +707,15 @@ sync-finish:
 	branch="$$(git branch --show-current)"; \
 	if [ "$$branch" != "$(DEV_BRANCH)" ]; then \
 		echo "Synchronization finish requires branch $(DEV_BRANCH); current branch is $$branch."; \
+		exit 1; \
+	fi; \
+	git fetch origin --prune; \
+	local_revision="$$(git rev-parse $(DEV_BRANCH))"; \
+	origin_revision="$$(git rev-parse origin/$(DEV_BRANCH))"; \
+	if [ "$$local_revision" != "$$origin_revision" ]; then \
+		echo "Refusing sync-finish: local $(DEV_BRANCH) does not match origin/$(DEV_BRANCH)."; \
+		echo "Local:  $$local_revision"; \
+		echo "Origin: $$origin_revision"; \
 		exit 1; \
 	fi; \
 	pr="$(PR)"; \
