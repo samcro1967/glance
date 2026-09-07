@@ -14,15 +14,15 @@
     justify-content: flex-end;
     align-items: stretch;
     text-align: right;
-    background: var(--color-background);
+    background: var(--theme-control-background-color, var(--color-background));
     border: 1px solid var(--theme-control-border-color, var(--color-widget-content-border));
-    border-radius: var(--border-radius);
+    border-radius: var(--theme-control-radius, var(--border-radius));
     overflow: hidden;
 }
 
 .calculator-expression {
     min-height: 1.8rem;
-    color: var(--color-text-subdue);
+    color: var(--theme-control-muted-color, var(--theme-muted-text-color, var(--color-text-subdue)));
     font-size: var(--font-size-h5);
     white-space: nowrap;
     overflow: hidden;
@@ -30,7 +30,7 @@
 }
 
 .calculator-result {
-    color: var(--color-text-highlight);
+    color: var(--theme-control-text-color, var(--color-text-highlight));
     font-size: 2.8rem;
     font-weight: 500;
     line-height: 1.15;
@@ -49,10 +49,10 @@
     min-width: 0;
     height: 4.2rem;
     padding: 0.4rem;
-    color: var(--color-text-highlight);
-    background: var(--color-background);
+    color: var(--theme-control-text-color, var(--color-text-highlight));
+    background: var(--theme-control-background-color, var(--color-background));
     border: 1px solid var(--theme-control-border-color, var(--color-widget-content-border));
-    border-radius: var(--border-radius);
+    border-radius: var(--theme-control-radius, var(--border-radius));
     font: inherit;
     font-size: var(--font-size-h4);
     cursor: pointer;
@@ -60,7 +60,7 @@
 
 .calculator-keypad button:hover,
 .calculator-keypad button:focus-visible {
-    border-color: var(--color-primary);
+    border-color: var(--theme-control-focus-color, var(--theme-accent-color, var(--color-primary)));
 }
 
 .calculator-keypad button:active {
@@ -72,9 +72,9 @@
 }
 
 .calculator-keypad .calculator-equals {
-    color: var(--color-background);
-    background: var(--color-primary);
-    border-color: var(--color-primary);
+    color: var(--theme-control-button-text-color, var(--color-background));
+    background: var(--theme-control-button-background-color, var(--theme-accent-color, var(--color-primary)));
+    border-color: var(--theme-accent-color, var(--color-primary));
     font-size: 1.8rem;
 }
 

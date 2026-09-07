@@ -21,7 +21,7 @@
     width: var(--analog-clock-size);
     height: var(--analog-clock-size);
     margin-inline: auto;
-    border: 4px solid var(--color-text-subdue);
+    border: 4px solid var(--theme-muted-text-color, var(--color-text-subdue));
     border-radius: 50%;
 }
 
@@ -36,19 +36,19 @@
 .analog-clock-hour-hand {
     width: 30%;
     height: 4px;
-    background: var(--color-text-highlight);
+    background: var(--theme-heading-text-color, var(--color-text-highlight));
 }
 
 .analog-clock-minute-hand {
     width: 40%;
     height: 3px;
-    background: var(--color-text-base);
+    background: var(--theme-text-color, var(--color-text-base));
 }
 
 .analog-clock-second-hand {
     width: 44%;
     height: 2px;
-    background: var(--color-primary);
+    background: var(--theme-accent-color, var(--color-primary));
 }
 
 .analog-clock-center {
@@ -58,7 +58,7 @@
     left: 50%;
     width: 8px;
     height: 8px;
-    background: var(--color-text-highlight);
+    background: var(--theme-heading-text-color, var(--color-text-highlight));
     border-radius: 50%;
     transform: translate(-50%, -50%);
 }
@@ -75,7 +75,7 @@
     left: 50%;
     width: 20px;
     height: 20px;
-    color: var(--color-text-base);
+    color: var(--theme-text-color, var(--color-text-base));
     font-size: 1.2rem;
     font-weight: 600;
     line-height: 20px;
@@ -134,7 +134,7 @@
     position: absolute;
     top: 38px;
     left: 50%;
-    color: var(--color-text-subdue);
+    color: var(--theme-muted-text-color, var(--color-text-subdue));
     font-size: 1rem;
     line-height: 1;
     transform: translateX(-50%);
@@ -144,7 +144,7 @@
     position: absolute;
     bottom: 30px;
     left: 50%;
-    color: var(--color-text-subdue);
+    color: var(--theme-muted-text-color, var(--color-text-subdue));
     font-size: 1rem;
     line-height: 1;
     white-space: nowrap;
@@ -153,5 +153,5 @@
 
 .analog-clock-label {
     margin-top: 0.8rem;
-    color: var(--color-text-base);
+    color: var(--theme-text-color, var(--color-text-base));
 }

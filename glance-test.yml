@@ -830,6 +830,31 @@ pages:
                 </div>
               </div>
 
+          - type: custom-api
+            title: Presentation States - small
+            url: https://api.github.com/repos/samcro1967/glance
+            cache: 1h
+            headers:
+              Accept: application/vnd.github+json
+              X-Glance-Test-Instance: presentation-small-states
+            template: |
+              <div class="flex flex-column gap-15">
+                  <div class="size-h5 color-highlight">Progress</div>
+                  <div class="glance-progress">
+                    <div class="glance-progress-value" style="--percent: 72"></div>
+                  </div>
+
+                <details class="glance-details">
+                  <summary class="glance-summary">Disclosure</summary>
+                  <div class="color-subdue">Native presentation disclosure.</div>
+                </details>
+
+                <div class="glance-state glance-state-empty">No data is currently available.</div>
+                <div class="glance-state glance-state-warning">Data is approaching a configured threshold.</div>
+                <div class="glance-state glance-state-error">The request failed.</div>
+                <div class="glance-state glance-state-degraded">Showing stale data from the last successful refresh.</div>
+              </div>
+
       - size: full
         widgets:
           - type: custom-api
@@ -958,33 +983,6 @@ pages:
                     </div>
                   </div>
                 </div>
-              </div>
-
-      - size: small
-        widgets:
-          - type: custom-api
-            title: Presentation States - small
-            url: https://api.github.com/repos/samcro1967/glance
-            cache: 1h
-            headers:
-              Accept: application/vnd.github+json
-              X-Glance-Test-Instance: presentation-small-states
-            template: |
-              <div class="flex flex-column gap-15">
-                  <div class="size-h5 color-highlight">Progress</div>
-                  <div class="glance-progress">
-                    <div class="glance-progress-value" style="--percent: 72"></div>
-                  </div>
-
-                <details class="glance-details">
-                  <summary class="glance-summary">Disclosure</summary>
-                  <div class="color-subdue">Native presentation disclosure.</div>
-                </details>
-
-                <div class="glance-state glance-state-empty">No data is currently available.</div>
-                <div class="glance-state glance-state-warning">Data is approaching a configured threshold.</div>
-                <div class="glance-state glance-state-error">The request failed.</div>
-                <div class="glance-state glance-state-degraded">Showing stale data from the last successful refresh.</div>
               </div>
 
   - name: Presentation Medium

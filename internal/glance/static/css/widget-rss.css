@@ -1,7 +1,7 @@
 .rss-card-image {
     height: var(--rss-thumbnail-height, 10rem);
     object-fit: cover;
-    border-radius: var(--border-radius) var(--border-radius) 0 0;
+    border-radius: var(--theme-card-radius, var(--border-radius)) var(--theme-card-radius, var(--border-radius)) 0 0;
 }
 
 .rss-card-2 {
@@ -29,7 +29,7 @@
     height: 100%;
     object-fit: cover;
     /* +1px is required to fix some weird graphical bug where the image overflows on the bottom in firefox */
-    border-radius: calc(var(--border-radius) + 1px);
+    border-radius: calc(var(--theme-card-radius, var(--border-radius)) + 1px);
     opacity: 0.9;
     z-index: 1;
 }
@@ -43,7 +43,7 @@
 
 .rss-detailed-description {
     max-width: 55rem;
-    color: var(--color-text-base-muted);
+    color: var(--theme-muted-text-color, var(--color-text-base-muted));
 }
 
 .rss-detailed-thumbnail {
