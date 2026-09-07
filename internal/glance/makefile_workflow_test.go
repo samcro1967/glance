@@ -163,12 +163,53 @@ func TestMakefileWorkflowFinishTargets(t *testing.T) {
 	}
 }
 
+func TestMakefilePRAutoResolution(t *testing.T) {
+	makefile := readRepositoryMakefile(t)
+
+	tests := []struct {
+		target string
+		head   string
+		base   string
+	}{
+		{"pr-finish", `--head "$$head"`, `--base "$(DEV_BRANCH)"`},
+		{"promote-finish", `--head "$(DEV_BRANCH)"`, `--base "$(STABLE_BRANCH)"`},
+		{"sync-finish", `--head "$(STABLE_BRANCH)"`, `--base "$(DEV_BRANCH)"`},
+	}
+
+	for _, test := range tests {
+		t.Run(test.target, func(t *testing.T) {
+			recipe := makeTargetRecipe(t, makefile, test.target)
+
+			if !strings.Contains(recipe, `pr="$(PR)"`) {
+				t.Fatalf("%s must preserve explicit PR override", test.target)
+			}
+			if !strings.Contains(recipe, `scripts/resolve_pr.py`) {
+				t.Fatalf("%s must auto-resolve PR when PR is omitted", test.target)
+			}
+			if !strings.Contains(recipe, test.head) {
+				t.Fatalf("%s missing expected resolver head %q", test.target, test.head)
+			}
+			if !strings.Contains(recipe, test.base) {
+				t.Fatalf("%s missing expected resolver base %q", test.target, test.base)
+			}
+		})
+	}
+
+	watch := makeTargetRecipe(t, makefile, "pr-watch")
+	if !strings.Contains(watch, `pr="$(PR)"`) {
+		t.Fatal("pr-watch must preserve explicit PR override")
+	}
+	if !strings.Contains(watch, `scripts/resolve_pr.py`) {
+		t.Fatal("pr-watch must auto-resolve PR when PR is omitted")
+	}
+}
+
 func TestMakefilePRWatchRefreshesHeadDuringPolling(t *testing.T) {
 	makefile := readRepositoryMakefile(t)
 	recipe := makeTargetRecipe(t, makefile, "pr-watch")
 
 	loop := strings.Index(recipe, `for i in $$(seq 1 "$(CI_RUN_RETRIES)"); do`)
-	refresh := strings.Index(recipe, `current_revision="$$(gh pr view "$(PR)" --repo "$(REPO)" --json headRefOid`)
+	refresh := strings.Index(recipe, `current_revision="$$(gh pr view "$$pr" --repo "$(REPO)" --json headRefOid`)
 	runLookup := strings.Index(recipe, `run_id="$$(gh run list`)
 
 	if loop == -1 {
