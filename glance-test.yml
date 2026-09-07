@@ -767,6 +767,702 @@ pages:
   # ---------------------------------------------------------------------------
   # Pages used to demonstrate named dashboards and the dashboard switcher.
   # ---------------------------------------------------------------------------
+
+  - name: Presentation Small
+    slug: presentation-small
+    width: wide
+
+    columns:
+      - size: small
+        widgets:
+          - type: custom-api
+            title: Presentation Primitives - small
+            url: https://api.github.com/repos/samcro1967/glance
+            cache: 1h
+            headers:
+              Accept: application/vnd.github+json
+              X-Glance-Test-Instance: presentation-small-primitives
+            template: |
+              <div class="flex flex-column gap-15">
+                <div class="glance-metrics">
+                  <div class="glance-metric">
+                    <div class="glance-metric-value">{{ .JSON.Int "stargazers_count" | formatNumber }}</div>
+                    <div class="glance-metric-label">Stars</div>
+                  </div>
+                  <div class="glance-metric">
+                    <div class="glance-metric-value">{{ .JSON.Int "forks_count" | formatNumber }}</div>
+                    <div class="glance-metric-label">Forks</div>
+                  </div>
+                </div>
+
+                <div class="flex gap-5 flex-wrap">
+                  <span class="glance-badge">v0.8.6</span>
+                  <span class="glance-status glance-status-positive">Healthy</span>
+                  <span class="glance-status glance-status-warning">Warning</span>
+                  <span class="glance-status glance-status-negative">Failed</span>
+                  <span class="glance-status glance-status-neutral">Unknown</span>
+                </div>
+
+                <div class="glance-key-values">
+                  <div class="glance-key-value">
+                    <span class="glance-key">Repository</span>
+                    <span class="glance-value">{{ .JSON.String "full_name" }}</span>
+                  </div>
+                  <div class="glance-key-value">
+                    <span class="glance-key">Language</span>
+                    <span class="glance-value">{{ .JSON.String "language" }}</span>
+                  </div>
+                  <div class="glance-key-value">
+                    <span class="glance-key">Open issues</span>
+                    <span class="glance-value">{{ .JSON.Int "open_issues_count" | formatNumber }}</span>
+                  </div>
+                </div>
+
+                <div class="glance-grid">
+                  <div class="glance-card">
+                    <div class="size-h5 color-highlight">Native Card</div>
+                    <div class="color-subdue">Native presentation card</div>
+                  </div>
+                  <div class="glance-card">
+                    <div class="size-h5 color-highlight">Grid Item</div>
+                    <div class="color-subdue">Responsive presentation grid</div>
+                  </div>
+                </div>
+              </div>
+
+      - size: full
+        widgets:
+          - type: custom-api
+            title: Presentation Data - full
+            url: https://api.github.com/repos/samcro1967/glance
+            cache: 1h
+            headers:
+              Accept: application/vnd.github+json
+              X-Glance-Test-Instance: presentation-small-data
+            charts:
+              request-trend:
+                type: line
+                height: 180
+                legend: true
+              cpu-area:
+                type: area
+                height: 180
+                legend: true
+                min: 0
+                max: 100
+                unit: "%"
+              latency-bars:
+                type: bar
+                height: 180
+                legend: true
+                min: 0
+                unit: " ms"
+                stacked: false
+              service-pie:
+                type: pie
+                height: 180
+                legend: true
+              storage-doughnut:
+                type: doughnut
+                height: 180
+                legend: true
+              cpu-gauge:
+                type: gauge
+                height: 140
+                min: 0
+                max: 100
+                unit: "%"
+              request-sparkline:
+                type: sparkline
+                height: 48
+            template: |
+              <div class="flex flex-column gap-15">
+                  <div class="size-h5 color-highlight">Native Table</div>
+                  <table class="glance-table" data-glance-table>
+                    <thead>
+                      <tr>
+                        <th data-column="service">Service</th>
+                        <th data-column="status">Status</th>
+                        <th data-column="latency">Latency</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>Glance</td>
+                        <td>Healthy</td>
+                        <td>18 ms</td>
+                      </tr>
+                      <tr>
+                        <td>Sports Feed</td>
+                        <td>Healthy</td>
+                        <td>42 ms</td>
+                      </tr>
+                      <tr>
+                        <td>Monitoring</td>
+                        <td>Degraded</td>
+                        <td>126 ms</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div class="size-h5 color-highlight">Native Charts</div>
+
+                <div class="glance-grid">
+                  <div class="glance-card">
+                    <div class="size-h5 color-highlight">Line</div>
+                    <div class="glance-chart" data-glance-chart="request-trend" data-glance-chart-label="Request trend">
+                      <script type="application/json">{"labels":["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],"series":[{"label":"Requests","values":[42,55,48,71,66,82,76]}]}</script>
+                    </div>
+                  </div>
+
+                  <div class="glance-card">
+                    <div class="size-h5 color-highlight">Area</div>
+                    <div class="glance-chart" data-glance-chart="cpu-area" data-glance-chart-label="CPU utilization">
+                      <script type="application/json">{"labels":["08:00","09:00","10:00","11:00","12:00","13:00"],"series":[{"label":"CPU","values":[22,34,29,51,46,63]}]}</script>
+                    </div>
+                  </div>
+
+                  <div class="glance-card">
+                    <div class="size-h5 color-highlight">Bar</div>
+                    <div class="glance-chart" data-glance-chart="latency-bars" data-glance-chart-label="Service latency">
+                      <script type="application/json">{"labels":["Glance","Sports","Monitor"],"series":[{"label":"Latency","values":[18,42,126]}]}</script>
+                    </div>
+                  </div>
+
+                  <div class="glance-card">
+                    <div class="size-h5 color-highlight">Pie</div>
+                    <div class="glance-chart" data-glance-chart="service-pie" data-glance-chart-label="Service distribution">
+                      <script type="application/json">{"labels":["Healthy","Warning","Failed"],"values":[72,18,10]}</script>
+                    </div>
+                  </div>
+
+                  <div class="glance-card">
+                    <div class="size-h5 color-highlight">Doughnut</div>
+                    <div class="glance-chart" data-glance-chart="storage-doughnut" data-glance-chart-label="Storage allocation">
+                      <script type="application/json">{"labels":["Used","Free"],"values":[68,32]}</script>
+                    </div>
+                  </div>
+
+                  <div class="glance-card">
+                    <div class="size-h5 color-highlight">Gauge</div>
+                    <div class="glance-chart" data-glance-chart="cpu-gauge" data-glance-chart-label="CPU gauge">
+                      <script type="application/json">{"value":72,"label":"CPU"}</script>
+                    </div>
+                  </div>
+
+                  <div class="glance-card">
+                    <div class="size-h5 color-highlight">Sparkline</div>
+                    <div class="glance-chart" data-glance-chart="request-sparkline" data-glance-chart-label="Seven sample trend">
+                      <script type="application/json">{"values":[18,24,21,33,29,41,38,52,47,61]}</script>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+      - size: small
+        widgets:
+          - type: custom-api
+            title: Presentation States - small
+            url: https://api.github.com/repos/samcro1967/glance
+            cache: 1h
+            headers:
+              Accept: application/vnd.github+json
+              X-Glance-Test-Instance: presentation-small-states
+            template: |
+              <div class="flex flex-column gap-15">
+                  <div class="size-h5 color-highlight">Progress</div>
+                  <div class="glance-progress">
+                    <div class="glance-progress-value" style="--percent: 72"></div>
+                  </div>
+
+                <details class="glance-details">
+                  <summary class="glance-summary">Disclosure</summary>
+                  <div class="color-subdue">Native presentation disclosure.</div>
+                </details>
+
+                <div class="glance-state glance-state-empty">No data is currently available.</div>
+                <div class="glance-state glance-state-warning">Data is approaching a configured threshold.</div>
+                <div class="glance-state glance-state-error">The request failed.</div>
+                <div class="glance-state glance-state-degraded">Showing stale data from the last successful refresh.</div>
+              </div>
+
+  - name: Presentation Medium
+    slug: presentation-medium
+    width: wide
+
+    columns:
+      - size: medium
+        widgets:
+          - type: custom-api
+            title: Presentation Primitives - medium
+            url: https://api.github.com/repos/samcro1967/glance
+            cache: 1h
+            headers:
+              Accept: application/vnd.github+json
+              X-Glance-Test-Instance: presentation-medium-primitives
+            template: |
+              <div class="flex flex-column gap-15">
+                <div class="glance-metrics">
+                  <div class="glance-metric">
+                    <div class="glance-metric-value">{{ .JSON.Int "stargazers_count" | formatNumber }}</div>
+                    <div class="glance-metric-label">Stars</div>
+                  </div>
+                  <div class="glance-metric">
+                    <div class="glance-metric-value">{{ .JSON.Int "forks_count" | formatNumber }}</div>
+                    <div class="glance-metric-label">Forks</div>
+                  </div>
+                </div>
+
+                <div class="flex gap-5 flex-wrap">
+                  <span class="glance-badge">v0.8.6</span>
+                  <span class="glance-status glance-status-positive">Healthy</span>
+                  <span class="glance-status glance-status-warning">Warning</span>
+                  <span class="glance-status glance-status-negative">Failed</span>
+                  <span class="glance-status glance-status-neutral">Unknown</span>
+                </div>
+
+                <div class="glance-key-values">
+                  <div class="glance-key-value">
+                    <span class="glance-key">Repository</span>
+                    <span class="glance-value">{{ .JSON.String "full_name" }}</span>
+                  </div>
+                  <div class="glance-key-value">
+                    <span class="glance-key">Language</span>
+                    <span class="glance-value">{{ .JSON.String "language" }}</span>
+                  </div>
+                  <div class="glance-key-value">
+                    <span class="glance-key">Open issues</span>
+                    <span class="glance-value">{{ .JSON.Int "open_issues_count" | formatNumber }}</span>
+                  </div>
+                </div>
+
+                <div class="glance-grid">
+                  <div class="glance-card">
+                    <div class="size-h5 color-highlight">Native Card</div>
+                    <div class="color-subdue">Native presentation card</div>
+                  </div>
+                  <div class="glance-card">
+                    <div class="size-h5 color-highlight">Grid Item</div>
+                    <div class="color-subdue">Responsive presentation grid</div>
+                  </div>
+                </div>
+              </div>
+
+      - size: medium
+        widgets:
+          - type: custom-api
+            title: Presentation Table - medium
+            url: https://api.github.com/repos/samcro1967/glance
+            cache: 1h
+            headers:
+              Accept: application/vnd.github+json
+              X-Glance-Test-Instance: presentation-medium-table
+            tables:
+              services:
+                responsive: true
+                sortable: true
+                search: true
+                pagination: true
+                page-size: 2
+                columns:
+                  service:
+                    type: text
+                    priority: 1
+                  status:
+                    type: text
+                    priority: 2
+                  latency:
+                    type: number
+                    priority: 3
+            template: |
+              <div class="flex flex-column gap-15">
+                  <div class="size-h5 color-highlight">Native Table</div>
+                  <table class="glance-table" data-glance-table="services">
+                    <thead>
+                      <tr>
+                        <th data-column="service">Service</th>
+                        <th data-column="status">Status</th>
+                        <th data-column="latency">Latency</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>Glance</td>
+                        <td>Healthy</td>
+                        <td>18 ms</td>
+                      </tr>
+                      <tr>
+                        <td>Sports Feed</td>
+                        <td>Healthy</td>
+                        <td>42 ms</td>
+                      </tr>
+                      <tr>
+                        <td>Monitoring</td>
+                        <td>Degraded</td>
+                        <td>126 ms</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+      - size: medium
+        widgets:
+          - type: custom-api
+            title: Presentation Charts & States - medium
+            url: https://api.github.com/repos/samcro1967/glance
+            cache: 1h
+            headers:
+              Accept: application/vnd.github+json
+              X-Glance-Test-Instance: presentation-medium-charts-states
+            charts:
+              request-trend:
+                type: line
+                height: 180
+                legend: true
+              cpu-area:
+                type: area
+                height: 180
+                legend: true
+                min: 0
+                max: 100
+                unit: "%"
+              latency-bars:
+                type: bar
+                height: 180
+                legend: true
+                min: 0
+                unit: " ms"
+                stacked: false
+              service-pie:
+                type: pie
+                height: 180
+                legend: true
+              storage-doughnut:
+                type: doughnut
+                height: 180
+                legend: true
+              cpu-gauge:
+                type: gauge
+                height: 140
+                min: 0
+                max: 100
+                unit: "%"
+              request-sparkline:
+                type: sparkline
+                height: 48
+            template: |
+              <div class="flex flex-column gap-15">
+                <div class="size-h5 color-highlight">Native Charts</div>
+
+                <div class="glance-grid">
+                  <div class="glance-card">
+                    <div class="size-h5 color-highlight">Line</div>
+                    <div class="glance-chart" data-glance-chart="request-trend" data-glance-chart-label="Request trend">
+                      <script type="application/json">{"labels":["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],"series":[{"label":"Requests","values":[42,55,48,71,66,82,76]}]}</script>
+                    </div>
+                  </div>
+
+                  <div class="glance-card">
+                    <div class="size-h5 color-highlight">Area</div>
+                    <div class="glance-chart" data-glance-chart="cpu-area" data-glance-chart-label="CPU utilization">
+                      <script type="application/json">{"labels":["08:00","09:00","10:00","11:00","12:00","13:00"],"series":[{"label":"CPU","values":[22,34,29,51,46,63]}]}</script>
+                    </div>
+                  </div>
+
+                  <div class="glance-card">
+                    <div class="size-h5 color-highlight">Bar</div>
+                    <div class="glance-chart" data-glance-chart="latency-bars" data-glance-chart-label="Service latency">
+                      <script type="application/json">{"labels":["Glance","Sports","Monitor"],"series":[{"label":"Latency","values":[18,42,126]}]}</script>
+                    </div>
+                  </div>
+
+                  <div class="glance-card">
+                    <div class="size-h5 color-highlight">Pie</div>
+                    <div class="glance-chart" data-glance-chart="service-pie" data-glance-chart-label="Service distribution">
+                      <script type="application/json">{"labels":["Healthy","Warning","Failed"],"values":[72,18,10]}</script>
+                    </div>
+                  </div>
+
+                  <div class="glance-card">
+                    <div class="size-h5 color-highlight">Doughnut</div>
+                    <div class="glance-chart" data-glance-chart="storage-doughnut" data-glance-chart-label="Storage allocation">
+                      <script type="application/json">{"labels":["Used","Free"],"values":[68,32]}</script>
+                    </div>
+                  </div>
+
+                  <div class="glance-card">
+                    <div class="size-h5 color-highlight">Gauge</div>
+                    <div class="glance-chart" data-glance-chart="cpu-gauge" data-glance-chart-label="CPU gauge">
+                      <script type="application/json">{"value":72,"label":"CPU"}</script>
+                    </div>
+                  </div>
+
+                  <div class="glance-card">
+                    <div class="size-h5 color-highlight">Sparkline</div>
+                    <div class="glance-chart" data-glance-chart="request-sparkline" data-glance-chart-label="Seven sample trend">
+                      <script type="application/json">{"values":[18,24,21,33,29,41,38,52,47,61]}</script>
+                    </div>
+                  </div>
+                </div>
+
+                  <div class="size-h5 color-highlight">Progress</div>
+                  <div class="glance-progress">
+                    <div class="glance-progress-value" style="--percent: 72"></div>
+                  </div>
+
+                <details class="glance-details">
+                  <summary class="glance-summary">Disclosure</summary>
+                  <div class="color-subdue">Native presentation disclosure.</div>
+                </details>
+
+                <div class="glance-state glance-state-empty">No data is currently available.</div>
+                <div class="glance-state glance-state-warning">Data is approaching a configured threshold.</div>
+                <div class="glance-state glance-state-error">The request failed.</div>
+                <div class="glance-state glance-state-degraded">Showing stale data from the last successful refresh.</div>
+              </div>
+
+  - name: Presentation Full
+    slug: presentation-full
+    width: wide
+
+    columns:
+      - size: full
+        widgets:
+          - type: custom-api
+            title: Presentation Primitives - full
+            url: https://api.github.com/repos/samcro1967/glance
+            cache: 1h
+            headers:
+              Accept: application/vnd.github+json
+              X-Glance-Test-Instance: presentation-full-primitives
+            template: |
+              <div class="flex flex-column gap-15">
+                <div class="glance-metrics">
+                  <div class="glance-metric">
+                    <div class="glance-metric-value">{{ .JSON.Int "stargazers_count" | formatNumber }}</div>
+                    <div class="glance-metric-label">Stars</div>
+                  </div>
+                  <div class="glance-metric">
+                    <div class="glance-metric-value">{{ .JSON.Int "forks_count" | formatNumber }}</div>
+                    <div class="glance-metric-label">Forks</div>
+                  </div>
+                </div>
+
+                <div class="flex gap-5 flex-wrap">
+                  <span class="glance-badge">v0.8.6</span>
+                  <span class="glance-status glance-status-positive">Healthy</span>
+                  <span class="glance-status glance-status-warning">Warning</span>
+                  <span class="glance-status glance-status-negative">Failed</span>
+                  <span class="glance-status glance-status-neutral">Unknown</span>
+                </div>
+
+                <div class="glance-key-values">
+                  <div class="glance-key-value">
+                    <span class="glance-key">Repository</span>
+                    <span class="glance-value">{{ .JSON.String "full_name" }}</span>
+                  </div>
+                  <div class="glance-key-value">
+                    <span class="glance-key">Language</span>
+                    <span class="glance-value">{{ .JSON.String "language" }}</span>
+                  </div>
+                  <div class="glance-key-value">
+                    <span class="glance-key">Open issues</span>
+                    <span class="glance-value">{{ .JSON.Int "open_issues_count" | formatNumber }}</span>
+                  </div>
+                </div>
+
+                <div class="glance-grid">
+                  <div class="glance-card">
+                    <div class="size-h5 color-highlight">Native Card</div>
+                    <div class="color-subdue">Native presentation card</div>
+                  </div>
+                  <div class="glance-card">
+                    <div class="size-h5 color-highlight">Grid Item</div>
+                    <div class="color-subdue">Responsive presentation grid</div>
+                  </div>
+                </div>
+              </div>
+
+          - type: custom-api
+            title: Presentation Table - full
+            url: https://api.github.com/repos/samcro1967/glance
+            cache: 1h
+            headers:
+              Accept: application/vnd.github+json
+              X-Glance-Test-Instance: presentation-full-table
+            tables:
+              services:
+                responsive: true
+                sortable: true
+                search: false
+                pagination: false
+                page-size: 10
+                columns:
+                  service:
+                    type: text
+                    priority: 1
+                  status:
+                    type: text
+                    priority: 2
+                  latency:
+                    type: number
+                    priority: 3
+            template: |
+              <div class="flex flex-column gap-15">
+                  <div class="size-h5 color-highlight">Native Table</div>
+                  <table class="glance-table" data-glance-table="services">
+                    <thead>
+                      <tr>
+                        <th data-column="service">Service</th>
+                        <th data-column="status">Status</th>
+                        <th data-column="latency">Latency</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td>Glance</td>
+                        <td>Healthy</td>
+                        <td>18 ms</td>
+                      </tr>
+                      <tr>
+                        <td>Sports Feed</td>
+                        <td>Healthy</td>
+                        <td>42 ms</td>
+                      </tr>
+                      <tr>
+                        <td>Monitoring</td>
+                        <td>Degraded</td>
+                        <td>126 ms</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+          - type: custom-api
+            title: Presentation Charts - full
+            url: https://api.github.com/repos/samcro1967/glance
+            cache: 1h
+            headers:
+              Accept: application/vnd.github+json
+              X-Glance-Test-Instance: presentation-full-charts
+            charts:
+              request-trend:
+                type: line
+                height: 180
+                legend: true
+              cpu-area:
+                type: area
+                height: 180
+                legend: true
+                min: 0
+                max: 100
+                unit: "%"
+              latency-bars:
+                type: bar
+                height: 180
+                legend: true
+                min: 0
+                unit: " ms"
+                stacked: false
+              service-pie:
+                type: pie
+                height: 180
+                legend: true
+              storage-doughnut:
+                type: doughnut
+                height: 180
+                legend: true
+              cpu-gauge:
+                type: gauge
+                height: 140
+                min: 0
+                max: 100
+                unit: "%"
+              request-sparkline:
+                type: sparkline
+                height: 48
+            template: |
+              <div class="flex flex-column gap-15">
+                <div class="size-h5 color-highlight">Native Charts</div>
+
+                <div class="glance-grid">
+                  <div class="glance-card">
+                    <div class="size-h5 color-highlight">Line</div>
+                    <div class="glance-chart" data-glance-chart="request-trend" data-glance-chart-label="Request trend">
+                      <script type="application/json">{"labels":["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],"series":[{"label":"Requests","values":[42,55,48,71,66,82,76]}]}</script>
+                    </div>
+                  </div>
+
+                  <div class="glance-card">
+                    <div class="size-h5 color-highlight">Area</div>
+                    <div class="glance-chart" data-glance-chart="cpu-area" data-glance-chart-label="CPU utilization">
+                      <script type="application/json">{"labels":["08:00","09:00","10:00","11:00","12:00","13:00"],"series":[{"label":"CPU","values":[22,34,29,51,46,63]}]}</script>
+                    </div>
+                  </div>
+
+                  <div class="glance-card">
+                    <div class="size-h5 color-highlight">Bar</div>
+                    <div class="glance-chart" data-glance-chart="latency-bars" data-glance-chart-label="Service latency">
+                      <script type="application/json">{"labels":["Glance","Sports","Monitor"],"series":[{"label":"Latency","values":[18,42,126]}]}</script>
+                    </div>
+                  </div>
+
+                  <div class="glance-card">
+                    <div class="size-h5 color-highlight">Pie</div>
+                    <div class="glance-chart" data-glance-chart="service-pie" data-glance-chart-label="Service distribution">
+                      <script type="application/json">{"labels":["Healthy","Warning","Failed"],"values":[72,18,10]}</script>
+                    </div>
+                  </div>
+
+                  <div class="glance-card">
+                    <div class="size-h5 color-highlight">Doughnut</div>
+                    <div class="glance-chart" data-glance-chart="storage-doughnut" data-glance-chart-label="Storage allocation">
+                      <script type="application/json">{"labels":["Used","Free"],"values":[68,32]}</script>
+                    </div>
+                  </div>
+
+                  <div class="glance-card">
+                    <div class="size-h5 color-highlight">Gauge</div>
+                    <div class="glance-chart" data-glance-chart="cpu-gauge" data-glance-chart-label="CPU gauge">
+                      <script type="application/json">{"value":72,"label":"CPU"}</script>
+                    </div>
+                  </div>
+
+                  <div class="glance-card">
+                    <div class="size-h5 color-highlight">Sparkline</div>
+                    <div class="glance-chart" data-glance-chart="request-sparkline" data-glance-chart-label="Seven sample trend">
+                      <script type="application/json">{"values":[18,24,21,33,29,41,38,52,47,61]}</script>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+          - type: custom-api
+            title: Presentation States - full
+            url: https://api.github.com/repos/samcro1967/glance
+            cache: 1h
+            headers:
+              Accept: application/vnd.github+json
+              X-Glance-Test-Instance: presentation-full-states
+            template: |
+              <div class="flex flex-column gap-15">
+                  <div class="size-h5 color-highlight">Progress</div>
+                  <div class="glance-progress">
+                    <div class="glance-progress-value" style="--percent: 72"></div>
+                  </div>
+
+                <details class="glance-details">
+                  <summary class="glance-summary">Disclosure</summary>
+                  <div class="color-subdue">Native presentation disclosure.</div>
+                </details>
+
+                <div class="glance-state glance-state-empty">No data is currently available.</div>
+                <div class="glance-state glance-state-warning">Data is approaching a configured threshold.</div>
+                <div class="glance-state glance-state-error">The request failed.</div>
+                <div class="glance-state glance-state-degraded">Showing stale data from the last successful refresh.</div>
+              </div>
+
   - name: Home
     slug: home
     theme:
@@ -829,6 +1525,9 @@ dashboards:
     - groups-stack
     - widgets
     - requests
+    - presentation-small
+    - presentation-medium
+    - presentation-full
     - timer-small
     - timer-medium-full
     - home
@@ -846,6 +1545,9 @@ dashboards:
     - groups-stack
     - widgets
     - requests
+    - presentation-small
+    - presentation-medium
+    - presentation-full
     - timer-small
     - timer-medium-full
     - shared
