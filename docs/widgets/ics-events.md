@@ -23,7 +23,7 @@ Sources can be remote HTTP/HTTPS URLs or local files. Events from all available 
 
 ## Preview
 
-![ICS Events widget showing upcoming iCalendar events](../images/ics-events-preview.png)
+![ICS Events widget showing upcoming iCalendar events](../images/widgets/ics-events.png)
 
 ## Configuration
 

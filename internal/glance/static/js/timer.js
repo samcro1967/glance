@@ -234,7 +234,7 @@ function Timer(id, hourFormat) {
                     "data-timer-countdown": ""
                 }),
                 elem("button")
-                    .classes("timer-item-delete", "shrink-0")
+                    .classes("timer-item-delete", "glance-icon-button", "glance-button-quiet", "shrink-0")
                     .attrs({ "aria-label": `Delete ${timer.title}` })
                     .html(trashIconSvg)
                     .on("click", () => {
@@ -254,25 +254,25 @@ function Timer(id, hourFormat) {
     items = elem().classes("timer-items");
 
     form = elem().classes("timer-form", "display-none").append(
-        elem("input").classes("timer-form-name").attrs({
+        elem("input").classes("timer-form-name", "glance-control").attrs({
             type: "text",
             placeholder: "Timer name",
             spellcheck: "false"
         }).tap(input => nameInput = input).on("input", updateFormState),
-        elem("input").classes("timer-form-date").attrs({
+        elem("input").classes("timer-form-date", "glance-control").attrs({
             type: "date"
         }).tap(input => dateInput = input).on("input", updateFormState),
-        elem("input").classes("timer-form-time").attrs({
+        elem("input").classes("timer-form-time", "glance-control").attrs({
             type: "time"
         }).tap(input => timeInput = input).on("input", updateFormState),
         elem().classes("timer-form-actions").append(
-            elem("button").classes("timer-form-cancel").text("Cancel").on("click", hideForm),
-            elem("button").classes("timer-form-save").text("Add").disable().tap(button => saveButton = button).on("click", saveForm)
+            elem("button").classes("timer-form-cancel", "glance-button", "glance-button-quiet").text("Cancel").on("click", hideForm),
+            elem("button").classes("timer-form-save", "glance-button", "glance-button-primary").text("Add").disable().tap(button => saveButton = button).on("click", saveForm)
         )
     );
 
     const root = fragment().append(
-        elem("button").classes("timer-add").text("+ Add a timer").on("click", showAddForm),
+        elem("button").classes("timer-add", "glance-button", "glance-button-quiet").text("+ Add a timer").on("click", showAddForm),
         form,
         reorderable = verticallyReorderable(items, saveOrder, onDragEnd)
     );

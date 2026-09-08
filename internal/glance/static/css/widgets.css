@@ -71,24 +71,26 @@
 
 .widget-content:not(.widget-content-frameless), .widget-content-frame {
     background: var(--theme-widget-background-color, var(--color-widget-background));
-    border-radius: var(--theme-widget-radius, var(--border-radius));
+    border-radius: var(--theme-widget-radius, 1.2rem);
     border: 1px solid var(--theme-widget-border-color, var(--color-widget-content-border));
-    box-shadow: var(--theme-widget-shadow, 0px 3px 0px 0px hsl(var(--bghs), calc(var(--scheme) (var(--scheme) var(--bgl)) - 0.5%)));
+    box-shadow: var(--theme-widget-shadow, 0 1px 2px rgb(0 0 0 / 0.10));
     backdrop-filter: var(--theme-widget-blur, none);
     -webkit-backdrop-filter: var(--theme-widget-blur, none);
 }
 
 .widget-header {
     padding: 0 calc(var(--widget-content-horizontal-padding) + 1px);
-    font-size: var(--theme-widget-header-font-size, var(--font-size-h4));
-    font-weight: var(--theme-widget-header-font-weight, inherit);
-    color: var(--theme-widget-header-text-color, inherit);
-    background-color: var(--theme-widget-header-background-color, transparent);
-    border-bottom: 1px solid var(--theme-widget-header-border-color, transparent);
-    margin-bottom: 0.9rem;
+    font-size: var(--theme-widget-header-font-size, var(--font-size-h3));
+    font-weight: var(--theme-widget-header-font-weight, 600);
+    line-height: 1.3;
+    letter-spacing: -0.015em;
+    color: var(--theme-widget-header-text-color, var(--color-text-highlight));
+    background: transparent;
+    border: 0;
+    margin-bottom: 1rem;
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 0.8rem;
 }
 
 .widget-header a,
@@ -123,26 +125,14 @@
     overflow: hidden;
 }
 
-.widget-header::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 3px;
-    background-color: var(--theme-widget-header-accent-color, var(--theme-accent-color, var(--color-primary)));
-    pointer-events: none;
-}
-
 .widget-content:not(.widget-content-frameless),
 .widget-content-frame {
-    transition: border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
 .widget-content:not(.widget-content-frameless):hover,
 .widget-content-frame:hover {
-    border-color: var(--theme-accent-color, var(--theme-widget-border-color, var(--color-widget-content-border)));
-    transform: translateY(-1px);
+    border-color: var(--theme-elevated-border-color, var(--theme-widget-border-color, var(--color-widget-content-border)));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -150,5 +140,219 @@
     .widget-content-frame {
         transition: none;
         transform: none;
+    }
+}
+
+/* =========================================================================
+ * Modern widget presentation
+ *
+ * Widget headings establish hierarchy above their content rather than being
+ * integrated into the content surface. Normal widgets own one primary
+ * surface; frameless/composition widgets remain transparent and let their
+ * child components establish the required surface hierarchy.
+ * ========================================================================= */
+
+/* -------------------------------------------------------------------------
+ * Widget heading
+ * ------------------------------------------------------------------------- */
+
+.widget > .widget-header {
+    margin: 0 0 1.25rem;
+    padding: 0 0.3rem;
+
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+
+    color:
+        var(
+            --theme-widget-header-text-color,
+            var(--color-text-highlight)
+        );
+
+    font-size: 1.55rem;
+    font-weight: var(--theme-widget-header-font-weight, 600);
+    line-height: 1.25;
+    letter-spacing: -0.025em;
+}
+
+/* A widget title is hierarchy rather than accent decoration. */
+.widget > .widget-header > h2 {
+    color: inherit;
+}
+
+/* Linked titles remain interactive without making every widget heading use
+ * the application's accent color at rest. */
+.widget > .widget-header > h2 > a {
+    color: inherit;
+    transition:
+        color 150ms ease,
+        opacity 150ms ease;
+}
+
+.widget > .widget-header > h2 > a:hover {
+    color:
+        var(
+            --theme-widget-header-accent-color,
+            var(--theme-accent-color, var(--color-primary))
+        );
+}
+
+/* -------------------------------------------------------------------------
+ * Primary widget surface
+ * ------------------------------------------------------------------------- */
+
+.widget > .widget-content:not(.widget-content-frameless) {
+    padding: 1.8rem 2rem;
+
+    background:
+        var(
+            --theme-widget-background-color,
+            var(--color-widget-background)
+        );
+
+    border: 1px solid
+        color-mix(
+            in srgb,
+            var(
+                --theme-widget-border-color,
+                var(--color-widget-content-border)
+            ) 48%,
+            transparent
+        );
+
+    border-radius:
+        var(
+            --theme-widget-radius,
+            1.3rem
+        );
+
+    box-shadow:
+        var(
+            --theme-widget-shadow,
+            0 1px 2px rgb(0 0 0 / 0.12),
+            0 6px 18px rgb(0 0 0 / 0.07)
+        );
+
+    transition:
+        border-color 160ms ease,
+        box-shadow 180ms ease;
+}
+
+/* Passive dashboard surfaces receive only restrained hover feedback. They
+ * should not move toward the user like actionable controls. */
+.widget > .widget-content:not(.widget-content-frameless):hover {
+    border-color:
+        color-mix(
+            in srgb,
+            var(
+                --theme-widget-border-color,
+                var(--color-widget-content-border)
+            ) 65%,
+            transparent
+        );
+
+    box-shadow:
+        0 1px 2px rgb(0 0 0 / 0.12),
+        0 8px 22px rgb(0 0 0 / 0.09);
+}
+
+/* -------------------------------------------------------------------------
+ * Frameless/composition widgets
+ * ------------------------------------------------------------------------- */
+
+.widget > .widget-content.widget-content-frameless {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+/* Nested cards form the second surface level beneath the widget surface or
+ * provide the visible surface for frameless composition widgets. */
+.card {
+    border-color:
+        color-mix(
+            in srgb,
+            var(
+                --theme-card-border-color,
+                var(--color-widget-content-border)
+            ) 60%,
+            transparent
+        );
+
+    border-radius: var(--theme-card-radius, 1.2rem);
+
+    box-shadow:
+        var(
+            --theme-card-shadow,
+            0 1px 3px rgb(0 0 0 / 0.12)
+        );
+
+    transition:
+        border-color 160ms ease,
+        box-shadow 160ms ease;
+}
+
+.card:hover {
+    border-color:
+        color-mix(
+            in srgb,
+            var(
+                --theme-card-border-color,
+                var(--color-widget-content-border)
+            ) 82%,
+            transparent
+        );
+
+    box-shadow:
+        0 1px 3px rgb(0 0 0 / 0.14),
+        0 8px 20px rgb(0 0 0 / 0.10);
+}
+
+/* -------------------------------------------------------------------------
+ * Content hierarchy
+ * ------------------------------------------------------------------------- */
+
+/* Generic horizontal metadata should recede from titles and primary values. */
+.list-horizontal-text {
+    color:
+        var(
+            --theme-secondary-text-color,
+            var(--color-text-subdue)
+        );
+}
+
+/* Strong content nested inside metadata retains its visual priority. */
+.list-horizontal-text .color-highlight,
+.list-horizontal-text .color-primary,
+.list-horizontal-text a:hover {
+    color: var(--color-text-highlight);
+}
+
+/* -------------------------------------------------------------------------
+ * Accessibility
+ * ------------------------------------------------------------------------- */
+
+.widget > .widget-header a:focus-visible,
+.widget > .widget-header button:focus-visible {
+    outline: 2px solid
+        var(
+            --theme-widget-header-accent-color,
+            var(--theme-accent-color, var(--color-primary))
+        );
+    outline-offset: 3px;
+    border-radius: 0.3rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .widget-content,
+    .widget-content-frame,
+    .card,
+    .widget-header a,
+    .widget-header button {
+        transition: none !important;
+        transform: none !important;
     }
 }

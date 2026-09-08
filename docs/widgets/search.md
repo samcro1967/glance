@@ -17,7 +17,7 @@ Search the web from Glance using a built-in or custom search engine, with option
 
 ## Preview
 
-![Search widget with a configured YouTube bang](../images/search-widget-preview.png)
+![Search widget with a configured YouTube bang](../images/widgets/search.png)
 
 ## Keyboard shortcuts
 | Keys | Action | Condition |
@@ -75,7 +75,6 @@ When set to `true`, an input that looks like a domain or HTTP(S) URL is opened d
 ### `bangs`
 Bangs are shortcuts that route a query to a specific search engine or site. For example, a configured `!yt` bang can send the query directly to YouTube:
 
-![Search widget with an active bang shortcut](../images/search-widget-bangs-preview.png)
 
 #### Bang properties
 | Property | Type | Required |

@@ -24,7 +24,7 @@ Groups can contain other groups for nested tab navigation. A `split-column` widg
 
 ### Preview
 
-![Group widget with multiple tabbed child widgets](../images/group-widget-preview.png)
+![Group widget with multiple tabbed child widgets](../images/widgets/group.png)
 
 ## Configuration
 
@@ -90,7 +90,6 @@ This produces an outer set of tabs for `Major Leagues` and `College`, with each 
 
 ### Preview
 
-![Nested Group widgets providing multiple levels of tab navigation](../images/nested-groups-preview.png)
 
 ## Reusing configuration with YAML anchors
 

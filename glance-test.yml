@@ -11,6 +11,7 @@
 server:
   host: 0.0.0.0
   port: 18080
+  assets-path: testdata/assets
 
 branding:
   app-name: "Glance Test"
@@ -176,437 +177,746 @@ widget-defaults:
       new-tab: false
 
 pages:
-  # ---------------------------------------------------------------------------
-  # Hierarchical defaults integration
-  # ---------------------------------------------------------------------------
-  - name: Defaults
-    slug: defaults
+  - name: Layout & Composition
+    slug: layout-composition
     width: wide
+    head-widgets:
+      - type: status-bar
+        title: Status Bar - Ticker
+        css-class: visual-fixture-status-bar
+        mode: ticker
+        speed: normal
+        widgets:
+          - type: weather
+            location: St. Louis, Missouri, United States
+            units: imperial
+          - type: markets
+            markets:
+              - symbol: SPY
+                name: S&P 500
+              - symbol: BTC-USD
+                name: Bitcoin
 
+    columns:
+      - size: small
+        widgets:
+          - type: group
+            title: Group
+            css-class: visual-fixture-group
+            widgets:
+              - type: hacker-news
+                title: Hacker News
+                limit: 5
+                collapse-after: 3
+              - type: lobsters
+                title: Lobsters
+                limit: 5
+                collapse-after: 3
+
+          - type: stack
+            title: Stack
+            css-class: visual-fixture-stack
+            widgets:
+              - type: markdown
+                title: First
+                source: |
+                  **Stacked content** with secondary information.
+              - type: bookmarks
+                title: Second
+                groups:
+                  - title: Links
+                    links:
+                      - title: Glance
+                        url: https://github.com/glanceapp/glance
+
+      - size: full
+        widgets:
+          - type: split-column
+            title: Split Column
+            css-class: visual-fixture-split-column
+            max-columns: 3
+            widgets:
+              - type: hacker-news
+                title: Hacker News
+                limit: 6
+                collapse-after: 4
+              - type: reddit
+                title: Self Hosted
+                subreddit: selfhosted
+                limit: 6
+                collapse-after: 4
+              - type: lobsters
+                title: Lobsters
+                limit: 6
+                collapse-after: 4
+
+      - size: small
+        widgets:
+          - type: group
+            title: Nested Group
+            widgets:
+              - type: stack
+                title: Information
+                widgets:
+                  - type: clock
+                    hour-format: 12h
+                  - type: markdown
+                    source: Nested composition
+              - type: markdown
+                title: Alternate
+                source: Second tab
+
+    bottom-widgets:
+      - type: status-bar
+        title: Status Bar - Wrap
+        mode: wrap
+        widgets:
+          - type: markets
+            markets:
+              - symbol: AAPL
+                name: Apple
+              - symbol: MSFT
+                name: Microsoft
+          - type: weather
+            location: St. Louis, Missouri, United States
+            units: imperial
+
+  - name: Feeds & Content
+    slug: feeds-content
+    width: wide
+    columns:
+      - size: small
+        widgets:
+          - type: hacker-news
+            title: Hacker News
+            css-class: visual-fixture-hacker-news
+            limit: 8
+            collapse-after: 5
+
+          - type: lobsters
+            title: Lobsters
+            css-class: visual-fixture-lobsters
+            limit: 8
+            collapse-after: 5
+
+      - size: full
+        widgets:
+          - type: rss
+            title: RSS - Horizontal Cards
+            css-class: visual-fixture-rss
+            style: horizontal-cards
+            limit: 8
+            collapse-after: 6
+            feeds:
+              - url: https://selfh.st/rss/
+                title: selfh.st
+
+          - type: videos
+            title: Videos - Grid Cards
+            css-class: visual-fixture-videos
+            style: grid-cards
+            collapse-after-rows: 2
+            channels:
+              - UCXuqSBlHAE6Xw-yeJA0Tunw
+              - UCR-DXc1voovS8nhAvccRZhg
+              - UCsBjURrPoezykLs9EqgamOA
+
+          - type: reddit
+            title: Reddit - Horizontal Cards
+            css-class: visual-fixture-reddit
+            subreddit: selfhosted
+            style: horizontal-cards
+            limit: 8
+            collapse-after: 6
+
+      - size: small
+        widgets:
+          - type: rss
+            title: RSS - List
+            limit: 8
+            collapse-after: 5
+            feeds:
+              - url: https://www.joshwcomeau.com/rss.xml
+                title: Josh Comeau
+
+          - type: reddit
+            title: Reddit - Vertical
+            subreddit: homelab
+            limit: 8
+            collapse-after: 5
+
+  - name: Search, Links & Custom Content
+    slug: search-custom-content
+    width: wide
+    columns:
+      - size: small
+        widgets:
+          - type: search
+            title: Search
+            css-class: visual-fixture-search
+            search-engine: google
+            autofocus: false
+            bangs:
+              - title: GitHub
+                shortcut: "!gh"
+                url: https://github.com/search?q={QUERY}
+
+          - type: bookmarks
+            title: Bookmarks
+            css-class: visual-fixture-bookmarks
+            groups:
+              - title: Development
+                links:
+                  - title: Glance
+                    url: https://github.com/glanceapp/glance
+                  - title: Fork
+                    url: https://github.com/samcro1967/glance
+              - title: Reference
+                links:
+                  - title: Go
+                    url: https://go.dev/
+
+      - size: full
+        widgets:
+          - type: custom-api
+            title: Custom API - Native Presentation
+            css-class: visual-fixture-custom-api
+            url: https://api.github.com/repos/glanceapp/glance
+            cache: 1h
+            headers:
+              Accept: application/vnd.github+json
+            template: |
+              <div class="glance-grid">
+                <div class="glance-card">
+                  <div class="glance-secondary">Repository</div>
+                  <div class="size-h3 color-highlight">{{ .JSON.String "full_name" }}</div>
+                  <div class="glance-muted">{{ .JSON.String "description" }}</div>
+                </div>
+                <div class="glance-card">
+                  <div class="glance-secondary">Stars</div>
+                  <div class="size-h2 color-highlight">{{ .JSON.Int "stargazers_count" | formatNumber }}</div>
+                  <span class="glance-badge">Public API</span>
+                </div>
+              </div>
+
+          - type: markdown
+            title: Markdown
+            css-class: visual-fixture-markdown
+            source: |
+              ## Presentation hierarchy
+
+              Markdown verifies **headings**, body copy, [links](https://github.com/glanceapp/glance), lists, code, and separators.
+
+              - Primary information
+              - Secondary information
+              - Metadata and supporting detail
+
+              `inline code` should remain legible in every theme.
+
+          - type: html
+            title: HTML
+            css-class: visual-fixture-html
+            source: |
+              <div class="glance-card visual-fixture-html-content">
+                <div class="size-h3 color-highlight">Trusted HTML</div>
+                <p class="glance-secondary">Semantic presentation inside the native HTML widget.</p>
+                <span class="glance-badge">HTML</span>
+              </div>
+
+      - size: small
+        widgets:
+          - type: extension
+            title: Extension
+            css-class: visual-fixture-extension
+            url: http://127.0.0.1:18089/visual-test-extension
+            timeout: 1s
+            allow-potentially-dangerous-html: true
+
+          - type: iframe
+            title: IFrame
+            css-class: visual-fixture-iframe
+            source: https://example.com/
+            height: 240
+
+  - name: Date, Time & Weather
+    slug: date-time-weather
+    width: wide
+    columns:
+      - size: small
+        widgets:
+          - type: clock
+            title: Clock
+            css-class: visual-fixture-clock
+            hour-format: 12h
+            timezones:
+              - timezone: America/Chicago
+                label: Chicago
+              - timezone: Europe/London
+                label: London
+              - timezone: Asia/Tokyo
+                label: Tokyo
+
+          - type: analog-clock
+            title: Analog Clock
+            css-class: visual-fixture-analog-clock
+            dial-markers: NumericalFull
+            timezones:
+              - timezone: America/New_York
+                label: New York
+
+          - type: timer
+            title: Timer
+            css-class: visual-fixture-timer
+            id: visual-qa-timer
+            hour-format: 12h
+
+      - size: full
+        widgets:
+          - type: calendar
+            title: Calendar
+            css-class: visual-fixture-calendar
+            first-day-of-week: sunday
+            sources:
+              - file: testdata/screenshot-calendar.ics
+                title: Visual QA
+
+          - type: ics-events
+            title: ICS Events
+            css-class: visual-fixture-ics-events
+            days-ahead: 45
+            limit: 10
+            collapse-after: 6
+            sources:
+              - file: testdata/screenshot-calendar.ics
+                title: Visual QA
+
+      - size: small
+        widgets:
+          - type: weather
+            title: Weather
+            css-class: visual-fixture-weather
+            location: St. Louis, Missouri, United States
+            units: imperial
+            hour-format: 12h
+            show-current: true
+            show-details: true
+            show-hourly: true
+            show-forecast: true
+
+          - type: calendar-legacy
+            title: Calendar Legacy
+            css-class: visual-fixture-calendar-legacy
+            start-sunday: true
+
+  - name: Homelab & Monitoring
+    slug: homelab-monitoring
+    width: wide
     columns:
       - size: medium
         widgets:
-          # Exercises RSS type defaults and child/source inheritance.
-          #
-          # The first feed inherits type HTTP defaults. The second feed
-          # explicitly overrides child-capable values, proving the most
-          # specific configured value wins.
-          - type: rss
-            title: RSS Instance Override
-            cache: 20m
-            feeds:
-              - url: https://selfh.st/rss/
-                title: Inherited Feed
+          - type: monitor
+            title: Monitor
+            css-class: visual-fixture-monitor
+            cache: 5m
+            sites:
+              - title: GitHub
+                url: https://github.com/
+              - title: Glance
+                url: https://github.com/glanceapp/glance
 
-              - url: https://www.joshwcomeau.com/rss.xml
-                title: Explicit Feed Override
-                limit: 2
-                timeout: 12s
-                allow-insecure: false
-                headers:
-                  X-Glance-Test-Child: rss
-                basic-auth:
-                  username: ""
-                  password: ""
-
-          # Common capabilities apply recursively through containers.
-          - type: group
-            title: Nested Defaults
-            widgets:
-              - type: hacker-news
-
-              - type: stack
-                title: Nested Stack
-                widgets:
-                  - type: lobsters
-
-                  - type: reddit
-                    subreddit: selfhosted
+          - type: docker-containers
+            title: Docker Containers
+            css-class: visual-fixture-docker-containers
+            sock-path: http://127.0.0.1:18089
+            hide-by-default: false
 
       - size: medium
         widgets:
-          # Exercises list type defaults with an explicit instance override.
-          - type: hacker-news
-            title: Hacker News Instance Override
-            limit: 3
-            collapse-after: 2
+          - type: server-stats
+            title: Server Stats
+            css-class: visual-fixture-server-stats
+            servers:
+              - type: local
+                name: Local Test Instance
 
+          - type: dns-stats
+            title: DNS Stats
+            css-class: visual-fixture-dns-stats
+            service: adguard
+            url: http://127.0.0.1:18089/
+            timeout: 1s
+
+      - size: medium
+        widgets:
+          - type: change-detection
+            title: ChangeDetection.io
+            css-class: visual-fixture-change-detection
+            instance-url: http://127.0.0.1:18089
+            timeout: 1s
+            limit: 6
+            collapse-after: 4
+
+          - type: markdown
+            title: Deterministic fixture coverage
+            source: |
+              Monitoring widgets use local deterministic fixture data for reproducible visual QA.
+
+  - name: Development & Releases
+    slug: development-releases
+    width: wide
+    columns:
+      - size: medium
+        widgets:
+          - type: repository
+            title: Repository
+            css-class: visual-fixture-repository
+            repository: glanceapp/glance
+
+      - size: full
+        widgets:
           - type: releases
+            title: Releases
+            css-class: visual-fixture-releases
             repositories:
               - glanceapp/glance
               - samcro1967/glance
               - immich-app/immich
               - syncthing/syncthing
 
-          - type: videos
-            style: grid-cards
-            channels:
-              - UCXuqSBlHAE6Xw-yeJA0Tunw
-              - UCR-DXc1voovS8nhAvccRZhg
-              - UCsBjURrPoezykLs9EqgamOA
-
+  - name: Markets & Streaming
+    slug: markets-streaming
+    width: wide
+    columns:
       - size: medium
         widgets:
-          # Exercises common title/title-url/new-tab behavior.
-          - type: weather
-            title: Weather Instance Override
-            title-url: https://open-meteo.com/
-            location: St. Louis, Missouri, United States
-            units: imperial
-            show-current: true
-            show-details: true
-            show-hourly: true
-            show-forecast: true
-
-          # markets and stocks intentionally have different type defaults even
-          # though both resolve to the same implementation.
           - type: markets
+            title: Markets
+            css-class: visual-fixture-markets
             markets:
               - symbol: SPY
                 name: S&P 500
+              - symbol: BTC-USD
+                name: Bitcoin
               - symbol: AAPL
                 name: Apple
 
           - type: stocks
+            title: Stocks Compatibility Alias
+            css-class: visual-fixture-stocks
             markets:
               - symbol: MSFT
                 name: Microsoft
               - symbol: NVDA
                 name: NVIDIA
 
-  # ---------------------------------------------------------------------------
-  # Status Bar
-  # ---------------------------------------------------------------------------
-  - name: Status Bar
-    slug: status-bar
-    width: wide
-
-    head-widgets:
-      - type: status-bar
-        title: Status Bar Ticker
-        mode: ticker
-        speed: normal
-        widgets:
-          - type: weather
-            title: Weather
-            location: St. Louis, Missouri, United States
-            units: imperial
-
-          - type: markets
-            title: Markets
-            markets:
-              - symbol: SPY
-                name: S&P 500
-              - symbol: BTC-USD
-                name: Bitcoin
-              - symbol: AAPL
-                name: Apple
-              - symbol: MSFT
-                name: Microsoft
-              - symbol: NVDA
-                name: NVIDIA
-
-          - type: rss
-            title: RSS
-            limit: 5
-            feeds:
-              - url: https://selfh.st/rss/
-                title: selfh.st
-                basic-auth:
-                  username: ""
-                  password: ""
-
-          # Status Bar Custom API uses a locked compact response contract.
-          # Enable when a compatible endpoint is available.
-          # - type: custom-api
-          #   title: Live Scores
-          #   url: https://example.com/status.json
-          #   cache: 1m
-          # Expected response has an items array with icon1, url, line1, line2, and icon2.
-
-    columns:
       - size: full
         widgets:
-          - type: hacker-news
-            title: Technology News
-            limit: 5
-            collapse-after: 5
+          - type: twitch-channels
+            title: Twitch Channels
+            css-class: visual-fixture-twitch-channels
+            channels:
+              - cohhcarnage
+              - lirik
 
-    bottom-widgets:
-      # Short ticker intentionally uses the same speed as the much longer
-      # head ticker. They should move at the same visual pixels-per-second
-      # rate despite having very different content widths.
-      - type: status-bar
-        title: Status Bar Short Ticker
-        mode: ticker
-        speed: normal
-        widgets:
-          - type: markets
-            title: Markets
-            markets:
-              - symbol: SPY
-                name: S&P 500
-
-      - type: status-bar
-        title: Status Bar Wrap
-        mode: wrap
-        widgets:
-          - type: weather
-            title: Weather
-            location: St. Louis, Missouri, United States
-            units: imperial
-
-          - type: markets
-            title: Markets
-            markets:
-              - symbol: SPY
-                name: S&P 500
-              - symbol: BTC-USD
-                name: Bitcoin
-              - symbol: AAPL
-                name: Apple
-              - symbol: MSFT
-                name: Microsoft
-
-          - type: rss
-            title: RSS
-            limit: 3
-            feeds:
-              - url: https://selfh.st/rss/
-                title: selfh.st
-                basic-auth:
-                  username: ""
-                  password: ""
-
-  # ---------------------------------------------------------------------------
-  # Layout features
-  # ---------------------------------------------------------------------------
-  - name: Layout
-    slug: layout
-    theme:
-      accent-color: 37 84 65
-    width: wide
-
-    columns:
-      - size: medium
-        widgets:
-          - type: weather
-            title: First Medium Column
-            location: St. Louis, Missouri, United States
-            units: imperial
-
-      - size: medium
-        widgets:
-          - type: hacker-news
-            title: Second Medium Column
-            limit: 5
-            collapse-after: 5
-
-      - size: medium
-        widgets:
-          - type: reddit
-            title: Third Medium Column
-            subreddit: selfhosted
-            limit: 5
-            collapse-after: 5
-
-    bottom-widgets:
-      - type: rss
-        title: Bottom Widgets
-        style: horizontal-cards
-        limit: 5
-        feeds:
-          - url: https://selfh.st/rss/
-            title: selfh.st
-            basic-auth:
-              username: ""
-              password: ""
-
-  # ---------------------------------------------------------------------------
-  # Medium + Full proportional layout
-  # ---------------------------------------------------------------------------
-  - name: Proportional
-    slug: proportional
-    width: wide
-
-    columns:
-      - size: medium
-        widgets:
-          - type: weather
-            title: Medium Column
-            location: St. Louis, Missouri, United States
-            units: imperial
-
-          - type: clock
-            title: Clock
-            hour-format: 12h
-
-      - size: full
-        widgets:
-          - type: hacker-news
-            title: Full Column
+          - type: twitch-top-games
+            title: Twitch Top Games
+            css-class: visual-fixture-twitch-top-games
             limit: 10
-            collapse-after: 5
+            collapse-after: 6
+            exclude:
+              - just-chatting
+              - pools-hot-tubs-and-beaches
 
-  # ---------------------------------------------------------------------------
-  # Group, nested group, and stack
-  # ---------------------------------------------------------------------------
-  - name: Groups & Stack
-    slug: groups-stack
-    theme:
-      accent-color: 135 60 63
-      groups:
-        active-color: 145 65 82
+  - name: Utilities
+    slug: utilities
     width: wide
-
     columns:
-      - size: full
+      - size: medium
         widgets:
-          - type: group
-            title: Stack Group
-            widgets:
-              - type: stack
-                title: News Stack
-                widgets:
-                  - type: hacker-news
-                    title: Hacker News
-                    limit: 5
-                    collapse-after: 5
+          - type: to-do
+            title: To-do
+            css-class: visual-fixture-to-do
+            id: visual-qa-todo
 
-                  - type: lobsters
-                    title: Lobsters
-                    limit: 5
-                    collapse-after: 5
-
-              - type: stack
-                title: Community Stack
-                widgets:
-                  - type: reddit
-                    title: Self Hosted
-                    subreddit: selfhosted
-                    limit: 5
-                    collapse-after: 5
-
-                  - type: reddit
-                    title: Home Lab
-                    subreddit: homelab
-                    limit: 5
-                    collapse-after: 5
-
-      - size: full
+      - size: medium
         widgets:
-          - type: group
-            title: Nested Groups
-            widgets:
-              - type: group
-                title: News
-                widgets:
-                  - type: hacker-news
-                    title: Hacker News
-                    limit: 5
-                    collapse-after: 5
+          - type: unit-converter
+            title: Unit Converter
+            css-class: visual-fixture-unit-converter
 
-                  - type: lobsters
-                    title: Lobsters
-                    limit: 5
-                    collapse-after: 5
+      - size: medium
+        widgets:
+          - type: calculator
+            title: Calculator
+            css-class: visual-fixture-calculator
 
-              - type: group
-                title: Communities
-                widgets:
-                  - type: reddit
-                    title: Self Hosted
-                    subreddit: selfhosted
-                    limit: 5
-                    collapse-after: 5
-
-                  - type: reddit
-                    title: Home Lab
-                    subreddit: homelab
-                    limit: 5
-                    collapse-after: 5
-
-  # ---------------------------------------------------------------------------
-  # Timer responsive layouts
-  # ---------------------------------------------------------------------------
-  - name: Timer Small
-    slug: timer-small
+  - name: Theme Global
+    slug: theme-global
     width: wide
-
     columns:
-      - size: small
-        widgets:
-          - type: timer
-            title: Small Timer
-            id: screenshot-timers-small
-            hour-format: 12h
-
-      - size: full
+      - size: medium
         widgets:
           - type: markdown
-            title: Small Column Test
+            title: Global Theme
             source: |
-              ## Timer Responsive Test
+              ## Global semantic theme
 
-              The Timer in the small column verifies the narrowest supported
-              desktop column layout.
+              This page inherits the complete theme from `testdata/expanded-theme.yml`.
 
-      - size: small
-        widgets:
-          - type: bookmarks
-            title: Test Links
-            groups:
-              - title: Examples
-                links:
-                  - title: GitHub
-                    url: https://github.com/
+          - type: group
+            title: Groups & Tabs
+            widgets:
+              - type: markdown
+                title: Selected
+                source: Selected tab content
+              - type: markdown
+                title: Alternate
+                source: Alternate tab content
 
-  - name: Timer Medium + Full
-    slug: timer-medium-full
-    width: wide
-
-    columns:
       - size: medium
         widgets:
-          - type: timer
-            title: Medium Timer
-            id: screenshot-timers-medium
-            hour-format: 12h
-
-      - size: full
-        widgets:
-          - type: timer
-            title: Full Timer
-            id: screenshot-timers-full
-            hour-format: 12h
-
-  # ---------------------------------------------------------------------------
-  # Fork widgets
-  # ---------------------------------------------------------------------------
-  - name: Widgets
-    slug: widgets
-    theme:
-      accent-color: 349 100 72
-    width: wide
-
-    columns:
-      - size: medium
-        widgets:
-          - type: analog-clock
-            title: Analog Clock
-            hide-am-pm-indicator: false
-            hide-date: false
-            dial-markers: NumericalFull
-            timezones:
-              - timezone: America/New_York
-                label: New York
-              - timezone: Europe/London
-                label: London
-
           - type: search
             title: Search
             search-engine: google
             autofocus: false
+
+          - type: unit-converter
+            title: Unit Converter
+
+      - size: medium
+        widgets:
+          - type: timer
+            title: Timer
+            id: visual-theme-global-timer
+            hour-format: 12h
+
+          - type: calculator
+            title: Calculator
+
+          - type: bookmarks
+            title: Bookmarks
+            groups:
+              - title: Theme Links
+                links:
+                  - title: Glance
+                    url: https://github.com/glanceapp/glance
+
+  - name: Theme Dark Page
+    slug: theme-dark-page
+    width: wide
+    theme:
+      light: false
+      background-color: 230 24 7
+      primary-color: 210 80 70
+      accent-color: 272 82 72
+      typography:
+        text-color: 220 18 92
+        secondary-text-color: 220 11 68
+        muted-text-color: 220 9 48
+      widgets:
+        background-color: 225 20 12
+        border-color: 225 12 18
+        radius: large
+        shadow: subtle
+      cards:
+        background-color: 225 18 15
+        border-color: 225 12 21
+        radius: large
+      groups:
+        background-color: 225 20 12
+        text-color: 220 11 68
+        hover-color: 220 18 92
+        active-color: 220 20 96
+        accent-color: 272 82 72
+        border-color: 225 12 20
+      controls:
+        background-color: 225 18 15
+        text-color: 220 18 92
+        muted-color: 220 9 48
+        border-color: 225 12 22
+        focus-color: 272 82 72
+        radius: large
+
+    columns:
+      - size: full
+        widgets:
+          - type: markdown
+            title: Dark Page
+            source: |
+              ## Explicit dark page theme
+
+              Page-level semantic values override the inherited global theme.
+
+          - type: group
+            title: Dark Tabs
+            widgets:
+              - type: markdown
+                title: Selected
+                source: Selected content
+              - type: markdown
+                title: Alternate
+                source: Alternate content
+
+          - type: search
+            title: Dark Controls
+            search-engine: google
+            autofocus: false
+
+  - name: Theme Light Page
+    slug: theme-light-page
+    width: wide
+    theme:
+      light: true
+      background-color: 220 24 96
+      primary-color: 214 70 46
+      accent-color: 268 68 54
+      typography:
+        text-color: 220 18 16
+        secondary-text-color: 220 10 38
+        muted-text-color: 220 8 52
+      widgets:
+        background-color: 0 0 100
+        border-color: 220 14 86
+        radius: large
+        shadow: subtle
+      cards:
+        background-color: 220 20 98
+        border-color: 220 14 84
+        radius: large
+      groups:
+        background-color: 0 0 100
+        text-color: 220 10 38
+        hover-color: 220 18 18
+        active-color: 220 20 12
+        accent-color: 268 68 54
+        border-color: 220 14 84
+      controls:
+        background-color: 220 20 98
+        text-color: 220 18 16
+        muted-color: 220 8 52
+        border-color: 220 14 82
+        focus-color: 268 68 54
+        radius: large
+
+    columns:
+      - size: full
+        widgets:
+          - type: markdown
+            title: Light Page
+            source: |
+              ## Explicit light page theme
+
+              The component language remains the same while the palette changes.
+
+          - type: group
+            title: Light Tabs
+            widgets:
+              - type: markdown
+                title: Selected
+                source: Selected content
+              - type: markdown
+                title: Alternate
+                source: Alternate content
+
+          - type: search
+            title: Light Controls
+            search-engine: google
+            autofocus: false
+
+  - name: Theme Partial Override
+    slug: theme-partial
+    width: wide
+    theme:
+      accent-color: 32 90 60
+      navigation:
+        accent-color: 32 90 60
+      groups:
+        accent-color: 32 90 60
+      controls:
+        focus-color: 32 90 60
+
+    columns:
+      - size: full
+        widgets:
+          - type: markdown
+            title: Partial Override
+            source: |
+              ## Inheritance check
+
+              Only accent and focus semantics change. Everything else inherits.
+
+          - type: group
+            title: Inherited Group
+            widgets:
+              - type: markdown
+                title: Selected
+                source: Accent override
+              - type: markdown
+                title: Alternate
+                source: Inherited presentation
+
+          - type: search
+            title: Inherited Control
+            search-engine: google
+            autofocus: false
+
+  - name: Theme Components
+    slug: theme-components
+    width: wide
+    theme:
+      custom-css-file: /assets/theme-page.css
+    columns:
+      - size: medium
+        widgets:
+          - type: markdown
+            title: Typography
+            source: |
+              ## Typography hierarchy
+
+              Primary text, **emphasis**, [links](https://github.com/glanceapp/glance), `code`, and supporting copy.
+
+              <div class="theme-css-layers">
+                <span class="theme-css-global">Global CSS</span>
+                <span class="theme-css-preset">Theme CSS</span>
+                <span class="theme-css-page">Page CSS</span>
+              </div>
+
+          - type: search
+            title: Controls
+            search-engine: google
+            autofocus: false
+
+      - size: medium
+        widgets:
+          - type: custom-api
+            title: Semantic Components
+            url: https://api.github.com/repos/glanceapp/glance
+            cache: 1h
+            headers:
+              Accept: application/vnd.github+json
+            template: |
+              <div class="glance-grid">
+                <div class="glance-card">
+                  <div class="glance-secondary">Secondary label</div>
+                  <div class="size-h2 color-highlight">{{ .JSON.Int "stargazers_count" | formatNumber }}</div>
+                  <div class="glance-muted">Muted supporting text</div>
+                  <div class="margin-top-10"><span class="glance-badge">Badge</span> <span class="glance-status">Status</span></div>
+                </div>
+                <div class="glance-card">
+                  <div class="glance-key-values">
+                    <div class="glance-key-value">
+                      <span class="glance-key">Repository</span>
+                      <strong class="glance-value">{{ .JSON.String "name" }}</strong>
+                    </div>
+                    <div class="glance-key-value">
+                      <span class="glance-key">Issues</span>
+                      <strong class="glance-value">{{ .JSON.Int "open_issues_count" | formatNumber }}</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="glance-state margin-top-10">Semantic state presentation</div>
+              <div class="glance-progress margin-top-10"><div style="width: 68%"></div></div>
 
           - type: unit-converter
             title: Unit Converter
@@ -616,936 +926,457 @@ pages:
 
       - size: medium
         widgets:
-          - type: timer
-            title: Timers
-            id: screenshot-timers
-            hour-format: 12h
+          - type: group
+            title: Tabs
+            widgets:
+              - type: markdown
+                title: Selected
+                source: Selected state
+              - type: markdown
+                title: Alternate
+                source: Hover and inactive state
 
-          - type: markdown
-            title: Markdown
-            source: |
-              ## Native Markdown
+          - type: bookmarks
+            title: Bookmarks
+            groups:
+              - title: Links
+                links:
+                  - title: Glance
+                    url: https://github.com/glanceapp/glance
 
-              This content is rendered **directly by Glance**.
-
-              - GitHub Flavored Markdown
-              - **Bold** and *italic* text
-              - [Links](https://github.com/glanceapp/glance)
-              - ~~Strikethrough~~
-
-              | Feature | Status |
-              | --- | --- |
-              | Markdown | Working |
-              | Sanitization | Enabled |
-
-      - size: medium
-        widgets:
-          - type: ics-events
-            title: Upcoming Events
-            days-ahead: 14
-            limit: 8
-            collapse-after: 5
-            sources:
-              - file: testdata/screenshot-calendar.ics
-                title: Example Calendar
-
-          - type: calendar
-            title: Media Calendar
-            first-day-of-week: monday
-            sources:
-              - url: ${RADARR_ICS_URL}
-                title: Movies
-              - url: ${SONARR_ICS_URL}
-                title: TV
-
-  # ---------------------------------------------------------------------------
-  # Request-oriented widgets
-  # ---------------------------------------------------------------------------
-  #
-  # These examples use public, test-safe endpoints and explicitly override
-  # inherited credentials where the public endpoint does not require them.
-  #
-  # They provide integration coverage for the request policy added or
-  # significantly expanded by the fork without depending on private services.
-  - name: Requests
-    slug: requests
+  - name: Theme Composition
+    slug: theme-composition
     width: wide
-
     columns:
       - size: medium
         widgets:
-          - type: custom-api
-            title: Custom API
-            url: https://api.github.com/repos/samcro1967/glance
-            basic-auth:
-              username: ""
-              password: ""
-            headers:
-              Accept: application/vnd.github+json
-              X-Glance-Test-Instance: custom-api
-            template: |
-              <div class="flex flex-column gap-5">
-                <div class="size-h4 color-highlight">
-                  {{ .JSON.String "full_name" }}
-                </div>
-                <div>
-                  {{ .JSON.String "description" }}
-                </div>
-                <div class="color-subdue">
-                  Stars: {{ .JSON.Int "stargazers_count" | formatNumber }}
-                </div>
-              </div>
-
+          - type: group
+            title: Group Composition
+            widgets:
+              - type: weather
+                title: Weather
+                location: St. Louis, Missouri, United States
+                units: imperial
+              - type: markets
+                title: Markets
+                markets:
+                  - symbol: SPY
+                    name: S&P 500
+                  - symbol: BTC-USD
+                    name: Bitcoin
 
       - size: medium
         widgets:
-          - type: custom-api
-            title: Custom API - Sprout
-            url: https://api.github.com/repos/samcro1967/glance
-            basic-auth:
-              username: ""
-              password: ""
-            headers:
-              Accept: application/vnd.github+json
-              X-Glance-Test-Instance: custom-api-sprout
-            template: |
-              <div class="flex flex-column gap-5">
-                <div class="size-h4 color-highlight">Sprout Runtime Validation</div>
-                <div>Repository: {{ .JSON.String "full_name" }}</div>
-                <div>Legacy add: {{ add 2 3 }} | Sprout add: {{ sproutAdd 2 3 }}</div>
-                <div>Legacy div: {{ div 10 2 }} | Sprout div: {{ sproutDiv 10 2 }}</div>
-                <div>Legacy upper: {{ toUpper "glance" }} | Sprout upper: {{ sproutToUpper "glance" }}</div>
-                <div>Sprout default: {{ sproutDefault "fallback" "" }}</div>
-                <div>Sprout regex: {{ sproutRegexMatch "^samcro1967/.+$" (.JSON.String "full_name") }}</div>
-                <div>Sprout list: {{ sproutList "alpha" "bravo" "charlie" | sproutLast }}</div>
-                <div>Sprout reverse: {{ sproutList "alpha" "bravo" "charlie" | sproutReverse | sproutJoin ", " }}</div>
-                <div>Sprout map: {{ sproutDict "project" (.JSON.String "name") | sproutGet "project" }}</div>
-                <div>Sprout Base64: {{ sproutBase64Encode "glance" }}</div>
-                <div>Sprout semver: {{ sproutSemverCompare ">=1.0.0" "1.1.1" }}</div>
-              </div>
-
-          - type: monitor
-            title: Public Monitors
-            sites:
-              - title: GitHub
-                url: https://github.com/
-                basic-auth:
-                  username: ""
-                  password: ""
-
-              - title: Glance
-                url: https://github.com/glanceapp/glance
-                timeout: 8s
-                allow-insecure: false
-                headers:
-                  X-Glance-Test-Child: monitor
-                basic-auth:
-                  username: ""
-                  password: ""
-                same-tab: true
-
-          - type: repository
-            title: Glance Repository
-            repository: glanceapp/glance
+          - type: stack
+            title: Stack Composition
+            widgets:
+              - type: hacker-news
+                title: Hacker News
+                limit: 5
+                collapse-after: 3
+              - type: reddit
+                title: Reddit
+                subreddit: selfhosted
+                limit: 5
+                collapse-after: 3
 
       - size: medium
+        widgets:
+          - type: timer
+            title: Timer
+            id: visual-theme-composition-timer
+            hour-format: 12h
+
+          - type: calculator
+            title: Calculator
+
+          - type: unit-converter
+            title: Unit Converter
+
+          - type: markdown
+            title: Composition Notes
+            source: |
+              ## Composition
+
+              Nested widgets should retain the same surface, typography, control, and selection language.
+
+
+  # ---------------------------------------------------------------------------
+  # Documentation screenshot fixtures
+  # ---------------------------------------------------------------------------
+  #
+  # These pages are deliberately separate from canonical widget QA and theme
+  # QA. They provide realistic, stable application compositions for README and
+  # documentation screenshots.
+
+  - name: Overview
+    slug: docs-overview
+    width: wide
+    columns:
+      - size: small
+        widgets:
+          - type: search
+            title: Search
+            search-engine: google
+            autofocus: false
+            bangs:
+              - title: GitHub
+                shortcut: "!gh"
+                url: https://github.com/search?q={QUERY}
+
+          - type: bookmarks
+            title: Bookmarks
+            groups:
+              - title: Development
+                links:
+                  - title: Glance
+                    url: https://github.com/glanceapp/glance
+                  - title: Documentation
+                    url: https://github.com/samcro1967/glance/tree/dev/docs
+              - title: Resources
+                links:
+                  - title: Go
+                    url: https://go.dev/
+                  - title: GitHub
+                    url: https://github.com/
+
+      - size: full
+        widgets:
+          - type: group
+            title: At a Glance
+            widgets:
+              - type: clock
+                title: World Clock
+                hour-format: 12h
+                timezones:
+                  - timezone: America/Chicago
+                    label: St. Louis
+                  - timezone: America/New_York
+                    label: New York
+                  - timezone: Europe/London
+                    label: London
+
+              - type: weather
+                title: Weather
+                location: St. Louis, Missouri, United States
+                units: imperial
+                hour-format: 12h
+
+          - type: markdown
+            title: Welcome to Glance
+            source: |
+              ## Your dashboard at a glance
+
+              Bring feeds, monitoring, development, markets, utilities, and
+              custom content together in one fast, configurable interface.
+
+              - Native responsive layouts
+              - Hierarchical widget configuration
+              - Flexible themes and presentation
+              - Extensible content and integrations
+
+      - size: small
+        widgets:
+          - type: monitor
+            title: Services
+            cache: 1m
+            sites:
+              - title: Glance
+                url: http://127.0.0.1:18080/
+                icon: si:github
+              - title: Fixture API
+                url: http://127.0.0.1:18089/visual-test-extension
+                icon: si:json
+
+          - type: to-do
+            title: Today
+
+  - name: Layouts
+    slug: docs-layouts
+    width: wide
+    columns:
+      - size: small
         widgets:
           - type: bookmarks
-            title: Link Policy
+            title: Small Column
             groups:
-              - title: Inherited Link Policy
+              - title: Navigation
                 links:
-                  - title: Glance Fork
+                  - title: Home
                     url: https://github.com/samcro1967/glance
+                  - title: Documentation
+                    url: https://github.com/samcro1967/glance/tree/dev/docs
 
-              - title: Explicit Same Tab
-                same-tab: true
-                links:
-                  - title: Upstream Glance
-                    url: https://github.com/glanceapp/glance
+      - size: full
+        widgets:
+          - type: markdown
+            title: Full Column
+            source: |
+              ## Flexible page composition
 
-  # ---------------------------------------------------------------------------
-  # Pages used to demonstrate named dashboards and the dashboard switcher.
-  # ---------------------------------------------------------------------------
+              Combine small, full, and medium columns to match the information
+              density and hierarchy each dashboard needs.
 
-  - name: Presentation Small
-    slug: presentation-small
+          - type: group
+            title: Grouped Content
+            widgets:
+              - type: markdown
+                title: Overview
+                source: |
+                  ### Overview
+                  Related widgets can share a compact tabbed presentation.
+              - type: markdown
+                title: Details
+                source: |
+                  ### Details
+                  Composition remains consistent across nested content.
+
+      - size: small
+        widgets:
+          - type: analog-clock
+            title: Analog Clock
+            hour-format: 12h
+
+          - type: calculator
+            title: Calculator
+
+  - name: Head & Bottom Widgets
+    slug: docs-head-bottom
     width: wide
+    head-widgets:
+      - type: status-bar
+        title: Status
+        mode: ticker
+        speed: normal
+        widgets:
+          - type: weather
+            location: St. Louis, Missouri, United States
+            units: imperial
+          - type: markets
+            markets:
+              - symbol: SPY
+                name: S&P 500
+              - symbol: BTC-USD
+                name: Bitcoin
 
     columns:
       - size: small
         widgets:
-          - type: custom-api
-            title: Presentation Primitives - small
-            url: https://api.github.com/repos/samcro1967/glance
-            cache: 1h
-            headers:
-              Accept: application/vnd.github+json
-              X-Glance-Test-Instance: presentation-small-primitives
-            template: |
-              <div class="flex flex-column gap-15">
-                <div class="glance-metrics">
-                  <div class="glance-metric">
-                    <div class="glance-metric-value">{{ .JSON.Int "stargazers_count" | formatNumber }}</div>
-                    <div class="glance-metric-label">Stars</div>
-                  </div>
-                  <div class="glance-metric">
-                    <div class="glance-metric-value">{{ .JSON.Int "forks_count" | formatNumber }}</div>
-                    <div class="glance-metric-label">Forks</div>
-                  </div>
-                </div>
+          - type: bookmarks
+            title: Navigation
+            groups:
+              - title: Glance
+                links:
+                  - title: Repository
+                    url: https://github.com/samcro1967/glance
+                  - title: Documentation
+                    url: https://github.com/samcro1967/glance/tree/dev/docs
 
-                <div class="flex gap-5 flex-wrap">
-                  <span class="glance-badge">v0.8.6</span>
-                  <span class="glance-status glance-status-positive">Healthy</span>
-                  <span class="glance-status glance-status-warning">Warning</span>
-                  <span class="glance-status glance-status-negative">Failed</span>
-                  <span class="glance-status glance-status-neutral">Unknown</span>
-                </div>
-
-                <div class="glance-key-values">
-                  <div class="glance-key-value">
-                    <span class="glance-key">Repository</span>
-                    <span class="glance-value">{{ .JSON.String "full_name" }}</span>
-                  </div>
-                  <div class="glance-key-value">
-                    <span class="glance-key">Language</span>
-                    <span class="glance-value">{{ .JSON.String "language" }}</span>
-                  </div>
-                  <div class="glance-key-value">
-                    <span class="glance-key">Open issues</span>
-                    <span class="glance-value">{{ .JSON.Int "open_issues_count" | formatNumber }}</span>
-                  </div>
-                </div>
-
-                <div class="glance-grid">
-                  <div class="glance-card">
-                    <div class="size-h5 color-highlight">Native Card</div>
-                    <div class="color-subdue">Native presentation card</div>
-                  </div>
-                  <div class="glance-card">
-                    <div class="size-h5 color-highlight">Grid Item</div>
-                    <div class="color-subdue">Responsive presentation grid</div>
-                  </div>
-                </div>
-              </div>
-
-          - type: custom-api
-            title: Presentation States - small
-            url: https://api.github.com/repos/samcro1967/glance
-            cache: 1h
-            headers:
-              Accept: application/vnd.github+json
-              X-Glance-Test-Instance: presentation-small-states
-            template: |
-              <div class="flex flex-column gap-15">
-                  <div class="size-h5 color-highlight">Progress</div>
-                  <div class="glance-progress">
-                    <div class="glance-progress-value" style="--percent: 72"></div>
-                  </div>
-
-                <details class="glance-details">
-                  <summary class="glance-summary">Disclosure</summary>
-                  <div class="color-subdue">Native presentation disclosure.</div>
-                </details>
-
-                <div class="glance-state glance-state-empty">No data is currently available.</div>
-                <div class="glance-state glance-state-warning">Data is approaching a configured threshold.</div>
-                <div class="glance-state glance-state-error">The request failed.</div>
-                <div class="glance-state glance-state-degraded">Showing stale data from the last successful refresh.</div>
-              </div>
-
-      - size: full
-        widgets:
-          - type: custom-api
-            title: Presentation Data - full
-            url: https://api.github.com/repos/samcro1967/glance
-            cache: 1h
-            headers:
-              Accept: application/vnd.github+json
-              X-Glance-Test-Instance: presentation-small-data
-            charts:
-              request-trend:
-                type: line
-                height: 180
-                legend: true
-              cpu-area:
-                type: area
-                height: 180
-                legend: true
-                min: 0
-                max: 100
-                unit: "%"
-              latency-bars:
-                type: bar
-                height: 180
-                legend: true
-                min: 0
-                unit: " ms"
-                stacked: false
-              service-pie:
-                type: pie
-                height: 180
-                legend: true
-              storage-doughnut:
-                type: doughnut
-                height: 180
-                legend: true
-              cpu-gauge:
-                type: gauge
-                height: 140
-                min: 0
-                max: 100
-                unit: "%"
-              request-sparkline:
-                type: sparkline
-                height: 48
-            template: |
-              <div class="flex flex-column gap-15">
-                  <div class="size-h5 color-highlight">Native Table</div>
-                  <table class="glance-table" data-glance-table>
-                    <thead>
-                      <tr>
-                        <th data-column="service">Service</th>
-                        <th data-column="status">Status</th>
-                        <th data-column="latency">Latency</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>Glance</td>
-                        <td>Healthy</td>
-                        <td>18 ms</td>
-                      </tr>
-                      <tr>
-                        <td>Sports Feed</td>
-                        <td>Healthy</td>
-                        <td>42 ms</td>
-                      </tr>
-                      <tr>
-                        <td>Monitoring</td>
-                        <td>Degraded</td>
-                        <td>126 ms</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-                <div class="size-h5 color-highlight">Native Charts</div>
-
-                <div class="glance-grid">
-                  <div class="glance-card">
-                    <div class="size-h5 color-highlight">Line</div>
-                    <div class="glance-chart" data-glance-chart="request-trend" data-glance-chart-label="Request trend">
-                      <script type="application/json">{"labels":["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],"series":[{"label":"Requests","values":[42,55,48,71,66,82,76]}]}</script>
-                    </div>
-                  </div>
-
-                  <div class="glance-card">
-                    <div class="size-h5 color-highlight">Area</div>
-                    <div class="glance-chart" data-glance-chart="cpu-area" data-glance-chart-label="CPU utilization">
-                      <script type="application/json">{"labels":["08:00","09:00","10:00","11:00","12:00","13:00"],"series":[{"label":"CPU","values":[22,34,29,51,46,63]}]}</script>
-                    </div>
-                  </div>
-
-                  <div class="glance-card">
-                    <div class="size-h5 color-highlight">Bar</div>
-                    <div class="glance-chart" data-glance-chart="latency-bars" data-glance-chart-label="Service latency">
-                      <script type="application/json">{"labels":["Glance","Sports","Monitor"],"series":[{"label":"Latency","values":[18,42,126]}]}</script>
-                    </div>
-                  </div>
-
-                  <div class="glance-card">
-                    <div class="size-h5 color-highlight">Pie</div>
-                    <div class="glance-chart" data-glance-chart="service-pie" data-glance-chart-label="Service distribution">
-                      <script type="application/json">{"labels":["Healthy","Warning","Failed"],"values":[72,18,10]}</script>
-                    </div>
-                  </div>
-
-                  <div class="glance-card">
-                    <div class="size-h5 color-highlight">Doughnut</div>
-                    <div class="glance-chart" data-glance-chart="storage-doughnut" data-glance-chart-label="Storage allocation">
-                      <script type="application/json">{"labels":["Used","Free"],"values":[68,32]}</script>
-                    </div>
-                  </div>
-
-                  <div class="glance-card">
-                    <div class="size-h5 color-highlight">Gauge</div>
-                    <div class="glance-chart" data-glance-chart="cpu-gauge" data-glance-chart-label="CPU gauge">
-                      <script type="application/json">{"value":72,"label":"CPU"}</script>
-                    </div>
-                  </div>
-
-                  <div class="glance-card">
-                    <div class="size-h5 color-highlight">Sparkline</div>
-                    <div class="glance-chart" data-glance-chart="request-sparkline" data-glance-chart-label="Seven sample trend">
-                      <script type="application/json">{"values":[18,24,21,33,29,41,38,52,47,61]}</script>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-  - name: Presentation Medium
-    slug: presentation-medium
-    width: wide
-
-    columns:
-      - size: medium
-        widgets:
-          - type: custom-api
-            title: Presentation Primitives - medium
-            url: https://api.github.com/repos/samcro1967/glance
-            cache: 1h
-            headers:
-              Accept: application/vnd.github+json
-              X-Glance-Test-Instance: presentation-medium-primitives
-            template: |
-              <div class="flex flex-column gap-15">
-                <div class="glance-metrics">
-                  <div class="glance-metric">
-                    <div class="glance-metric-value">{{ .JSON.Int "stargazers_count" | formatNumber }}</div>
-                    <div class="glance-metric-label">Stars</div>
-                  </div>
-                  <div class="glance-metric">
-                    <div class="glance-metric-value">{{ .JSON.Int "forks_count" | formatNumber }}</div>
-                    <div class="glance-metric-label">Forks</div>
-                  </div>
-                </div>
-
-                <div class="flex gap-5 flex-wrap">
-                  <span class="glance-badge">v0.8.6</span>
-                  <span class="glance-status glance-status-positive">Healthy</span>
-                  <span class="glance-status glance-status-warning">Warning</span>
-                  <span class="glance-status glance-status-negative">Failed</span>
-                  <span class="glance-status glance-status-neutral">Unknown</span>
-                </div>
-
-                <div class="glance-key-values">
-                  <div class="glance-key-value">
-                    <span class="glance-key">Repository</span>
-                    <span class="glance-value">{{ .JSON.String "full_name" }}</span>
-                  </div>
-                  <div class="glance-key-value">
-                    <span class="glance-key">Language</span>
-                    <span class="glance-value">{{ .JSON.String "language" }}</span>
-                  </div>
-                  <div class="glance-key-value">
-                    <span class="glance-key">Open issues</span>
-                    <span class="glance-value">{{ .JSON.Int "open_issues_count" | formatNumber }}</span>
-                  </div>
-                </div>
-
-                <div class="glance-grid">
-                  <div class="glance-card">
-                    <div class="size-h5 color-highlight">Native Card</div>
-                    <div class="color-subdue">Native presentation card</div>
-                  </div>
-                  <div class="glance-card">
-                    <div class="size-h5 color-highlight">Grid Item</div>
-                    <div class="color-subdue">Responsive presentation grid</div>
-                  </div>
-                </div>
-              </div>
-
-      - size: medium
-        widgets:
-          - type: custom-api
-            title: Presentation Table - medium
-            url: https://api.github.com/repos/samcro1967/glance
-            cache: 1h
-            headers:
-              Accept: application/vnd.github+json
-              X-Glance-Test-Instance: presentation-medium-table
-            tables:
-              services:
-                responsive: true
-                sortable: true
-                search: true
-                pagination: true
-                page-size: 2
-                columns:
-                  service:
-                    type: text
-                    priority: 1
-                  status:
-                    type: text
-                    priority: 2
-                  latency:
-                    type: number
-                    priority: 3
-            template: |
-              <div class="flex flex-column gap-15">
-                  <div class="size-h5 color-highlight">Native Table</div>
-                  <table class="glance-table" data-glance-table="services">
-                    <thead>
-                      <tr>
-                        <th data-column="service">Service</th>
-                        <th data-column="status">Status</th>
-                        <th data-column="latency">Latency</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>Glance</td>
-                        <td>Healthy</td>
-                        <td>18 ms</td>
-                      </tr>
-                      <tr>
-                        <td>Sports Feed</td>
-                        <td>Healthy</td>
-                        <td>42 ms</td>
-                      </tr>
-                      <tr>
-                        <td>Monitoring</td>
-                        <td>Degraded</td>
-                        <td>126 ms</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-      - size: medium
-        widgets:
-          - type: custom-api
-            title: Presentation Charts & States - medium
-            url: https://api.github.com/repos/samcro1967/glance
-            cache: 1h
-            headers:
-              Accept: application/vnd.github+json
-              X-Glance-Test-Instance: presentation-medium-charts-states
-            charts:
-              request-trend:
-                type: line
-                height: 180
-                legend: true
-              cpu-area:
-                type: area
-                height: 180
-                legend: true
-                min: 0
-                max: 100
-                unit: "%"
-              latency-bars:
-                type: bar
-                height: 180
-                legend: true
-                min: 0
-                unit: " ms"
-                stacked: false
-              service-pie:
-                type: pie
-                height: 180
-                legend: true
-              storage-doughnut:
-                type: doughnut
-                height: 180
-                legend: true
-              cpu-gauge:
-                type: gauge
-                height: 140
-                min: 0
-                max: 100
-                unit: "%"
-              request-sparkline:
-                type: sparkline
-                height: 48
-            template: |
-              <div class="flex flex-column gap-15">
-                <div class="size-h5 color-highlight">Native Charts</div>
-
-                <div class="glance-grid">
-                  <div class="glance-card">
-                    <div class="size-h5 color-highlight">Line</div>
-                    <div class="glance-chart" data-glance-chart="request-trend" data-glance-chart-label="Request trend">
-                      <script type="application/json">{"labels":["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],"series":[{"label":"Requests","values":[42,55,48,71,66,82,76]}]}</script>
-                    </div>
-                  </div>
-
-                  <div class="glance-card">
-                    <div class="size-h5 color-highlight">Area</div>
-                    <div class="glance-chart" data-glance-chart="cpu-area" data-glance-chart-label="CPU utilization">
-                      <script type="application/json">{"labels":["08:00","09:00","10:00","11:00","12:00","13:00"],"series":[{"label":"CPU","values":[22,34,29,51,46,63]}]}</script>
-                    </div>
-                  </div>
-
-                  <div class="glance-card">
-                    <div class="size-h5 color-highlight">Bar</div>
-                    <div class="glance-chart" data-glance-chart="latency-bars" data-glance-chart-label="Service latency">
-                      <script type="application/json">{"labels":["Glance","Sports","Monitor"],"series":[{"label":"Latency","values":[18,42,126]}]}</script>
-                    </div>
-                  </div>
-
-                  <div class="glance-card">
-                    <div class="size-h5 color-highlight">Pie</div>
-                    <div class="glance-chart" data-glance-chart="service-pie" data-glance-chart-label="Service distribution">
-                      <script type="application/json">{"labels":["Healthy","Warning","Failed"],"values":[72,18,10]}</script>
-                    </div>
-                  </div>
-
-                  <div class="glance-card">
-                    <div class="size-h5 color-highlight">Doughnut</div>
-                    <div class="glance-chart" data-glance-chart="storage-doughnut" data-glance-chart-label="Storage allocation">
-                      <script type="application/json">{"labels":["Used","Free"],"values":[68,32]}</script>
-                    </div>
-                  </div>
-
-                  <div class="glance-card">
-                    <div class="size-h5 color-highlight">Gauge</div>
-                    <div class="glance-chart" data-glance-chart="cpu-gauge" data-glance-chart-label="CPU gauge">
-                      <script type="application/json">{"value":72,"label":"CPU"}</script>
-                    </div>
-                  </div>
-
-                  <div class="glance-card">
-                    <div class="size-h5 color-highlight">Sparkline</div>
-                    <div class="glance-chart" data-glance-chart="request-sparkline" data-glance-chart-label="Seven sample trend">
-                      <script type="application/json">{"values":[18,24,21,33,29,41,38,52,47,61]}</script>
-                    </div>
-                  </div>
-                </div>
-
-                  <div class="size-h5 color-highlight">Progress</div>
-                  <div class="glance-progress">
-                    <div class="glance-progress-value" style="--percent: 72"></div>
-                  </div>
-
-                <details class="glance-details">
-                  <summary class="glance-summary">Disclosure</summary>
-                  <div class="color-subdue">Native presentation disclosure.</div>
-                </details>
-
-                <div class="glance-state glance-state-empty">No data is currently available.</div>
-                <div class="glance-state glance-state-warning">Data is approaching a configured threshold.</div>
-                <div class="glance-state glance-state-error">The request failed.</div>
-                <div class="glance-state glance-state-degraded">Showing stale data from the last successful refresh.</div>
-              </div>
-
-  - name: Presentation Full
-    slug: presentation-full
-    width: wide
-
-    columns:
-      - size: full
-        widgets:
-          - type: custom-api
-            title: Presentation Primitives - full
-            url: https://api.github.com/repos/samcro1967/glance
-            cache: 1h
-            headers:
-              Accept: application/vnd.github+json
-              X-Glance-Test-Instance: presentation-full-primitives
-            template: |
-              <div class="flex flex-column gap-15">
-                <div class="glance-metrics">
-                  <div class="glance-metric">
-                    <div class="glance-metric-value">{{ .JSON.Int "stargazers_count" | formatNumber }}</div>
-                    <div class="glance-metric-label">Stars</div>
-                  </div>
-                  <div class="glance-metric">
-                    <div class="glance-metric-value">{{ .JSON.Int "forks_count" | formatNumber }}</div>
-                    <div class="glance-metric-label">Forks</div>
-                  </div>
-                </div>
-
-                <div class="flex gap-5 flex-wrap">
-                  <span class="glance-badge">v0.8.6</span>
-                  <span class="glance-status glance-status-positive">Healthy</span>
-                  <span class="glance-status glance-status-warning">Warning</span>
-                  <span class="glance-status glance-status-negative">Failed</span>
-                  <span class="glance-status glance-status-neutral">Unknown</span>
-                </div>
-
-                <div class="glance-key-values">
-                  <div class="glance-key-value">
-                    <span class="glance-key">Repository</span>
-                    <span class="glance-value">{{ .JSON.String "full_name" }}</span>
-                  </div>
-                  <div class="glance-key-value">
-                    <span class="glance-key">Language</span>
-                    <span class="glance-value">{{ .JSON.String "language" }}</span>
-                  </div>
-                  <div class="glance-key-value">
-                    <span class="glance-key">Open issues</span>
-                    <span class="glance-value">{{ .JSON.Int "open_issues_count" | formatNumber }}</span>
-                  </div>
-                </div>
-
-                <div class="glance-grid">
-                  <div class="glance-card">
-                    <div class="size-h5 color-highlight">Native Card</div>
-                    <div class="color-subdue">Native presentation card</div>
-                  </div>
-                  <div class="glance-card">
-                    <div class="size-h5 color-highlight">Grid Item</div>
-                    <div class="color-subdue">Responsive presentation grid</div>
-                  </div>
-                </div>
-              </div>
-
-          - type: custom-api
-            title: Presentation Table - full
-            url: https://api.github.com/repos/samcro1967/glance
-            cache: 1h
-            headers:
-              Accept: application/vnd.github+json
-              X-Glance-Test-Instance: presentation-full-table
-            tables:
-              services:
-                responsive: true
-                sortable: true
-                search: false
-                pagination: false
-                page-size: 10
-                columns:
-                  service:
-                    type: text
-                    priority: 1
-                  status:
-                    type: text
-                    priority: 2
-                  latency:
-                    type: number
-                    priority: 3
-            template: |
-              <div class="flex flex-column gap-15">
-                  <div class="size-h5 color-highlight">Native Table</div>
-                  <table class="glance-table" data-glance-table="services">
-                    <thead>
-                      <tr>
-                        <th data-column="service">Service</th>
-                        <th data-column="status">Status</th>
-                        <th data-column="latency">Latency</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>Glance</td>
-                        <td>Healthy</td>
-                        <td>18 ms</td>
-                      </tr>
-                      <tr>
-                        <td>Sports Feed</td>
-                        <td>Healthy</td>
-                        <td>42 ms</td>
-                      </tr>
-                      <tr>
-                        <td>Monitoring</td>
-                        <td>Degraded</td>
-                        <td>126 ms</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-
-          - type: custom-api
-            title: Presentation Charts - full
-            url: https://api.github.com/repos/samcro1967/glance
-            cache: 1h
-            headers:
-              Accept: application/vnd.github+json
-              X-Glance-Test-Instance: presentation-full-charts
-            charts:
-              request-trend:
-                type: line
-                height: 180
-                legend: true
-              cpu-area:
-                type: area
-                height: 180
-                legend: true
-                min: 0
-                max: 100
-                unit: "%"
-              latency-bars:
-                type: bar
-                height: 180
-                legend: true
-                min: 0
-                unit: " ms"
-                stacked: false
-              service-pie:
-                type: pie
-                height: 180
-                legend: true
-              storage-doughnut:
-                type: doughnut
-                height: 180
-                legend: true
-              cpu-gauge:
-                type: gauge
-                height: 140
-                min: 0
-                max: 100
-                unit: "%"
-              request-sparkline:
-                type: sparkline
-                height: 48
-            template: |
-              <div class="flex flex-column gap-15">
-                <div class="size-h5 color-highlight">Native Charts</div>
-
-                <div class="glance-grid">
-                  <div class="glance-card">
-                    <div class="size-h5 color-highlight">Line</div>
-                    <div class="glance-chart" data-glance-chart="request-trend" data-glance-chart-label="Request trend">
-                      <script type="application/json">{"labels":["Mon","Tue","Wed","Thu","Fri","Sat","Sun"],"series":[{"label":"Requests","values":[42,55,48,71,66,82,76]}]}</script>
-                    </div>
-                  </div>
-
-                  <div class="glance-card">
-                    <div class="size-h5 color-highlight">Area</div>
-                    <div class="glance-chart" data-glance-chart="cpu-area" data-glance-chart-label="CPU utilization">
-                      <script type="application/json">{"labels":["08:00","09:00","10:00","11:00","12:00","13:00"],"series":[{"label":"CPU","values":[22,34,29,51,46,63]}]}</script>
-                    </div>
-                  </div>
-
-                  <div class="glance-card">
-                    <div class="size-h5 color-highlight">Bar</div>
-                    <div class="glance-chart" data-glance-chart="latency-bars" data-glance-chart-label="Service latency">
-                      <script type="application/json">{"labels":["Glance","Sports","Monitor"],"series":[{"label":"Latency","values":[18,42,126]}]}</script>
-                    </div>
-                  </div>
-
-                  <div class="glance-card">
-                    <div class="size-h5 color-highlight">Pie</div>
-                    <div class="glance-chart" data-glance-chart="service-pie" data-glance-chart-label="Service distribution">
-                      <script type="application/json">{"labels":["Healthy","Warning","Failed"],"values":[72,18,10]}</script>
-                    </div>
-                  </div>
-
-                  <div class="glance-card">
-                    <div class="size-h5 color-highlight">Doughnut</div>
-                    <div class="glance-chart" data-glance-chart="storage-doughnut" data-glance-chart-label="Storage allocation">
-                      <script type="application/json">{"labels":["Used","Free"],"values":[68,32]}</script>
-                    </div>
-                  </div>
-
-                  <div class="glance-card">
-                    <div class="size-h5 color-highlight">Gauge</div>
-                    <div class="glance-chart" data-glance-chart="cpu-gauge" data-glance-chart-label="CPU gauge">
-                      <script type="application/json">{"value":72,"label":"CPU"}</script>
-                    </div>
-                  </div>
-
-                  <div class="glance-card">
-                    <div class="size-h5 color-highlight">Sparkline</div>
-                    <div class="glance-chart" data-glance-chart="request-sparkline" data-glance-chart-label="Seven sample trend">
-                      <script type="application/json">{"values":[18,24,21,33,29,41,38,52,47,61]}</script>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-          - type: custom-api
-            title: Presentation States - full
-            url: https://api.github.com/repos/samcro1967/glance
-            cache: 1h
-            headers:
-              Accept: application/vnd.github+json
-              X-Glance-Test-Instance: presentation-full-states
-            template: |
-              <div class="flex flex-column gap-15">
-                  <div class="size-h5 color-highlight">Progress</div>
-                  <div class="glance-progress">
-                    <div class="glance-progress-value" style="--percent: 72"></div>
-                  </div>
-
-                <details class="glance-details">
-                  <summary class="glance-summary">Disclosure</summary>
-                  <div class="color-subdue">Native presentation disclosure.</div>
-                </details>
-
-                <div class="glance-state glance-state-empty">No data is currently available.</div>
-                <div class="glance-state glance-state-warning">Data is approaching a configured threshold.</div>
-                <div class="glance-state glance-state-error">The request failed.</div>
-                <div class="glance-state glance-state-degraded">Showing stale data from the last successful refresh.</div>
-              </div>
-
-  - name: Home
-    slug: home
-    theme:
-      accent-color: 204 100 72
-      page:
-        ambient-accent: strong
-
-    columns:
       - size: full
         widgets:
           - type: markdown
-            title: Default Dashboard
+            title: Main Content
             source: |
-              ## Default Dashboard
+              ## Head and bottom widgets
 
-              Use the Glance logo to switch between the configured dashboards.
+              Place persistent information above and below the normal page
+              columns while retaining the same presentation language.
 
-  - name: Personal
-    slug: personal-page
-    theme:
-      accent-color: 350 100 72
+      - size: small
+        widgets:
+          - type: clock
+            title: Time
+            hour-format: 12h
+            timezones:
+              - timezone: America/Chicago
+                label: Local
 
+    bottom-widgets:
+      - type: status-bar
+        title: Summary
+        mode: wrap
+        widgets:
+          - type: markets
+            markets:
+              - symbol: AAPL
+                name: Apple
+              - symbol: MSFT
+                name: Microsoft
+          - type: weather
+            location: St. Louis, Missouri, United States
+            units: imperial
+
+  - name: Startpage
+    slug: docs-startpage
+    width: slim
+    center-vertically: true
     columns:
       - size: full
         widgets:
+          - type: search
+            title: Search
+            search-engine: google
+            autofocus: false
+            bangs:
+              - title: GitHub
+                shortcut: "!gh"
+                url: https://github.com/search?q={QUERY}
+
+          - type: monitor
+            title: Services
+            cache: 1m
+            sites:
+              - title: Glance
+                url: http://127.0.0.1:18080/
+                icon: si:github
+              - title: Fixture API
+                url: http://127.0.0.1:18089/visual-test-extension
+                icon: si:json
+
           - type: bookmarks
-            title: Personal
+            title: Bookmarks
             groups:
-              - title: Common Sites
+              - title: Development
+                links:
+                  - title: Glance
+                    url: https://github.com/samcro1967/glance
+                  - title: Go
+                    url: https://go.dev/
+              - title: Community
                 links:
                   - title: GitHub
                     url: https://github.com/
-                  - title: Wikipedia
-                    url: https://en.wikipedia.org/
-                  - title: YouTube
-                    url: https://www.youtube.com/
+                  - title: Reddit
+                    url: https://www.reddit.com/
 
-  - name: Shared
-    slug: shared
-    theme:
-      accent-color: 40 74 63
+  - name: Markets
+    slug: docs-markets
+    width: wide
+    columns:
+      - size: small
+        widgets:
+          - type: markets
+            title: Markets
+            markets:
+              - symbol: SPY
+                name: S&P 500
+              - symbol: BTC-USD
+                name: Bitcoin
+              - symbol: AAPL
+                name: Apple
+              - symbol: MSFT
+                name: Microsoft
 
+      - size: full
+        widgets:
+          - type: rss
+            title: Market News
+            style: detailed-list
+            feeds:
+              - url: https://feeds.content.dowjones.io/public/rss/mw_topstories
+                title: MarketWatch
+
+          - type: reddit
+            title: Finance Community
+            subreddit: investing
+            style: vertical-list
+            show-thumbnails: true
+            limit: 6
+            collapse-after: 4
+
+      - size: small
+        widgets:
+          - type: videos
+            title: Market Videos
+            channels:
+              - UCrp_UI8XtuYfpiqluWLD7Lw
+            limit: 6
+            style: vertical-list
+
+  - name: Gaming
+    slug: docs-gaming
+    width: wide
     columns:
       - size: full
         widgets:
-          - type: markdown
-            title: Shared Page
-            source: |
-              ## Shared Page
+          - type: twitch-channels
+            title: Live Channels
+            channels:
+              - cohhcarnage
+              - lirik
 
-              This page is configured once and is available from multiple
-              named dashboards.
+          - type: twitch-top-games
+            title: Top Games
+            limit: 10
+            collapse-after: 6
+            exclude:
+              - just-chatting
+              - pools-hot-tubs-and-beaches
+
+      - size: small
+        widgets:
+          - type: bookmarks
+            title: Gaming
+            groups:
+              - title: Platforms
+                links:
+                  - title: Twitch
+                    url: https://www.twitch.tv/
+                  - title: YouTube
+                    url: https://www.youtube.com/
+
+          - type: markdown
+            title: Gaming Dashboard
+            source: |
+              ## Follow what matters
+
+              Combine live channels, game discovery, links, and related content
+              in a focused dashboard.
+
+  - name: Extension Example
+    slug: docs-extension
+    width: slim
+    columns:
+      - size: full
+        widgets:
+          - type: extension
+            title: Extension
+            url: http://127.0.0.1:18089/visual-test-extension
+            timeout: 1s
+            allow-potentially-dangerous-html: true
+
+          - type: markdown
+            title: Native Presentation
+            source: |
+              ## Extension integration
+
+              Extensions can return HTML that reuses Glance's native
+              presentation primitives and follows the active theme.
 
 dashboards:
   Default:
-    - defaults
-    - status-bar
-    - layout
-    - proportional
-    - groups-stack
-    - widgets
-    - requests
-    - presentation-small
-    - presentation-medium
-    - presentation-full
-    - timer-small
-    - timer-medium-full
-    - home
-    - shared
+    - layout-composition
+    - feeds-content
+    - search-custom-content
+    - date-time-weather
+    - homelab-monitoring
+    - development-releases
+    - markets-streaming
+    - utilities
 
-  Personal:
-    - home
-    - personal-page
-    - shared
+  Themes:
+    - theme-global
+    - theme-dark-page
+    - theme-light-page
+    - theme-partial
+    - theme-components
+    - theme-composition
 
-  Documentation:
-    - defaults
-    - status-bar
-    - layout
-    - groups-stack
-    - widgets
-    - requests
-    - presentation-small
-    - presentation-medium
-    - presentation-full
-    - timer-small
-    - timer-medium-full
-    - shared
+  Screenshots:
+    - docs-overview
+    - docs-layouts
+    - docs-head-bottom
+    - docs-startpage
+    - docs-markets
+    - docs-gaming
+    - docs-extension

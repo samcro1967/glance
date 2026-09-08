@@ -56,8 +56,11 @@
     height: 1.4rem;
     position: relative;
     cursor: pointer;
-    border-radius: 0.3rem;
-    transition: border-color .2s;
+    border-radius: var(--theme-control-radius, 0.3rem);
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease,
+        box-shadow 150ms ease;
 }
 
 .todo-item-checkbox::before {
@@ -82,7 +85,20 @@
 
 .todo-item-checkbox:focus-visible {
     outline: none;
-    border-color: var(--theme-control-focus-color, var(--theme-accent-color, var(--color-primary)));
+    border-color: var(
+        --theme-control-focus-color,
+        var(--theme-accent-color, var(--color-primary))
+    );
+    box-shadow:
+        0 0 0 2px
+        color-mix(
+            in srgb,
+            var(
+                --theme-control-focus-color,
+                var(--theme-accent-color, var(--color-primary))
+            ) 24%,
+            transparent
+        );
 }
 
 .todo-item-text {
@@ -113,11 +129,10 @@
 }
 
 .todo-item-delete {
-    width: 1.5rem;
-    height: 1.5rem;
+    width: 2.4rem;
+    height: 2.4rem;
+    padding: 0.45rem;
     opacity: 0;
-    transition: opacity .2s;
-    outline-offset: .5rem;
 }
 
 .todo-item:hover .todo-item-delete, .todo-item:focus-within .todo-item-delete {

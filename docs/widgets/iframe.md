@@ -5,6 +5,9 @@
 Embed an iframe as a widget.
 
 Example:
+
+![iframe widget](../images/widgets/iframe.png)
+
 ## Quick start
 
 

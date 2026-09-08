@@ -10,7 +10,7 @@ A page can contain one or multiple status bars in `head-widgets`, one or multipl
 
 ## Preview
 
-![Full-width Status Bar showing compact weather, market, RSS, and Custom API information](../images/status-bar-preview.png)
+![Full-width Status Bar showing compact weather, market, RSS, and Custom API information](../images/widgets/status-bar.png)
 
 ## Supported widgets
 

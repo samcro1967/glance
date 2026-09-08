@@ -21,7 +21,7 @@ Example:
 
 Preview:
 
-![Twitch Channels widget](../images/twitch-channels-widget-preview.png)
+![Twitch Channels widget](../images/widgets/twitch-channels.png)
 
 ## Configuration
 

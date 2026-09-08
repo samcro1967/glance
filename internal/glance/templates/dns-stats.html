@@ -2,24 +2,24 @@
 
 {{ define "widget-content" }}
 <div class="widget-small-content-bounds dns-stats">
-    <div class="flex text-center justify-between dns-stats-totals">
-        <div>
-            <div class="color-highlight size-h3">{{ .Stats.TotalQueries | formatNumber }}</div>
-            <div class="size-h6">QUERIES</div>
+    <div class="flex text-center justify-between dns-stats-totals glance-metrics">
+        <div class="glance-metric">
+            <div class="color-highlight size-h3 glance-metric-value">{{ .Stats.TotalQueries | formatNumber }}</div>
+            <div class="size-h6 glance-metric-label">QUERIES</div>
         </div>
-        <div>
-            <div class="color-highlight size-h3">{{ .Stats.BlockedPercent }}%</div>
-            <div class="size-h6">BLOCKED</div>
+        <div class="glance-metric">
+            <div class="color-highlight size-h3 glance-metric-value">{{ .Stats.BlockedPercent }}%</div>
+            <div class="size-h6 glance-metric-label">BLOCKED</div>
         </div>
         {{ if gt .Stats.ResponseTime 0 }}
-        <div>
-            <div class="color-highlight size-h3">{{ .Stats.ResponseTime | formatNumber }}ms</div>
-            <div class="size-h6">LATENCY</div>
+        <div class="glance-metric">
+            <div class="color-highlight size-h3 glance-metric-value">{{ .Stats.ResponseTime | formatNumber }}ms</div>
+            <div class="size-h6 glance-metric-label">LATENCY</div>
         </div>
         {{ else }}
-        <div class="cursor-help" data-popover-type="text" data-popover-text="Total number of blocked domains from all adlists" data-popover-max-width="200px" data-popover-text-align="center">
-            <div class="color-highlight size-h3">{{ .Stats.DomainsBlocked | formatApproxNumber }}</div>
-            <div class="size-h6">DOMAINS</div>
+        <div class="cursor-help glance-metric" data-popover-type="text" data-popover-text="Total number of blocked domains from all adlists" data-popover-max-width="200px" data-popover-text-align="center">
+            <div class="color-highlight size-h3 glance-metric-value">{{ .Stats.DomainsBlocked | formatApproxNumber }}</div>
+            <div class="size-h6 glance-metric-label">DOMAINS</div>
         </div>
         {{ end }}
     </div>
@@ -72,8 +72,8 @@
     {{ end }}
 
     {{ if and (not .HideTopDomains) .Stats.TopBlockedDomains }}
-    <details class="details {{ if $showGraph }}margin-top-40{{ else }}margin-top-15{{ end }}">
-        <summary class="summary">Top blocked domains</summary>
+    <details class="details glance-details {{ if $showGraph }}margin-top-40{{ else }}margin-top-15{{ end }}">
+        <summary class="summary glance-summary">Top blocked domains</summary>
         <ul class="list list-gap-4 list-with-transition size-h5">
             {{ range .Stats.TopBlockedDomains }}
             <li class="flex justify-between gap-10">

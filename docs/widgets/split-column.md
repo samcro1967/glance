@@ -8,7 +8,7 @@ Arrange child widgets across multiple equal-width columns. Split Column automati
 
 Two widgets side by side in a `full` column:
 
-![Two widgets displayed side by side with Split Column](../images/split-column-widget-preview.png)
+![Two widgets displayed side by side with Split Column](../images/widgets/split-column.png)
 
 <details>
 <summary>View <code>glance.yml</code></summary>
@@ -56,7 +56,6 @@ A Split Column cannot be placed inside a Group.
 
 Three equal-width columns:
 
-![Three equal-width widgets in a Split Column layout](../images/split-column-widget-3-columns.png)
 
 <details>
 <summary>View <code>glance.yml</code></summary>
@@ -88,7 +87,6 @@ pages:
 
 Four equal-width columns on a page configured with `width: wide`:
 
-![Four equal-width widgets on a wide page using Split Column](../images/split-column-widget-4-columns.png)
 
 <details>
 <summary>View <code>glance.yml</code></summary>
@@ -124,7 +122,6 @@ pages:
 
 A masonry layout with up to five equal-width columns on a page configured with `width: wide`:
 
-![Masonry dashboard layout using up to five Split Column columns](../images/split-column-widget-masonry.png)
 
 <details>
 <summary>View <code>glance.yml</code></summary>

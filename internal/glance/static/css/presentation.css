@@ -234,3 +234,481 @@
     color: var(--theme-muted-text-color, var(--color-text-subdue));
     font-size: 0.9rem;
 }
+
+
+/* =========================================================================
+ * Shared interactive presentation
+ *
+ * These rules define Glance's common control language. Component-specific
+ * styles should own layout, sizing, and specialized behavior while these
+ * primitives own common appearance and interaction states.
+ * ========================================================================= */
+
+:where(
+    input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+    textarea,
+    select,
+    .glance-control
+) {
+    color: var(
+        --theme-control-text-color,
+        var(--theme-text-color, var(--color-text-base))
+    );
+    background-color: var(
+        --theme-control-background-color,
+        var(--color-widget-background)
+    );
+    border: 1px solid var(
+        --theme-control-border-color,
+        var(--color-widget-content-border)
+    );
+    border-radius: var(--theme-control-radius, var(--border-radius));
+    font: inherit;
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease,
+        box-shadow 150ms ease;
+}
+
+:where(
+    input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+    textarea,
+    select,
+    .glance-control
+)::placeholder {
+    color: var(
+        --theme-control-muted-color,
+        var(--theme-muted-text-color, var(--color-text-subdue))
+    );
+    opacity: 1;
+}
+
+:where(
+    input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+    textarea,
+    select,
+    .glance-control
+):hover:not(:disabled) {
+    border-color: color-mix(
+        in srgb,
+        var(
+            --theme-control-focus-color,
+            var(--theme-accent-color, var(--color-primary))
+        ) 45%,
+        var(
+            --theme-control-border-color,
+            var(--color-widget-content-border)
+        )
+    );
+}
+
+:where(
+    input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+    textarea,
+    select,
+    .glance-control
+):focus,
+:where(
+    input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+    textarea,
+    select,
+    .glance-control
+):focus-visible {
+    border-color: var(
+        --theme-control-focus-color,
+        var(--theme-accent-color, var(--color-primary))
+    );
+    outline: none;
+    box-shadow:
+        0 0 0 2px
+        color-mix(
+            in srgb,
+            var(
+                --theme-control-focus-color,
+                var(--theme-accent-color, var(--color-primary))
+            ) 24%,
+            transparent
+        );
+}
+
+:where(
+    input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+    textarea,
+    select,
+    .glance-control
+):disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+
+/* Buttons and actions */
+
+.glance-button,
+.glance-icon-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(
+        --theme-control-button-text-color,
+        var(--theme-control-text-color, var(--color-text-base))
+    );
+    background-color: var(
+        --theme-control-button-background-color,
+        var(--theme-control-background-color, transparent)
+    );
+    border: 1px solid var(
+        --theme-control-border-color,
+        var(--color-widget-content-border)
+    );
+    border-radius: var(--theme-control-radius, var(--border-radius));
+    font: inherit;
+    cursor: pointer;
+    transition:
+        color 150ms ease,
+        background-color 150ms ease,
+        border-color 150ms ease,
+        box-shadow 150ms ease,
+        transform 100ms ease;
+}
+
+.glance-button {
+    min-height: 3.2rem;
+    padding: 0.55rem 1rem;
+    gap: 0.55rem;
+}
+
+.glance-icon-button {
+    width: 3.2rem;
+    height: 3.2rem;
+    padding: 0.6rem;
+}
+
+.glance-button:hover:not(:disabled),
+.glance-icon-button:hover:not(:disabled) {
+    color: var(
+        --theme-control-text-color,
+        var(--color-text-highlight)
+    );
+    border-color: color-mix(
+        in srgb,
+        var(
+            --theme-control-focus-color,
+            var(--theme-accent-color, var(--color-primary))
+        ) 55%,
+        var(
+            --theme-control-border-color,
+            var(--color-widget-content-border)
+        )
+    );
+    background-color: color-mix(
+        in srgb,
+        var(
+            --theme-control-focus-color,
+            var(--theme-accent-color, var(--color-primary))
+        ) 7%,
+        var(
+            --theme-control-button-background-color,
+            var(--theme-control-background-color, transparent)
+        )
+    );
+}
+
+.glance-button:focus-visible,
+.glance-icon-button:focus-visible {
+    outline: none;
+    border-color: var(
+        --theme-control-focus-color,
+        var(--theme-accent-color, var(--color-primary))
+    );
+    box-shadow:
+        0 0 0 2px
+        color-mix(
+            in srgb,
+            var(
+                --theme-control-focus-color,
+                var(--theme-accent-color, var(--color-primary))
+            ) 24%,
+            transparent
+        );
+}
+
+.glance-button:active:not(:disabled),
+.glance-icon-button:active:not(:disabled) {
+    transform: translateY(1px);
+}
+
+.glance-button:disabled,
+.glance-icon-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+}
+
+
+/* Primary actions */
+
+.glance-button-primary {
+    color: var(
+        --theme-control-button-text-color,
+        var(--color-background)
+    );
+    background-color: var(
+        --theme-control-button-background-color,
+        var(--theme-accent-color, var(--color-primary))
+    );
+    border-color: var(
+        --theme-control-focus-color,
+        var(--theme-accent-color, var(--color-primary))
+    );
+}
+
+.glance-button-primary:hover:not(:disabled) {
+    background-color: color-mix(
+        in srgb,
+        var(
+            --theme-control-button-background-color,
+            var(--theme-accent-color, var(--color-primary))
+        ) 90%,
+        white
+    );
+}
+
+
+/* Quiet actions */
+
+.glance-button-quiet {
+    color: var(
+        --theme-control-muted-color,
+        var(--theme-muted-text-color, var(--color-text-subdue))
+    );
+    background: transparent;
+    border-color: transparent;
+}
+
+.glance-button-quiet:hover:not(:disabled) {
+    color: var(
+        --theme-control-text-color,
+        var(--color-text-highlight)
+    );
+}
+
+
+/* Tabs / segmented actions */
+
+.glance-tabs {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.glance-tab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 3rem;
+    padding: 0.4rem 0.85rem;
+    flex-shrink: 0;
+    color: var(
+        --theme-group-text-color,
+        var(--theme-control-muted-color, var(--color-text-subdue))
+    );
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--theme-control-radius, var(--border-radius));
+    font: inherit;
+    cursor: pointer;
+    transition:
+        color 150ms ease,
+        background-color 150ms ease,
+        border-color 150ms ease;
+}
+
+.glance-tab:hover:not([aria-selected="true"]) {
+    color: var(
+        --theme-group-hover-color,
+        var(--theme-control-text-color, var(--color-text-base))
+    );
+    background-color: color-mix(
+        in srgb,
+        var(
+            --theme-group-accent-color,
+            var(--theme-accent-color, var(--color-primary))
+        ) 7%,
+        transparent
+    );
+}
+
+.glance-tab[aria-selected="true"] {
+    color: var(
+        --theme-group-active-color,
+        var(--color-text-highlight)
+    );
+    background-color: color-mix(
+        in srgb,
+        var(
+            --theme-group-accent-color,
+            var(--theme-accent-color, var(--color-primary))
+        ) 16%,
+        var(--theme-group-background-color, transparent)
+    );
+    border-color: color-mix(
+        in srgb,
+        var(
+            --theme-group-accent-color,
+            var(--theme-accent-color, var(--color-primary))
+        ) 24%,
+        transparent
+    );
+}
+
+.glance-tab:focus-visible {
+    outline: none;
+    border-color: var(
+        --theme-control-focus-color,
+        var(--theme-group-accent-color, var(--theme-accent-color, var(--color-primary)))
+    );
+    box-shadow:
+        0 0 0 2px
+        color-mix(
+            in srgb,
+            var(
+                --theme-control-focus-color,
+                var(--theme-group-accent-color, var(--theme-accent-color, var(--color-primary)))
+            ) 24%,
+            transparent
+        );
+}
+
+
+/* Shared content hierarchy */
+
+.glance-secondary {
+    color: var(
+        --theme-secondary-text-color,
+        var(--color-text-base-muted)
+    );
+}
+
+.glance-muted {
+    color: var(
+        --theme-muted-text-color,
+        var(--color-text-subdue)
+    );
+}
+
+.glance-separator {
+    border-color: var(
+        --theme-separator-color,
+        var(--color-widget-content-border)
+    );
+}
+
+
+/* Accessibility */
+
+@media (prefers-reduced-motion: reduce) {
+    :where(
+        input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+        textarea,
+        select,
+        .glance-control,
+        .glance-button,
+        .glance-icon-button,
+        .glance-tab
+    ) {
+        transition: none;
+    }
+}
+
+/* =========================================================================
+ * List presentation
+ *
+ * Semantic content lists use a shared row rhythm without changing the
+ * behavior of Glance's generic .list layout utility. Widgets opt into these
+ * classes only when each child represents an independent content record.
+ * ========================================================================= */
+
+.glance-list {
+    --glance-list-row-padding-block: 1.05rem;
+    --glance-list-row-padding-inline: 1.15rem;
+    --glance-list-row-gap: 0.25rem;
+
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.glance-list-row {
+    position: relative;
+    padding:
+        var(--glance-list-row-padding-block)
+        var(--glance-list-row-padding-inline);
+
+    border-bottom: 1px solid
+        color-mix(
+            in srgb,
+            var(
+                --theme-separator-color,
+                var(--color-widget-content-border)
+            ) 55%,
+            transparent
+        );
+
+    transition:
+        background-color 150ms ease,
+        border-color 150ms ease;
+}
+
+.glance-list-row:first-child {
+    padding-top: 0.35rem;
+}
+
+.glance-list-row:last-child {
+    padding-bottom: 0.35rem;
+    border-bottom: 0;
+}
+
+.glance-list-row:hover {
+    background:
+        color-mix(
+            in srgb,
+            var(
+                --theme-elevated-background-color,
+                var(--color-widget-background)
+            ) 42%,
+            transparent
+        );
+}
+
+.glance-list-row-primary {
+    color: var(--color-text-highlight);
+    font-weight: 500;
+    line-height: 1.35;
+}
+
+.glance-list-row-meta {
+    margin-top: var(--glance-list-row-gap);
+
+    color:
+        var(
+            --theme-muted-text-color,
+            var(--color-text-subdue)
+        );
+
+    font-size: 0.92em;
+    line-height: 1.35;
+}
+
+@media (max-width: 550px) {
+    .glance-list {
+        --glance-list-row-padding-block: 0.9rem;
+        --glance-list-row-padding-inline: 0.85rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .glance-list-row {
+        transition: none;
+    }
+}

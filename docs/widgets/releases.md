@@ -22,7 +22,7 @@ Example:
 
 Preview:
 
-![Releases widget](../images/releases-widget-preview.png)
+![Releases widget](../images/widgets/releases.png)
 
 ## Configuration
 

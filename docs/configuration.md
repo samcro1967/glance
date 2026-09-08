@@ -29,13 +29,11 @@
 ## Preconfigured page
 If you don't want to spend time reading through all the available configuration options and just want something to get you going quickly you can use [this `glance.yml` file](glance.yml) and make changes to it as you see fit. It will give you a page that looks like the following:
 
-![Preconfigured page preview](images/preconfigured-page-preview.png)
+![Preconfigured page preview](images/pages/configuration-overview.png)
 
 Configure the widgets, add more of them, add extra pages, etc. Make it your own!
 
 ## The config file
-
-> Upgrading from a Glance version older than v0.7.0? See the [v0.7.0 configuration migration guide](v0.7.0-upgrade.md).
 
 
 ### Auto reload
@@ -554,7 +552,7 @@ A top-level `theme` defines the default appearance. Individual pages can provide
 See the **[Themes documentation](themes.md)** for the complete theme reference, supported values, inheritance and page overrides, theme picker behavior, custom CSS, examples, and ready-to-use themes.
 
 ## Pages & Columns
-![illustration of pages and columns](images/pages-and-columns-illustration.png)
+![illustration of pages and columns](images/instructions/pages-and-columns.png)
 
 Using pages and columns is how widgets are organized. Each page contains up to 3 columns and each column can have any number of widgets.
 
@@ -624,13 +622,11 @@ Whether to show a header displaying the name of the page on mobile. The header p
 
 Preview:
 
-![Mobile header preview](images/mobile-header-preview.png)
 
 #### `head-widgets`
 
 Head widgets will be shown at the top of the page, above the columns, and take up the combined width of all columns. You can specify any widget, though some will look better than others, such as the markets, RSS feed with `horizontal-cards` style, and videos widgets. Example:
 
-![Head widgets preview](images/head-widgets-preview.png)
 
 ```yaml
 pages:
@@ -692,7 +688,6 @@ pages:
 
 Preview:
 
-![Bottom widgets preview](images/bottom-widgets-preview.png)
 
 ### Named dashboards
 
@@ -744,7 +739,6 @@ Dashboard entries reference pages by their slug. If a page does not explicitly d
 
 Preview:
 
-![Named dashboards preview](images/named-dashboards-preview.png)
 
 #### Default dashboard
 
@@ -885,7 +879,6 @@ The `size` property accepts `small`, `medium` or `full`.
 
 Here are some of the possible traditional column configurations:
 
-![column configuration small-full-small](images/column-configuration-1.png)
 
 ```yaml
 columns:
@@ -897,7 +890,6 @@ columns:
     widgets: ...
 ```
 
-![column configuration full-small](images/column-configuration-2.png)
 
 ```yaml
 columns:
@@ -907,7 +899,6 @@ columns:
     widgets: ...
 ```
 
-![column configuration full-full](images/column-configuration-3.png)
 
 ```yaml
 columns:
@@ -931,7 +922,6 @@ columns:
 
 Preview:
 
-![Medium columns layout preview](images/medium-columns-preview.png)
 
 A one-third/two-thirds layout can be configured with `medium` and `full`:
 
@@ -945,7 +935,6 @@ columns:
 
 Preview:
 
-![Medium full-width columns layout preview](images/medium-full-columns-preview.png)
 
 The order can be reversed to place the wider column first:
 

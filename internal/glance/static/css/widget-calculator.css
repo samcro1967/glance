@@ -49,22 +49,7 @@
     min-width: 0;
     height: 4.2rem;
     padding: 0.4rem;
-    color: var(--theme-control-text-color, var(--color-text-highlight));
-    background: var(--theme-control-background-color, var(--color-background));
-    border: 1px solid var(--theme-control-border-color, var(--color-widget-content-border));
-    border-radius: var(--theme-control-radius, var(--border-radius));
-    font: inherit;
     font-size: var(--font-size-h4);
-    cursor: pointer;
-}
-
-.calculator-keypad button:hover,
-.calculator-keypad button:focus-visible {
-    border-color: var(--theme-control-focus-color, var(--theme-accent-color, var(--color-primary)));
-}
-
-.calculator-keypad button:active {
-    transform: translateY(1px);
 }
 
 .calculator-keypad .calculator-operator {
@@ -72,9 +57,6 @@
 }
 
 .calculator-keypad .calculator-equals {
-    color: var(--theme-control-button-text-color, var(--color-background));
-    background: var(--theme-control-button-background-color, var(--theme-accent-color, var(--color-primary)));
-    border-color: var(--theme-accent-color, var(--color-primary));
     font-size: 1.8rem;
 }
 

@@ -1,0 +1,14 @@
+{
+  "name": "glance-visual-qa",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Browser automation for Glance visual QA and documentation screenshots",
+  "scripts": {
+    "screenshots": "node screenshots.js",
+    "screenshots:docs": "node screenshots.js --docs",
+    "screenshots:all": "node screenshots.js --all"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}

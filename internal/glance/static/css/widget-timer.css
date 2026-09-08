@@ -1,13 +1,3 @@
-.timer-add {
-    color: var(--theme-muted-text-color, var(--color-text-subdue));
-    transition: color .2s;
-}
-
-.timer-add:hover,
-.timer-add:focus-visible {
-    color: var(--theme-accent-color, var(--color-primary));
-}
-
 .timer-form {
     display: grid;
     max-width: 70rem;
@@ -25,18 +15,8 @@
 .timer-form-time {
     min-width: 0;
     width: 100%;
+    min-height: 3.2rem;
     padding: 0.7rem 0.8rem;
-    color: var(--theme-control-text-color, var(--color-text-highlight));
-    background: var(--theme-control-background-color, var(--color-background));
-    border: 1px solid var(--theme-control-border-color, var(--color-widget-content-border));
-    border-radius: var(--theme-control-radius, var(--border-radius));
-    outline: none;
-}
-
-.timer-form-name:focus,
-.timer-form-date:focus,
-.timer-form-time:focus {
-    border-color: var(--theme-control-focus-color, var(--theme-accent-color, var(--color-primary)));
 }
 
 .timer-form-actions {
@@ -45,20 +25,6 @@
     justify-content: flex-end;
     gap: 1.2rem;
     white-space: nowrap;
-}
-
-.timer-form-cancel {
-    color: var(--theme-muted-text-color, var(--color-text-subdue));
-}
-
-.timer-form-save {
-    color: var(--theme-accent-color, var(--color-primary));
-}
-
-.timer-form-save:disabled {
-    color: var(--theme-muted-text-color, var(--color-text-subdue));
-    cursor: default;
-    opacity: 0.5;
 }
 
 .timer-items {
@@ -130,18 +96,17 @@
 }
 
 .timer-item-delete {
-    width: 1.5rem;
-    height: 1.5rem;
-    color: var(--theme-muted-text-color, var(--color-text-subdue));
+    width: 2.4rem;
+    height: 2.4rem;
+    padding: 0.45rem;
     opacity: 1;
-    transition: opacity .2s, color .2s;
 }
 
 .timer-item.is-being-dragged .timer-item-delete {
     opacity: 0;
 }
 
-.timer-item-delete:hover,
+.timer-item-delete:hover:not(:disabled),
 .timer-item-delete:focus-visible {
     color: var(--color-negative);
 }

@@ -11,36 +11,36 @@
     {{ end }}
 
     {{ if .ShowDetails }}
-    <div class="weather-details">
-        <div class="weather-detail">
+    <div class="weather-details glance-key-values">
+        <div class="weather-detail glance-key-value">
             <span class="weather-detail-label glance-key">High / Low</span>
             <span class="weather-detail-value glance-value">{{ .Weather.Details.HighTemperature }}° / {{ .Weather.Details.LowTemperature }}°</span>
         </div>
-        <div class="weather-detail">
+        <div class="weather-detail glance-key-value">
             <span class="weather-detail-label glance-key">Humidity</span>
             <span class="weather-detail-value glance-value">{{ .Weather.Details.Humidity }}%</span>
         </div>
-        <div class="weather-detail">
+        <div class="weather-detail glance-key-value">
             <span class="weather-detail-label glance-key">Precipitation</span>
             <span class="weather-detail-value glance-value">{{ .Weather.Details.PrecipitationProbability }}%</span>
         </div>
-        <div class="weather-detail">
+        <div class="weather-detail glance-key-value">
             <span class="weather-detail-label glance-key">Wind</span>
             <span class="weather-detail-value glance-value">{{ printf "%.0f" .Weather.Details.WindSpeed }} {{ if eq .Units "metric" }}km/h{{ else }}mph{{ end }} {{ .Weather.Details.WindDirectionAsString }}</span>
         </div>
-        <div class="weather-detail">
+        <div class="weather-detail glance-key-value">
             <span class="weather-detail-label glance-key">UV</span>
             <span class="weather-detail-value glance-value">{{ printf "%.1f" .Weather.Details.UVIndex }}</span>
         </div>
-        <div class="weather-detail">
+        <div class="weather-detail glance-key-value">
             <span class="weather-detail-label glance-key">Visibility</span>
             <span class="weather-detail-value glance-value">{{ .Weather.Details.VisibilityAsString .Units }}</span>
         </div>
-        <div class="weather-detail">
+        <div class="weather-detail glance-key-value">
             <span class="weather-detail-label glance-key">Pressure</span>
             <span class="weather-detail-value glance-value">{{ .Weather.Details.PressureAsString .Units }}</span>
         </div>
-        <div class="weather-detail">
+        <div class="weather-detail glance-key-value">
             <span class="weather-detail-label glance-key">Sunrise / Sunset</span>
             <span class="weather-detail-value glance-value">{{ .Weather.Details.SunriseSunsetAsString .HourFormat }}</span>
         </div>

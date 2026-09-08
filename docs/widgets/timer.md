@@ -19,7 +19,7 @@ Example:
 
 Preview:
 
-![Timer widget](../images/timer-widget-preview.png)
+![Timer widget](../images/widgets/timer.png)
 
 To edit a timer, click its name or target date and time. To reorder timers, drag and drop them by grabbing the top side of a timer. Use the trash icon to delete a timer.
 

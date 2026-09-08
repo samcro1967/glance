@@ -1,0 +1,6 @@
+/* Visual QA marker for the selected preset custom CSS layer. */
+.theme-css-preset {
+    padding: 0.35rem 0.65rem;
+    border: 1px solid var(--color-primary);
+    border-radius: var(--theme-control-radius);
+}

@@ -6,7 +6,7 @@
 <div class="carousel-container">
     <div class="cards-horizontal carousel-items-container">
         {{ range .Posts }}
-        <div class="card widget-content-frame relative">
+        <div class="card glance-card widget-content-frame relative">
             {{ if ne "" .ThumbnailUrl }}
             <div class="reddit-card-thumbnail-container">
                 <img class="reddit-card-thumbnail" loading="lazy" src="{{ .ThumbnailUrl }}" alt="">

@@ -17,7 +17,7 @@ Example:
 
 Preview:
 
-![Calculator widget](../images/calculator-preview.png)
+![Calculator widget](../images/widgets/calculator.png)
 
 No external service or network connection is required. Calculations are performed locally in the browser.
 

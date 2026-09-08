@@ -15,7 +15,7 @@ Display posts from [Lobsters](https://lobste.rs) or another compatible Lobsters 
     - linux
 ```
 
-![Lobsters widget displaying a list of posts](../images/lobsters-widget-preview.png)
+![Lobsters widget displaying a list of posts](../images/widgets/lobsters.png)
 
 ## Configuration
 

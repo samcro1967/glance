@@ -3,10 +3,7 @@ package glance
 import (
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
-	"net/http"
-	"os"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -26,11 +23,6 @@ func Main() int {
 	case cliIntentVersionPrint:
 		fmt.Println(buildVersion)
 	case cliIntentServe:
-		// remove in v0.10.0
-		if serveUpdateNoticeIfConfigLocationNotMigrated(options.configPath) {
-			return 1
-		}
-
 		if err := serveApp(options.configPath); err != nil {
 			fmt.Println(err)
 			return 1
@@ -283,71 +275,4 @@ func reportExitError(exitChannel chan<- error, err error) {
 	case exitChannel <- err:
 	default:
 	}
-}
-
-func serveUpdateNoticeServer(handler http.Handler) error {
-	server := http.Server{
-		Addr:    ":8080",
-		Handler: handler,
-	}
-
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		return fmt.Errorf("serving configuration migration notice: %w", err)
-	}
-
-	return nil
-}
-
-func loadUpdateNoticePage() ([]byte, error) {
-	templateFile, err := templateFS.Open("v0.7-update-notice-page.html")
-	if err != nil {
-		return nil, fmt.Errorf("opening configuration migration notice: %w", err)
-	}
-	defer templateFile.Close()
-
-	bodyContents, err := io.ReadAll(templateFile)
-	if err != nil {
-		return nil, fmt.Errorf("reading configuration migration notice: %w", err)
-	}
-
-	return bodyContents, nil
-}
-
-func serveUpdateNoticeIfConfigLocationNotMigrated(configPath string) bool {
-	if !isRunningInsideDockerContainer() {
-		return false
-	}
-
-	if _, err := os.Stat(configPath); err == nil {
-		return false
-	}
-
-	// glance.yml wasn't mounted to begin with or was incorrectly mounted as a directory
-	if stat, err := os.Stat("glance.yml"); err != nil || stat.IsDir() {
-		return false
-	}
-
-	bodyContents, err := loadUpdateNoticePage()
-	if err != nil {
-		fmt.Printf("Failed to load configuration migration notice: %v\n", err)
-		return true
-	}
-
-	fmt.Println("!!! WARNING !!!")
-	fmt.Println("The default location of glance.yml in the Docker image has changed starting from v0.7.0.")
-	fmt.Println("Please see https://github.com/glanceapp/glance/blob/main/docs/v0.7.0-upgrade.md for more information.")
-
-	mux := http.NewServeMux()
-	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/html")
-		w.WriteHeader(http.StatusServiceUnavailable)
-		w.Write(bodyContents)
-	})
-
-	if err := serveUpdateNoticeServer(mux); err != nil {
-		fmt.Printf("Failed to serve configuration migration notice: %v\n", err)
-	}
-
-	return true
 }
