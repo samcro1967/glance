@@ -1,9 +1,9 @@
 {{ template "widget-base.html" . }}
 
 {{- define "widget-content" }}
-<ul class="list list-gap-14 collapsible-container" data-collapse-after="{{ .CollapseAfter }}">
+<ul class="list glance-list collapsible-container" data-collapse-after="{{ .CollapseAfter }}">
     {{- range .Posts }}
-    <li>
+    <li class="glance-list-row">
         <div class="flex gap-10 row-reverse-on-mobile thumbnail-parent">
             {{- if $.ShowThumbnails }}
             {{- if .IsCrosspost }}
@@ -33,7 +33,7 @@
                     </ul>
                 </div>
                 {{- end }}
-                <ul class="list-horizontal-text flex-nowrap text-compact">
+                <ul class="list-horizontal-text glance-list-row-meta flex-nowrap text-compact">
                     <li {{ dynamicRelativeTimeAttrs .TimePosted }}></li>
                     <li class="shrink-0">{{ .Score | formatApproxNumber }} points</li>
                     <li class="shrink-0{{ if .TargetUrl | safeURL }} forum-post-autohide{{ end }}">{{ .CommentCount | formatApproxNumber }} comments</li>

@@ -1,0 +1,150 @@
+{
+  "group": {
+    "route": "/layout-composition",
+    "selector": ".visual-fixture-group"
+  },
+  "stack": {
+    "route": "/layout-composition",
+    "selector": ".visual-fixture-stack"
+  },
+  "status-bar": {
+    "route": "/layout-composition",
+    "selector": ".visual-fixture-status-bar"
+  },
+  "split-column": {
+    "route": "/layout-composition",
+    "selector": ".visual-fixture-split-column"
+  },
+  "rss": {
+    "route": "/feeds-content",
+    "selector": ".visual-fixture-rss"
+  },
+  "videos": {
+    "route": "/feeds-content",
+    "selector": ".visual-fixture-videos"
+  },
+  "hacker-news": {
+    "route": "/feeds-content",
+    "selector": ".visual-fixture-hacker-news"
+  },
+  "lobsters": {
+    "route": "/feeds-content",
+    "selector": ".visual-fixture-lobsters"
+  },
+  "reddit": {
+    "route": "/feeds-content",
+    "selector": ".visual-fixture-reddit"
+  },
+  "search": {
+    "route": "/search-custom-content",
+    "selector": ".visual-fixture-search"
+  },
+  "bookmarks": {
+    "route": "/search-custom-content",
+    "selector": ".visual-fixture-bookmarks"
+  },
+  "custom-api": {
+    "route": "/search-custom-content",
+    "selector": ".visual-fixture-custom-api"
+  },
+  "extension": {
+    "route": "/search-custom-content",
+    "selector": ".visual-fixture-extension"
+  },
+  "iframe": {
+    "route": "/search-custom-content",
+    "selector": ".visual-fixture-iframe"
+  },
+  "markdown": {
+    "route": "/search-custom-content",
+    "selector": ".visual-fixture-markdown"
+  },
+  "html": {
+    "route": "/search-custom-content",
+    "selector": ".visual-fixture-html-content"
+  },
+  "weather": {
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-weather"
+  },
+  "calendar": {
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-calendar"
+  },
+  "ics-events": {
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-ics-events"
+  },
+  "calendar-legacy": {
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-calendar-legacy"
+  },
+  "clock": {
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-clock"
+  },
+  "analog-clock": {
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-analog-clock"
+  },
+  "timer": {
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-timer"
+  },
+  "monitor": {
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-monitor"
+  },
+  "docker-containers": {
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-docker-containers"
+  },
+  "dns-stats": {
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-dns-stats"
+  },
+  "server-stats": {
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-server-stats"
+  },
+  "change-detection": {
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-change-detection"
+  },
+  "repository": {
+    "route": "/development-releases",
+    "selector": ".visual-fixture-repository"
+  },
+  "releases": {
+    "route": "/development-releases",
+    "selector": ".visual-fixture-releases"
+  },
+  "markets": {
+    "route": "/markets-streaming",
+    "selector": ".visual-fixture-markets"
+  },
+  "stocks": {
+    "route": "/markets-streaming",
+    "selector": ".visual-fixture-stocks"
+  },
+  "twitch-channels": {
+    "route": "/markets-streaming",
+    "selector": ".visual-fixture-twitch-channels"
+  },
+  "twitch-top-games": {
+    "route": "/markets-streaming",
+    "selector": ".visual-fixture-twitch-top-games"
+  },
+  "to-do": {
+    "route": "/utilities",
+    "selector": ".visual-fixture-to-do"
+  },
+  "unit-converter": {
+    "route": "/utilities",
+    "selector": ".visual-fixture-unit-converter"
+  },
+  "calculator": {
+    "route": "/utilities",
+    "selector": ".visual-fixture-calculator"
+  }
+}

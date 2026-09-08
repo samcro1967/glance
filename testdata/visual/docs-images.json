@@ -1,0 +1,316 @@
+{
+  "instructions/extension-overview.png": {
+    "kind": "static"
+  },
+  "instructions/pages-and-columns.png": {
+    "kind": "static"
+  },
+  "instructions/reddit-field-search.png": {
+    "kind": "static"
+  },
+  "instructions/reorder-todo-tasks.gif": {
+    "kind": "static"
+  },
+  "instructions/videos-channel-description.png": {
+    "kind": "static"
+  },
+  "instructions/videos-copy-channel-id.png": {
+    "kind": "static"
+  },
+  "pages/configuration-overview.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-overview",
+    "viewport": {
+      "width": 1600,
+      "height": 1000
+    },
+    "fullPage": true
+  },
+  "pages/extension.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-extension",
+    "viewport": {
+      "width": 1200,
+      "height": 900
+    },
+    "fullPage": true
+  },
+  "pages/gaming.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-gaming",
+    "viewport": {
+      "width": 1600,
+      "height": 1000
+    },
+    "fullPage": true
+  },
+  "pages/markets.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-markets",
+    "viewport": {
+      "width": 1600,
+      "height": 1000
+    },
+    "fullPage": true
+  },
+  "pages/overview-mobile.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-overview",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    },
+    "fullPage": true
+  },
+  "pages/overview.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-overview",
+    "viewport": {
+      "width": 1600,
+      "height": 1000
+    },
+    "fullPage": true
+  },
+  "pages/startpage.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-startpage",
+    "viewport": {
+      "width": 1600,
+      "height": 1000
+    },
+    "fullPage": true
+  },
+  "themes/overview.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/themes/",
+    "viewport": {
+      "width": 1600,
+      "height": 1000
+    },
+    "fullPage": true
+  },
+  "widgets/analog-clock.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-analog-clock"
+  },
+  "widgets/bookmarks.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/search-custom-content",
+    "selector": ".visual-fixture-bookmarks"
+  },
+  "widgets/calculator.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/utilities",
+    "selector": ".visual-fixture-calculator"
+  },
+  "widgets/calendar-legacy.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-calendar-legacy"
+  },
+  "widgets/calendar.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-calendar"
+  },
+  "widgets/change-detection.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-change-detection"
+  },
+  "widgets/clock.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-clock"
+  },
+  "widgets/custom-api.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/search-custom-content",
+    "selector": ".visual-fixture-custom-api"
+  },
+  "widgets/dns-stats.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-dns-stats"
+  },
+  "widgets/docker-containers.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-docker-containers"
+  },
+  "widgets/extension.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/search-custom-content",
+    "selector": ".visual-fixture-extension"
+  },
+  "widgets/group.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/layout-composition",
+    "selector": ".visual-fixture-group"
+  },
+  "widgets/hacker-news.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "selector": ".visual-fixture-hacker-news"
+  },
+  "widgets/html.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/search-custom-content",
+    "selector": ".visual-fixture-html-content"
+  },
+  "widgets/ics-events.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-ics-events"
+  },
+  "widgets/iframe.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/search-custom-content",
+    "selector": ".visual-fixture-iframe"
+  },
+  "widgets/lobsters.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "selector": ".visual-fixture-lobsters"
+  },
+  "widgets/markdown.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/search-custom-content",
+    "selector": ".visual-fixture-markdown"
+  },
+  "widgets/markets.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/markets-streaming",
+    "selector": ".visual-fixture-markets"
+  },
+  "widgets/monitor.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-monitor"
+  },
+  "widgets/reddit.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "selector": ".visual-fixture-reddit"
+  },
+  "widgets/releases.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/development-releases",
+    "selector": ".visual-fixture-releases"
+  },
+  "widgets/repository.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/development-releases",
+    "selector": ".visual-fixture-repository"
+  },
+  "widgets/rss.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "selector": ".visual-fixture-rss"
+  },
+  "widgets/search.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/search-custom-content",
+    "selector": ".visual-fixture-search"
+  },
+  "widgets/server-stats.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-server-stats"
+  },
+  "widgets/split-column.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/layout-composition",
+    "selector": ".visual-fixture-split-column"
+  },
+  "widgets/stack.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/layout-composition",
+    "selector": ".visual-fixture-stack"
+  },
+  "widgets/status-bar.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/layout-composition",
+    "selector": ".visual-fixture-status-bar"
+  },
+  "widgets/timer.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-timer"
+  },
+  "widgets/to-do.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/utilities",
+    "selector": ".visual-fixture-to-do"
+  },
+  "widgets/twitch-channels.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/markets-streaming",
+    "selector": ".visual-fixture-twitch-channels"
+  },
+  "widgets/twitch-top-games.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/markets-streaming",
+    "selector": ".visual-fixture-twitch-top-games"
+  },
+  "widgets/unit-converter.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/utilities",
+    "selector": ".visual-fixture-unit-converter"
+  },
+  "widgets/videos.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "selector": ".visual-fixture-videos"
+  },
+  "widgets/weather.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-weather"
+  }
+}

@@ -89,7 +89,7 @@ function Item(unserialize = {}, onUpdate, onDelete, onEscape, onDragStart) {
         ),
 
         elem("button")
-            .classes("todo-item-delete", "shrink-0")
+            .classes("todo-item-delete", "glance-icon-button", "glance-button-quiet", "shrink-0")
             .html(trashIconSvg)
             .on("click", () => onDelete(item))
     );

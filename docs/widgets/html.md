@@ -4,6 +4,9 @@
 
 Render trusted HTML directly inside a Glance page.
 
+
+![HTML widget](../images/widgets/html.png)
+
 ## Quick start
 
 ```yaml

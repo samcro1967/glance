@@ -163,11 +163,19 @@ ul {
 }
 
 body {
-    font-size: var(--theme-font-size, 1.3rem);
-    font-family: var(--theme-font-family, 'JetBrains Mono', monospace);
+    font-size: var(--theme-font-size, 1.4rem);
+    font-family: var(
+        --theme-font-family,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif
+    );
     font-weight: var(--theme-font-weight, 400);
-    font-variant-ligatures: none;
-    line-height: 1.6;
+    font-variant-ligatures: normal;
+    line-height: 1.5;
+    letter-spacing: -0.01em;
     color: var(--theme-text-color, var(--color-text-base));
     background-color: var(--color-background);
     overflow-y: scroll;
@@ -190,7 +198,7 @@ body {
 
 .page-columns {
     display: flex;
-    gap: var(--widget-gap);
+    gap: 2.8rem;
 }
 
 @keyframes pageContentEntrance {
@@ -292,28 +300,27 @@ kbd:active {
 
 .header-container,
 .header-container-spacer {
-    --header-height: 45px;
-    --header-container-height: calc(var(--header-height) + var(--widget-gap));
+    --header-height: 5.4rem;
+    --header-container-height: 7rem;
 }
 
 .header-container {
-    --header-items-gap: 2.5rem;
+    --header-items-gap: 1.6rem;
     position: fixed;
     top: 0;
     left: 50%;
     z-index: 10;
     width: 100%;
     min-height: var(--header-container-height);
-    padding-top: calc(var(--widget-gap) / 2);
-    padding-bottom: calc(var(--widget-gap) / 2);
+    padding-top: 0.8rem;
+    padding-bottom: 0.8rem;
     transform: translateX(-50%);
-    background-color: var(--theme-header-background-color, var(--color-background));
+    background: transparent;
     color: var(--theme-header-text-color, inherit);
-    border-bottom: 1px solid var(--theme-header-border-color, transparent);
-    border-radius: var(--theme-header-radius, 0);
-    box-shadow: var(--theme-header-shadow, none);
-    backdrop-filter: var(--theme-header-blur, none);
-    -webkit-backdrop-filter: var(--theme-header-blur, none);
+    border: 0;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 }
 
 .header-container-spacer {
@@ -325,6 +332,13 @@ kbd:active {
     display: flex;
     height: var(--header-height);
     gap: var(--header-items-gap);
+    padding-inline: 1.5rem;
+    background: var(--theme-header-background-color, var(--color-widget-background));
+    border: 1px solid var(--theme-header-border-color, var(--color-widget-content-border));
+    border-radius: var(--theme-header-radius, 1.4rem);
+    box-shadow: var(--theme-header-shadow, 0 12px 36px rgb(0 0 0 / 0.14));
+    backdrop-filter: var(--theme-header-blur, blur(14px));
+    -webkit-backdrop-filter: var(--theme-header-blur, blur(14px));
 }
 
 .logo {
@@ -417,7 +431,7 @@ kbd:active {
     overflow-x: auto;
     min-width: 0;
     height: 100%;
-    gap: var(--header-items-gap);
+    gap: 0.4rem;
 }
 
 .desktop-navigation .nav-item {
@@ -426,7 +440,7 @@ kbd:active {
 }
 
 .desktop-navigation .nav-item-text {
-    margin-top: 3px;
+    margin-top: 0;
 }
 
 .footer {
@@ -446,24 +460,44 @@ kbd:active {
 }
 
 .nav-item {
-    display: block;
-    height: 100%;
-    border-bottom: 2px solid transparent;
-    transition: color .3s, border-color .3s;
+    display: flex;
+    align-items: center;
+    align-self: center;
+    height: 3.6rem;
+    padding-inline: 1.25rem;
+    border: 0;
+    border-radius: 0.9rem;
+    transition: color 150ms ease, background-color 150ms ease;
     font-size: var(--theme-navigation-font-size, var(--font-size-h3));
-    font-weight: var(--theme-navigation-font-weight, inherit);
+    font-weight: var(--theme-navigation-font-weight, 500);
     color: var(--theme-navigation-text-color, inherit);
     flex-shrink: 0;
 }
 
 .nav-item:not(.nav-item-current):hover {
-    border-bottom-color: var(--theme-navigation-hover-color, var(--color-text-subdue));
     color: var(--theme-navigation-hover-color, var(--color-text-highlight));
+    background-color: color-mix(
+        in srgb,
+        var(--theme-navigation-hover-color, var(--color-text-highlight)) 8%,
+        transparent
+    );
 }
 
 .nav-item.nav-item-current {
-    border-bottom-color: var(--theme-navigation-accent-color, var(--theme-accent-color, var(--color-primary)));
     color: var(--theme-navigation-active-color, var(--color-text-highlight));
+    background: linear-gradient(
+        135deg,
+        color-mix(
+            in srgb,
+            var(--theme-navigation-accent-color, var(--theme-accent-color, var(--color-primary))) 30%,
+            transparent
+        ),
+        color-mix(
+            in srgb,
+            var(--theme-navigation-accent-color, var(--theme-accent-color, var(--color-primary))) 16%,
+            transparent
+        )
+    );
 }
 
 .logout-button {
@@ -556,25 +590,6 @@ kbd:active {
     box-shadow: var(--theme-card-shadow, none);
 }
 
-input,
-textarea,
-select {
-    background-color: var(--theme-control-background-color, var(--color-widget-background));
-    color: var(--theme-control-text-color, var(--color-text-base));
-    border-color: var(--theme-control-border-color, var(--color-widget-content-border));
-    border-radius: var(--theme-control-radius, var(--border-radius));
-}
-
-input::placeholder,
-textarea::placeholder {
-    color: var(--theme-control-muted-color, var(--theme-muted-text-color, var(--color-text-subdue)));
-}
-
-button,
-.expand-toggle-button {
-    border-radius: var(--theme-control-radius, var(--border-radius));
-}
-
 .footer a,
 .footer a:visited {
     color: var(--theme-footer-accent-color, var(--theme-accent-color, var(--color-primary)));
@@ -593,4 +608,55 @@ button,
 
 body::-webkit-scrollbar-thumb {
     background-color: var(--theme-accent-color, var(--color-primary));
+}
+
+/* =========================================================================
+ * Modern application chrome refinement
+ * ========================================================================= */
+
+.header {
+    border-color:
+        color-mix(
+            in srgb,
+            var(--theme-header-border-color, var(--color-widget-content-border)) 58%,
+            transparent
+        );
+
+    box-shadow:
+        0 1px 2px rgb(0 0 0 / 0.14),
+        0 10px 32px rgb(0 0 0 / 0.16);
+}
+
+/* The logo separator should be quieter than the application frame. */
+.logo {
+    border-right-color:
+        color-mix(
+            in srgb,
+            var(--theme-header-border-color, var(--color-widget-content-border)) 55%,
+            transparent
+        );
+}
+
+/* Selected navigation is a restrained filled control rather than a tab. */
+.nav-item.nav-item-current {
+    box-shadow:
+        inset 0 0 0 1px
+        color-mix(
+            in srgb,
+            var(
+                --theme-navigation-accent-color,
+                var(--theme-accent-color, var(--color-primary))
+            ) 18%,
+            transparent
+        );
+}
+
+/* Modern keyboard focus without permanently decorating controls. */
+.nav-item:focus-visible {
+    outline: 2px solid
+        var(
+            --theme-navigation-accent-color,
+            var(--theme-accent-color, var(--color-primary))
+        );
+    outline-offset: -2px;
 }

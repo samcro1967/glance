@@ -41,7 +41,6 @@
 .summary {
     width: 100%;
     cursor: pointer;
-    word-spacing: -0.18em;
     user-select: none;
     list-style: none;
     position: relative;

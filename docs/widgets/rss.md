@@ -16,6 +16,8 @@ Display articles from one or more RSS or Atom feeds, with list and card layouts 
       title: Fox Business
 ```
 
+![RSS widget](../images/widgets/rss.png)
+
 ## Styles
 
 The RSS widget supports four layouts:
@@ -27,19 +29,15 @@ The RSS widget supports four layouts:
 
 ### Vertical list
 
-![RSS widget using the vertical-list style](../images/rss-feed-vertical-list-preview.png)
 
 ### Detailed list
 
-![RSS widget using the detailed-list style](../images/rss-widget-detailed-list-preview.png)
 
 ### Horizontal cards
 
-![RSS widget using the horizontal-cards style](../images/rss-feed-horizontal-cards-preview.png)
 
 ### Horizontal cards 2
 
-![RSS widget using the horizontal-cards-2 style](../images/rss-widget-horizontal-cards-2-preview.png)
 
 ## Configuration
 

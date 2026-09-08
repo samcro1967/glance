@@ -46,21 +46,18 @@ Supported values are `vertical-list`, `horizontal-cards`, and `vertical-cards`.
 
 #### Vertical list
 
-![Reddit widget using the vertical-list style](../images/reddit-widget-preview.png)
+![Reddit widget using the vertical-list style](../images/widgets/reddit.png)
 
 #### Horizontal cards
 
-![Reddit widget using the horizontal-cards style](../images/reddit-widget-horizontal-cards-preview.png)
 
 #### Vertical cards
 
-![Reddit widget using the vertical-cards style](../images/reddit-widget-vertical-cards-preview.png)
 
 ### `show-thumbnails`
 
 Shows thumbnails when using `vertical-list` and Reddit provides a usable thumbnail URL.
 
-![Reddit vertical-list style with post thumbnails enabled](../images/reddit-widget-vertical-list-thumbnails.png)
 
 > [!NOTE]
 >
@@ -141,7 +138,7 @@ Controls the time period when `sort-by` is `top`. Supported values are `hour`, `
 
 Searches within the configured subreddit instead of loading its normal listing.
 
-![Reddit search field syntax examples](../images/reddit-field-search.png)
+![Reddit search field syntax examples](../images/instructions/reddit-field-search.png)
 
 ### `extra-sort-by`
 

@@ -53,8 +53,14 @@ func (a *application) handleThemeChangeRequest(w http.ResponseWriter, r *http.Re
 		Expires:  time.Now().Add(2 * 365 * 24 * time.Hour),
 	})
 
+	themeCustomCSS := ""
+	if themeKey != "default" {
+		themeCustomCSS = properties.CustomCSSFile
+	}
+
 	w.Header().Set("Content-Type", "text/css")
 	w.Header().Set("X-Scheme", ternary(resolved.Light, "light", "dark"))
+	w.Header().Set("X-Theme-Custom-CSS", themeCustomCSS)
 	w.Write([]byte(resolved.CSS))
 }
 
@@ -194,6 +200,7 @@ type themeElevatedSurfaceProperties struct {
 }
 
 type themeProperties struct {
+	CustomCSSFile            string         `yaml:"custom-css-file"`
 	BackgroundColor          *hslColorField `yaml:"background-color"`
 	PrimaryColor             *hslColorField `yaml:"primary-color"`
 	PositiveColor            *hslColorField `yaml:"positive-color"`

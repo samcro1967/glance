@@ -42,7 +42,7 @@ Organize frequently used links into configurable groups with optional colors, ic
 
 ## Preview
 
-![Bookmarks widget with multiple groups of links](../images/bookmarks-widget-preview.png)
+![Bookmarks widget with multiple groups of links](../images/widgets/bookmarks.png)
 
 
 ## Configuration

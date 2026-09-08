@@ -15,11 +15,11 @@ Example:
 
 Preview:
 
-![Todo widget](../images/todo-widget-preview.png)
+![Todo widget](../images/widgets/to-do.png)
 
 To reorder tasks, drag and drop them by grabbing the top side of the task:
 
-![Reordering tasks in the Todo widget](../images/reorder-todo-tasks-preview.gif)
+![Reordering tasks in the Todo widget](../images/instructions/reorder-todo-tasks.gif)
 
 To delete a task, hover over it and click on the trash icon.
 

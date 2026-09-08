@@ -33,7 +33,7 @@ Example:
 
 Preview:
 
-![Monitor widget](../images/monitor-widget-preview.png)
+![Monitor widget](../images/widgets/monitor.png)
 
 You can hover over the "ERROR" text to view more information.
 
@@ -55,7 +55,6 @@ Used to change the appearance of the widget. Possible values are `compact`.
 
 Preview of `compact`:
 
-![Monitor widget using the compact style](../images/monitor-widget-compact-preview.png)
 
 ### `sites`
 

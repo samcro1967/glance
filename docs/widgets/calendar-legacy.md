@@ -13,7 +13,7 @@ Display a calendar.
 
 ## Preview
 
-![Legacy Calendar widget](../images/calendar-legacy-widget-preview.png)
+![Legacy Calendar widget](../images/widgets/calendar-legacy.png)
 
 > [!NOTE]
 >

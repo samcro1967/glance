@@ -27,7 +27,7 @@ Display current conditions, weather details, hourly temperatures and precipitati
 
 ## Preview
 
-![Weather widget showing current conditions, details, hourly temperatures, and a 7-day forecast](../images/weather-widget-preview.png)
+![Weather widget showing current conditions, details, hourly temperatures, and a 7-day forecast](../images/widgets/weather.png)
 
 The widget can display four independently configurable sections: current conditions, weather details, an hourly temperature and precipitation graph, and a 7-day forecast. All four sections are enabled by default.
 

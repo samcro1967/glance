@@ -18,7 +18,7 @@ Example:
 
 Preview:
 
-![DNS Stats widget](../images/dns-stats-widget-preview.png)
+![DNS Stats widget](../images/widgets/dns-stats.png)
 
 > [!NOTE]
 >

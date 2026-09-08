@@ -26,7 +26,7 @@ can also be overridden for individual pages.
 
 ## Theme resolution and inheritance
 
-Glance resolves appearance in the following order:
+Glance first resolves the native semantic appearance:
 
 ``` text
 Native Glance defaults
@@ -34,8 +34,6 @@ Native Glance defaults
 Selected base theme
         ↓
 Current page theme override
-        ↓
-custom-css-file
 ```
 
 The top-level `theme` is the configured default appearance. A page-level
@@ -43,8 +41,20 @@ The top-level `theme` is the configured default appearance. A page-level
 Properties omitted from the page override continue to inherit from the
 selected base theme.
 
-Custom CSS is loaded after native theme styling and remains the final
-styling layer.
+Custom CSS is layered independently after the resolved native theme:
+
+``` text
+Resolved native theme CSS
+        ↓
+Global custom CSS
+        ↓
+Selected preset custom CSS
+        ↓
+Page custom CSS
+```
+
+Each custom CSS layer is optional. Later layers take precedence through
+the normal CSS cascade when selector specificity is otherwise equal.
 
 This means native themes can handle normal dashboard customization while
 CSS can still be used for gradients, complex effects, highly specific
@@ -140,8 +150,10 @@ Do not include commas, `hsl()`, or percent signs.
                                                          the theme picker.
   ------------------------------------------------------------------------------
 
-`custom-css-file`, `disable-picker`, and `presets` are top-level
-theme-management settings. They are not page-level visual overrides.
+`disable-picker` and `presets` are top-level theme-management settings.
+`custom-css-file` is also valid inside named presets and page-level
+`theme` blocks. These stylesheets remain independent cascade layers
+rather than being merged into semantic theme properties.
 
 ## Typography
 
@@ -546,19 +558,68 @@ theme:
 A named theme is a complete alternative base theme, not an overlay on
 the top-level theme.
 
-When a named theme is selected, the current page theme override is
-applied after that selected theme:
+When a named theme is selected, the current page semantic override is
+applied after that selected base theme. Custom CSS is then layered
+independently:
 
 ``` text
-Midnight
-   ↓
-Home page override
-   ↓
-custom-css-file
+Midnight native theme
+        ↓
+Home page semantic override
+        ↓
+Global custom CSS
+        ↓
+Midnight custom CSS
+        ↓
+Home page custom CSS
 ```
 
 The same page override therefore works with Glance Dark, Glance Light,
-and every named user theme.
+and every named user theme. Switching themes with the browser theme
+picker dynamically replaces or removes only the selected preset custom
+stylesheet; global and page custom stylesheets remain active.
+
+## Custom CSS hierarchy
+
+`custom-css-file` can be configured globally, inside a named preset, or
+inside a page-level `theme` block:
+
+``` yaml
+theme:
+  custom-css-file: /assets/global.css
+  presets:
+    midnight:
+      custom-css-file: /assets/midnight.css
+      light: false
+
+pages:
+  - name: Sports
+    theme:
+      custom-css-file: /assets/sports.css
+    columns:
+      # ...
+```
+
+With `midnight` selected on Sports, the effective stylesheet order is:
+
+``` text
+Resolved Midnight native theme CSS
+        ↓
+/assets/global.css
+        ↓
+/assets/midnight.css
+        ↓
+/assets/sports.css
+```
+
+Global custom CSS always applies. Preset custom CSS applies only while
+that named preset is selected. Page custom CSS remains active on its
+page regardless of the selected base theme.
+
+Each scope accepts one `custom-css-file`. Use CSS `@import` from that
+file when multiple stylesheets are needed within one scope. Paths
+beginning with `/assets/` are resolved beneath the configured Glance
+base URL.
 
 ## Complete example
 

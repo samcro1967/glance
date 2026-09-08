@@ -39,27 +39,10 @@
 
 .calendar-header-button {
     position: relative;
-    cursor: pointer;
-    width: 2rem;
-    height: 2rem;
+    width: 2.4rem;
+    height: 2.4rem;
+    padding: 0.45rem;
     z-index: 1;
-    background: none;
-    border: none;
-}
-
-.calendar-header-button::before {
-    content: '';
-    position: absolute;
-    inset: -0.2rem;
-    border-radius: var(--border-radius);
-    background-color: var(--theme-muted-text-color, var(--color-text-subdue));
-    opacity: 0;
-    transition: opacity 0.2s;
-    z-index: -1;
-}
-
-.calendar-header-button:hover::before {
-    opacity: 0.4;
 }
 
 .calendar-undo-button {
@@ -103,15 +86,6 @@
 
 .calendar-selected-date .calendar-event-count {
     color: inherit;
-}
-
-.calendar-header-button:disabled {
-    cursor: default;
-    opacity: 0.35;
-}
-
-.calendar-header-button:disabled::before {
-    opacity: 0;
 }
 
 .calendar-details {

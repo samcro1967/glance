@@ -16,7 +16,7 @@ Example
 
 Preview:
 
-![ChangeDetection.io widget preview](../images/change-detection-widget-preview.png)
+![ChangeDetection.io widget preview](../images/widgets/change-detection.png)
 
 ## Configuration
 

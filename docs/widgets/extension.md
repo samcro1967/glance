@@ -4,6 +4,9 @@
 
 Display content supplied by an external Glance extension endpoint. The widget supports request parameters, headers, authentication, TLS controls, and extension-provided presentation metadata.
 
+
+![Extension widget rendered by the deterministic local fixture](../images/widgets/extension.png)
+
 ## Quick start
 
 

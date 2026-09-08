@@ -17,7 +17,6 @@ Example:
 
 Preview:
 
-![Server Stats widget](../images/server-stats-preview.gif)
 
 > [!NOTE]
 >
@@ -27,7 +26,8 @@ To display data from a remote server you need to have the Glance Agent running o
 
 In the event that the CPU temperature goes over 80°C, a flame icon will appear next to the CPU. The progress indicators will also turn red (or the equivalent of your negative color) to hopefully grab your attention if anything is unusually high:
 
-![Server Stats CPU temperature flame indicator](../images/server-stats-flame-icon.png)
+
+![Server Stats widget](../images/widgets/server-stats.png)
 
 ## Configuration
 

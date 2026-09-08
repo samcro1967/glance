@@ -14,7 +14,7 @@
 
 <p align="center">A lightweight, highly customizable dashboard that displays<br> your feeds in a beautiful, streamlined interface</p>
 
-![Glance dashboard preview](docs/images/readme-main-image.png)
+![Glance dashboard preview](docs/images/pages/overview.png)
 
 ## About this fork
 
@@ -63,14 +63,14 @@ deployment safeguards, and upstream synchronization.
 ### Optimized for mobile devices
 Because you'll want to take it with you on the go.
 
-![Glance dashboard on a mobile device](docs/images/mobile-preview.png)
+![Glance dashboard on a mobile device](docs/images/pages/overview-mobile.png)
 
 ### Themeable
 Customize Glance without writing CSS using native themes for colors, typography, page backgrounds, navigation, widgets, cards, groups, controls, surfaces, and more. Themes can be configured globally, overridden per page, and switched between Glance Dark, Glance Light, and your own named themes. Custom CSS remains available for advanced styling.
 
 See the **[Themes documentation](docs/themes.md)** for the complete theme reference, examples, and available customization options.
 
-![Examples of Glance themes](docs/images/themes-example.png)
+![Examples of Glance themes](docs/images/themes/overview.png)
 
 <br>
 

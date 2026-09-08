@@ -12,7 +12,7 @@ Pull requests with your page configurations are welcome!
 
 ## Startpage
 
-![Startpage preconfigured page preview](images/startpage-preview.png)
+![Startpage preconfigured page preview](images/pages/startpage.png)
 
 <details>
 <summary>View config (requires Glance <code>v0.6.0</code> or higher)</summary>
@@ -82,7 +82,7 @@ Pull requests with your page configurations are welcome!
 
 ## Markets
 
-![Markets preconfigured page preview](images/markets-page-preview.png)
+![Markets preconfigured page preview](images/pages/markets.png)
 
 <details>
 <summary>View config (requires Glance <code>v0.6.0</code> or higher)</summary>
@@ -179,7 +179,7 @@ Pull requests with your page configurations are welcome!
 
 ## Gaming
 
-![Gaming preconfigured page preview](images/gaming-page-preview.png)
+![Gaming preconfigured page preview](images/pages/gaming.png)
 
 <details>
 <summary>View config (requires Glance <code>v0.6.0</code> or higher)</summary>

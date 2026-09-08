@@ -1182,6 +1182,34 @@ function setupTruncatedElementTitles(root = document) {
     }
 }
 
+function updateThemeCustomCSS(path) {
+    const current = find("#theme-custom-css");
+
+    if (!path) {
+        current?.remove();
+        return;
+    }
+
+    const href = `${path}?v=${pageData.createdAt}`;
+    if (current) {
+        current.href = href;
+        return;
+    }
+
+    const link = elem("link");
+    link.id = "theme-custom-css";
+    link.rel = "stylesheet";
+    link.href = href;
+
+    const pageCustomCSS = find("#page-custom-css");
+    if (pageCustomCSS) {
+        document.head.insertBefore(link, pageCustomCSS);
+        return;
+    }
+
+    document.head.appendChild(link);
+}
+
 async function changeTheme(key, onChanged) {
     const themeStyleElem = find("#theme-style");
     const themeChangeStarted = performance.now();
@@ -1223,6 +1251,7 @@ async function changeTheme(key, onChanged) {
             .appendTo(document.head);
 
         themeStyleElem.html(newThemeStyle);
+        updateThemeCustomCSS(response.headers.get("X-Theme-Custom-CSS"));
         document.documentElement.setAttribute("data-theme", key);
         document.documentElement.setAttribute("data-scheme", response.headers.get("X-Scheme"));
         typeof onChanged == "function" && onChanged();

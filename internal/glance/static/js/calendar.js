@@ -216,7 +216,7 @@ function Header(prevClicked, nextClicked, undoClicked) {
     let previous;
     let next;
 
-    const button = () => elem("button").classes("calendar-header-button");
+    const button = () => elem("button").classes("calendar-header-button", "glance-icon-button", "glance-button-quiet");
 
     const monthAndYear = elem().classes("size-h2", "color-highlight").append(
         month = text(),

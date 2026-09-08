@@ -1,0 +1,13 @@
+/* Visual QA marker for the global custom CSS layer. */
+.theme-css-layers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 1rem;
+}
+
+.theme-css-global {
+    padding: 0.35rem 0.65rem;
+    border: 1px solid var(--color-primary);
+    border-radius: var(--theme-control-radius);
+}

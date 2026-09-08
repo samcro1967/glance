@@ -1260,7 +1260,7 @@ pages:
 	if !preset.Light {
 		t.Fatal("glance-light should remain light")
 	}
-	if !preset.BackgroundColor.SameAs(&hslColorField{240, 13, 95}) {
+	if !preset.BackgroundColor.SameAs(&hslColorField{220, 20, 96}) {
 		t.Fatalf("glance-light background = %#v", preset.BackgroundColor)
 	}
 	if !preset.PrimaryColor.SameAs(&hslColorField{230, 100, 30}) {
@@ -1269,11 +1269,11 @@ pages:
 	if !preset.NegativeColor.SameAs(&hslColorField{0, 70, 50}) {
 		t.Fatalf("glance-light negative = %#v", preset.NegativeColor)
 	}
-	if preset.ContrastMultiplier != 1.3 {
-		t.Fatalf("glance-light contrast multiplier = %v, want 1.3", preset.ContrastMultiplier)
+	if preset.ContrastMultiplier != 1.15 {
+		t.Fatalf("glance-light contrast multiplier = %v, want 1.15", preset.ContrastMultiplier)
 	}
-	if preset.TextSaturationMultiplier != 0.5 {
-		t.Fatalf("glance-light text saturation multiplier = %v, want 0.5", preset.TextSaturationMultiplier)
+	if preset.TextSaturationMultiplier != 0.7 {
+		t.Fatalf("glance-light text saturation multiplier = %v, want 0.7", preset.TextSaturationMultiplier)
 	}
 	if preset.Key != "glance-light" || preset.CSS == "" || preset.PreviewHTML == "" {
 		t.Fatal("glance-light should remain independently initialized")
@@ -1426,6 +1426,196 @@ pages:
 			preset.PrimaryColor,
 			expected,
 		)
+	}
+}
+
+func TestCustomCSSCascadeLayers(t *testing.T) {
+	app := newGlanceTestApplication(t, `
+theme:
+  custom-css-file: /assets/global.css
+  presets:
+    oled:
+      background-color: 0 0 0
+      custom-css-file: /assets/oled.css
+
+pages:
+  - name: Home
+    theme:
+      custom-css-file: /assets/home.css
+    columns:
+      - size: full
+        widgets: []
+`)
+
+	page := &app.Config.Pages[0]
+
+	request, err := http.NewRequest(http.MethodGet, "/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	request.AddCookie(&http.Cookie{
+		Name:  "theme",
+		Value: "oled",
+	})
+
+	var data templateRequestData
+	app.populateTemplateRequestData(&data, request, page)
+
+	if data.GlobalCustomCSSFile != "/assets/global.css" {
+		t.Fatalf("global custom CSS = %q, want %q", data.GlobalCustomCSSFile, "/assets/global.css")
+	}
+	if data.ThemeCustomCSSFile != "/assets/oled.css" {
+		t.Fatalf("theme custom CSS = %q, want %q", data.ThemeCustomCSSFile, "/assets/oled.css")
+	}
+	if data.PageCustomCSSFile != "/assets/home.css" {
+		t.Fatalf("page custom CSS = %q, want %q", data.PageCustomCSSFile, "/assets/home.css")
+	}
+}
+
+func TestCustomCSSCascadeWithoutPreset(t *testing.T) {
+	app := newGlanceTestApplication(t, `
+theme:
+  custom-css-file: /assets/global.css
+
+pages:
+  - name: Home
+    theme:
+      custom-css-file: /assets/home.css
+    columns:
+      - size: full
+        widgets: []
+`)
+
+	page := &app.Config.Pages[0]
+
+	request, err := http.NewRequest(http.MethodGet, "/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var data templateRequestData
+	app.populateTemplateRequestData(&data, request, page)
+
+	if data.GlobalCustomCSSFile != "/assets/global.css" {
+		t.Fatalf("global custom CSS = %q, want %q", data.GlobalCustomCSSFile, "/assets/global.css")
+	}
+	if data.ThemeCustomCSSFile != "" {
+		t.Fatalf("default native theme unexpectedly supplied theme custom CSS %q", data.ThemeCustomCSSFile)
+	}
+	if data.PageCustomCSSFile != "/assets/home.css" {
+		t.Fatalf("page custom CSS = %q, want %q", data.PageCustomCSSFile, "/assets/home.css")
+	}
+}
+
+func TestCustomCSSCascadeWithoutPageOverride(t *testing.T) {
+	app := newGlanceTestApplication(t, `
+theme:
+  custom-css-file: /assets/global.css
+  presets:
+    oled:
+      background-color: 0 0 0
+      custom-css-file: /assets/oled.css
+
+pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets: []
+`)
+
+	page := &app.Config.Pages[0]
+
+	request, err := http.NewRequest(http.MethodGet, "/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	request.AddCookie(&http.Cookie{
+		Name:  "theme",
+		Value: "oled",
+	})
+
+	var data templateRequestData
+	app.populateTemplateRequestData(&data, request, page)
+
+	if data.GlobalCustomCSSFile != "/assets/global.css" {
+		t.Fatalf("global custom CSS = %q, want %q", data.GlobalCustomCSSFile, "/assets/global.css")
+	}
+	if data.ThemeCustomCSSFile != "/assets/oled.css" {
+		t.Fatalf("theme custom CSS = %q, want %q", data.ThemeCustomCSSFile, "/assets/oled.css")
+	}
+	if data.PageCustomCSSFile != "" {
+		t.Fatalf("page unexpectedly supplied custom CSS %q", data.PageCustomCSSFile)
+	}
+}
+
+func TestCustomCSSCascadeRenderOrder(t *testing.T) {
+	app := newGlanceTestApplication(t, `
+theme:
+  custom-css-file: /assets/global.css
+  presets:
+    oled:
+      background-color: 0 0 0
+      custom-css-file: /assets/oled.css
+
+pages:
+  - name: Home
+    theme:
+      custom-css-file: /assets/home.css
+    columns:
+      - size: full
+        widgets: []
+`)
+
+	page := &app.Config.Pages[0]
+
+	request, err := http.NewRequest(http.MethodGet, "/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.AddCookie(&http.Cookie{
+		Name:  "theme",
+		Value: "oled",
+	})
+
+	data := templateData{
+		App:             app,
+		Page:            page,
+		NavigationPages: pagePointers(app.Config.Pages),
+	}
+	app.populateTemplateRequestData(&data.Request, request, page)
+
+	var rendered strings.Builder
+	if err := pageTemplate.Execute(&rendered, data); err != nil {
+		t.Fatalf("render page: %v", err)
+	}
+
+	html := rendered.String()
+
+	markers := []string{
+		`<style id="theme-style">`,
+		`id="global-custom-css" rel="stylesheet" href="/assets/global.css?v=`,
+		`id="theme-custom-css" rel="stylesheet" href="/assets/oled.css?v=`,
+		`id="page-custom-css" rel="stylesheet" href="/assets/home.css?v=`,
+	}
+
+	positions := make([]int, len(markers))
+	for i, marker := range markers {
+		if count := strings.Count(html, marker); count != 1 {
+			t.Fatalf("rendered page contains %q %d times, want exactly once", marker, count)
+		}
+		positions[i] = strings.Index(html, marker)
+	}
+
+	for i := 1; i < len(positions); i++ {
+		if positions[i-1] >= positions[i] {
+			t.Fatalf(
+				"custom CSS cascade is out of order: %q must appear before %q",
+				markers[i-1],
+				markers[i],
+			)
+		}
 	}
 }
 

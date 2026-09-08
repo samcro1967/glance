@@ -1,0 +1,124 @@
+{
+  "analog-clock": {
+    "variants": ["standard"]
+  },
+  "bookmarks": {
+    "variants": ["standard"]
+  },
+  "calculator": {
+    "variants": ["standard"]
+  },
+  "calendar": {
+    "variants": ["standard"]
+  },
+  "calendar-legacy": {
+    "variants": ["standard"]
+  },
+  "change-detection": {
+    "variants": ["representative-state"]
+  },
+  "clock": {
+    "variants": ["multiple-timezones"]
+  },
+  "custom-api": {
+    "variants": ["small", "medium", "full"]
+  },
+  "dns-stats": {
+    "variants": ["representative-state"]
+  },
+  "docker-containers": {
+    "variants": ["standard", "parent-child"]
+  },
+  "extension": {
+    "variants": ["successful-local-fixture"]
+  },
+  "group": {
+    "variants": ["tabs", "nested"]
+  },
+  "hacker-news": {
+    "variants": ["standard"]
+  },
+  "html": {
+    "variants": ["semantic-html"]
+  },
+  "ics-events": {
+    "variants": ["deterministic-local-ics"]
+  },
+  "iframe": {
+    "variants": ["standard"]
+  },
+  "lobsters": {
+    "variants": ["standard"]
+  },
+  "markdown": {
+    "variants": ["formatted-content"]
+  },
+  "markets": {
+    "variants": ["standard"]
+  },
+  "monitor": {
+    "variants": ["standard", "compact"]
+  },
+  "reddit": {
+    "variants": [
+      "vertical-list",
+      "horizontal-cards",
+      "vertical-cards",
+      "vertical-list-thumbnails"
+    ]
+  },
+  "releases": {
+    "variants": ["standard"]
+  },
+  "repository": {
+    "variants": ["standard"]
+  },
+  "rss": {
+    "variants": [
+      "vertical-list",
+      "detailed-list",
+      "horizontal-cards",
+      "horizontal-cards-2"
+    ]
+  },
+  "search": {
+    "variants": ["standard", "bangs"]
+  },
+  "server-stats": {
+    "variants": ["standard"]
+  },
+  "split-column": {
+    "variants": ["standard", "three-columns", "four-columns", "masonry"]
+  },
+  "stack": {
+    "variants": ["standard"]
+  },
+  "status-bar": {
+    "variants": ["standard"]
+  },
+  "stocks": {
+    "variants": ["compatibility-alias"],
+    "documentation": false
+  },
+  "timer": {
+    "variants": ["standard"]
+  },
+  "to-do": {
+    "variants": ["standard"]
+  },
+  "twitch-channels": {
+    "variants": ["standard"]
+  },
+  "twitch-top-games": {
+    "variants": ["standard"]
+  },
+  "unit-converter": {
+    "variants": ["standard"]
+  },
+  "videos": {
+    "variants": ["standard", "vertical-list", "grid-cards"]
+  },
+  "weather": {
+    "variants": ["standard"]
+  }
+}
