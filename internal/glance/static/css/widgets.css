@@ -177,6 +177,21 @@
     letter-spacing: -0.025em;
 }
 
+/* Preserve page identity in the modern heading-above-surface layout. */
+.widget > .widget-header::before {
+    content: "";
+    width: 3px;
+    height: 1.35em;
+    flex: 0 0 3px;
+    border-radius: 999px;
+    background-color:
+        var(
+            --theme-widget-header-accent-color,
+            var(--theme-accent-color, var(--color-primary))
+        );
+    pointer-events: none;
+}
+
 /* A widget title is hierarchy rather than accent decoration. */
 .widget > .widget-header > h2 {
     color: inherit;
@@ -247,13 +262,10 @@
         color-mix(
             in srgb,
             var(
-                --theme-accent-color,
-                var(--color-primary)
-            ) 42%,
-            var(
                 --theme-widget-border-color,
                 var(--color-widget-content-border)
-            )
+            ) 65%,
+            transparent
         );
 
     box-shadow:

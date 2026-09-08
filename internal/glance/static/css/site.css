@@ -489,12 +489,12 @@ kbd:active {
         135deg,
         color-mix(
             in srgb,
-            var(--theme-navigation-accent-color, var(--theme-accent-color, var(--color-primary))) 38%,
+            var(--theme-navigation-accent-color, var(--theme-accent-color, var(--color-primary))) 30%,
             transparent
         ),
         color-mix(
             in srgb,
-            var(--theme-navigation-accent-color, var(--theme-accent-color, var(--color-primary))) 22%,
+            var(--theme-navigation-accent-color, var(--theme-accent-color, var(--color-primary))) 16%,
             transparent
         )
     );
@@ -646,7 +646,7 @@ body::-webkit-scrollbar-thumb {
             var(
                 --theme-navigation-accent-color,
                 var(--theme-accent-color, var(--color-primary))
-            ) 28%,
+            ) 18%,
             transparent
         );
 }
