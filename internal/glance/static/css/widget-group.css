@@ -1,8 +1,8 @@
 .widget-group-header {
     overflow-x: auto;
     scrollbar-width: thin;
-    background-color: var(--theme-group-background-color, transparent);
-    border-bottom: 1px solid var(--theme-group-border-color, transparent);
+    background: transparent;
+    border: 0;
 }
 
 .widget-group-title {
