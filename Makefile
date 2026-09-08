@@ -6,7 +6,7 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps build test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final
+.PHONY: help deps build test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final
 
 COUNT ?= 10
 COVERAGE_FILE ?= coverage.out
@@ -31,6 +31,8 @@ TEST_CONTAINER_IMAGE ?= $(DEPLOY_DEV_IMAGE)
 TEST_CONTAINER_PORT ?= 18080
 TEST_CONTAINER_URL ?= http://127.0.0.1:$(TEST_CONTAINER_PORT)
 TEST_RUNTIME_CONTAINER ?=
+TEST_PROD_IMAGE ?= glance-prod-test:local
+TEST_PROD_CONTAINER ?= glance-prod-test
 
 CI_RUN_RETRIES ?= 12
 CI_RUN_RETRY_DELAY ?= 5
@@ -108,6 +110,10 @@ help:
 	@echo "  make test-instance-start      Build/validate/start isolated test instance"
 	@echo "  make test-instance-status     Show isolated test instance status"
 	@echo "  make test-instance-stop       Stop test instance and remove runtime artifacts"
+	@echo "  make test-prod-start TEST_RUNTIME_CONTAINER=name"
+	@echo "                                Build current source and run with production runtime"
+	@echo "  make test-prod-status         Show local production-runtime test status"
+	@echo "  make test-prod-stop           Stop local production-runtime test and remove image"
 	@echo "  make test-container-start TEST_RUNTIME_CONTAINER=name"
 	@echo "                                Pull and start isolated published dev container"
 	@echo "  make test-container-status    Show isolated container status"
@@ -1761,6 +1767,142 @@ test-instance-stop:
 	$(MAKE) --no-print-directory test-instance-fixture-stop; \
 	echo "Test instance stopped and runtime artifacts removed."; \
 	echo "Preserved $(TEST_CONFIG)."
+
+.PHONY: test-prod-start test-prod-status test-prod-stop
+
+test-prod-start:
+	@set -euo pipefail; \
+	if [ -z "$(TEST_RUNTIME_CONTAINER)" ]; then \
+		echo "TEST_RUNTIME_CONTAINER is required."; \
+		echo "Example: make test-prod-start TEST_RUNTIME_CONTAINER=glance"; \
+		exit 1; \
+	fi; \
+	if ! docker inspect "$(TEST_RUNTIME_CONTAINER)" >/dev/null 2>&1; then \
+		echo "Runtime reference container does not exist: $(TEST_RUNTIME_CONTAINER)"; \
+		exit 1; \
+	fi; \
+	if docker inspect "$(TEST_PROD_CONTAINER)" >/dev/null 2>&1; then \
+		echo "Production-runtime test container already exists: $(TEST_PROD_CONTAINER)"; \
+		echo "Run make test-prod-stop first."; \
+		exit 1; \
+	fi; \
+	if docker inspect "$(TEST_CONTAINER)" >/dev/null 2>&1; then \
+		echo "Published-image test container already exists: $(TEST_CONTAINER)"; \
+		echo "Run make test-container-stop first."; \
+		exit 1; \
+	fi; \
+	if [ -f "$(TEST_PID_FILE)" ]; then \
+		pid="$$(cat "$(TEST_PID_FILE)" 2>/dev/null || true)"; \
+		if [ -n "$$pid" ] && kill -0 "$$pid" 2>/dev/null; then \
+			echo "Canonical test instance is already running."; \
+			echo "Run make test-instance-stop first."; \
+			exit 1; \
+		fi; \
+	fi; \
+	echo "=== BUILD CURRENT SOURCE TEST IMAGE ==="; \
+	docker build -t "$(TEST_PROD_IMAGE)" .; \
+	image_id="$$(docker image inspect "$(TEST_PROD_IMAGE)" --format "{{.Id}}")"; \
+	echo "Image ID: $$image_id"; \
+	echo; \
+	echo "=== START WITH PRODUCTION RUNTIME ==="; \
+	declare -a env_args mount_args network_args sysctl_args; \
+	while IFS= read -r entry; do \
+		[ -n "$$entry" ] || continue; \
+		key="$${entry%%=*}"; \
+		value="$${entry#*=}"; \
+		printf -v "$$key" "%s" "$$value"; \
+		export "$$key"; \
+		env_args+=(-e "$$key"); \
+	done < <(docker inspect "$(TEST_RUNTIME_CONTAINER)" --format "{{range .Config.Env}}{{println .}}{{end}}"); \
+	while IFS=$$'\t' read -r type source destination rw; do \
+		[ -n "$$destination" ] || continue; \
+		case "$$type" in \
+			bind) \
+				if [ "$$rw" = "false" ]; then \
+					mount_args+=(-v "$${source}:$${destination}:ro"); \
+				else \
+					mount_args+=(-v "$${source}:$${destination}"); \
+				fi \
+				;; \
+		esac; \
+	done < <(docker inspect "$(TEST_RUNTIME_CONTAINER)" --format "{{range .Mounts}}{{printf \"%s\\t%s\\t%s\\t%t\\n\" .Type .Source .Destination .RW}}{{end}}"); \
+	while IFS= read -r network; do \
+		[ -n "$$network" ] || continue; \
+		network_args+=(--network "$$network"); \
+	done < <(docker inspect "$(TEST_RUNTIME_CONTAINER)" --format '{{range $$name, $$network := .NetworkSettings.Networks}}{{println $$name}}{{end}}'); \
+	while IFS= read -r sysctl; do \
+		[ -n "$$sysctl" ] || continue; \
+		sysctl_args+=(--sysctl "$$sysctl"); \
+	done < <(docker inspect "$(TEST_RUNTIME_CONTAINER)" --format '{{range $$key, $$value := .HostConfig.Sysctls}}{{printf "%s=%s\n" $$key $$value}}{{end}}'); \
+	docker run -d \
+		--name "$(TEST_PROD_CONTAINER)" \
+		--hostname "$(TEST_PROD_CONTAINER)" \
+		--restart=no \
+		-p "$(TEST_CONTAINER_PORT):8080" \
+		"$${env_args[@]}" \
+		"$${mount_args[@]}" \
+		"$${network_args[@]}" \
+		"$${sysctl_args[@]}" \
+		"$(TEST_PROD_IMAGE)" >/dev/null; \
+	ready=0; \
+	for attempt in $$(seq 1 20); do \
+		code="$$(curl -sS -o /dev/null -w "%{http_code}" "$(TEST_CONTAINER_URL)/" 2>/dev/null || true)"; \
+		if [ "$$code" = "200" ] || [ "$$code" = "302" ]; then \
+			ready=1; \
+			break; \
+		fi; \
+		if [ "$$(docker inspect "$(TEST_PROD_CONTAINER)" --format "{{.State.Running}}" 2>/dev/null || true)" != "true" ]; then \
+			break; \
+		fi; \
+		sleep 1; \
+	done; \
+	if [ "$$ready" -ne 1 ]; then \
+		echo "Production-runtime test failed to become ready."; \
+		docker logs --tail 80 "$(TEST_PROD_CONTAINER)" 2>&1 || true; \
+		exit 1; \
+	fi; \
+	container_image="$$(docker inspect "$(TEST_PROD_CONTAINER)" --format "{{.Image}}")"; \
+	if [ "$$container_image" != "$$image_id" ]; then \
+		echo "Production-runtime container image mismatch."; \
+		echo "Built:     $$image_id"; \
+		echo "Container: $$container_image"; \
+		exit 1; \
+	fi; \
+	echo "Production-runtime test started."; \
+	echo "Mode=current source + production runtime"; \
+	echo "Runtime reference=$(TEST_RUNTIME_CONTAINER)"; \
+	echo "Container=$(TEST_PROD_CONTAINER)"; \
+	echo "Image=$(TEST_PROD_IMAGE)"; \
+	echo "URL=$(TEST_CONTAINER_URL)"
+
+test-prod-status:
+	@set -euo pipefail; \
+	if ! docker inspect "$(TEST_PROD_CONTAINER)" >/dev/null 2>&1; then \
+		echo "Production-runtime test container does not exist."; \
+		exit 1; \
+	fi; \
+	state="$$(docker inspect "$(TEST_PROD_CONTAINER)" --format "{{.State.Status}}")"; \
+	image="$$(docker inspect "$(TEST_PROD_CONTAINER)" --format "{{.Config.Image}}")"; \
+	code="$$(curl -sS -o /dev/null -w "%{http_code}" "$(TEST_CONTAINER_URL)/" 2>/dev/null || true)"; \
+	echo "Mode=current source + production runtime"; \
+	echo "Container=$(TEST_PROD_CONTAINER)"; \
+	echo "Image=$$image"; \
+	echo "State=$$state"; \
+	echo "URL=$(TEST_CONTAINER_URL)"; \
+	echo "HTTP=$${code:-unavailable}"
+
+test-prod-stop:
+	@set -euo pipefail; \
+	if docker inspect "$(TEST_PROD_CONTAINER)" >/dev/null 2>&1; then \
+		docker rm -f "$(TEST_PROD_CONTAINER)" >/dev/null; \
+		echo "Removed container $(TEST_PROD_CONTAINER)."; \
+	else \
+		echo "Production-runtime test container is not present."; \
+	fi; \
+	if docker image inspect "$(TEST_PROD_IMAGE)" >/dev/null 2>&1; then \
+		docker image rm "$(TEST_PROD_IMAGE)" >/dev/null; \
+		echo "Removed image $(TEST_PROD_IMAGE)."; \
+	fi
 
 .PHONY: test-container-start test-container-status test-container-stop
 
