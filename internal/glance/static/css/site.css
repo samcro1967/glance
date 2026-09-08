@@ -315,7 +315,7 @@ kbd:active {
     padding-top: 0.8rem;
     padding-bottom: 0.8rem;
     transform: translateX(-50%);
-    background: transparent;
+    background: var(--color-background);
     color: var(--theme-header-text-color, inherit);
     border: 0;
     box-shadow: none;
