@@ -1,0 +1,29 @@
+{
+  "default": [
+    "layout-composition",
+    "feeds-content",
+    "search-custom-content",
+    "date-time-weather",
+    "homelab-monitoring",
+    "development-releases",
+    "markets-streaming",
+    "utilities"
+  ],
+  "themes": [
+    "theme-global",
+    "theme-dark-page",
+    "theme-light-page",
+    "theme-partial",
+    "theme-components",
+    "theme-composition"
+  ],
+  "screenshots": [
+    "docs-overview",
+    "docs-layouts",
+    "docs-head-bottom",
+    "docs-startpage",
+    "docs-markets",
+    "docs-gaming",
+    "docs-extension"
+  ]
+}

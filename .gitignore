@@ -11,3 +11,12 @@
 # Local test-instance environment
 .env.test__pycache__/
 *.pyc
+
+# Generated visual QA and documentation review output
+/testdata/visual/node_modules/
+/testdata/visual/screenshots/
+/testdata/visual/docs-staging/
+
+# Python generated files
+__pycache__/
+*.py[cod]

@@ -1,9 +1,9 @@
 {{ template "widget-base.html" . }}
 
 {{ define "widget-content" }}
-<ul class="list list-gap-24 collapsible-container" data-collapse-after="{{ .CollapseAfter }}">
+<ul class="list glance-list collapsible-container" data-collapse-after="{{ .CollapseAfter }}">
     {{ range .Items }}
-    <li class="flex gap-15 items-start row-reverse-on-mobile thumbnail-parent">
+    <li class="glance-list-row flex gap-15 items-start row-reverse-on-mobile thumbnail-parent">
         <div class="thumbnail-container rss-detailed-thumbnail">
             {{ if ne "" .ImageURL }}
             <img class="thumbnail" loading="lazy" src="{{ .ImageURL }}" alt="">
@@ -15,7 +15,7 @@
         </div>
         <div class="grow min-width-0">
             <a class="size-h3 color-primary-if-not-visited" href="{{ .Link }}"{{ if $.OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }}>{{ .Title }}</a>
-            <ul class="list-horizontal-text flex-nowrap">
+            <ul class="list-horizontal-text glance-list-row-meta flex-nowrap">
                 <li {{ dynamicRelativeTimeAttrs .PublishedAt }}></li>
                 <li class="min-width-0">
                     <a class="block text-truncate" href="{{ .ChannelURL }}"{{ if $.OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }}>{{ .ChannelName }}</a>

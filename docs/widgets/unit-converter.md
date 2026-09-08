@@ -17,7 +17,7 @@ Example:
 
 Preview:
 
-![Unit Converter widget](../images/unit-converter-preview.png)
+![Unit Converter widget](../images/widgets/unit-converter.png)
 
 The widget includes 35 conversion categories and 379 units covering common measurement, scientific, digital-information, electrical, and fuel-economy conversions.
 

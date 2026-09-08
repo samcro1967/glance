@@ -18,7 +18,7 @@ Example:
 
 Preview:
 
-![Repository widget](../images/repository-preview.png)
+![Repository widget](../images/widgets/repository.png)
 
 ## Configuration
 

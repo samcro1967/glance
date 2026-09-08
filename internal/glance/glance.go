@@ -174,18 +174,149 @@ func newApplication(c *config) (*application, error) {
 		themeKeys := []string{"glance-dark", "glance-light"}
 		themeProps := []*themeProperties{
 			{
-				Key:  "glance-dark",
-				Name: "Glance Dark",
+				Key:                      "glance-dark",
+				Name:                     "Glance Dark",
+				BackgroundColor:          &hslColorField{222, 24, 6},
+				PrimaryColor:             &hslColorField{214, 72, 68},
+				PositiveColor:            &hslColorField{145, 62, 55},
+				WarningColor:             &hslColorField{40, 90, 62},
+				NegativeColor:            &hslColorField{0, 78, 64},
+				AccentColor:              &hslColorField{258, 88, 68},
+				ContrastMultiplier:       1.15,
+				TextSaturationMultiplier: 0.7,
+				Typography: themeTypographyProperties{
+					FontFamily:         "system",
+					FontSize:           "medium",
+					FontWeight:         "normal",
+					TextColor:          &hslColorField{220, 18, 91},
+					SecondaryTextColor: &hslColorField{220, 11, 68},
+					MutedTextColor:     &hslColorField{220, 9, 52},
+					Headings: themeHeadingProperties{
+						FontFamily: "system",
+						FontWeight: "semibold",
+						TextColor:  &hslColorField{220, 20, 95},
+					},
+				},
+				Page: themePageProperties{
+					AmbientAccent: "subtle",
+				},
+				Header: themeHeaderProperties{
+					BackgroundColor: &hslColorField{220, 22, 10},
+					TextColor:       &hslColorField{220, 20, 90},
+					BorderColor:     &hslColorField{220, 16, 18},
+					Radius:          "large",
+					Shadow:          "medium",
+					Blur:            "medium",
+				},
+				Navigation: themeNavigationProperties{
+					TextColor:   &hslColorField{220, 12, 68},
+					HoverColor:  &hslColorField{220, 20, 94},
+					ActiveColor: &hslColorField{220, 24, 98},
+					AccentColor: &hslColorField{258, 88, 68},
+					FontWeight:  "medium",
+				},
+				Widgets: themeSurfaceProperties{
+					BackgroundColor: &hslColorField{220, 19, 11},
+					BorderColor:     &hslColorField{220, 12, 16},
+					Radius:          "large",
+					Shadow:          "subtle",
+				},
+				WidgetHeader: themeWidgetHeaderProperties{
+					TextColor:  &hslColorField{220, 18, 93},
+					FontWeight: "semibold",
+				},
+				Cards: themeCardProperties{
+					BackgroundColor: &hslColorField{220, 17, 14},
+					BorderColor:     &hslColorField{220, 12, 19},
+					Radius:          "medium",
+					Shadow:          "subtle",
+				},
+				Controls: themeControlProperties{
+					BackgroundColor: &hslColorField{220, 17, 14},
+					TextColor:       &hslColorField{220, 20, 92},
+					MutedColor:      &hslColorField{220, 10, 56},
+					BorderColor:     &hslColorField{220, 14, 22},
+					FocusColor:      &hslColorField{258, 88, 68},
+					Radius:          "medium",
+				},
+				Surfaces: themeElevatedSurfaceProperties{
+					ElevatedBackgroundColor: &hslColorField{220, 18, 14},
+					ElevatedBorderColor:     &hslColorField{220, 14, 22},
+					SeparatorColor:          &hslColorField{220, 12, 18},
+				},
 			},
 			{
 				Key:                      "glance-light",
 				Name:                     "Glance Light",
 				Light:                    true,
-				BackgroundColor:          &hslColorField{240, 13, 95},
+				BackgroundColor:          &hslColorField{220, 20, 96},
 				PrimaryColor:             &hslColorField{230, 100, 30},
+				PositiveColor:            &hslColorField{145, 55, 38},
+				WarningColor:             &hslColorField{38, 88, 42},
 				NegativeColor:            &hslColorField{0, 70, 50},
-				ContrastMultiplier:       1.3,
-				TextSaturationMultiplier: 0.5,
+				AccentColor:              &hslColorField{258, 72, 52},
+				ContrastMultiplier:       1.15,
+				TextSaturationMultiplier: 0.7,
+				Typography: themeTypographyProperties{
+					FontFamily:         "system",
+					FontSize:           "medium",
+					FontWeight:         "normal",
+					TextColor:          &hslColorField{220, 24, 15},
+					SecondaryTextColor: &hslColorField{220, 12, 38},
+					MutedTextColor:     &hslColorField{220, 9, 52},
+					Headings: themeHeadingProperties{
+						FontFamily: "system",
+						FontWeight: "semibold",
+						TextColor:  &hslColorField{220, 28, 11},
+					},
+				},
+				Page: themePageProperties{
+					AmbientAccent: "subtle",
+				},
+				Header: themeHeaderProperties{
+					BackgroundColor: &hslColorField{220, 24, 99},
+					TextColor:       &hslColorField{220, 24, 15},
+					BorderColor:     &hslColorField{220, 16, 88},
+					Radius:          "large",
+					Shadow:          "medium",
+					Blur:            "medium",
+				},
+				Navigation: themeNavigationProperties{
+					TextColor:   &hslColorField{220, 12, 38},
+					HoverColor:  &hslColorField{220, 24, 15},
+					ActiveColor: &hslColorField{220, 28, 10},
+					AccentColor: &hslColorField{258, 72, 52},
+					FontWeight:  "medium",
+				},
+				Widgets: themeSurfaceProperties{
+					BackgroundColor: &hslColorField{220, 20, 99},
+					BorderColor:     &hslColorField{220, 16, 89},
+					Radius:          "large",
+					Shadow:          "subtle",
+				},
+				WidgetHeader: themeWidgetHeaderProperties{
+					TextColor:  &hslColorField{220, 26, 13},
+					FontWeight: "semibold",
+				},
+				Cards: themeCardProperties{
+					BackgroundColor: &hslColorField{220, 22, 96},
+					BorderColor:     &hslColorField{220, 16, 88},
+					Radius:          "medium",
+					Shadow:          "none",
+				},
+				Controls: themeControlProperties{
+					BackgroundColor: &hslColorField{220, 22, 97},
+					TextColor:       &hslColorField{220, 24, 15},
+					MutedColor:      &hslColorField{220, 9, 48},
+					BorderColor:     &hslColorField{220, 16, 86},
+					FocusColor:      &hslColorField{258, 72, 52},
+					Radius:          "medium",
+				},
+				Surfaces: themeElevatedSurfaceProperties{
+					ElevatedBackgroundColor: &hslColorField{220, 22, 96},
+					ElevatedBorderColor:     &hslColorField{220, 16, 88},
+					SeparatorColor:          &hslColorField{220, 14, 89},
+				},
 			},
 		}
 
@@ -321,6 +452,15 @@ func newApplication(c *config) (*application, error) {
 
 	config.Server.BaseURL = strings.TrimRight(config.Server.BaseURL, "/")
 	config.Theme.CustomCSSFile = app.resolveUserDefinedAssetPath(config.Theme.CustomCSSFile)
+
+	for _, preset := range config.Theme.Presets.Items() {
+		preset.CustomCSSFile = app.resolveUserDefinedAssetPath(preset.CustomCSSFile)
+	}
+
+	for i := range config.Pages {
+		config.Pages[i].Theme.CustomCSSFile = app.resolveUserDefinedAssetPath(config.Pages[i].Theme.CustomCSSFile)
+	}
+
 	config.Branding.LogoURL = app.resolveUserDefinedAssetPath(config.Branding.LogoURL)
 
 	config.Branding.FaviconURL = ternary(
@@ -395,8 +535,11 @@ func (a *application) resolveUserDefinedAssetPath(path string) string {
 }
 
 type templateRequestData struct {
-	Theme        *themeProperties
-	ThemeChoices []*themeProperties
+	Theme               *themeProperties
+	ThemeChoices        []*themeProperties
+	GlobalCustomCSSFile string
+	ThemeCustomCSSFile  string
+	PageCustomCSSFile   string
 }
 
 type templateData struct {
@@ -423,12 +566,15 @@ func themeDisplayName(key string) string {
 func (a *application) populateTemplateRequestData(data *templateRequestData, r *http.Request, page *page) {
 	theme := &a.Config.Theme.themeProperties
 
+	data.GlobalCustomCSSFile = a.Config.Theme.CustomCSSFile
+
 	if !a.Config.Theme.DisablePicker {
 		selectedTheme, err := r.Cookie("theme")
 		if err == nil {
 			preset, exists := a.Config.Theme.Presets.Get(selectedTheme.Value)
 			if exists {
 				theme = preset
+				data.ThemeCustomCSSFile = preset.CustomCSSFile
 			}
 		}
 	}
@@ -436,6 +582,7 @@ func (a *application) populateTemplateRequestData(data *templateRequestData, r *
 	var pageOverride *themeProperties
 	if page != nil {
 		pageOverride = &page.Theme
+		data.PageCustomCSSFile = page.Theme.CustomCSSFile
 	}
 
 	resolved, err := resolveTheme(theme, pageOverride)

@@ -1,11 +1,11 @@
 {{ template "widget-base.html" . }}
 
 {{ define "widget-content" }}
-<ul class="list list-gap-14 collapsible-container" data-collapse-after="{{ .CollapseAfter }}">
+<ul class="list glance-list collapsible-container" data-collapse-after="{{ .CollapseAfter }}">
     {{ range .ChangeDetections }}
-    <li>
+    <li class="glance-list-row">
         <a class="size-h4 block text-truncate color-highlight" href="{{ .URL }}"{{ if $.OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }}>{{ .Title }}</a>
-        <ul class="list-horizontal-text">
+        <ul class="list-horizontal-text glance-list-row-meta">
             <li {{ dynamicRelativeTimeAttrs .LastChanged }}></li>
             <li class="shrink min-width-0"><a class="visited-indicator" href="{{ .DiffURL }}"{{ if $.OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }}>diff:{{ .PreviousHash }}</a></li>
         </ul>

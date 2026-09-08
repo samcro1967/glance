@@ -136,8 +136,9 @@ func TestRemainingValueConfigWatcherWrapperInitialCallback(t *testing.T) {
 
 func TestRemainingValueThemeHandlerAndLoginPage(t *testing.T) {
 	preset := &themeProperties{
-		Light: true,
-		CSS:   template.CSS("body{color:red}"),
+		Light:         true,
+		CSS:           template.CSS("body{color:red}"),
+		CustomCSSFile: "/glance/assets/light.css",
 	}
 
 	presets, err := newOrderedYAMLMap(
@@ -161,6 +162,7 @@ func TestRemainingValueThemeHandlerAndLoginPage(t *testing.T) {
 
 	if rr.Code != http.StatusOK ||
 		rr.Header().Get("X-Scheme") != "light" ||
+		rr.Header().Get("X-Theme-Custom-CSS") != "/glance/assets/light.css" ||
 		rr.Body.String() != "body{color:red}" {
 		t.Fatalf(
 			"theme code=%d headers=%v body=%q",
@@ -173,6 +175,18 @@ func TestRemainingValueThemeHandlerAndLoginPage(t *testing.T) {
 	if len(rr.Result().Cookies()) != 1 ||
 		rr.Result().Cookies()[0].Path != "/glance/" {
 		t.Fatalf("cookies=%#v", rr.Result().Cookies())
+	}
+
+	a.Config.Theme.CustomCSSFile = "/glance/assets/global.css"
+	req = httptest.NewRequest(http.MethodGet, "/", nil)
+	req.SetPathValue("key", "default")
+	rr = httptest.NewRecorder()
+	a.handleThemeChangeRequest(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("default theme code=%d", rr.Code)
+	}
+	if got := rr.Header().Get("X-Theme-Custom-CSS"); got != "" {
+		t.Fatalf("default theme custom CSS header=%q, want empty", got)
 	}
 
 	req = httptest.NewRequest(http.MethodGet, "/", nil)

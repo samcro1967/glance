@@ -6,7 +6,7 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps build test-instance-start test-instance-status test-instance-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship deploy-finish workflow-status
+.PHONY: help deps build test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final
 
 COUNT ?= 10
 COVERAGE_FILE ?= coverage.out
@@ -112,6 +112,15 @@ help:
 	@echo "                                Pull and start isolated published dev container"
 	@echo "  make test-container-status    Show isolated container status"
 	@echo "  make test-container-stop      Remove isolated container"
+	@echo
+	@echo "VISUAL QA / DOCUMENTATION:"
+	@echo "  make visual-check             Validate visual QA and documentation contracts"
+	@echo "  make visual-screenshots       Capture canonical QA pages and widgets"
+	@echo "  make visual-docs              Stage documentation screenshots for review"
+	@echo "                                NEVER modifies docs/images"
+	@echo "  make visual-docs-promote      Promote approved staged images into docs/images"
+	@echo "  make visual-all               Capture QA + stage documentation screenshots"
+	@echo "                                NEVER promotes documentation images"
 	@echo
 	@echo "TESTING / VALIDATION:"
 	@echo "  make test                     Go tests"
@@ -1574,10 +1583,82 @@ deploy-finish:
 	echo; \
 	echo "=== WORKFLOW COMPLETE ==="
 
-test-instance-start:
+TEST_FIXTURE_SCRIPT ?= testdata/visual/fixture-server.js
+TEST_FIXTURE_URL ?= http://127.0.0.1:18089/visual-test-extension
+TEST_FIXTURE_PID_FILE ?= /tmp/glance-test-fixture.pid
+TEST_FIXTURE_LOG ?= /tmp/glance-test-fixture.log
+
+.PHONY: test-instance-fixture-start test-instance-fixture-stop
+
+test-instance-fixture-start:
+	@set -euo pipefail; \
+	if [ -f "$(TEST_FIXTURE_PID_FILE)" ]; then \
+		pid="$$(cat "$(TEST_FIXTURE_PID_FILE)")"; \
+		if kill -0 "$$pid" 2>/dev/null; then \
+			code="$$(curl -sS -o /dev/null -w '%{http_code}' "$(TEST_FIXTURE_URL)" 2>/dev/null || true)"; \
+			if [ "$$code" = "200" ]; then \
+				echo "Test fixture server is already running with PID $$pid."; \
+				echo "Fixture URL=$(TEST_FIXTURE_URL)"; \
+				exit 0; \
+			fi; \
+			echo "Stopping unhealthy test fixture server PID $$pid..."; \
+			kill "$$pid" 2>/dev/null || true; \
+		fi; \
+		rm -f "$(TEST_FIXTURE_PID_FILE)"; \
+	fi; \
+	echo "=== START TEST FIXTURE SERVER ==="; \
+	rm -f "$(TEST_FIXTURE_LOG)"; \
+	node "$(TEST_FIXTURE_SCRIPT)" > "$(TEST_FIXTURE_LOG)" 2>&1 & \
+	pid="$$!"; \
+	echo "$$pid" > "$(TEST_FIXTURE_PID_FILE)"; \
+	ready=0; \
+	for i in $$(seq 1 50); do \
+		if ! kill -0 "$$pid" 2>/dev/null; then \
+			break; \
+		fi; \
+		code="$$(curl -sS -o /dev/null -w '%{http_code}' "$(TEST_FIXTURE_URL)" 2>/dev/null || true)"; \
+		if [ "$$code" = "200" ]; then \
+			ready=1; \
+			break; \
+		fi; \
+		sleep 0.1; \
+	done; \
+	if [ "$$ready" -ne 1 ]; then \
+		echo "Test fixture server failed to become ready."; \
+		cat "$(TEST_FIXTURE_LOG)" || true; \
+		kill "$$pid" 2>/dev/null || true; \
+		rm -f "$(TEST_FIXTURE_PID_FILE)"; \
+		exit 1; \
+	fi; \
+	echo "Test fixture server started."; \
+	echo "PID=$$pid"; \
+	echo "Fixture URL=$(TEST_FIXTURE_URL)"
+
+test-instance-fixture-stop:
+	@set -euo pipefail; \
+	if [ -f "$(TEST_FIXTURE_PID_FILE)" ]; then \
+		pid="$$(cat "$(TEST_FIXTURE_PID_FILE)")"; \
+		if kill -0 "$$pid" 2>/dev/null; then \
+			echo "Stopping test fixture server PID $$pid..."; \
+			kill "$$pid" 2>/dev/null || true; \
+			for i in $$(seq 1 20); do \
+				if ! kill -0 "$$pid" 2>/dev/null; then \
+					break; \
+				fi; \
+				sleep 0.1; \
+			done; \
+			if kill -0 "$$pid" 2>/dev/null; then \
+				kill -9 "$$pid" 2>/dev/null || true; \
+			fi; \
+		fi; \
+	fi; \
+	rm -f "$(TEST_FIXTURE_PID_FILE)" "$(TEST_FIXTURE_LOG)"
+
+test-instance-start: test-instance-fixture-start
 	@set -euo pipefail; \
 	if [ ! -f "$(TEST_CONFIG)" ]; then \
 		echo "Canonical test configuration does not exist: $(TEST_CONFIG)"; \
+		$(MAKE) --no-print-directory test-instance-fixture-stop; \
 		exit 1; \
 	fi; \
 	if [ -f "$(TEST_PID_FILE)" ]; then \
@@ -1585,18 +1666,25 @@ test-instance-start:
 		if kill -0 "$$pid" 2>/dev/null; then \
 			echo "Test instance is already running with PID $$pid."; \
 			echo "URL=$(TEST_URL)"; \
-			exit 1; \
+			exit 0; \
 		fi; \
 		rm -f "$(TEST_PID_FILE)"; \
 	fi; \
 	echo "=== BUILD TEST BINARY ==="; \
-	go build -o "$(TEST_BINARY)" .; \
+	go build -o "$(TEST_BINARY)" . || { \
+		$(MAKE) --no-print-directory test-instance-fixture-stop; \
+		exit 1; \
+	}; \
 	echo; \
 	echo "=== TEST CONFIG ==="; \
 	echo "$(TEST_CONFIG)"; \
 	echo; \
 	echo "=== VALIDATE TEST CONFIG ==="; \
-	"./$(TEST_BINARY)" --config "$(TEST_CONFIG)" config:validate; \
+	"./$(TEST_BINARY)" --config "$(TEST_CONFIG)" config:validate || { \
+		rm -f "$(TEST_BINARY)"; \
+		$(MAKE) --no-print-directory test-instance-fixture-stop; \
+		exit 1; \
+	}; \
 	echo; \
 	echo "=== START TEST INSTANCE ==="; \
 	"./$(TEST_BINARY)" --config "$(TEST_CONFIG)" > "$(TEST_LOG)" 2>&1 & \
@@ -1619,12 +1707,14 @@ test-instance-start:
 		cat "$(TEST_LOG)" || true; \
 		kill "$$pid" 2>/dev/null || true; \
 		rm -f "$(TEST_PID_FILE)"; \
+		$(MAKE) --no-print-directory test-instance-fixture-stop; \
 		exit 1; \
 	fi; \
 	echo "Test instance started."; \
 	echo "Config=$(TEST_CONFIG)"; \
 	echo "PID=$$pid"; \
-	echo "URL=$(TEST_URL)"
+	echo "URL=$(TEST_URL)"; \
+	echo "Fixture URL=$(TEST_FIXTURE_URL)"
 
 test-instance-status:
 	@set -euo pipefail; \
@@ -1641,7 +1731,16 @@ test-instance-status:
 	echo "Config=$(TEST_CONFIG)"; \
 	echo "PID=$$pid"; \
 	echo "URL=$(TEST_URL)"; \
-	echo "HTTP=$${code:-unavailable}"
+	echo "HTTP=$${code:-unavailable}"; \
+	fixture_code="$$(curl -sS -o /dev/null -w '%{http_code}' "$(TEST_FIXTURE_URL)" 2>/dev/null || true)"; \
+	if [ -f "$(TEST_FIXTURE_PID_FILE)" ]; then \
+		fixture_pid="$$(cat "$(TEST_FIXTURE_PID_FILE)")"; \
+	else \
+		fixture_pid="unavailable"; \
+	fi; \
+	echo "Fixture PID=$$fixture_pid"; \
+	echo "Fixture URL=$(TEST_FIXTURE_URL)"; \
+	echo "Fixture HTTP=$${fixture_code:-unavailable}"
 
 test-instance-stop:
 	@set -euo pipefail; \
@@ -1659,6 +1758,7 @@ test-instance-stop:
 		fi; \
 	fi; \
 	rm -f "$(TEST_PID_FILE)" "$(TEST_BINARY)" "$(TEST_LOG)"; \
+	$(MAKE) --no-print-directory test-instance-fixture-stop; \
 	echo "Test instance stopped and runtime artifacts removed."; \
 	echo "Preserved $(TEST_CONFIG)."
 
@@ -1809,3 +1909,40 @@ test-container-stop:
 		echo "Test container is not present."; \
 	fi; \
 	echo "Preserved image $(TEST_CONTAINER_IMAGE).";
+
+# -----------------------------------------------------------------------------
+# Visual QA
+# -----------------------------------------------------------------------------
+
+.PHONY: visual-check visual-screenshots visual-docs visual-docs-promote visual-all
+
+visual-check:
+	@echo "=== VISUAL QA CONTRACT ==="
+	@python3 testdata/visual/check-gallery.py
+
+visual-screenshots: visual-check
+	@echo "=== VISUAL QA SCREENSHOTS ==="
+	@testdata/visual/run.sh qa $(if $(DASHBOARD),--dashboard=$(DASHBOARD)) $(if $(PAGE),--page=$(PAGE))
+
+visual-docs: visual-check
+	@echo "=== VISUAL DOCUMENTATION SCREENSHOTS - STAGING ONLY ==="
+	@testdata/visual/run.sh docs $(if $(DASHBOARD),--dashboard=$(DASHBOARD)) $(if $(PAGE),--page=$(PAGE))
+	@echo
+	@echo "Documentation captures are staged only."
+	@echo "Review testdata/visual/docs-staging before promotion."
+
+visual-docs-promote: visual-check
+	@echo "=== PROMOTE APPROVED DOCUMENTATION SCREENSHOTS ==="
+	@python3 testdata/visual/promote-docs.py $(if $(DASHBOARD),--dashboard=$(DASHBOARD)) $(if $(PAGE),--page=$(PAGE))
+
+visual-all: visual-check
+	@echo "=== VISUAL QA + STAGED DOCUMENTATION SCREENSHOTS ==="
+	@testdata/visual/run.sh all
+
+visual-final: visual-all
+	@echo
+	@echo "=== PROMOTE FINAL DOCUMENTATION SCREENSHOTS ==="
+	@python3 testdata/visual/promote-docs.py
+	@echo
+	@echo "=== VERIFY FINAL VISUAL CONTRACT ==="
+	@$(MAKE) --no-print-directory visual-check

@@ -1,13 +1,13 @@
 {{ template "widget-base.html" . }}
 
 {{- define "widget-content" }}
-<ul class="list list-gap-14 collapsible-container" data-collapse-after="{{ .CollapseAfter }}">
+<ul class="list glance-list collapsible-container" data-collapse-after="{{ .CollapseAfter }}">
     {{- range .Videos }}
-    <li class="flex thumbnail-parent gap-10 items-center">
+    <li class="glance-list-row flex thumbnail-parent gap-10 items-center">
         <img class="video-horizontal-list-thumbnail thumbnail" loading="lazy" src="{{ .ThumbnailUrl }}" alt="">
         <div class="min-width-0">
             <a class="block text-truncate color-primary-if-not-visited" href="{{ .Url | safeURL }}"{{ if $.OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }}>{{ .Title }}</a>
-            <ul class="list-horizontal-text flex-nowrap">
+            <ul class="list-horizontal-text glance-list-row-meta flex-nowrap">
                 <li class="shrink-0" {{ dynamicRelativeTimeAttrs .TimePosted }}></li>
                 <li class="min-width-0">
                     <a class="block text-truncate" href="{{ .AuthorUrl }}"{{ if $.OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }}>{{ .Author }}</a>

@@ -19,7 +19,7 @@ Fetch data from an HTTP API and render it with a Go template. Custom API support
     <p class="size-h4 color-paragraph">{{ .JSON.String "text" }}</p>
 ```
 
-![Custom API widget rendering data from an HTTP API](../images/custom-api-preview-1.png)
+![Custom API widget rendering data from an HTTP API](../images/widgets/custom-api.png)
 
 ## Configuration
 
@@ -310,7 +310,6 @@ The public interface is deliberately declarative:
 
 Presentation components participate in normal Custom API rendering and live widget replacement. Browser-side behavior is cleaned up before refreshed widget content is replaced and initialized again after replacement.
 
-![Custom API native presentation components in a medium-width layout](../images/custom-api-presentation-medium.png)
 
 *Native presentation components combine Glance primitives, enhanced tables, and charts while adapting to the available widget width.*
 
@@ -730,11 +729,9 @@ Gauge range and units belong to the YAML configuration rather than the data payl
 
 Native charts use Glance theme colors and update when the active theme changes.
 
-![Custom API presentation components in a small-column layout](../images/custom-api-presentation-small.png)
 
 *Presentation components adapt to narrow widget layouts while preserving the same Glance-owned styling and behavior.*
 
-![Custom API presentation components in a full-width layout](../images/custom-api-presentation-full.png)
 
 *Full-width widgets provide additional space for tables, charts, and multi-column presentation.*
 

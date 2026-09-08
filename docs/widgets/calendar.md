@@ -42,7 +42,7 @@ The Calendar can consume iCalendar feeds exposed by applications such as Radarr 
 
 ## Preview
 
-![Calendar widget displaying a monthly calendar with iCalendar events](../images/calendar-widget-preview.png)
+![Calendar widget displaying a monthly calendar with iCalendar events](../images/widgets/calendar.png)
 
 ## Configuration
 

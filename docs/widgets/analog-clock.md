@@ -22,7 +22,7 @@ Display an analog clock showing the current time. Optionally, display the date, 
 
 ## Preview
 
-![Analog Clock widget with date and numerical dial markers](../images/analog-clock-preview.png)
+![Analog Clock widget with date and numerical dial markers](../images/widgets/analog-clock.png)
 
 ## Configuration
 

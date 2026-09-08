@@ -5,7 +5,7 @@
 {{ define "widget-content" }}
 <div class="cards-vertical">
     {{ range .Posts }}
-    <div class="widget-content-frame relative">
+    <div class="glance-card widget-content-frame relative">
         {{ if ne "" .ThumbnailUrl }}
         <div class="reddit-card-thumbnail-container">
             <img class="reddit-card-thumbnail" loading="lazy" src="{{ .ThumbnailUrl }}" alt="">

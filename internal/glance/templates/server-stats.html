@@ -59,10 +59,10 @@
                     {{- end }}
                 </div>
                 {{- end }}
-                <div class="progress-bar progress-bar-combined">
+                <div class="progress-bar progress-bar-combined glance-progress">
                     {{- if .Info.CPU.LoadIsAvailable }}
-                    <div class="progress-value{{ if ge .Info.CPU.Load1Percent 85 }} progress-value-notice{{ end }}" style="--percent: {{ .Info.CPU.Load1Percent }}"></div>
-                    <div class="progress-value{{ if ge .Info.CPU.Load15Percent 85 }} progress-value-notice{{ end }}" style="--percent: {{ .Info.CPU.Load15Percent }}"></div>
+                    <div class="progress-value glance-progress-value{{ if ge .Info.CPU.Load1Percent 85 }} progress-value-notice{{ end }}" style="--percent: {{ .Info.CPU.Load1Percent }}"></div>
+                    <div class="progress-value glance-progress-value{{ if ge .Info.CPU.Load15Percent 85 }} progress-value-notice{{ end }}" style="--percent: {{ .Info.CPU.Load15Percent }}"></div>
                     {{- end }}
                 </div>
             </div>
@@ -93,11 +93,11 @@
                     {{- end }}
                 </div>
                 {{- end }}
-                <div class="progress-bar progress-bar-combined">
+                <div class="progress-bar progress-bar-combined glance-progress">
                     {{- if .Info.Memory.IsAvailable }}
-                    <div class="progress-value{{ if ge .Info.Memory.UsedPercent 85 }} progress-value-notice{{ end }}" style="--percent: {{ .Info.Memory.UsedPercent }}"></div>
+                    <div class="progress-value glance-progress-value{{ if ge .Info.Memory.UsedPercent 85 }} progress-value-notice{{ end }}" style="--percent: {{ .Info.Memory.UsedPercent }}"></div>
                     {{- if and (not .HideSwap) .Info.Memory.SwapIsAvailable }}
-                    <div class="progress-value{{ if ge .Info.Memory.SwapUsedPercent 85 }} progress-value-notice{{ end }}" style="--percent: {{ .Info.Memory.SwapUsedPercent }}"></div>
+                    <div class="progress-value glance-progress-value{{ if ge .Info.Memory.SwapUsedPercent 85 }} progress-value-notice{{ end }}" style="--percent: {{ .Info.Memory.SwapUsedPercent }}"></div>
                     {{- end }}
                     {{- end }}
                 </div>
@@ -124,11 +124,11 @@
                     </ul>
                 </div>
                 {{- end }}
-                <div class="progress-bar progress-bar-combined">
+                <div class="progress-bar progress-bar-combined glance-progress">
                     {{- if .Info.Mountpoints }}
-                    <div class="progress-value{{ if ge ((index .Info.Mountpoints 0).UsedPercent) 85 }} progress-value-notice{{ end }}" style="--percent: {{ (index .Info.Mountpoints 0).UsedPercent }}"></div>
+                    <div class="progress-value glance-progress-value{{ if ge ((index .Info.Mountpoints 0).UsedPercent) 85 }} progress-value-notice{{ end }}" style="--percent: {{ (index .Info.Mountpoints 0).UsedPercent }}"></div>
                     {{- if ge (len .Info.Mountpoints) 2 }}
-                    <div class="progress-value{{ if ge ((index .Info.Mountpoints 1).UsedPercent) 85 }} progress-value-notice{{ end }}" style="--percent: {{ (index .Info.Mountpoints 1).UsedPercent }}"></div>
+                    <div class="progress-value glance-progress-value{{ if ge ((index .Info.Mountpoints 1).UsedPercent) 85 }} progress-value-notice{{ end }}" style="--percent: {{ (index .Info.Mountpoints 1).UsedPercent }}"></div>
                     {{- end }}
                     {{- end }}
                 </div>

@@ -1,9 +1,9 @@
 {{ template "widget-base.html" . }}
 
 {{ define "widget-content" }}
-<ul class="list list-gap-14 collapsible-container" data-collapse-after="{{ .CollapseAfter }}">
+<ul class="list glance-list collapsible-container" data-collapse-after="{{ .CollapseAfter }}">
     {{ range .Channels }}
-    <li>
+    <li class="glance-list-row">
         <div class="{{ if .IsLive }}twitch-channel-live {{ end }}flex gap-10 items-start thumbnail-parent">
             <div class="twitch-channel-avatar-container"{{ if .IsLive }} data-popover-type="html" data-popover-position="above" data-popover-margin="0.15rem" data-popover-offset="0.2"{{ end }}>
                 {{ if .IsLive }}
@@ -29,7 +29,7 @@
                         {{ if .Category }}
                             <a class="text-truncate block" href="https://www.twitch.tv/directory/category/{{ .CategorySlug }}"{{ if $.OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }}>{{ .Category }}</a>
                         {{ end }}
-                    <ul class="list-horizontal-text">
+                    <ul class="list-horizontal-text glance-list-row-meta">
                         <li {{ dynamicRelativeTimeAttrs .LiveSince }}></li>
                         <li>{{ .ViewersCount | formatApproxNumber }} viewers</li>
                     </ul>

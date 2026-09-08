@@ -12,7 +12,7 @@ Display stories from [Hacker News](https://news.ycombinator.com/) with configura
   collapse-after: 5
 ```
 
-![Hacker News widget displaying a list of stories](../images/hacker-news-widget-preview.png)
+![Hacker News widget displaying a list of stories](../images/widgets/hacker-news.png)
 
 ## Configuration
 

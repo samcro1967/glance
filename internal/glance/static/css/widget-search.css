@@ -7,7 +7,7 @@
     flex-shrink: 0;
 }
 
-/* gives a wider hit area for the 3 people that will notice the animation : ) */
+/* Gives a wider hit area for the search icon animation. */
 .search-icon-container::before {
     content: '';
     position: absolute;
@@ -29,47 +29,87 @@
 }
 
 .search {
-    transition: border-color .2s;
     position: relative;
-    background-color: var(--theme-control-background-color, var(--color-widget-background));
+    background-color: var(
+        --theme-control-background-color,
+        var(--color-widget-background)
+    );
     border-radius: var(--theme-control-radius, var(--border-radius));
+    transition:
+        border-color 150ms ease,
+        box-shadow 150ms ease;
 }
 
 .search:hover {
-    border-color: var(--theme-control-muted-color, var(--theme-muted-text-color, var(--color-text-subdue)));
+    border-color: color-mix(
+        in srgb,
+        var(
+            --theme-control-focus-color,
+            var(--theme-accent-color, var(--color-primary))
+        ) 45%,
+        var(
+            --theme-control-border-color,
+            var(--color-widget-content-border)
+        )
+    );
 }
 
 .search:focus-within {
-    border-color: var(--theme-control-focus-color, var(--theme-accent-color, var(--color-primary)));
+    border-color: var(
+        --theme-control-focus-color,
+        var(--theme-accent-color, var(--color-primary))
+    );
+    box-shadow:
+        0 0 0 2px
+        color-mix(
+            in srgb,
+            var(
+                --theme-control-focus-color,
+                var(--theme-accent-color, var(--color-primary))
+            ) 24%,
+            transparent
+        );
 }
 
 .search-input {
-    border: 0;
-    background: none;
     width: 100%;
     height: 6rem;
+    border: 0;
+    background: none;
     font: inherit;
     outline: none;
-    color: var(--theme-control-text-color, var(--color-text-highlight));
+    color: var(
+        --theme-control-text-color,
+        var(--color-text-highlight)
+    );
+    box-shadow: none;
+}
+
+.search-input:hover,
+.search-input:focus,
+.search-input:focus-visible {
+    border: 0;
+    box-shadow: none;
 }
 
 .search-input::placeholder {
-    color: var(--theme-control-muted-color, var(--theme-muted-text-color, var(--color-text-base-muted)));
+    color: var(
+        --theme-control-muted-color,
+        var(--theme-muted-text-color, var(--color-text-base-muted))
+    );
     opacity: 1;
 }
 
-.search-bangs { display: none; }
+.search-bangs {
+    display: none;
+}
 
 .search-bang {
+    min-height: 3rem;
     padding: 0.3rem 1rem;
     flex-shrink: 0;
     font-size: var(--font-size-h5);
     animation: searchBangsEntrance .3s cubic-bezier(0.25, 1, 0.5, 1) backwards;
-
-    background-color: var(--theme-control-button-background-color, transparent);
-    color: var(--theme-control-button-text-color, var(--theme-control-text-color, var(--color-text-base)));
-    border-color: var(--theme-control-border-color, var(--color-widget-content-border));
-    border-radius: var(--theme-control-radius, var(--border-radius));
 }
 
 @keyframes searchBangsEntrance {
@@ -81,4 +121,11 @@
 
 .search-bang:empty {
     display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .search-icon-container:hover > .search-icon,
+    .search-bang {
+        animation: none;
+    }
 }

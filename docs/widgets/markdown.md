@@ -28,7 +28,7 @@ Render GitHub Flavored Markdown from inline configuration or a file accessible t
 
 ## Preview
 
-![Markdown widget rendering formatted text](../images/markdown-widget-preview.png)
+![Markdown widget rendering formatted text](../images/widgets/markdown.png)
 
 ## Configuration
 | Property | Type | Required | Default |

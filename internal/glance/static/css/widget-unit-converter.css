@@ -22,16 +22,6 @@
     min-width: 0;
     height: 3.2rem;
     padding: 0 0.8rem;
-    color: var(--theme-control-text-color, var(--color-text-highlight));
-    background: var(--theme-control-background-color, var(--color-background));
-    border: 1px solid var(--theme-control-border-color, var(--color-widget-content-border));
-    border-radius: var(--theme-control-radius, var(--border-radius));
-    outline: none;
-}
-
-.unit-converter select:focus,
-.unit-converter input:focus {
-    border-color: var(--theme-control-focus-color, var(--theme-accent-color, var(--color-primary)));
 }
 
 .unit-converter-result-row {

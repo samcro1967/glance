@@ -20,7 +20,7 @@ Display a clock showing the current time and date. Optionally, also display the 
 
 ## Preview
 
-![Clock widget with local time and additional timezones](../images/clock-widget-preview.png)
+![Clock widget with local time and additional timezones](../images/widgets/clock.png)
 
 ## Configuration
 

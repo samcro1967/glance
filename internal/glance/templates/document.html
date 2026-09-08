@@ -8,6 +8,7 @@
         /*{{ if .Page }}*/slug: "{{ .Page.Slug }}",/*{{ end }}*/
         baseURL: "{{ .App.Config.Server.BaseURL }}",
         theme: "{{ .Request.Theme.Key }}",
+        createdAt: {{ .App.CreatedAt.Unix }},
         frontendDiagnostics: {{ .App.Config.Server.FrontendDiagnostics }},
     };
     </script>
@@ -25,7 +26,9 @@
     <link rel="icon" type="{{ .App.Config.Branding.FaviconType }}" href="{{ .App.Config.Branding.FaviconURL }}" />
     <link rel="stylesheet" href='{{ .App.StaticAssetPath "css/bundle.css" }}'>
     <style id="theme-style">{{ .Request.Theme.CSS }}</style>
-    {{ if .App.Config.Theme.CustomCSSFile }}<link rel="stylesheet" href="{{ .App.Config.Theme.CustomCSSFile }}?v={{ .App.CreatedAt.Unix }}">{{ end }}
+    {{ if .Request.GlobalCustomCSSFile }}<link id="global-custom-css" rel="stylesheet" href="{{ .Request.GlobalCustomCSSFile }}?v={{ .App.CreatedAt.Unix }}">{{ end }}
+    {{ if .Request.ThemeCustomCSSFile }}<link id="theme-custom-css" rel="stylesheet" href="{{ .Request.ThemeCustomCSSFile }}?v={{ .App.CreatedAt.Unix }}">{{ end }}
+    {{ if .Request.PageCustomCSSFile }}<link id="page-custom-css" rel="stylesheet" href="{{ .Request.PageCustomCSSFile }}?v={{ .App.CreatedAt.Unix }}">{{ end }}
     {{ block "document-head-after" . }}{{ end }}
     {{ if .App.Config.Document.Head }}{{ .App.Config.Document.Head }}{{ end }}
 </head>

@@ -5,7 +5,7 @@
 
 Display the status of your Docker containers along with an icon and an optional short description.
 
-![Docker Containers widget](../images/docker-containers-preview.png)
+![Docker Containers widget](../images/widgets/docker-containers.png)
 ## Quick start
 
 
@@ -91,11 +91,9 @@ services:
 
 This will place all child containers under the `Immich` container when hovering over its icon:
 
-![Docker container parent and child grouping](../images/docker-container-parent.png)
 
 If any of the child containers are down, their status will propagate up to the parent container:
 
-![Docker container hierarchy with grouped child containers](../images/docker-container-parent2.png)
 
 ## Configuration
 

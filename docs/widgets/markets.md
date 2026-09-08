@@ -25,7 +25,7 @@ Example:
 
 Preview:
 
-![Markets widget](../images/markets-widget-preview.png)
+![Markets widget](../images/widgets/markets.png)
 
 ## Configuration
 

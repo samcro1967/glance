@@ -13,7 +13,7 @@ Display the latest videos from YouTube channels or playlists in card, list, or g
     - UCBJycsmduvYEL83R_U4JriQ
 ```
 
-![Videos widget using the default horizontal-card layout](../images/videos-widget-preview.png)
+![Videos widget using the default horizontal-card layout](../images/widgets/videos.png)
 
 ## Configuration
 
@@ -36,11 +36,11 @@ A list of YouTube channel IDs.
 
 Open a channel description to locate the channel sharing controls:
 
-![YouTube channel description showing the channel information panel](../images/videos-channel-description-example.png)
+![YouTube channel description showing the channel information panel](../images/instructions/videos-channel-description.png)
 
 Choose **Share channel**, then **Copy channel ID**:
 
-![YouTube Share channel menu with the Copy channel ID option](../images/videos-copy-channel-id-example.png)
+![YouTube Share channel menu with the Copy channel ID option](../images/instructions/videos-copy-channel-id.png)
 
 ### `playlists`
 
@@ -65,11 +65,9 @@ Supported values are `horizontal-cards`, `vertical-list`, and `grid-cards`.
 
 #### Vertical list
 
-![Videos widget using the vertical-list style](../images/videos-widget-vertical-list-preview.png)
 
 #### Grid cards
 
-![Videos widget using the grid-cards style](../images/videos-widget-grid-cards-preview.png)
 
 ### `collapse-after`
 

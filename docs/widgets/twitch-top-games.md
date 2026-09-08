@@ -20,7 +20,7 @@ Example:
 
 Preview:
 
-![Twitch top games widget](../images/twitch-top-games-widget-preview.png)
+![Twitch top games widget](../images/widgets/twitch-top-games.png)
 
 ## Configuration
 

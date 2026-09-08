@@ -6,7 +6,7 @@
 <div class="cards-grid collapsible-container" data-collapse-after-rows="{{ .CollapseAfterRows }}">
     {{ $openLinksInNewTab := .OpenLinksInNewTab }}
         {{ range .Videos }}
-    <div class="card widget-content-frame thumbnail-parent">
+    <div class="card glance-card widget-content-frame thumbnail-parent">
         {{ template "video-card-contents" videoCardTemplateData . $openLinksInNewTab }}
     </div>
     {{ end }}
