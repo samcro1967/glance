@@ -247,10 +247,13 @@
         color-mix(
             in srgb,
             var(
+                --theme-accent-color,
+                var(--color-primary)
+            ) 42%,
+            var(
                 --theme-widget-border-color,
                 var(--color-widget-content-border)
-            ) 65%,
-            transparent
+            )
         );
 
     box-shadow:
