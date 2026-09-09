@@ -241,7 +241,7 @@ ghcr.io/samcro1967/glance:latest
 
 The versioned tag is the immutable identity of a formal fork release. `latest` identifies the most recent formal fork release and points to the same released image. It is not a development or branch-build tag.
 
-Formal release images are built by GoReleaser for supported Linux architectures and published as multi-architecture manifests. Architecture-specific image tags are used internally to construct those manifests.
+Formal release images are built by GoReleaser for Linux AMD64 and ARM64 and published as multi-architecture manifests. Architecture-specific image tags are used internally to construct those manifests. Formal releases of this fork do not publish standalone binary archives; users requiring a standalone executable can build the fork from source.
 
 Published images contain OCI revision metadata identifying the source commit from which the image was built.
 

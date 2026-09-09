@@ -49,7 +49,7 @@ deployment safeguards, and upstream synchronization.
 * Low memory usage
 * Few dependencies
 * Minimal vanilla JS
-* Single <20mb binary available for multiple OSs & architectures and just as small Docker container
+* Small Docker container published for modern 64-bit AMD64 and ARM64 Linux platforms
 * Uncached pages usually load within ~1s (depending on internet speed and number of widgets)
 
 ### Tons of customizability
@@ -258,11 +258,11 @@ docker logs glance
 <summary><strong>Manual binary installation</strong></summary>
 <br>
 
-Formal releases of this fork include precompiled binaries published through [GitHub Releases](https://github.com/samcro1967/glance/releases).
+Formal releases of this fork are distributed as container images through GitHub Container Registry for Linux AMD64 and ARM64 platforms. Standalone precompiled binaries are not published by this fork.
 
-Release binaries contain the fork's exact release version, such as `v0.8.5-samcro1967.r001`, embedded at build time. Select the archive appropriate for your operating system and architecture from the desired release.
+Formal container images contain the fork's exact release version, such as `v0.8.5-samcro1967.r001`, embedded at build time. `ghcr.io/samcro1967/glance:latest` identifies the latest formal fork release, while versioned tags provide immutable release identities.
 
-Container deployments are also available through GitHub Container Registry. `ghcr.io/samcro1967/glance:latest` identifies the latest formal fork release, while `ghcr.io/samcro1967/glance:dev` identifies the current integrated development build.
+The mutable `ghcr.io/samcro1967/glance:dev` image identifies the current integrated development build and is separate from formal releases.
 
 If you require a standalone binary, you can build this fork from source using the Go toolchain. Alternatively, the [upstream Glance project](https://github.com/glanceapp/glance/releases/latest) publishes precompiled binaries for Linux, Windows and macOS. Be aware that upstream binaries do not include the additional functionality documented in the [About this fork](#about-this-fork) section.
 

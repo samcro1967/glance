@@ -6,7 +6,7 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps build test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final
+.PHONY: help deps build goreleaser-check test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final
 
 COUNT ?= 10
 COVERAGE_FILE ?= coverage.out
@@ -50,6 +50,7 @@ PR_BASE ?= $(DEV_BRANCH)
 
 FORK_RELEASE_ID ?= samcro1967
 FORK_RELEASE_WIDTH ?= 3
+GORELEASER_VERSION ?= v2.18.1
 
 DEPLOY_IMAGE ?= ghcr.io/samcro1967/glance:latest
 DEPLOY_DEV_IMAGE ?= ghcr.io/samcro1967/glance:dev
@@ -139,6 +140,7 @@ help:
 	@echo "  make diff-check               Working-tree whitespace validation"
 	@echo "  make staged-check             Staged whitespace validation"
 	@echo "  make check                    Tests + race + build + format + whitespace + docs"
+	@echo "  make goreleaser-check         Validate formal-release configuration"
 	@echo
 	@echo "REPOSITORY:"
 	@echo "  make status                   Branch, HEAD, worktree"
@@ -184,6 +186,12 @@ help:
 
 deps:
 	go mod download
+
+goreleaser-check:
+	@docker run --rm \
+		-v "$$(pwd):/go/src/github.com/samcro1967/glance" \
+		-w /go/src/github.com/samcro1967/glance \
+		goreleaser/goreleaser:$(GORELEASER_VERSION) check
 
 test:
 	go test ./...
@@ -1039,6 +1047,9 @@ release-check:
 	echo; \
 	echo "Running standard validation..."; \
 	$(MAKE) check BASE_REF=origin/$(STABLE_BRANCH); \
+	echo; \
+	echo "Validating GoReleaser configuration..."; \
+	$(MAKE) goreleaser-check; \
 	echo; \
 	echo "Release validation passed."
 
