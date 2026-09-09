@@ -323,15 +323,22 @@ theme:
     radius: large
     shadow: medium
     blur: medium
+    font-size: large
+    font-weight: semibold
 ```
 
   Property             Values
-  -------------------- --------------------------------------
+  -------------------- ----------------------------------------
   `background-color`   HSL
   `border-color`       HSL
   `radius`             `none`, `small`, `medium`, `large`
   `shadow`             `none`, `subtle`, `medium`, `strong`
   `blur`               `none`, `subtle`, `medium`, `strong`
+  `font-size`          `small`, `medium`, `large`
+  `font-weight`        `normal`, `medium`, `semibold`, `bold`
+
+`widgets.font-size` and `widgets.font-weight` control ordinary widget body typography. They are optional overrides. When omitted, widget body content inherits the corresponding global `typography.font-size` and `typography.font-weight` values. Widget headers remain independently configurable through `widget-header`.
+
 
 ## Widget headers
 
@@ -674,6 +681,8 @@ theme:
     radius: large
     shadow: medium
     blur: medium
+    font-size: large
+    font-weight: semibold
 
   widget-header:
     background-color: 215 20 10

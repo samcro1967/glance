@@ -63,6 +63,8 @@
 .widget-content {
     container-type: inline-size;
     container-name: widget;
+    font-size: var(--theme-widget-font-size, var(--theme-font-size));
+    font-weight: var(--theme-widget-font-weight, var(--theme-font-weight));
 }
 
 .widget-content:not(.widget-content-frameless) {

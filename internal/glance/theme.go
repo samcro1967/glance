@@ -115,6 +115,8 @@ type themeSurfaceProperties struct {
 	Radius                    string         `yaml:"radius"`
 	Shadow                    string         `yaml:"shadow"`
 	Blur                      string         `yaml:"blur"`
+	FontSize                  string         `yaml:"font-size"`
+	FontWeight                string         `yaml:"font-weight"`
 }
 
 type themeHeaderProperties struct {
@@ -439,6 +441,12 @@ func mergeThemeSurface(base themeSurfaceProperties, override themeSurfacePropert
 	}
 	if override.configuredFields["blur"] {
 		merged.Blur = override.Blur
+	}
+	if override.configuredFields["font-size"] {
+		merged.FontSize = override.FontSize
+	}
+	if override.configuredFields["font-weight"] {
+		merged.FontWeight = override.FontWeight
 	}
 	return merged
 }
@@ -784,6 +792,8 @@ func (t *themeProperties) validateComponentTypography(path string) error {
 		{t.Navigation.configuredFields["font-weight"], path + ".navigation.font-weight", t.Navigation.FontWeight, fontWeights},
 		{t.WidgetHeader.configuredFields["font-size"], path + ".widget-header.font-size", t.WidgetHeader.FontSize, fontSizes},
 		{t.WidgetHeader.configuredFields["font-weight"], path + ".widget-header.font-weight", t.WidgetHeader.FontWeight, fontWeights},
+		{t.Widgets.configuredFields["font-size"], path + ".widgets.font-size", t.Widgets.FontSize, fontSizes},
+		{t.Widgets.configuredFields["font-weight"], path + ".widgets.font-weight", t.Widgets.FontWeight, fontWeights},
 		{t.Footer.configuredFields["font-size"], path + ".footer.font-size", t.Footer.FontSize, fontSizes},
 		{t.Footer.configuredFields["font-weight"], path + ".footer.font-weight", t.Footer.FontWeight, fontWeights},
 	}
@@ -1008,6 +1018,14 @@ func (t *themeProperties) WidgetHeaderFontWeightCSS() string {
 	return themeFontWeightCSS(t.WidgetHeader.FontWeight)
 }
 
+func (t *themeProperties) WidgetFontSizeCSS() string {
+	return themeFontSizeCSS(t.Widgets.FontSize)
+}
+
+func (t *themeProperties) WidgetFontWeightCSS() string {
+	return themeFontWeightCSS(t.Widgets.FontWeight)
+}
+
 func (t *themeProperties) FooterFontSizeCSS() string {
 	return themeFontSizeCSS(t.Footer.FontSize)
 }
@@ -1117,7 +1135,9 @@ func sameThemeSurface(a, b themeSurfaceProperties) bool {
 		a.BorderColor.SameAs(b.BorderColor) &&
 		a.Radius == b.Radius &&
 		a.Shadow == b.Shadow &&
-		a.Blur == b.Blur
+		a.Blur == b.Blur &&
+		a.FontSize == b.FontSize &&
+		a.FontWeight == b.FontWeight
 }
 
 func sameThemeHeader(a, b themeHeaderProperties) bool {
