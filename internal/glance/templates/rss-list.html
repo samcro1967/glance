@@ -1,7 +1,7 @@
 {{ template "widget-base.html" . }}
 
 {{ define "widget-content" }}
-<ul class="list glance-list collapsible-container{{ if .SingleLineTitles }} single-line-titles{{ end }}" data-collapse-after="{{ .CollapseAfter }}">
+<ul class="list glance-list rss-list collapsible-container{{ if .SingleLineTitles }} single-line-titles{{ end }}" data-collapse-after="{{ .CollapseAfter }}">
     {{ range .Items }}
     <li class="glance-list-row">
         <a class="title size-title-dynamic color-primary-if-not-visited" href="{{ .Link }}"{{ if $.OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }}>{{ .Title }}</a>
