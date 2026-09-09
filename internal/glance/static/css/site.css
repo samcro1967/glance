@@ -448,10 +448,12 @@ kbd:active {
     inset-inline: 0;
     top: 11.5px;
     height: 22.5px;
+    pointer-events: none;
 }
 
 .footer-micro-group {
     position: absolute;
+    pointer-events: auto;
     top: 0;
     display: flex;
     align-items: center;
