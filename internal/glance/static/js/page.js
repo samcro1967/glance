@@ -3,6 +3,7 @@ import { cleanupPopoversWithin, setupPopovers } from './popover.js';
 import { setupMasonries } from './masonry.js';
 import { throttledDebounce, isElementVisible, openURLInNewTab } from './utils.js';
 import { elem, find, findAll } from './templating.js';
+import { attachExpandToggleButton, setupCollapsibleList } from './collapsible-list.js';
 
 const frontendDiagnosticsEnabled = pageData.frontendDiagnostics === true;
 const frontendDiagnosticsBuffer = [];
@@ -722,81 +723,11 @@ function setupLazyImages(root = document) {
     }
 }
 
-function attachExpandToggleButton(collapsibleContainer) {
-    const showMoreText = "Show more";
-    const showLessText = "Show less";
-
-    let expanded = false;
-    const button = document.createElement("button");
-    const icon = document.createElement("span");
-    icon.classList.add("expand-toggle-button-icon");
-    const textNode = document.createTextNode(showMoreText);
-    button.classList.add("expand-toggle-button");
-    button.append(textNode, icon);
-    button.addEventListener("click", () => {
-        expanded = !expanded;
-
-        if (expanded) {
-            collapsibleContainer.classList.add("container-expanded");
-            button.classList.add("container-expanded");
-            textNode.nodeValue = showLessText;
-            return;
-        }
-
-        const topBefore = button.getClientRects()[0].top;
-
-        collapsibleContainer.classList.remove("container-expanded");
-        button.classList.remove("container-expanded");
-        textNode.nodeValue = showMoreText;
-
-        const topAfter = button.getClientRects()[0].top;
-
-        if (topAfter > 0)
-            return;
-
-        window.scrollBy({
-            top: topAfter - topBefore,
-            behavior: "instant"
-        });
-    });
-
-    collapsibleContainer.after(button);
-
-    return button;
-};
-
-
 function setupCollapsibleLists(root = document) {
     const collapsibleLists = root.querySelectorAll(".list.collapsible-container");
 
-    if (collapsibleLists.length == 0) {
-        return;
-    }
-
-    for (let i = 0; i < collapsibleLists.length; i++) {
-        const list = collapsibleLists[i];
-
-        if (list.dataset.collapseAfter === undefined) {
-            continue;
-        }
-
-        const collapseAfter = parseInt(list.dataset.collapseAfter);
-
-        if (collapseAfter == -1) {
-            continue;
-        }
-
-        if (list.children.length <= collapseAfter) {
-            continue;
-        }
-
-        attachExpandToggleButton(list);
-
-        for (let c = collapseAfter; c < list.children.length; c++) {
-            const child = list.children[c];
-            child.classList.add("collapsible-item");
-            child.style.animationDelay = ((c - collapseAfter) * 20).toString() + "ms";
-        }
+    for (const list of collapsibleLists) {
+        setupCollapsibleList(list);
     }
 }
 

@@ -284,6 +284,37 @@ pages:
 	}
 }
 
+func TestCalendarCollapseAfterDefaults(t *testing.T) {
+	config, err := newConfigFromYAML([]byte(`
+widget-defaults:
+  types:
+    calendar:
+      collapse-after: 8
+
+pages:
+  - name: Test
+    columns:
+      - size: full
+        widgets:
+          - type: calendar
+          - type: calendar
+            collapse-after: -1
+`))
+	if err != nil {
+		t.Fatalf("newConfigFromYAML: %v", err)
+	}
+
+	first := config.Pages[0].Columns[0].Widgets[0].(*calendarWidget)
+	second := config.Pages[0].Columns[0].Widgets[1].(*calendarWidget)
+
+	if first.CollapseAfter != 8 {
+		t.Fatalf("inherited collapse-after = %d, want 8", first.CollapseAfter)
+	}
+	if second.CollapseAfter != -1 {
+		t.Fatalf("instance collapse-after = %d, want -1", second.CollapseAfter)
+	}
+}
+
 func TestListDefaultsAreNotGlobal(t *testing.T) {
 	value := 9
 

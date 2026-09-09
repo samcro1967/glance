@@ -1,7 +1,7 @@
 {{ template "widget-base.html" . }}
 
 {{ define "widget-content" }}
-<ul class="list glance-list collapsible-container" data-collapse-after="{{ .CollapseAfter }}">
+<ul class="list glance-list rss-list collapsible-container" data-collapse-after="{{ .CollapseAfter }}">
     {{ range .Items }}
     <li class="glance-list-row flex gap-15 items-start row-reverse-on-mobile thumbnail-parent">
         <div class="thumbnail-container rss-detailed-thumbnail">

@@ -51,12 +51,18 @@ This widget also supports the [shared widget properties](../widgets.md#shared-pr
 | Property | Type | Required | Default |
 | --- | --- | --- | --- |
 | `first-day-of-week` | string | no | `monday` |
+| `collapse-after` | integer | no | `-1` |
 | `sources` | array | no | — |
 | `cache` | duration | no | `30m` with sources |
 | `new-tab` | boolean | no | `true` |
 
 ### `first-day-of-week`
 The day of the week that the calendar starts on. All week days are available as possible values.
+
+### `collapse-after`
+The number of events to show for the currently selected day before displaying a **Show more** control. The default is `-1`, which shows all events.
+
+`collapse-after` participates in the widget-default hierarchy at the Calendar type and individual widget levels. An individual Calendar can use `-1` to disable collapsing even when a type-level default is configured.
 
 ### `sources`
 An optional array of iCalendar sources. Each source must specify exactly one of `url` or `file`.
