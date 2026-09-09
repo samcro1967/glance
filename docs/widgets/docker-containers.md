@@ -21,7 +21,7 @@ Display the status of your Docker containers along with an icon and an optional 
 > ```yaml
 > services:
 >   glance:
->     image: glanceapp/glance
+>     image: ghcr.io/samcro1967/glance:latest
 >     volumes:
 >       - /var/run/docker.sock:/var/run/docker.sock
 > ```

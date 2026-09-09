@@ -109,10 +109,10 @@ Several production defects were discovered through this process, reproduced with
 Development follows a two-branch integration and release model:
 
 ```text
-feature/* → dev → main → formal release
+development branch → dev → main → formal release
 ```
 
-The long-lived `dev` branch is the integration branch for ongoing development. Focused feature and fix branches are created from a clean, synchronized `dev` branch and merged back into `dev` through pull requests.
+The long-lived `dev` branch is the integration branch for ongoing development. Focused feature, fix, refactor, and documentation branches are created from a clean, synchronized `dev` branch and merged back into `dev` through pull requests.
 
 The long-lived `main` branch is the stable, release-ready branch. Changes reach `main` only through a controlled promotion pull request from `dev`. Direct development on either `dev` or `main` is intentionally avoided.
 
@@ -248,7 +248,7 @@ Published images contain OCI revision metadata identifying the source commit fro
 The resulting image lifecycle is:
 
 ```text
-feature/* → dev → ghcr.io/samcro1967/glance:dev
+development branch → dev → ghcr.io/samcro1967/glance:dev
 
 dev → main
        └─ no image publication
