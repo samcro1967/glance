@@ -507,13 +507,16 @@ kbd:active {
 }
 
 .footer-micro-markets,
-.footer-micro-monitor {
+.footer-micro-monitor,
+.footer-micro-docker {
     gap: 1rem;
 }
 
 .footer-micro-market,
 .footer-micro-monitor-site,
-.footer-micro-monitor-all-ok {
+.footer-micro-monitor-all-ok,
+.footer-micro-docker-container,
+.footer-micro-docker-summary {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;

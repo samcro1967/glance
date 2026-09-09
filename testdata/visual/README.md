@@ -21,6 +21,8 @@ The visual QA configuration mirrors the eight widget categories in `docs/widgets
 
 `make visual-docs` stages every managed browser documentation capture by default. Use `DASHBOARD=<name>` or `PAGE=<slug>` for a targeted refresh. The staging pre-check permits newly registered browser-managed images to be absent from `docs/images` so they can be captured and reviewed before promotion; static-managed images, manifest ownership, Markdown references, and unmanaged files remain strict.
 
+`make visual-docs` also supports `IMAGE=<manifest-relative-path>` to stage exactly one browser-managed documentation image. `DASHBOARD`, `PAGE`, and `IMAGE` are mutually exclusive capture scopes, and the selected image must exist in `docs-images.json` with `kind: browser`. For example: `make visual-docs IMAGE=instructions/footer-micro-widgets.png`.
+
 `make visual-docs-promote` promotes reviewed staged captures. Use `DASHBOARD=<name>` or `PAGE=<slug>` to promote the matching visual scope, or `IMAGE=<manifest-relative-path>` to promote exactly one browser-managed image, for example `make visual-docs-promote IMAGE=instructions/footer-micro-widgets.png`. `DASHBOARD`, `PAGE`, and `IMAGE` are mutually exclusive promotion scopes. An `IMAGE` selection must exist in `docs-images.json` and be browser-managed.
 
 Full promotion retains the exact complete-staging-set contract. `make visual-check` remains the strict final contract and requires every managed documentation image to exist in `docs/images`. Diagrams, instructional screenshots, GIFs, and other static-managed media are preserved rather than browser-captured.

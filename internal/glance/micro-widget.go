@@ -85,6 +85,8 @@ func newMicroWidget(microType string) (microWidget, error) {
 		return &microBookmark{}, nil
 	case "clock":
 		return &microClock{}, nil
+	case "docker":
+		return &microDocker{}, nil
 	case "weather":
 		return &microWeather{}, nil
 	case "markets":
