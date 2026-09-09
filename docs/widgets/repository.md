@@ -10,7 +10,7 @@ Example:
 
 ```yaml
 - type: repository
-  repository: glanceapp/glance
+  repository: samcro1967/glance
   pull-requests-limit: 5
   issues-limit: 3
   commits-limit: 3

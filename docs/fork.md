@@ -109,10 +109,10 @@ Several production defects were discovered through this process, reproduced with
 Development follows a two-branch integration and release model:
 
 ```text
-feature/* → dev → main → formal release
+development branch → dev → main → formal release
 ```
 
-The long-lived `dev` branch is the integration branch for ongoing development. Focused feature and fix branches are created from a clean, synchronized `dev` branch and merged back into `dev` through pull requests.
+The long-lived `dev` branch is the integration branch for ongoing development. Focused feature, fix, refactor, and documentation branches are created from a clean, synchronized `dev` branch and merged back into `dev` through pull requests.
 
 The long-lived `main` branch is the stable, release-ready branch. Changes reach `main` only through a controlled promotion pull request from `dev`. Direct development on either `dev` or `main` is intentionally avoided.
 
@@ -241,14 +241,14 @@ ghcr.io/samcro1967/glance:latest
 
 The versioned tag is the immutable identity of a formal fork release. `latest` identifies the most recent formal fork release and points to the same released image. It is not a development or branch-build tag.
 
-Formal release images are built by GoReleaser for supported Linux architectures and published as multi-architecture manifests. Architecture-specific image tags are used internally to construct those manifests.
+Formal release images are built by GoReleaser for Linux AMD64 and ARM64 and published as multi-architecture manifests. Architecture-specific image tags are used internally to construct those manifests. Formal releases of this fork do not publish standalone binary archives; users requiring a standalone executable can build the fork from source.
 
 Published images contain OCI revision metadata identifying the source commit from which the image was built.
 
 The resulting image lifecycle is:
 
 ```text
-feature/* → dev → ghcr.io/samcro1967/glance:dev
+development branch → dev → ghcr.io/samcro1967/glance:dev
 
 dev → main
        └─ no image publication

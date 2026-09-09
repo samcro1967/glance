@@ -14,31 +14,11 @@ builds:
       - CGO_ENABLED=0
     goos:
       - linux
-      - openbsd
-      - freebsd
-      - windows
-      - darwin
     goarch:
       - amd64
       - arm64
-      - arm
-      - 386
-    goarm:
-      - 7
-    ignore:
-      - goos: windows
-        goarch: arm
     ldflags:
       - -s -w -X github.com/samcro1967/glance/internal/glance.buildVersion={{ .Tag }}
-
-archives:
-  -
-    name_template: "glance-{{ .Os }}-{{ .Arch }}{{ with .Arm }}v{{ . }}{{ end }}"
-    files:
-      - nothing*
-    format_overrides:
-      - goos: windows
-        format: zip
 
 dockers:
   - image_templates:
@@ -57,21 +37,11 @@ dockers:
     use: buildx
     dockerfile: Dockerfile.goreleaser
 
-  - image_templates:
-      - &armv7_image "ghcr.io/{{ .ProjectName }}:{{ .Tag }}-armv7"
-    build_flag_templates:
-      - --platform=linux/arm/v7
-    goarch: arm
-    goarm: 7
-    use: buildx
-    dockerfile: Dockerfile.goreleaser
-
 docker_manifests:
   - name_template: "ghcr.io/{{ .ProjectName }}:{{ .Tag }}"
     image_templates: &multiarch_images
       - *amd64_image
       - *arm64v8_image
-      - *armv7_image
 
   - name_template: "ghcr.io/{{ .ProjectName }}:latest"
     skip_push: false

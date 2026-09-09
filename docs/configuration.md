@@ -95,7 +95,7 @@ Alternatively, you can load the contents of a file who's path is provided by an 
 ```yaml
 services:
   glance:
-    image: glanceapp/glance
+    image: ghcr.io/samcro1967/glance:latest
     environment:
       - TOKEN_FILE=/home/user/token
     volumes:
@@ -163,7 +163,7 @@ glance --config /path/to/glance.yml config:print | less -N
 This is a bit more convoluted when running Glance inside a Docker container:
 
 ```sh
-docker run --rm -v ./glance.yml:/app/config/glance.yml glanceapp/glance config:print | less -N
+docker run --rm -v ./glance.yml:/app/config/glance.yml ghcr.io/samcro1967/glance:latest config:print | less -N
 ```
 
 This assumes that the config you want to print is in your current working directory and is named `glance.yml`.
@@ -374,7 +374,7 @@ To generate a secret key, run the following command:
 Or with Docker:
 
 ```sh
-docker run --rm glanceapp/glance secret:make
+docker run --rm ghcr.io/samcro1967/glance:latest secret:make
 ```
 
 ### Using hashed passwords
@@ -388,7 +388,7 @@ If you do not want to store plain passwords in your config file or in environmen
 Or with Docker:
 
 ```sh
-docker run --rm glanceapp/glance password:hash mysecretpassword
+docker run --rm ghcr.io/samcro1967/glance:latest password:hash mysecretpassword
 ```
 
 Then, in your config file use the `password-hash` property instead of `password`:
@@ -499,7 +499,7 @@ You can adjust the various parts of the branding through a top level `branding` 
 ```yaml
 branding:
   custom-footer: |
-    <p>Powered by <a href="https://github.com/glanceapp/glance">Glance</a></p>
+    <p>Powered by <a href="https://github.com/samcro1967/glance">Glance</a></p>
   logo-url: /assets/logo.png
   favicon-url: /assets/logo.png
   app-name: "My Dashboard"
@@ -571,7 +571,7 @@ footer-micro-widgets:
     - type: bookmark
       position: 1
       title: GitHub
-      url: https://github.com/glanceapp/glance
+      url: https://github.com/samcro1967/glance
       icon: si:github
     - type: weather
       position: 2
@@ -580,7 +580,7 @@ footer-micro-widgets:
     - type: link
       position: 3
       title: Glance Docs
-      url: https://github.com/glanceapp/glance/tree/main/docs
+      url: https://github.com/samcro1967/glance/tree/main/docs
   right:
     - type: clock
       position: 1
@@ -607,7 +607,7 @@ Displays a titled link with an optional Glance icon.
 - type: bookmark
   position: 1
   title: GitHub
-  url: https://github.com/glanceapp/glance
+  url: https://github.com/samcro1967/glance
   icon: si:github
   same-tab: false
 ```
@@ -622,7 +622,7 @@ Displays a simple titled link without an icon.
 - type: link
   position: 3
   title: Glance Docs
-  url: https://github.com/glanceapp/glance/tree/main/docs
+  url: https://github.com/samcro1967/glance/tree/main/docs
   same-tab: true
 ```
 

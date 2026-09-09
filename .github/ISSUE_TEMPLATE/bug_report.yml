@@ -11,8 +11,10 @@ body:
 
         Please include only the information you think is relevant to the bug:
 
-        * How did you install Glance? (Docker container, manual binary install, etc)
-        * Which version of Glance are you using?
+        * Which Glance container tag are you using (`latest`, `dev`, or a versioned release tag)?
+        * What host OS and architecture are you running (for example, Linux AMD64 or ARM64)?
+        * Include the relevant container or Docker Compose configuration if applicable
+        * Which Glance version is reported by the running application?
         * Include the relevant parts of your `glance.yml` if applicable (widget, data source, properties used, etc)
         * Include any relevant logs or screenshots if applicable
         * Is the issue specific to a certain browser or OS?

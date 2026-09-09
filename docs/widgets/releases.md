@@ -14,7 +14,7 @@ Example:
   repositories:
     - go-gitea/gitea
     - jellyfin/jellyfin
-    - glanceapp/glance
+    - samcro1967/glance
     - codeberg:redict/redict
     - gitlab:fdroid/fdroidclient
     - dockerhub:gotify/server
@@ -71,7 +71,7 @@ To include prereleases you can specify the repository as an object and use the `
 ```yaml
 repositories:
   - gitlab:inkscape/inkscape
-  - repository: glanceapp/glance
+  - repository: samcro1967/glance
     include-prereleases: true
   - codeberg:redict/redict
 ```
@@ -87,7 +87,7 @@ You can also specify the value for this token through an ENV variable using the 
 ```yaml
 services:
   glance:
-    image: glanceapp/glance
+    image: ghcr.io/samcro1967/glance:latest
     environment:
       - GITHUB_TOKEN=<your token>
 ```
