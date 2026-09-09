@@ -13,6 +13,7 @@ var widgetRegistry = map[string]widgetDescriptor{
 		constructor: func() widget { return &calendarWidget{} },
 		capabilities: []widgetCapabilityDefinition{
 			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
 			{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
 			{widgetCapabilityHeaders, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},

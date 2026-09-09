@@ -1,4 +1,5 @@
 import { directions, easeOutQuint, slideFade } from "./animations.js";
+import { setupCollapsibleList } from "./collapsible-list.js";
 import { elem, repeat, text } from "./templating.js";
 
 const FULL_MONTH_SLOTS = 7 * 6;
@@ -42,6 +43,7 @@ const undoEntrance = slideFade({
 
 export default function(element) {
     const firstDay = Number(element.dataset.firstDayOfWeek ?? 1);
+    const collapseAfter = Number(element.dataset.collapseAfter ?? -1);
     const eventIndex = parseEventIndex(element);
     const minimumMonth = parseMonth(element.dataset.calendarMinimumMonth);
     const maximumMonth = parseMonth(element.dataset.calendarMaximumMonth);
@@ -56,6 +58,7 @@ export default function(element) {
 
     const calendar = Calendar({
         firstDay,
+        collapseAfter,
         eventIndex,
         minimumMonth,
         maximumMonth,
@@ -71,6 +74,7 @@ export default function(element) {
 
 function Calendar({
     firstDay,
+    collapseAfter,
     eventIndex,
     minimumMonth,
     maximumMonth,
@@ -197,7 +201,7 @@ function Calendar({
             undoClicked
         ),
         dates = Dates(firstDay, selectDate),
-        details = Details()
+        details = Details(collapseAfter)
     );
 
     update(displayedMonth, selectedDate, false);
@@ -414,7 +418,7 @@ function Dates(firstDay, selectDate) {
     ).component({ update });
 }
 
-function Details() {
+function Details(collapseAfter) {
     let heading;
     let list;
 
@@ -423,12 +427,15 @@ function Details() {
         .append(
             heading = elem("h3")
                 .classes("calendar-details-heading", "size-h4", "color-highlight"),
-            list = elem().classes("calendar-event-list")
+            list = elem()
+                .classes("calendar-event-list", "list", "collapsible-container")
+                .attr("data-collapse-after", collapseAfter)
         )
         .component({
             update(selectedDate, events, openLinksInNewTab) {
                 heading.text(formatSelectedDate(selectedDate));
                 list.html("");
+                setupCollapsibleList(list);
 
                 if (events.length === 0) {
                     list.append(
@@ -448,6 +455,8 @@ function Details() {
                         )
                     );
                 }
+
+                setupCollapsibleList(list);
 
                 return this;
             }

@@ -5,6 +5,7 @@
     <div
         class="calendar"
         data-first-day-of-week="{{ .FirstDay }}"
+        data-collapse-after="{{ .CollapseAfter }}"
         {{ if .Sources }}
         data-calendar-minimum-month="{{ .MinimumMonth }}"
         data-calendar-maximum-month="{{ .MaximumMonth }}"

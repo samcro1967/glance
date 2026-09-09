@@ -36,6 +36,7 @@ type calendarEventPayload struct {
 type calendarWidget struct {
 	widgetBase     `yaml:",inline"`
 	FirstDayOfWeek string                            `yaml:"first-day-of-week"`
+	CollapseAfter  int                               `yaml:"collapse-after"`
 	FirstDay       int                               `yaml:"-"`
 	Sources        []icsEventSource                  `yaml:"sources"`
 	Events         []icsEvent                        `yaml:"-"`
@@ -50,6 +51,10 @@ type calendarWidget struct {
 
 func (widget *calendarWidget) initialize() error {
 	widget.withTitle("Calendar").withError(nil)
+
+	if widget.CollapseAfter == 0 || widget.CollapseAfter < -1 {
+		widget.CollapseAfter = -1
+	}
 
 	if widget.FirstDayOfWeek == "" {
 		widget.FirstDayOfWeek = "monday"
@@ -73,6 +78,10 @@ func (widget *calendarWidget) initialize() error {
 	widget.now = time.Now
 
 	return nil
+}
+
+func (widget *calendarWidget) setDefaultCollapseAfter(value int) {
+	widget.CollapseAfter = value
 }
 
 func (widget *calendarWidget) Render() template.HTML {

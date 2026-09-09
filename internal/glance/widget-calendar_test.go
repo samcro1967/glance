@@ -24,6 +24,10 @@ func TestCalendarStaticLifecycle(t *testing.T) {
 		t.Fatalf("cache type = %v, want infinite", widget.cacheType)
 	}
 
+	if widget.CollapseAfter != -1 {
+		t.Fatalf("collapse-after = %d, want -1", widget.CollapseAfter)
+	}
+
 	if widget.cachedSources != nil {
 		t.Fatal("static calendar unexpectedly initialized ICS cache")
 	}
@@ -224,6 +228,7 @@ func TestCalendarUpdateBuildsPayload(t *testing.T) {
 	}
 
 	widget := &calendarWidget{
+		CollapseAfter: 5,
 		Sources: []icsEventSource{
 			{
 				File:  path,
@@ -266,6 +271,7 @@ func TestCalendarUpdateBuildsPayload(t *testing.T) {
 
 	for _, expected := range []string{
 		`data-calendar-events`,
+		`data-collapse-after="5"`,
 		`data-calendar-minimum-month="2025-09"`,
 		`data-calendar-maximum-month="2027-09"`,
 		`Calendar Test Event`,
