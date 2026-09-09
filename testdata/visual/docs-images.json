@@ -2,6 +2,16 @@
   "instructions/extension-overview.png": {
     "kind": "static"
   },
+  "instructions/footer-micro-widgets.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/screenshots/docs-overview",
+    "selector": ".footer",
+    "viewport": {
+      "width": 1600,
+      "height": 1000
+    }
+  },
   "instructions/pages-and-columns.png": {
     "kind": "static"
   },

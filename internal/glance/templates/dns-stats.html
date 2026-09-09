@@ -74,7 +74,7 @@
     {{ if and (not .HideTopDomains) .Stats.TopBlockedDomains }}
     <details class="details glance-details {{ if $showGraph }}margin-top-40{{ else }}margin-top-15{{ end }}">
         <summary class="summary glance-summary">Top blocked domains</summary>
-        <ul class="list list-gap-4 list-with-transition size-h5">
+        <ul class="list list-gap-4 list-with-transition">
             {{ range .Stats.TopBlockedDomains }}
             <li class="flex justify-between gap-10">
                 <div class="text-truncate rtl">{{ .Domain }}</div>

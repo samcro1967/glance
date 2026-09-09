@@ -315,7 +315,7 @@ kbd:active {
     padding-top: 0.8rem;
     padding-bottom: 0.8rem;
     transform: translateX(-50%);
-    background: transparent;
+    background: var(--color-background);
     color: var(--theme-header-text-color, inherit);
     border: 0;
     box-shadow: none;
@@ -443,7 +443,139 @@ kbd:active {
     margin-top: 0;
 }
 
+.footer-micro-layer {
+    position: absolute;
+    inset-inline: 0;
+    top: 11.5px;
+    height: 22.5px;
+}
+
+.footer-micro-group {
+    position: absolute;
+    top: 0;
+    display: flex;
+    align-items: center;
+    gap: 0;
+    white-space: nowrap;
+}
+
+.footer-micro-group-left {
+    left: var(--content-bounds-padding);
+}
+
+.footer-micro-group-right {
+    right: var(--content-bounds-padding);
+}
+
+.footer-micro-item {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 0;
+    white-space: nowrap;
+}
+
+.footer-micro-item + .footer-micro-item {
+    margin-left: 1.6rem;
+}
+
+.footer-micro-item + .footer-micro-item::before {
+    content: "";
+    position: absolute;
+    left: -0.9rem;
+    top: 50%;
+    width: 2px;
+    height: 16px;
+    background-color: var(--color-text-subdue);
+    opacity: 0.6;
+    transform: translateY(-50%);
+}
+
+.footer-micro-icon {
+    width: 1.6rem;
+    height: 1.6rem;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.footer-micro-context,
+.footer-micro-separator {
+    color: var(--color-text-subdue);
+}
+
+.footer-micro-markets,
+.footer-micro-monitor {
+    gap: 1rem;
+}
+
+.footer-micro-market,
+.footer-micro-monitor-site,
+.footer-micro-monitor-all-ok {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.footer-micro-status {
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.footer-micro-status-ok {
+    background-color: var(--color-positive);
+}
+
+.footer-micro-status-error {
+    background-color: var(--color-negative);
+}
+
+.footer-micro-clock {
+    height: 22.5px;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 0;
+    line-height: 1;
+}
+
+.footer-micro-clock-context {
+    font-size: 0.85rem;
+    color: var(--color-text-subdue);
+}
+
+.footer-micro-clock-time {
+    margin-top: 1px;
+    font-size: 1.2rem;
+    font-weight: 500;
+    color: var(--color-text-highlight);
+}
+
+.footer-micro-weather {
+    height: 22.5px;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 0;
+    line-height: 1;
+}
+
+.footer-micro-weather-context {
+    font-size: 0.85rem;
+    color: var(--color-text-subdue);
+}
+
+.footer-micro-weather-current {
+    margin-top: 1px;
+    font-size: 1.2rem;
+    font-weight: 500;
+    color: var(--color-text-highlight);
+}
+
 .footer {
+    position: relative;
     padding-bottom: calc(var(--widget-gap) * 1.5);
     padding-top: calc(var(--widget-gap) / 2);
     animation: loadingContainerEntrance 200ms backwards;

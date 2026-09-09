@@ -1995,3 +1995,57 @@ func TestVersionedAssetPath(t *testing.T) {
 		})
 	}
 }
+
+func TestApplicationRegistersDynamicFooterMicroWidgetsForRefresh(t *testing.T) {
+	app := newGlanceTestApplication(t, `
+footer-micro-widgets:
+  left:
+    - type: weather
+      position: 1
+      location: St. Louis, Missouri
+    - type: markets
+      position: 2
+      markets:
+        - symbol: AAPL
+  right:
+    - type: monitor
+      position: 1
+      sites:
+        - title: Example
+          url: https://example.com
+pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets: []
+`)
+
+	if len(app.refreshWidgets) != 3 {
+		t.Fatalf("refresh widget count = %d, want 3", len(app.refreshWidgets))
+	}
+
+	wantTypes := []string{"weather", "markets", "monitor"}
+	seenIDs := make(map[uint64]bool, len(wantTypes))
+	for i, candidate := range app.refreshWidgets {
+		if candidate.GetType() != wantTypes[i] {
+			t.Fatalf("refreshWidgets[%d] type = %q, want %q", i, candidate.GetType(), wantTypes[i])
+		}
+
+		id := candidate.GetID()
+		if id == 0 {
+			t.Fatalf("refreshWidgets[%d] has zero ID", i)
+		}
+		if seenIDs[id] {
+			t.Fatalf("duplicate footer micro-widget ID %d", id)
+		}
+		seenIDs[id] = true
+
+		registered, exists := app.widgetByID[id]
+		if !exists {
+			t.Fatalf("widgetByID does not contain footer micro-widget ID %d", id)
+		}
+		if registered != candidate {
+			t.Fatalf("widgetByID[%d] = %T, want exact %T", id, registered, candidate)
+		}
+	}
+}

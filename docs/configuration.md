@@ -23,6 +23,7 @@
   - [Named dashboards](#named-dashboards)
   - [Columns](#columns)
 - [Widgets](#widgets)
+- [Footer micro-widgets](#footer-micro-widgets)
 
 ---
 
@@ -550,6 +551,150 @@ Glance includes a native theme system for customizing colors, typography, page b
 A top-level `theme` defines the default appearance. Individual pages can provide partial theme overrides, and the theme picker can switch between the built-in Glance Dark and Glance Light themes and explicitly named user themes. Custom CSS remains available for advanced styling beyond the native theme options.
 
 See the **[Themes documentation](themes.md)** for the complete theme reference, supported values, inheritance and page overrides, theme picker behavior, custom CSS, examples, and ready-to-use themes.
+
+## Footer micro-widgets
+
+Footer micro-widgets provide compact page-level information and shortcuts on the left and right sides of the standard Glance footer. They do not occupy page columns or count as normal page widgets.
+
+![Footer micro-widgets showing information and shortcuts on both sides of the Glance footer](images/instructions/footer-micro-widgets.png)
+
+`max-per-side` defaults to `5` and may be set from `1` through `10`. Each micro-widget requires a `position` between `1` and `max-per-side`. Positions must be unique within each side; the same position may be used once on the left and once on the right.
+
+Supported types are `bookmark`, `clock`, `weather`, `markets`, `monitor`, and `link`.
+
+### Configuration
+
+```yaml
+footer-micro-widgets:
+  max-per-side: 5
+  left:
+    - type: bookmark
+      position: 1
+      title: GitHub
+      url: https://github.com/glanceapp/glance
+      icon: si:github
+    - type: weather
+      position: 2
+      location: St. Louis, Missouri
+      units: imperial
+    - type: link
+      position: 3
+      title: Glance Docs
+      url: https://github.com/glanceapp/glance/tree/main/docs
+  right:
+    - type: clock
+      position: 1
+      hour-format: 12h
+      label: Local
+    - type: markets
+      position: 2
+      markets:
+        - symbol: SPY
+    - type: monitor
+      position: 3
+      sites:
+        - title: Example
+          url: https://example.com
+```
+
+Items are displayed in position order. Footer micro-widgets are hidden at viewport widths of 1190px and below and are suppressed whenever the normal footer is hidden with `branding.hide-footer`.
+
+### Bookmark
+
+Displays a titled link with an optional Glance icon.
+
+```yaml
+- type: bookmark
+  position: 1
+  title: GitHub
+  url: https://github.com/glanceapp/glance
+  icon: si:github
+  same-tab: false
+```
+
+`title` and `url` are required. `icon` is optional. `same-tab` defaults to `false`.
+
+### Link
+
+Displays a simple titled link without an icon.
+
+```yaml
+- type: link
+  position: 3
+  title: Glance Docs
+  url: https://github.com/glanceapp/glance/tree/main/docs
+  same-tab: true
+```
+
+`title` and `url` are required. `same-tab` defaults to `false`.
+
+### Clock
+
+Displays a compact date and time. When `timezone` is omitted, the browser local timezone is used.
+
+```yaml
+- type: clock
+  position: 1
+  hour-format: 12h
+  timezone: America/Chicago
+  label: Local
+```
+
+`hour-format` defaults to `24h` and accepts `12h` or `24h`. `timezone` is optional and accepts an IANA timezone such as `America/Chicago`. `label` is optional.
+
+### Weather
+
+Displays compact current weather using the shared Open-Meteo weather resources.
+
+```yaml
+- type: weather
+  position: 2
+  location: St. Louis, Missouri
+  units: imperial
+  show-area-name: false
+  hide-location: false
+```
+
+`location` is required. `units` defaults to `metric` and accepts `metric` or `imperial`. `show-area-name` optionally includes the returned area name, while `hide-location` suppresses the location line.
+
+Weather refreshes on the hourly boundary and equivalent Open-Meteo requests share the existing resource cache.
+
+### Markets
+
+Displays compact market symbols and percentage changes using the shared Yahoo Markets resources.
+
+```yaml
+- type: markets
+  position: 2
+  markets:
+    - symbol: SPY
+    - symbol: QQQ
+  sort-by: absolute-change
+```
+
+At least one market symbol is required. `stocks` is accepted as a compatibility alias when `markets` is not configured. The optional `sort-by` setting supports `change` and `absolute-change`; when omitted, market results retain their returned order. `chart-link-template` and `symbol-link-template` are also supported and may contain `{SYMBOL}`.
+
+Market data uses a one-hour cache and equivalent Yahoo Markets requests share the existing resource cache.
+
+### Monitor
+
+Displays compact site status using the same site configuration and status behavior as the Monitor widget.
+
+```yaml
+- type: monitor
+  position: 3
+  show-failing-only: false
+  sites:
+    - title: Example
+      url: https://example.com
+```
+
+At least one site is required. Site entries use the Monitor widget site configuration. When `show-failing-only` is enabled and every configured site is healthy, the micro-widget displays an all-online state.
+
+Monitor data uses a five-minute cache. Equivalent Monitor requests share cached results rather than issuing duplicate requests.
+
+Dynamic Weather, Markets, and Monitor micro-widgets participate in the normal Glance initialization, refresh, recovery, and live-update lifecycle. Bookmark, Clock, and Link require no provider refresh.
+
 
 ## Pages & Columns
 ![illustration of pages and columns](images/instructions/pages-and-columns.png)

@@ -204,7 +204,7 @@ func fetchSiteStatusTask(ctx context.Context, statusRequest *SiteStatusRequest) 
 
 func fetchStatusForSites(ctx context.Context, requests []*SiteStatusRequest) ([]siteStatus, error) {
 	task := func(request *SiteStatusRequest) (siteStatus, error) {
-		return fetchSiteStatusTask(ctx, request)
+		return fetchMonitorSiteResource(ctx, request)
 	}
 
 	job := newJob(task, requests).withWorkers(20).withContext(ctx)

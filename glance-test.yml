@@ -16,6 +16,44 @@ server:
 branding:
   app-name: "Glance Test"
 
+footer-micro-widgets:
+  max-per-side: 5
+  left:
+    - type: bookmark
+      position: 1
+      title: "GitHub"
+      url: https://github.com/samcro1967/glance
+      icon: si:github
+    - type: weather
+      position: 2
+      location: "St. Louis, Missouri"
+      units: imperial
+      show-area-name: false
+    - type: link
+      position: 3
+      title: "Glance Docs"
+      url: https://github.com/samcro1967/glance/tree/main/docs
+      same-tab: true
+  right:
+    - type: clock
+      position: 1
+      hour-format: 12h
+      label: "Local"
+    - type: markets
+      position: 2
+      markets:
+        - symbol: SPY
+    - type: monitor
+      position: 3
+      sites:
+        - title: "Example"
+          url: https://example.com
+    - type: clock
+      position: 4
+      hour-format: 24h
+      timezone: America/New_York
+      label: "NY"
+
 $include: testdata/expanded-theme.yml
 
 # ---------------------------------------------------------------------------

@@ -68,9 +68,10 @@ type config struct {
 		AppBackgroundColor string        `yaml:"app-background-color"`
 	} `yaml:"branding"`
 
-	WidgetDefaults widgetDefaultsConfig             `yaml:"widget-defaults"`
-	Pages          []page                           `yaml:"pages"`
-	Dashboards     orderedYAMLMap[string, []string] `yaml:"dashboards"`
+	FooterMicroWidgets footerMicroWidgets               `yaml:"footer-micro-widgets"`
+	WidgetDefaults     widgetDefaultsConfig             `yaml:"widget-defaults"`
+	Pages              []page                           `yaml:"pages"`
+	Dashboards         orderedYAMLMap[string, []string] `yaml:"dashboards"`
 }
 
 type user struct {
@@ -382,6 +383,22 @@ func newConfigFromParsedYAML(parsed *parsedYAMLConfig) (*config, error) {
 	}
 
 	defaultsLogSummary := widgetDefaultsLogSummary{}
+
+	for _, candidate := range config.FooterMicroWidgets.Left {
+		if dynamic, ok := candidate.(dynamicMicroWidget); ok {
+			if err := dynamic.initialize(); err != nil {
+				return nil, fmt.Errorf("%s micro-widget: %w", dynamic.GetType(), err)
+			}
+		}
+	}
+
+	for _, candidate := range config.FooterMicroWidgets.Right {
+		if dynamic, ok := candidate.(dynamicMicroWidget); ok {
+			if err := dynamic.initialize(); err != nil {
+				return nil, fmt.Errorf("%s micro-widget: %w", dynamic.GetType(), err)
+			}
+		}
+	}
 
 	for p := range config.Pages {
 		var pageSource configPageSemanticSources
