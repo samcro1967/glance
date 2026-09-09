@@ -1699,7 +1699,7 @@ pages:
             widgets:
               - type: releases
                 repositories:
-                  - glanceapp/glance
+                  - samcro1967/glance
 
           - type: split-column
             widgets:

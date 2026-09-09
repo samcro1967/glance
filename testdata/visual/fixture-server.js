@@ -37,7 +37,7 @@ const changeDetectionWatches = {
 const dockerContainers = [
   {
     Names: ['/glance'],
-    Image: 'glanceapp/glance:latest',
+    Image: 'ghcr.io/samcro1967/glance:latest',
     State: 'running',
     Status: 'Up 2 hours',
     Labels: {

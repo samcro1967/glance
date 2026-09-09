@@ -275,7 +275,7 @@ pages:
                   - title: Links
                     links:
                       - title: Glance
-                        url: https://github.com/glanceapp/glance
+                        url: https://github.com/samcro1967/glance
 
       - size: full
         widgets:
@@ -429,7 +429,7 @@ pages:
           - type: custom-api
             title: Custom API - Native Presentation
             css-class: visual-fixture-custom-api
-            url: https://api.github.com/repos/glanceapp/glance
+            url: https://api.github.com/repos/samcro1967/glance
             cache: 1h
             headers:
               Accept: application/vnd.github+json
@@ -453,7 +453,7 @@ pages:
             source: |
               ## Presentation hierarchy
 
-              Markdown verifies **headings**, body copy, [links](https://github.com/glanceapp/glance), lists, code, and separators.
+              Markdown verifies **headings**, body copy, [links](https://github.com/samcro1967/glance), lists, code, and separators.
 
               - Primary information
               - Secondary information
@@ -570,7 +570,7 @@ pages:
               - title: GitHub
                 url: https://github.com/
               - title: Glance
-                url: https://github.com/glanceapp/glance
+                url: https://github.com/samcro1967/glance
 
           - type: docker-containers
             title: Docker Containers
@@ -618,7 +618,7 @@ pages:
           - type: repository
             title: Repository
             css-class: visual-fixture-repository
-            repository: glanceapp/glance
+            repository: samcro1967/glance
 
       - size: full
         widgets:
@@ -747,7 +747,7 @@ pages:
               - title: Theme Links
                 links:
                   - title: Glance
-                    url: https://github.com/glanceapp/glance
+                    url: https://github.com/samcro1967/glance
 
   - name: Theme Dark Page
     slug: theme-dark-page
@@ -921,7 +921,7 @@ pages:
             source: |
               ## Typography hierarchy
 
-              Primary text, **emphasis**, [links](https://github.com/glanceapp/glance), `code`, and supporting copy.
+              Primary text, **emphasis**, [links](https://github.com/samcro1967/glance), `code`, and supporting copy.
 
               <div class="theme-css-layers">
                 <span class="theme-css-global">Global CSS</span>
@@ -938,7 +938,7 @@ pages:
         widgets:
           - type: custom-api
             title: Semantic Components
-            url: https://api.github.com/repos/glanceapp/glance
+            url: https://api.github.com/repos/samcro1967/glance
             cache: 1h
             headers:
               Accept: application/vnd.github+json
@@ -990,7 +990,7 @@ pages:
               - title: Links
                 links:
                   - title: Glance
-                    url: https://github.com/glanceapp/glance
+                    url: https://github.com/samcro1967/glance
 
   - name: Theme Composition
     slug: theme-composition
@@ -1078,7 +1078,7 @@ pages:
               - title: Development
                 links:
                   - title: Glance
-                    url: https://github.com/glanceapp/glance
+                    url: https://github.com/samcro1967/glance
                   - title: Documentation
                     url: https://github.com/samcro1967/glance/tree/dev/docs
               - title: Resources

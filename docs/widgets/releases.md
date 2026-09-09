@@ -43,7 +43,7 @@ A list of repositores to fetch the latest release for. Only the name/repo is req
 ```yaml
 repositories:
   - gitlab:inkscape/inkscape
-  - dockerhub:glanceapp/glance
+  - dockerhub:grafana/grafana
   - codeberg:redict/redict
 ```
 

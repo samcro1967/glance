@@ -8,7 +8,7 @@ DTSTART;VALUE=DATE:20260910
 DTEND;VALUE=DATE:20260911
 SUMMARY:All-day design review
 LOCATION:Design Studio
-URL:https://github.com/glanceapp/glance
+URL:https://github.com/samcro1967/glance
 END:VEVENT
 BEGIN:VEVENT
 UID:visual-qa-2@glance
