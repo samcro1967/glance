@@ -1028,6 +1028,53 @@ function setupClocks() {
     updateClocks();
 }
 
+function setupFooterMicroClocks() {
+    const clocks = document.getElementsByClassName("footer-micro-clock");
+
+    for (const clock of clocks) {
+        if (clock.dataset.microClockInitialized === "true") {
+            continue;
+        }
+
+        clock.dataset.microClockInitialized = "true";
+
+        const updateClock = () => {
+            if (!clock.isConnected) {
+                return;
+            }
+
+            const dateElement = clock.querySelector("[data-micro-clock-date]");
+            const timeElement = clock.querySelector("[data-micro-clock-time]");
+            if (!dateElement || !timeElement) {
+                return;
+            }
+
+            const now = new Date();
+            const dateOptions = {
+                month: "short",
+                day: "numeric",
+            };
+            const timeOptions = {
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: clock.dataset.hourFormat === "12h",
+                timeZoneName: "short",
+            };
+
+            if (clock.dataset.timezone) {
+                dateOptions.timeZone = clock.dataset.timezone;
+                timeOptions.timeZone = clock.dataset.timezone;
+            }
+
+            dateElement.textContent = new Intl.DateTimeFormat([], dateOptions).format(now);
+            timeElement.textContent = new Intl.DateTimeFormat([], timeOptions).format(now);
+            setTimeout(updateClock, (60 - now.getSeconds()) * 1000);
+        };
+
+        updateClock();
+    }
+}
+
 function setupAnalogClocks() {
     const clocks = document.getElementsByClassName('analog-clock');
 
@@ -1670,6 +1717,7 @@ async function setupPage() {
         runFrontendDiagnosticStage("presentation", () => setupPresentation());
         runFrontendDiagnosticStage("popovers", () => setupPopovers());
         runFrontendDiagnosticStage("clocks", () => setupClocks());
+        runFrontendDiagnosticStage("footer_micro_clocks", () => setupFooterMicroClocks());
         runFrontendDiagnosticStage("analog_clocks", () => setupAnalogClocks());
         await runFrontendDiagnosticAsyncStage(
             "calendars",

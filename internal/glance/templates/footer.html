@@ -19,5 +19,26 @@
 {{ else }}
     {{ .App.Config.Branding.CustomFooter }}
 {{ end }}
+{{ if .Page }}
+    {{ with .App.Config.FooterMicroWidgets }}
+        {{ if or .Left .Right }}
+        <div class="footer-micro-layer">
+            {{ if .Left }}
+            <div class="footer-micro-group footer-micro-group-left">
+                {{ range .Left }}{{ if eq .GetType "bookmark" }}{{ template "footer-micro-bookmark" . }}{{ else if eq .GetType "clock" }}{{ template "footer-micro-clock" . }}{{ else if eq .GetType "weather" }}{{ .Render }}{{ else if eq .GetType "markets" }}{{ .Render }}{{ else if eq .GetType "monitor" }}{{ .Render }}{{ else if eq .GetType "link" }}{{ template "footer-micro-link" . }}{{ end }}{{ end }}
+            </div>
+            {{ end }}
+            {{ if .Right }}
+            <div class="footer-micro-group footer-micro-group-right">
+                {{ range .Right }}{{ if eq .GetType "bookmark" }}{{ template "footer-micro-bookmark" . }}{{ else if eq .GetType "clock" }}{{ template "footer-micro-clock" . }}{{ else if eq .GetType "weather" }}{{ .Render }}{{ else if eq .GetType "markets" }}{{ .Render }}{{ else if eq .GetType "monitor" }}{{ .Render }}{{ else if eq .GetType "link" }}{{ template "footer-micro-link" . }}{{ end }}{{ end }}
+            </div>
+            {{ end }}
+        </div>
+        {{ end }}
+    {{ end }}
+{{ end }}
 </footer>
 {{ end }}
+{{ define "footer-micro-bookmark" }}<a class="footer-micro-item" href="{{ .URL }}"{{ if not .SameTab }} target="_blank"{{ end }} rel="noreferrer">{{ if .Icon.URL }}<img class="footer-micro-icon{{ if .Icon.AutoInvert }} flat-icon{{ end }}" src="{{ .Icon.URL }}" alt="" loading="lazy">{{ end }}<span>{{ .Title }}</span></a>{{ end }}
+{{ define "footer-micro-link" }}<a class="footer-micro-item footer-micro-link" href="{{ .URL }}"{{ if not .SameTab }} target="_blank"{{ end }} rel="noreferrer">{{ .Title }}</a>{{ end }}
+{{ define "footer-micro-clock" }}<span class="footer-micro-item footer-micro-clock" data-hour-format="{{ .HourFormat }}"{{ if .Timezone }} data-timezone="{{ .Timezone }}"{{ end }}><span class="footer-micro-clock-context">{{ if .Label }}<span>{{ .Label }} · </span>{{ end }}<span data-micro-clock-date></span></span><span class="footer-micro-clock-time" data-micro-clock-time></span></span>{{ end }}

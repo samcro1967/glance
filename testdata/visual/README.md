@@ -19,7 +19,11 @@ The visual QA configuration mirrors the eight widget categories in `docs/widgets
 
 `make visual-screenshots` captures all canonical QA pages into `testdata/visual/screenshots/`. These files are intentionally ignored by Git. Use `DASHBOARD=<name>` or `PAGE=<slug>` to refresh only one dashboard or canonical page without deleting unrelated captures, for example `make visual-screenshots DASHBOARD=themes` or `make visual-screenshots PAGE=theme-components`.
 
-`make visual-docs` stages every managed documentation capture by default. Use the same `DASHBOARD=<name>` or `PAGE=<slug>` selectors for a targeted refresh. `make visual-docs-promote` accepts the same selectors and promotes only matching staged images during a selective run. Full promotion retains the exact complete-staging-set contract. Diagrams, instructional screenshots, GIFs, and other unmapped media remain manually maintained.
+`make visual-docs` stages every managed browser documentation capture by default. Use `DASHBOARD=<name>` or `PAGE=<slug>` for a targeted refresh. The staging pre-check permits newly registered browser-managed images to be absent from `docs/images` so they can be captured and reviewed before promotion; static-managed images, manifest ownership, Markdown references, and unmanaged files remain strict.
+
+`make visual-docs-promote` promotes reviewed staged captures. Use `DASHBOARD=<name>` or `PAGE=<slug>` to promote the matching visual scope, or `IMAGE=<manifest-relative-path>` to promote exactly one browser-managed image, for example `make visual-docs-promote IMAGE=instructions/footer-micro-widgets.png`. `DASHBOARD`, `PAGE`, and `IMAGE` are mutually exclusive promotion scopes. An `IMAGE` selection must exist in `docs-images.json` and be browser-managed.
+
+Full promotion retains the exact complete-staging-set contract. `make visual-check` remains the strict final contract and requires every managed documentation image to exist in `docs/images`. Diagrams, instructional screenshots, GIFs, and other static-managed media are preserved rather than browser-captured.
 
 `make visual-all` runs the structural check and both screenshot modes.
 

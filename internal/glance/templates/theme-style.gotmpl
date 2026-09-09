@@ -54,6 +54,8 @@
     {{ if .Widgets.Radius }}--theme-widget-radius: {{ .WidgetRadiusCSS }};{{ end }}
     {{ if .Widgets.Shadow }}--theme-widget-shadow: {{ .WidgetShadowCSS }};{{ end }}
     {{ if .Widgets.Blur }}--theme-widget-blur: {{ .WidgetBlurCSS }};{{ end }}
+    {{ if .Widgets.FontSize }}--theme-widget-font-size: {{ .WidgetFontSizeCSS }};{{ end }}
+    {{ if .Widgets.FontWeight }}--theme-widget-font-weight: {{ .WidgetFontWeightCSS }};{{ end }}
 
 
     {{ if .WidgetHeader.BackgroundColor }}--theme-widget-header-background-color: {{ .WidgetHeader.BackgroundColor.String | safeCSS }};{{ end }}

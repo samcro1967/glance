@@ -354,6 +354,13 @@ func newApplication(c *config) (*application, error) {
 		assetResolver: app.StaticAssetPath,
 	}
 
+	footerDynamicWidgets := config.FooterMicroWidgets.dynamicWidgets()
+	for _, widget := range footerDynamicWidgets {
+		widget.setID(widgetIDCounter.Add(1))
+		widget.setProviders(providers)
+		app.widgetByID[widget.GetID()] = widget
+	}
+
 	for p := range config.Pages {
 		page := &config.Pages[p]
 		page.PrimaryColumnIndex = -1
@@ -435,6 +442,8 @@ func newApplication(c *config) (*application, error) {
 	}
 
 	refreshSources := make(widgets, 0)
+	refreshSources = append(refreshSources, footerDynamicWidgets...)
+
 	for p := range config.Pages {
 		page := &config.Pages[p]
 		refreshSources = append(refreshSources, page.HeadWidgets...)
@@ -521,6 +530,22 @@ func (p *page) updateOutdatedWidgets(ctx context.Context) {
 	for w := range p.BottomWidgets {
 		wg.Add(1)
 		go refreshWidget(p.BottomWidgets[w])
+	}
+
+	wg.Wait()
+}
+
+func (footer *footerMicroWidgets) updateOutdatedWidgets(ctx context.Context) {
+	now := time.Now()
+	widgets := footer.dynamicWidgets()
+
+	var wg sync.WaitGroup
+	for _, candidate := range widgets {
+		wg.Add(1)
+		go func(candidate widget) {
+			defer wg.Done()
+			refreshWidgetIfNeeded(ctx, candidate, &now)
+		}(candidate)
 	}
 
 	wg.Wait()
@@ -755,6 +780,7 @@ func (a *application) handlePageContentRequest(w http.ResponseWriter, r *http.Re
 		defer page.mu.Unlock()
 
 		page.updateOutdatedWidgets(r.Context())
+		a.Config.FooterMicroWidgets.updateOutdatedWidgets(r.Context())
 		err = pageContentTemplate.Execute(&responseBytes, pageData)
 	}()
 
