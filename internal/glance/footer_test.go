@@ -259,6 +259,50 @@ func TestFooterMicroWidgetsRender(t *testing.T) {
 	}
 }
 
+func TestFooterMicroWeatherAndMarketsNavigationDefaults(t *testing.T) {
+	weatherMicro := &microWeather{
+		widgetBase: widgetBase{Type: "weather"},
+		Position:   1,
+		Units:      "imperial",
+		Place:      &openMeteoPlaceResponseJson{Name: "St. Louis"},
+		Weather:    &weather{Temperature: 72, WeatherCode: 0},
+	}
+	weatherMicro.setID(201)
+
+	marketsMicro := &microMarkets{
+		widgetBase: widgetBase{Type: "markets"},
+		Position:   2,
+		Markets: marketList{
+			{marketRequest: marketRequest{Symbol: "SPY"}, PercentChange: 1.25},
+		},
+	}
+	marketsMicro.setID(202)
+
+	app := &application{
+		Version: "dev",
+		Config: config{
+			FooterMicroWidgets: footerMicroWidgets{
+				Left: microWidgets{weatherMicro, marketsMicro},
+			},
+		},
+	}
+
+	rendered := renderFooterWithPageForTest(t, app, &page{})
+
+	if strings.Contains(rendered, `href="https://weather.example/`) {
+		t.Errorf("weather without URL unexpectedly rendered as link:\n%s", rendered)
+	}
+	if strings.Contains(rendered, `href="https://quote.example/`) {
+		t.Errorf("market without SymbolLink unexpectedly rendered as link:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, `class="footer-micro-item footer-micro-weather"`) {
+		t.Errorf("unlinked weather markup missing:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, `class="footer-micro-market"`) {
+		t.Errorf("unlinked market markup missing:\n%s", rendered)
+	}
+}
+
 func TestFooterMicroWidgetsRequirePage(t *testing.T) {
 	app := &application{
 		Version: "dev",
@@ -352,6 +396,8 @@ func TestFooterMicroWidgetsRenderAllSupportedTypes(t *testing.T) {
 		Position:     2,
 		Units:        "imperial",
 		ShowAreaName: true,
+		URL:          "https://weather.example/st-louis",
+		SameTab:      true,
 		Place:        &openMeteoPlaceResponseJson{Name: "St. Louis", Area: "Missouri"},
 		Weather:      &weather{Temperature: 72, WeatherCode: 0},
 	}
@@ -361,7 +407,7 @@ func TestFooterMicroWidgetsRenderAllSupportedTypes(t *testing.T) {
 		widgetBase: widgetBase{Type: "markets"},
 		Position:   3,
 		Markets: marketList{
-			{marketRequest: marketRequest{Symbol: "SPY"}, PercentChange: 1.25},
+			{marketRequest: marketRequest{Symbol: "SPY", SymbolLink: "https://quote.example/SPY"}, PercentChange: 1.25},
 		},
 	}
 	marketsMicro.setID(102)
@@ -408,10 +454,12 @@ func TestFooterMicroWidgetsRenderAllSupportedTypes(t *testing.T) {
 		`data-widget-id="101"`,
 		`St. Louis, Missouri`,
 		`72°F`,
+		`href="https://weather.example/st-louis"`,
 		`footer-micro-markets`,
 		`data-widget-id="102"`,
 		`SPY`,
 		`&#43;1.25%`,
+		`href="https://quote.example/SPY" target="_blank" rel="noreferrer"`,
 		`footer-micro-clock`,
 		`data-timezone="UTC"`,
 		`footer-micro-monitor`,
@@ -426,5 +474,9 @@ func TestFooterMicroWidgetsRenderAllSupportedTypes(t *testing.T) {
 		if !strings.Contains(rendered, want) {
 			t.Errorf("rendered footer missing %q:\n%s", want, rendered)
 		}
+	}
+
+	if strings.Contains(rendered, `href="https://weather.example/st-louis" target="_blank"`) {
+		t.Errorf("same-tab weather unexpectedly rendered target=_blank:\n%s", rendered)
 	}
 }

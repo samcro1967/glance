@@ -53,9 +53,17 @@ function optionValue(name) {
 
 const dashboardFilter = optionValue('dashboard');
 const pageFilter = optionValue('page');
+const imageFilter = optionValue('image');
 
-if (dashboardFilter && pageFilter) {
-  throw new Error('--dashboard and --page are mutually exclusive');
+const selectedFilters = [dashboardFilter, pageFilter, imageFilter]
+  .filter(Boolean);
+
+if (selectedFilters.length > 1) {
+  throw new Error('--dashboard, --page, and --image are mutually exclusive');
+}
+
+if (imageFilter && MODE !== 'docs') {
+  throw new Error('--image is only supported in docs mode');
 }
 
 function selectedQaPages() {
@@ -271,8 +279,22 @@ async function captureQa(browser) {
 
 async function captureDocs(browser) {
   const mappings = JSON.parse(fs.readFileSync(DOCS_MAP, 'utf8'));
-  const selective = Boolean(dashboardFilter || pageFilter);
-  const allowedRoutes = selectedRoutes();
+  const selective = Boolean(dashboardFilter || pageFilter || imageFilter);
+  const allowedRoutes = imageFilter ? null : selectedRoutes();
+
+  if (imageFilter) {
+    const recipe = mappings[imageFilter];
+
+    if (!recipe) {
+      throw new Error(`Unknown documentation image: ${imageFilter}`);
+    }
+
+    if (recipe.kind !== 'browser') {
+      throw new Error(
+        `Documentation image is not browser-managed: ${imageFilter}`
+      );
+    }
+  }
 
   if (selective) {
     fs.mkdirSync(DOCS_STAGING, { recursive: true });
@@ -281,9 +303,13 @@ async function captureDocs(browser) {
   }
 
   const browserMappings = Object.entries(mappings)
-    .filter(([, recipe]) =>
+    .filter(([filename, recipe]) =>
       recipe.kind === 'browser' &&
-      (!allowedRoutes || allowedRoutes.has(recipe.route))
+      (
+        imageFilter
+          ? filename === imageFilter
+          : (!allowedRoutes || allowedRoutes.has(recipe.route))
+      )
     );
 
   if (selective && browserMappings.length === 0) {

@@ -560,7 +560,7 @@ Footer micro-widgets provide compact page-level information and shortcuts on the
 
 `max-per-side` defaults to `5` and may be set from `1` through `10`. Each micro-widget requires a `position` between `1` and `max-per-side`. Positions must be unique within each side; the same position may be used once on the left and once on the right.
 
-Supported types are `bookmark`, `clock`, `weather`, `markets`, `monitor`, and `link`.
+Supported types are `bookmark`, `clock`, `weather`, `markets`, `monitor`, `docker`, and `link`.
 
 ### Configuration
 
@@ -653,9 +653,11 @@ Displays compact current weather using the shared Open-Meteo weather resources.
   units: imperial
   show-area-name: false
   hide-location: false
+  url: https://example.com/weather
+  same-tab: false
 ```
 
-`location` is required. `units` defaults to `metric` and accepts `metric` or `imperial`. `show-area-name` optionally includes the returned area name, while `hide-location` suppresses the location line.
+`location` is required. `units` defaults to `metric` and accepts `metric` or `imperial`. `show-area-name` optionally includes the returned area name, while `hide-location` suppresses the location line. `url` is optional; when configured, the entire compact weather item is clickable. `same-tab` defaults to `false` and controls whether that link opens in the current tab.
 
 Weather refreshes on the hourly boundary and equivalent Open-Meteo requests share the existing resource cache.
 
@@ -670,11 +672,38 @@ Displays compact market symbols and percentage changes using the shared Yahoo Ma
     - symbol: SPY
     - symbol: QQQ
   sort-by: absolute-change
+  same-tab: false
 ```
 
-At least one market symbol is required. `stocks` is accepted as a compatibility alias when `markets` is not configured. The optional `sort-by` setting supports `change` and `absolute-change`; when omitted, market results retain their returned order. `chart-link-template` and `symbol-link-template` are also supported and may contain `{SYMBOL}`.
+At least one market symbol is required. `stocks` is accepted as a compatibility alias when `markets` is not configured. The optional `sort-by` setting supports `change` and `absolute-change`; when omitted, market results retain their returned order. Each compact market item is clickable and defaults to its Yahoo Finance quote page. Link precedence is an individual market `symbol-link`, then the widget-level `symbol-link-template`, then the built-in Yahoo Finance URL. `symbol-link-template` may contain `{SYMBOL}`. `chart-link-template` is also supported and may contain `{SYMBOL}`. `same-tab` defaults to `false` and controls whether symbol links open in the current tab.
 
 Market data uses a one-hour cache and equivalent Yahoo Markets requests share the existing resource cache.
+
+### Docker
+
+Displays either one Docker container or a compact Docker summary using the same Docker API and container-state behavior as the Docker Containers widget.
+
+Individual container:
+
+```yaml
+- type: docker
+  position: 4
+  container: Glance
+  sock-path: /var/run/docker.sock
+```
+
+Summary:
+
+```yaml
+- type: docker
+  position: 5
+  summary: true
+  sock-path: /var/run/docker.sock
+```
+
+Exactly one mode is required: configure `container` for an individual container or set `summary: true`. `sock-path` defaults to `/var/run/docker.sock` and also accepts a remote Docker API source. In individual mode, `container` matches the final displayed Docker container name after the existing Docker naming rules, including `glance.name` and `format-container-names`. Existing Docker `glance.url` and `glance.same-tab` labels control navigation. Optional `name`, `url`, and `same-tab` settings can override the displayed name and navigation for the micro-widget.
+
+Summary mode displays containers in the normal running state over the total number returned after Docker filtering is applied. Docker micro-widget data uses a one-minute cache.
 
 ### Monitor
 
@@ -693,7 +722,7 @@ At least one site is required. Site entries use the Monitor widget site configur
 
 Monitor data uses a five-minute cache. Equivalent Monitor requests share cached results rather than issuing duplicate requests.
 
-Dynamic Weather, Markets, and Monitor micro-widgets participate in the normal Glance initialization, refresh, recovery, and live-update lifecycle. Bookmark, Clock, and Link require no provider refresh.
+Dynamic Weather, Markets, Monitor, and Docker micro-widgets participate in the normal Glance initialization, refresh, recovery, and live-update lifecycle. Bookmark, Clock, and Link require no provider refresh.
 
 
 ## Pages & Columns

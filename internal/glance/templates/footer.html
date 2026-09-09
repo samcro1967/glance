@@ -25,12 +25,12 @@
         <div class="footer-micro-layer">
             {{ if .Left }}
             <div class="footer-micro-group footer-micro-group-left">
-                {{ range .Left }}{{ if eq .GetType "bookmark" }}{{ template "footer-micro-bookmark" . }}{{ else if eq .GetType "clock" }}{{ template "footer-micro-clock" . }}{{ else if eq .GetType "weather" }}{{ .Render }}{{ else if eq .GetType "markets" }}{{ .Render }}{{ else if eq .GetType "monitor" }}{{ .Render }}{{ else if eq .GetType "link" }}{{ template "footer-micro-link" . }}{{ end }}{{ end }}
+                {{ range .Left }}{{ if eq .GetType "bookmark" }}{{ template "footer-micro-bookmark" . }}{{ else if eq .GetType "clock" }}{{ template "footer-micro-clock" . }}{{ else if eq .GetType "weather" }}{{ .Render }}{{ else if eq .GetType "markets" }}{{ .Render }}{{ else if eq .GetType "monitor" }}{{ .Render }}{{ else if eq .GetType "docker" }}{{ .Render }}{{ else if eq .GetType "link" }}{{ template "footer-micro-link" . }}{{ end }}{{ end }}
             </div>
             {{ end }}
             {{ if .Right }}
             <div class="footer-micro-group footer-micro-group-right">
-                {{ range .Right }}{{ if eq .GetType "bookmark" }}{{ template "footer-micro-bookmark" . }}{{ else if eq .GetType "clock" }}{{ template "footer-micro-clock" . }}{{ else if eq .GetType "weather" }}{{ .Render }}{{ else if eq .GetType "markets" }}{{ .Render }}{{ else if eq .GetType "monitor" }}{{ .Render }}{{ else if eq .GetType "link" }}{{ template "footer-micro-link" . }}{{ end }}{{ end }}
+                {{ range .Right }}{{ if eq .GetType "bookmark" }}{{ template "footer-micro-bookmark" . }}{{ else if eq .GetType "clock" }}{{ template "footer-micro-clock" . }}{{ else if eq .GetType "weather" }}{{ .Render }}{{ else if eq .GetType "markets" }}{{ .Render }}{{ else if eq .GetType "monitor" }}{{ .Render }}{{ else if eq .GetType "docker" }}{{ .Render }}{{ else if eq .GetType "link" }}{{ template "footer-micro-link" . }}{{ end }}{{ end }}
             </div>
             {{ end }}
         </div>

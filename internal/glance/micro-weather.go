@@ -13,6 +13,8 @@ type microWeather struct {
 	ShowAreaName bool                        `yaml:"show-area-name"`
 	HideLocation bool                        `yaml:"hide-location"`
 	Units        string                      `yaml:"units"`
+	URL          string                      `yaml:"url"`
+	SameTab      bool                        `yaml:"same-tab"`
 	Place        *openMeteoPlaceResponseJson `yaml:"-"`
 	Weather      *weather                    `yaml:"-"`
 }
