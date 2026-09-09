@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+const defaultMicroMarketSymbolLinkTemplate = "https://finance.yahoo.com/quote/{SYMBOL}"
+
 type microMarkets struct {
 	widgetBase         `yaml:",inline"`
 	Position           int             `yaml:"position"`
@@ -16,6 +18,7 @@ type microMarkets struct {
 	Sort               string          `yaml:"sort-by"`
 	ChartLinkTemplate  string          `yaml:"chart-link-template"`
 	SymbolLinkTemplate string          `yaml:"symbol-link-template"`
+	SameTab            bool            `yaml:"same-tab"`
 	Markets            marketList      `yaml:"-"`
 }
 
@@ -45,8 +48,13 @@ func (m *microMarkets) initialize() error {
 			request.ChartLink = strings.ReplaceAll(m.ChartLinkTemplate, "{SYMBOL}", request.Symbol)
 		}
 
-		if request.SymbolLink == "" && m.SymbolLinkTemplate != "" {
-			request.SymbolLink = strings.ReplaceAll(m.SymbolLinkTemplate, "{SYMBOL}", request.Symbol)
+		if request.SymbolLink == "" {
+			symbolLinkTemplate := m.SymbolLinkTemplate
+			if symbolLinkTemplate == "" {
+				symbolLinkTemplate = defaultMicroMarketSymbolLinkTemplate
+			}
+
+			request.SymbolLink = strings.ReplaceAll(symbolLinkTemplate, "{SYMBOL}", request.Symbol)
 		}
 	}
 

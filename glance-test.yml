@@ -29,11 +29,17 @@ footer-micro-widgets:
       location: "St. Louis, Missouri"
       units: imperial
       show-area-name: false
+      url: https://weather.example/st-louis
+      same-tab: true
     - type: link
       position: 3
       title: "Glance Docs"
       url: https://github.com/samcro1967/glance/tree/main/docs
       same-tab: true
+    - type: docker
+      position: 4
+      container: Glance
+      sock-path: http://127.0.0.1:18089
   right:
     - type: clock
       position: 1
@@ -53,6 +59,10 @@ footer-micro-widgets:
       hour-format: 24h
       timezone: America/New_York
       label: "NY"
+    - type: docker
+      position: 5
+      summary: true
+      sock-path: http://127.0.0.1:18089
 
 $include: testdata/expanded-theme.yml
 

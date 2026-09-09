@@ -1673,6 +1673,12 @@ test-instance-fixture-stop:
 
 test-instance-start: test-instance-fixture-start
 	@set -euo pipefail; \
+	if ss -ltn "sport = :$(TEST_PORT)" 2>/dev/null | tail -n +2 | grep -q .; then \
+		echo "Test port $(TEST_PORT) is already in use."; \
+		echo "Refusing to start a canonical test instance against an occupied endpoint."; \
+		$(MAKE) --no-print-directory test-instance-fixture-stop; \
+		exit 1; \
+	fi; \
 	if [ ! -f "$(TEST_CONFIG)" ]; then \
 		echo "Canonical test configuration does not exist: $(TEST_CONFIG)"; \
 		$(MAKE) --no-print-directory test-instance-fixture-stop; \
@@ -2081,7 +2087,7 @@ visual-docs:
 	@echo "=== VISUAL DOCUMENTATION STAGING CONTRACT ==="
 	@python3 testdata/visual/check-gallery.py --allow-missing-browser-images
 	@echo "=== VISUAL DOCUMENTATION SCREENSHOTS - STAGING ONLY ==="
-	@bash testdata/visual/run.sh docs $(if $(DASHBOARD),--dashboard=$(DASHBOARD)) $(if $(PAGE),--page=$(PAGE))
+	@bash testdata/visual/run.sh docs $(if $(DASHBOARD),--dashboard=$(DASHBOARD)) $(if $(PAGE),--page=$(PAGE)) $(if $(IMAGE),--image=$(IMAGE))
 	@echo
 	@echo "Documentation captures are staged only."
 	@echo "Review testdata/visual/docs-staging before promotion."

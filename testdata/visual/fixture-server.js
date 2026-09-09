@@ -13,21 +13,21 @@ function sendJson(res, value) {
 const changeDetectionWatches = {
   'glance-release': {
     title: 'Glance Releases',
-    url: 'https://github.com/glanceapp/glance/releases',
+    url: 'https://github.com/samcro1967/glance/releases',
     last_changed: 1788876000,
     date_created: 1786284000,
     previous_md5: '9f81d7a6e5c4b321'
   },
   'documentation': {
     title: 'Documentation',
-    url: 'https://github.com/glanceapp/glance/tree/main/docs',
+    url: 'https://github.com/samcro1967/glance/tree/main/docs',
     last_changed: 1788782400,
     date_created: 1786197600,
     previous_md5: '6a42bc9177ef3301'
   },
   'project-home': {
     title: 'Project Home',
-    url: 'https://github.com/glanceapp/glance',
+    url: 'https://github.com/samcro1967/glance',
     last_changed: 1788616800,
     date_created: 1786024800,
     previous_md5: '318ef9c044b7d920'
@@ -44,7 +44,7 @@ const dockerContainers = [
       'glance.name': 'Glance',
       'glance.id': 'glance',
       'glance.description': 'Dashboard',
-      'glance.url': 'https://github.com/glanceapp/glance'
+      'glance.url': 'https://github.com/samcro1967/glance'
     }
   },
   {

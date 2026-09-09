@@ -563,11 +563,16 @@ func TestMicroWeatherOptionsAndValidation(t *testing.T) {
       units: imperial
       show-area-name: true
       hide-location: true
+      url: https://weather.example/st-louis
+      same-tab: true
 `)
 
 	weather := c.FooterMicroWidgets.Left[0].(*microWeather)
 	if weather.Units != "imperial" || !weather.ShowAreaName || !weather.HideLocation {
 		t.Fatalf("weather options = %#v, want imperial/show-area-name/hide-location", weather)
+	}
+	if weather.URL != "https://weather.example/st-louis" || !weather.SameTab {
+		t.Fatalf("weather navigation = url %q same-tab %v", weather.URL, weather.SameTab)
 	}
 
 	_, err := newConfigFromYAML([]byte(`footer-micro-widgets:
@@ -596,6 +601,7 @@ func TestMicroMarketsOptionsAndValidation(t *testing.T) {
       sort-by: change
       chart-link-template: https://chart.example/{SYMBOL}
       symbol-link-template: https://quote.example/{SYMBOL}
+      same-tab: true
 `)
 
 	markets := c.FooterMicroWidgets.Left[0].(*microMarkets)
@@ -611,6 +617,9 @@ func TestMicroMarketsOptionsAndValidation(t *testing.T) {
 	if markets.Sort != "change" {
 		t.Errorf("sort = %q, want change", markets.Sort)
 	}
+	if !markets.SameTab {
+		t.Error("same-tab = false, want true")
+	}
 
 	_, err := newConfigFromYAML([]byte(`footer-micro-widgets:
   left:
@@ -625,6 +634,109 @@ pages:
 `))
 	if err == nil || !strings.Contains(err.Error(), "market symbol is required") {
 		t.Fatalf("missing symbol error = %v", err)
+	}
+}
+
+func TestMicroMarketsSymbolLinkPrecedence(t *testing.T) {
+	c := decodeMicroWidgetTestConfig(t, `footer-micro-widgets:
+  left:
+    - type: markets
+      position: 1
+      markets:
+        - symbol: SPY
+        - symbol: QQQ
+          symbol-link: https://quote.example/custom-qqq
+`)
+
+	markets := c.FooterMicroWidgets.Left[0].(*microMarkets)
+
+	if got := markets.MarketsRequests[0].SymbolLink; got != "https://finance.yahoo.com/quote/SPY" {
+		t.Errorf("default SPY symbol link = %q, want Yahoo Finance", got)
+	}
+
+	if got := markets.MarketsRequests[1].SymbolLink; got != "https://quote.example/custom-qqq" {
+		t.Errorf("explicit QQQ symbol link = %q, want configured override", got)
+	}
+}
+
+func TestMicroDockerOptionsAndValidation(t *testing.T) {
+	c := decodeMicroWidgetTestConfig(t, `footer-micro-widgets:
+  left:
+    - type: docker
+      position: 1
+      container: glance
+      sock-path: http://127.0.0.1:18089
+      name: Dashboard
+      url: https://example.com/glance
+      same-tab: true
+`)
+
+	docker := c.FooterMicroWidgets.Left[0].(*microDocker)
+	if docker.Container != "glance" {
+		t.Errorf("Container = %q, want glance", docker.Container)
+	}
+	if docker.SockPath != "http://127.0.0.1:18089" {
+		t.Errorf("SockPath = %q", docker.SockPath)
+	}
+	if docker.Name != "Dashboard" || docker.URL != "https://example.com/glance" || !docker.SameTab {
+		t.Errorf("docker navigation/display options = %#v", docker)
+	}
+
+	summary := decodeMicroWidgetTestConfig(t, `footer-micro-widgets:
+  left:
+    - type: docker
+      position: 1
+      summary: true
+`).FooterMicroWidgets.Left[0].(*microDocker)
+
+	if !summary.Summary {
+		t.Fatal("Summary = false, want true")
+	}
+	if summary.SockPath != "/var/run/docker.sock" {
+		t.Errorf("default SockPath = %q, want /var/run/docker.sock", summary.SockPath)
+	}
+}
+
+func TestMicroDockerValidationErrors(t *testing.T) {
+	tests := []struct {
+		name    string
+		yaml    string
+		wantErr string
+	}{
+		{
+			name: "requires mode",
+			yaml: `footer-micro-widgets:
+  left:
+    - type: docker
+      position: 1
+`,
+			wantErr: "docker micro-widget: either container or summary is required",
+		},
+		{
+			name: "modes mutually exclusive",
+			yaml: `footer-micro-widgets:
+  left:
+    - type: docker
+      position: 1
+      container: glance
+      summary: true
+`,
+			wantErr: "docker micro-widget: container and summary cannot both be configured",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := newConfigFromYAML([]byte(tt.yaml + `
+pages:
+  - name: Home
+    columns:
+      - size: full
+`))
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("error = %v, want error containing %q", err, tt.wantErr)
+			}
+		})
 	}
 }
 
