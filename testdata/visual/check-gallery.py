@@ -21,6 +21,7 @@ Non-goals:
 """
 
 # Standard library
+import argparse
 import json
 import re
 from pathlib import Path
@@ -29,6 +30,14 @@ from pathlib import Path
 # -----------------------------------------------------------------------------
 # Constants / configuration
 # -----------------------------------------------------------------------------
+
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--allow-missing-browser-images",
+    action="store_true",
+    help="Allow browser-managed documentation images to be absent before staging and promotion.",
+)
+args = parser.parse_args()
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -518,10 +527,23 @@ unmanaged_images = sorted(
     existing_images - managed_images
 )
 
-if missing_images:
+missing_static_images = sorted(
+    set(missing_images) & static_images
+)
+missing_browser_images = sorted(
+    set(missing_images) & browser_images
+)
+
+if missing_static_images:
     fail(
-        "managed documentation images are missing from docs/images: "
-        + ", ".join(missing_images)
+        "static-managed documentation images are missing from docs/images: "
+        + ", ".join(missing_static_images)
+    )
+
+if missing_browser_images and not args.allow_missing_browser_images:
+    fail(
+        "browser-managed documentation images are missing from docs/images: "
+        + ", ".join(missing_browser_images)
     )
 
 if unmanaged_images:
@@ -569,7 +591,10 @@ print(
     f"Unmanaged docs/images files: "
     f"{len(unmanaged_images)}"
 )
-print("Documentation filesystem ownership: EXACT")
+if missing_browser_images:
+    print("Documentation filesystem ownership: PERMISSIVE (browser-managed images may be missing)")
+else:
+    print("Documentation filesystem ownership: EXACT")
 
 print()
 print("=== VISUAL PAGE CONTRACT ===")

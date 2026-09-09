@@ -17,6 +17,7 @@ parser = argparse.ArgumentParser(
 group = parser.add_mutually_exclusive_group()
 group.add_argument("--dashboard")
 group.add_argument("--page")
+group.add_argument("--image")
 args = parser.parse_args()
 
 visual_pages = json.loads(
@@ -69,20 +70,30 @@ if args.page:
 
 recipes = json.loads(MANIFEST.read_text())
 
+if args.image:
+    recipe = recipes.get(args.image)
+    if recipe is None:
+        raise SystemExit(f"ERROR: unknown documentation image: {args.image}")
+    if recipe.get("kind") != "browser":
+        raise SystemExit(f"ERROR: documentation image is not browser-managed: {args.image}")
+
 browser_images = {
     filename
     for filename, recipe in recipes.items()
     if recipe.get("kind") == "browser"
 }
 
-selected_browser_images = {
-    filename
-    for filename in browser_images
-    if (
-        allowed_routes is None
-        or recipes[filename].get("route") in allowed_routes
-    )
-}
+if args.image:
+    selected_browser_images = {args.image}
+else:
+    selected_browser_images = {
+        filename
+        for filename in browser_images
+        if (
+            allowed_routes is None
+            or recipes[filename].get("route") in allowed_routes
+        )
+    }
 
 if allowed_routes is not None and not selected_browser_images:
     raise SystemExit(
@@ -121,7 +132,10 @@ staged_images = {
     if path.is_file()
 }
 
-if allowed_routes is None:
+if args.image:
+    missing = sorted(selected_browser_images - staged_images)
+    extra = []
+elif allowed_routes is None:
     missing = sorted(browser_images - staged_images)
     extra = sorted(staged_images - browser_images)
 else:

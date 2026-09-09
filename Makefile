@@ -2064,22 +2064,26 @@ visual-check:
 
 visual-screenshots: visual-check
 	@echo "=== VISUAL QA SCREENSHOTS ==="
-	@testdata/visual/run.sh qa $(if $(DASHBOARD),--dashboard=$(DASHBOARD)) $(if $(PAGE),--page=$(PAGE))
+	@bash testdata/visual/run.sh qa $(if $(DASHBOARD),--dashboard=$(DASHBOARD)) $(if $(PAGE),--page=$(PAGE))
 
-visual-docs: visual-check
+visual-docs:
+	@echo "=== VISUAL DOCUMENTATION STAGING CONTRACT ==="
+	@python3 testdata/visual/check-gallery.py --allow-missing-browser-images
 	@echo "=== VISUAL DOCUMENTATION SCREENSHOTS - STAGING ONLY ==="
-	@testdata/visual/run.sh docs $(if $(DASHBOARD),--dashboard=$(DASHBOARD)) $(if $(PAGE),--page=$(PAGE))
+	@bash testdata/visual/run.sh docs $(if $(DASHBOARD),--dashboard=$(DASHBOARD)) $(if $(PAGE),--page=$(PAGE))
 	@echo
 	@echo "Documentation captures are staged only."
 	@echo "Review testdata/visual/docs-staging before promotion."
 
-visual-docs-promote: visual-check
+visual-docs-promote:
+	@echo "=== VISUAL DOCUMENTATION PROMOTION CONTRACT ==="
+	@python3 testdata/visual/check-gallery.py --allow-missing-browser-images
 	@echo "=== PROMOTE APPROVED DOCUMENTATION SCREENSHOTS ==="
-	@python3 testdata/visual/promote-docs.py $(if $(DASHBOARD),--dashboard=$(DASHBOARD)) $(if $(PAGE),--page=$(PAGE))
+	@python3 testdata/visual/promote-docs.py $(if $(DASHBOARD),--dashboard=$(DASHBOARD)) $(if $(PAGE),--page=$(PAGE)) $(if $(IMAGE),--image=$(IMAGE))
 
 visual-all: visual-check
 	@echo "=== VISUAL QA + STAGED DOCUMENTATION SCREENSHOTS ==="
-	@testdata/visual/run.sh all
+	@bash testdata/visual/run.sh all
 
 visual-final: visual-all
 	@echo
