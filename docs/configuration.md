@@ -745,9 +745,11 @@ When `dashboards` is not configured, Glance uses its standard page behavior: the
 ```yaml
 pages:
   - name: Home
+    icon: mdi:home
     columns: ...
 
   - name: Page 2
+    icon: mdi:view-dashboard
     columns: ...
 
   - name: Page 3
@@ -760,6 +762,7 @@ When [named dashboards](#named-dashboards) are configured, pages are still defin
 | Name | Type | Required | Default |
 | ---- | ---- | -------- | ------- |
 | name | string | yes | |
+| icon | string | no | |
 | slug | string | no | |
 | width | string | no | |
 | desktop-navigation-width | string | no | |
@@ -772,6 +775,11 @@ When [named dashboards](#named-dashboards) are configured, pages are still defin
 
 #### `name`
 The name of the page which gets shown in the navigation bar.
+
+#### `icon`
+An optional icon displayed immediately before the page name in desktop and mobile navigation. The value can be a direct image URL or an icon-library reference using the `si:`, `sh:`, `di:`, or `mdi:` prefixes documented in [Icons](#icons). Prefix the value with `auto-invert ` to automatically invert the icon for dark themes where supported.
+
+Page icons are configured directly on individual pages and do not participate in `widget-defaults`. Omitting `icon` preserves the standard text-only navigation.
 
 #### `slug`
 The URL friendly version of the title which is used to access the page. For example if the title of the page is "RSS Feeds" you can make the page accessible via `localhost:8080/feeds` by setting the slug to `feeds`. If not defined, it will automatically be generated from the title.

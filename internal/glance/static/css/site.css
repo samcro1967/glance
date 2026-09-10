@@ -636,6 +636,14 @@ kbd:active {
     flex-shrink: 0;
 }
 
+.nav-item-icon {
+    width: 1em;
+    height: 1em;
+    flex: 0 0 1em;
+    object-fit: contain;
+    margin-right: 0.6rem;
+}
+
 .nav-item:not(.nav-item-current):hover {
     color: var(--theme-navigation-hover-color, var(--color-text-highlight));
     background-color: color-mix(
