@@ -73,6 +73,8 @@ help:
 	@echo
 	@echo "NORMAL WORKFLOW:"
 	@echo "  make branch NEW_BRANCH=feature/name"
+	@echo "                                Clean local dev may contain committed parked work"
+	@echo "                                when origin/dev is its ancestor; parked commits are included"
 	@echo "  ... edit, stage, commit ..."
 	@echo "  make ship TITLE='Description' [BODY_FILE=file]"
 	@echo "  make deploy-finish"
@@ -97,6 +99,8 @@ help:
 	@echo "  PR CI watches match the exact PR head SHA, not merely the branch name."
 	@echo "  Dev image watches match the exact current dev SHA."
 	@echo "  Feature push refuses dev/main and requires a clean worktree."
+	@echo "  Branch creation permits parked local dev commits only when origin/dev is an ancestor."
+	@echo "  Feature post-merge reconciles parked dev history only after verifying it reached origin/dev."
 	@echo "  Release requires clean/current main containing origin/dev and upstream/main."
 	@echo "  Release refuses an existing release tag and runs full make check."
 	@echo "  Deploy requires current main to have a formal release tag."
@@ -151,7 +155,7 @@ help:
 	@echo "  make upstream-dev-status      Upstream dev patches requiring review"
 	@echo "  make verify-dev               Refresh origin and inspect dev"
 	@echo "  make verify-main              Refresh origin/upstream and inspect main"
-	@echo "  make branch NEW_BRANCH=name   Create feature branch from clean/current dev"
+	@echo "  make branch NEW_BRANCH=name   Create feature branch; clean dev may include parked commits"
 	@echo "  make push                     Push clean feature branch; refuses dev/main"
 	@echo
 	@echo "PULL REQUESTS:"
@@ -327,8 +331,14 @@ branch:
 	git fetch origin --prune; \
 	local_revision="$$(git rev-parse $(DEV_BRANCH))"; \
 	origin_revision="$$(git rev-parse origin/$(DEV_BRANCH))"; \
-	if [ "$$local_revision" != "$$origin_revision" ]; then \
-		echo "Local $(DEV_BRANCH) does not match origin/$(DEV_BRANCH)."; \
+	if [ "$$local_revision" = "$$origin_revision" ]; then \
+		echo "Local $(DEV_BRANCH) matches origin/$(DEV_BRANCH)."; \
+	elif git merge-base --is-ancestor "$$origin_revision" "$$local_revision"; then \
+		parked="$$(git rev-list --count "$$origin_revision..$$local_revision")"; \
+		echo "Local $(DEV_BRANCH) contains $$parked parked commit(s) not yet in origin/$(DEV_BRANCH)."; \
+		echo "The new feature branch will include those parked commits."; \
+	else \
+		echo "Refusing branch creation: local $(DEV_BRANCH) is behind or has diverged from origin/$(DEV_BRANCH)."; \
 		echo "Local:  $$local_revision"; \
 		echo "Origin: $$origin_revision"; \
 		exit 1; \
@@ -654,12 +664,46 @@ post-merge:
 	echo "Base=$$base_branch"; \
 	echo; \
 	echo "=== UPDATE LOCAL $$base_branch ==="; \
+	git fetch origin --prune; \
 	if git show-ref --verify --quiet "refs/heads/$$base_branch"; then \
 		git switch "$$base_branch"; \
 	else \
 		git switch -c "$$base_branch" --track "origin/$$base_branch"; \
 	fi; \
-	git pull --ff-only origin "$$base_branch"; \
+	local_revision="$$(git rev-parse "$$base_branch")"; \
+	origin_revision="$$(git rev-parse "origin/$$base_branch")"; \
+	if [ "$$local_revision" = "$$origin_revision" ]; then \
+		echo "Local $$base_branch already matches origin/$$base_branch."; \
+	elif git merge-base --is-ancestor "$$local_revision" "$$origin_revision"; then \
+		echo "Fast-forwarding local $$base_branch to origin/$$base_branch..."; \
+		git merge --ff-only "origin/$$base_branch"; \
+	elif [ "$$base_branch" = "$(DEV_BRANCH)" ] && [ "$$head_branch" != "$(DEV_BRANCH)" ] && [ "$$head_branch" != "$(STABLE_BRANCH)" ]; then \
+		if ! git show-ref --verify --quiet "refs/heads/$$head_branch"; then \
+			echo "Refusing dev reconciliation: local feature branch $$head_branch is unavailable for ancestry verification."; \
+			exit 1; \
+		fi; \
+		feature_revision="$$(git rev-parse "$$head_branch")"; \
+		if ! git merge-base --is-ancestor "$$feature_revision" "$$origin_revision"; then \
+			echo "Refusing dev reconciliation: merged feature revision is not contained in origin/$(DEV_BRANCH)."; \
+			echo "Feature: $$feature_revision"; \
+			echo "Origin:  $$origin_revision"; \
+			exit 1; \
+		fi; \
+		if ! git merge-base --is-ancestor "$$local_revision" "$$feature_revision"; then \
+			echo "Refusing dev reconciliation: local $(DEV_BRANCH) contains history not carried by the merged feature branch."; \
+			echo "Local:   $$local_revision"; \
+			echo "Feature: $$feature_revision"; \
+			exit 1; \
+		fi; \
+		echo "Merged feature contains the parked local $(DEV_BRANCH) history."; \
+		echo "Reconciling local $(DEV_BRANCH) to the verified merged origin/$(DEV_BRANCH)..."; \
+		git reset --hard "$$origin_revision"; \
+	else \
+		echo "Refusing post-merge update: local $$base_branch cannot be safely fast-forwarded to origin/$$base_branch."; \
+		echo "Local:  $$local_revision"; \
+		echo "Origin: $$origin_revision"; \
+		exit 1; \
+	fi; \
 	echo; \
 	echo "=== LOCAL BRANCH CLEANUP ==="; \
 	if [ "$$head_branch" = "$(DEV_BRANCH)" ] || [ "$$head_branch" = "$(STABLE_BRANCH)" ]; then \

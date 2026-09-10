@@ -115,7 +115,7 @@ Development follows a two-branch integration and release model:
 development branch → dev → main → formal release
 ```
 
-The long-lived `dev` branch is the integration branch for ongoing development. Focused feature, fix, refactor, and documentation branches are created from a clean, synchronized `dev` branch and merged back into `dev` through pull requests.
+The long-lived `dev` branch is the integration branch for ongoing development. Focused feature, fix, refactor, and documentation branches are created from a clean local `dev` branch and merged back into `dev` through pull requests. Local `dev` may intentionally contain committed work that has not yet been pushed when that work is being parked for inclusion in the next feature pull request. In that state, `origin/dev` must remain an ancestor of local `dev`; behind or diverged histories are not accepted for new branch creation.
 
 The long-lived `main` branch is the stable, release-ready branch. Changes reach `main` only through a controlled promotion pull request from `dev`. Direct development on either `dev` or `main` is intentionally avoided.
 
@@ -182,9 +182,9 @@ make deploy-status
 make deploy
 ```
 
-`make branch` creates normal development branches from a clean `dev` branch that exactly matches `origin/dev`. `make pr-create` creates the normal feature-to-`dev` pull request and intentionally refuses to operate from either long-lived branch. `make promote-create` is the explicit path for creating a `dev`-to-`main` promotion pull request.
+`make branch` creates normal development branches from a clean `dev` branch. When local `dev` exactly matches `origin/dev`, branch creation proceeds normally. When local `dev` is strictly ahead and `origin/dev` is its ancestor, the target reports the committed parked work and intentionally carries those commits into the new feature branch. Branch creation refuses local `dev` histories that are behind or have diverged from `origin/dev`. `make pr-create` creates the normal feature-to-`dev` pull request and intentionally refuses to operate from either long-lived branch. `make promote-create` is the explicit path for creating a `dev`-to-`main` promotion pull request.
 
-`make post-merge` determines the merged pull request's base branch automatically. After a normal feature merge it updates and leaves the repository on `dev`; after a promotion merge it updates and leaves the repository on `main`. Long-lived branches are preserved while merged local feature branches are cleaned up.
+`make post-merge` determines the merged pull request's base branch automatically. After a normal feature merge it updates and leaves the repository on `dev`; after a promotion merge it updates and leaves the repository on `main`. Ordinary updates remain fast-forward-only. When parked local `dev` commits were carried by a merged feature pull request and therefore make the old local `dev` history non-fast-forwardable to the resulting remote merge commit, the target reconciles local `dev` only after verifying that the merged feature revision is contained in `origin/dev` and that the old local `dev` history is contained in that feature revision. Long-lived branches are preserved while merged local feature branches are cleaned up.
 
 The composite workflow targets provide guarded end-to-end lifecycle stages while retaining the individual targets for inspection and recovery. `make pr-finish` validates a feature-to-`dev` pull request, watches its exact-head CI run, merges it, performs post-merge cleanup, and watches publication of the resulting `dev` image. `make promote-finish` performs the corresponding guarded `dev`-to-`main` promotion through validation, merge, cleanup, and stable-branch verification. `make sync-finish` handles the post-release `main`-to-`dev` synchronization and resulting `dev` image. `make workflow-status` provides a combined view of repository relationships, release state, recent CI and image activity, and deployment state.
 
