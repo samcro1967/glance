@@ -37,7 +37,7 @@ const changeDetectionWatches = {
 const dockerContainers = [
   {
     Names: ['/glance'],
-    Image: 'glanceapp/glance:latest',
+    Image: 'ghcr.io/samcro1967/glance:latest',
     State: 'running',
     Status: 'Up 2 hours',
     Labels: {
@@ -82,6 +82,25 @@ const dockerContainers = [
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${HOST}:${PORT}`);
+
+  if (url.pathname === '/custom-api-presentation') {
+    sendJson(res, {
+      full_name: 'samcro1967/glance',
+      description: 'Deterministic Custom API presentation fixture',
+      stargazers_count: 1967,
+      services: [
+        { name: 'Dashboard', status: 'Healthy', latency: 12 },
+        { name: 'Fixture API', status: 'Healthy', latency: 7 }
+      ],
+      chart: {
+        labels: ['Mon', 'Tue', 'Wed', 'Thu'],
+        series: [
+          { label: 'CPU', values: [42, 55, 48, 61] }
+        ]
+      }
+    });
+    return;
+  }
 
   if (url.pathname === '/visual-test-extension') {
     res.writeHead(200, {

@@ -262,6 +262,9 @@ make staged-diff
 make test-instance-start
 make test-instance-status
 make test-instance-stop
+make frontend-audit
+make frontend-check
+make frontend-coverage
 make visual-check
 make visual-final
 ```

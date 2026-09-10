@@ -49,7 +49,7 @@ function isNumberToken(token) {
     return typeof token === "number";
 }
 
-export function evaluateTokens(tokens) {
+function evaluateTokens(tokens) {
     const values = [];
     const operators = [];
 
@@ -137,7 +137,7 @@ export function evaluateTokens(tokens) {
     return values[0];
 }
 
-export function formatNumber(value) {
+function formatNumber(value) {
     if (!Number.isFinite(value))
         return "Error";
 
@@ -173,7 +173,7 @@ function displayExpression(tokens, entry = "") {
     return parts.join(" ");
 }
 
-export function calculatePercent(base, operator, percent) {
+function calculatePercent(base, operator, percent) {
     switch (operator) {
         case "+":
         case "-":

@@ -8,6 +8,7 @@ export function attachExpandToggleButton(collapsibleContainer) {
     icon.classList.add("expand-toggle-button-icon");
     const textNode = document.createTextNode(showMoreText);
     button.classList.add("expand-toggle-button");
+    button.setAttribute("aria-expanded", "false");
     button.append(textNode, icon);
     button.addEventListener("click", () => {
         expanded = !expanded;
@@ -15,6 +16,7 @@ export function attachExpandToggleButton(collapsibleContainer) {
         if (expanded) {
             collapsibleContainer.classList.add("container-expanded");
             button.classList.add("container-expanded");
+            button.setAttribute("aria-expanded", "true");
             textNode.nodeValue = showLessText;
             return;
         }
@@ -23,6 +25,7 @@ export function attachExpandToggleButton(collapsibleContainer) {
 
         collapsibleContainer.classList.remove("container-expanded");
         button.classList.remove("container-expanded");
+        button.setAttribute("aria-expanded", "false");
         textNode.nodeValue = showMoreText;
 
         const topAfter = button.getClientRects()[0].top;

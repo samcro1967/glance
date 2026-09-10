@@ -1132,7 +1132,7 @@ pages:
         widgets:
           - type: releases
             repositories:
-              - glanceapp/glance
+              - samcro1967/glance
 `))
 	if err != nil {
 		t.Fatalf("newConfigFromYAML: %v", err)
@@ -1260,7 +1260,7 @@ pages:
             widgets:
               - type: releases
                 repositories:
-                  - glanceapp/glance
+                  - samcro1967/glance
               - type: stack
                 widgets:
                   - type: rss
@@ -1304,7 +1304,7 @@ pages:
               - type: releases
                 title: Instance title
                 repositories:
-                  - glanceapp/glance
+                  - samcro1967/glance
 `))
 	if err != nil {
 		t.Fatalf("newConfigFromYAML: %v", err)

@@ -207,7 +207,7 @@ function Todo(id) {
 
 
 // See https://css-tricks.com/the-cleanest-trick-for-autogrowing-textareas/
-export function autoScalingTextarea(yieldTextarea = null) {
+function autoScalingTextarea(yieldTextarea = null) {
     let textarea, mimic;
 
     const updateMimic = (newValue) => mimic.text(newValue + ' ');

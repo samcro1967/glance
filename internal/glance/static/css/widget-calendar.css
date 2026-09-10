@@ -110,6 +110,10 @@
     align-items: start;
 }
 
+.calendar-event-without-time {
+    grid-template-columns: 1fr;
+}
+
 .calendar-event-time {
     white-space: nowrap;
 }
