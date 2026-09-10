@@ -186,6 +186,7 @@ type widgetBase struct {
 	Providers           *widgetProviders     `yaml:"-"`
 	Type                string               `yaml:"type"`
 	Title               string               `yaml:"title"`
+	Icon                customIconField      `yaml:"icon"`
 	TitleURL            string               `yaml:"title-url"`
 	HideHeader          bool                 `yaml:"hide-header"`
 	CSSClass            string               `yaml:"css-class"`

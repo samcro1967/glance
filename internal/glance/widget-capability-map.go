@@ -239,6 +239,7 @@ var widgetRegistry = map[string]widgetDescriptor{
 
 var commonWidgetCapabilities = []widgetCapabilityDefinition{
 	{widgetCapabilityTitle, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+	{widgetCapabilityIcon, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 	{widgetCapabilityTitleURL, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 	{widgetCapabilityHideHeader, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 	{widgetCapabilityCSSClass, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},

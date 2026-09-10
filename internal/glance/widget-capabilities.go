@@ -7,6 +7,7 @@ type widgetCapability string
 
 const (
 	widgetCapabilityTitle             widgetCapability = "title"
+	widgetCapabilityIcon              widgetCapability = "icon"
 	widgetCapabilityTitleURL          widgetCapability = "title-url"
 	widgetCapabilityHideHeader        widgetCapability = "hide-header"
 	widgetCapabilityCSSClass          widgetCapability = "css-class"
