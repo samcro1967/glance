@@ -1,6 +1,7 @@
 import { directions, easeOutQuint, slideFade } from "./animations.js";
 import { setupCollapsibleList } from "./collapsible-list.js";
 import { elem, repeat, text } from "./templating.js";
+import { frontendDiagnosticError } from "./diagnostics.js";
 
 const FULL_MONTH_SLOTS = 7 * 6;
 const WEEKDAY_ABBRS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
@@ -465,10 +466,11 @@ function Details(collapseAfter) {
 
 function EventRow(event, selectedDate, openLinksInNewTab) {
     const row = elem().classes("calendar-event");
+    const time = eventTimeLabel(event, selectedDate);
 
-    const timeLabel = elem()
-        .classes("calendar-event-time", "size-h6", "color-subdue")
-        .text(eventTimeLabel(event, selectedDate));
+    if (time === null) {
+        row.classes("calendar-event-without-time");
+    }
 
     let title;
 
@@ -483,7 +485,7 @@ function EventRow(event, selectedDate, openLinksInNewTab) {
                 .attr("rel", "noreferrer");
         }
 
-        title.text(event.title);
+        title.textContent = event.title;
     } else {
         title = elem()
             .classes("calendar-event-title")
@@ -512,7 +514,15 @@ function EventRow(event, selectedDate, openLinksInNewTab) {
         );
     }
 
-    return row.append(timeLabel, content);
+    if (time !== null) {
+        row.append(
+            elem()
+                .classes("calendar-event-time", "size-h6", "color-subdue")
+                .text(time)
+        );
+    }
+
+    return row.append(content);
 }
 
 function eventTimeLabel(event, selectedDate) {
@@ -524,7 +534,7 @@ function eventTimeLabel(event, selectedDate) {
     const end = new Date(event.end);
 
     if (!datesWithinSameDate(start, selectedDate)) {
-        return "Continues";
+        return null;
     }
 
     if (start.getTime() === end.getTime()) {
@@ -560,6 +570,7 @@ function parseEventIndex(element) {
     try {
         return JSON.parse(payload.textContent) ?? {};
     } catch (error) {
+        frontendDiagnosticError("calendar_event_parse_error", error);
         console.error("Failed to parse calendar event data:", error);
         return {};
     }

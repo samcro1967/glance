@@ -8,7 +8,7 @@ DTSTART;VALUE=DATE:20260910
 DTEND;VALUE=DATE:20260911
 SUMMARY:All-day design review
 LOCATION:Design Studio
-URL:https://github.com/glanceapp/glance
+URL:https://github.com/samcro1967/glance
 END:VEVENT
 BEGIN:VEVENT
 UID:visual-qa-2@glance
@@ -29,6 +29,13 @@ UID:visual-qa-4@glance
 DTSTART;VALUE=DATE:20260920
 DTEND;VALUE=DATE:20260922
 SUMMARY:Multi-day test event
+END:VEVENT
+BEGIN:VEVENT
+UID:visual-qa-continuation@glance
+DTSTART:20260923T100000
+DTEND:20260924T110000
+SUMMARY:Multi-day timed regression
+LOCATION:Test Lab
 END:VEVENT
 BEGIN:VEVENT
 UID:visual-qa-recurring@glance

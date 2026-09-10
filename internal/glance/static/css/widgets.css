@@ -173,7 +173,7 @@
             var(--color-text-highlight)
         );
 
-    font-size: 1.55rem;
+    font-size: var(--theme-widget-header-font-size, 1.55rem);
     font-weight: var(--theme-widget-header-font-weight, 600);
     line-height: 1.25;
     letter-spacing: -0.025em;
@@ -198,6 +198,7 @@
 /* A widget title is hierarchy rather than accent decoration. */
 .widget > .widget-header > h2 {
     color: inherit;
+    font-size: inherit;
 }
 
 /* Linked titles remain interactive without making every widget heading use
@@ -272,8 +273,11 @@
         );
 
     box-shadow:
-        0 1px 2px rgb(0 0 0 / 0.12),
-        0 8px 22px rgb(0 0 0 / 0.09);
+        var(
+            --theme-widget-shadow,
+            0 1px 2px rgb(0 0 0 / 0.12),
+            0 8px 22px rgb(0 0 0 / 0.09)
+        );
 }
 
 /* -------------------------------------------------------------------------
@@ -325,8 +329,11 @@
         );
 
     box-shadow:
-        0 1px 3px rgb(0 0 0 / 0.14),
-        0 8px 20px rgb(0 0 0 / 0.10);
+        var(
+            --theme-card-shadow,
+            0 1px 3px rgb(0 0 0 / 0.14),
+            0 8px 20px rgb(0 0 0 / 0.10)
+        );
 }
 
 /* -------------------------------------------------------------------------

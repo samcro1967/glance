@@ -12,6 +12,7 @@ server:
   host: 0.0.0.0
   port: 18080
   assets-path: testdata/assets
+  frontend-diagnostics: true
 
 branding:
   app-name: "Glance Test"
@@ -275,7 +276,7 @@ pages:
                   - title: Links
                     links:
                       - title: Glance
-                        url: https://github.com/glanceapp/glance
+                        url: https://github.com/samcro1967/glance
 
       - size: full
         widgets:
@@ -429,10 +430,32 @@ pages:
           - type: custom-api
             title: Custom API - Native Presentation
             css-class: visual-fixture-custom-api
-            url: https://api.github.com/repos/glanceapp/glance
+            url: http://127.0.0.1:18089/custom-api-presentation
             cache: 1h
-            headers:
-              Accept: application/vnd.github+json
+            tables:
+              services:
+                responsive: true
+                sortable: true
+                search: false
+                pagination: false
+                columns:
+                  service:
+                    type: text
+                    priority: 1
+                  status:
+                    type: text
+                    priority: 2
+                  latency:
+                    type: number
+                    priority: 3
+            charts:
+              resources:
+                type: line
+                height: 180
+                legend: true
+                min: 0
+                max: 100
+                unit: "%"
             template: |
               <div class="glance-grid">
                 <div class="glance-card">
@@ -443,8 +466,29 @@ pages:
                 <div class="glance-card">
                   <div class="glance-secondary">Stars</div>
                   <div class="size-h2 color-highlight">{{ .JSON.Int "stargazers_count" | formatNumber }}</div>
-                  <span class="glance-badge">Public API</span>
+                  <span class="glance-badge">Local fixture</span>
                 </div>
+              </div>
+              <table class="glance-table margin-top-10" data-glance-table="services">
+                <thead>
+                  <tr>
+                    <th data-column="service">Service</th>
+                    <th data-column="status">Status</th>
+                    <th data-column="latency">Latency</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {{ range .JSON.Array "services" }}
+                    <tr>
+                      <td>{{ .String "name" }}</td>
+                      <td>{{ .String "status" }}</td>
+                      <td>{{ .Int "latency" }} ms</td>
+                    </tr>
+                  {{ end }}
+                </tbody>
+              </table>
+              <div class="glance-chart margin-top-10" data-glance-chart="resources" data-glance-chart-label="Resource usage">
+                <script type="application/json">{{ .JSON.String "chart" }}</script>
               </div>
 
           - type: markdown
@@ -453,7 +497,7 @@ pages:
             source: |
               ## Presentation hierarchy
 
-              Markdown verifies **headings**, body copy, [links](https://github.com/glanceapp/glance), lists, code, and separators.
+              Markdown verifies **headings**, body copy, [links](https://github.com/samcro1967/glance), lists, code, and separators.
 
               - Primary information
               - Secondary information
@@ -570,7 +614,7 @@ pages:
               - title: GitHub
                 url: https://github.com/
               - title: Glance
-                url: https://github.com/glanceapp/glance
+                url: https://github.com/samcro1967/glance
 
           - type: docker-containers
             title: Docker Containers
@@ -618,7 +662,7 @@ pages:
           - type: repository
             title: Repository
             css-class: visual-fixture-repository
-            repository: glanceapp/glance
+            repository: samcro1967/glance
 
       - size: full
         widgets:
@@ -747,7 +791,7 @@ pages:
               - title: Theme Links
                 links:
                   - title: Glance
-                    url: https://github.com/glanceapp/glance
+                    url: https://github.com/samcro1967/glance
 
   - name: Theme Dark Page
     slug: theme-dark-page
@@ -761,6 +805,10 @@ pages:
         text-color: 220 18 92
         secondary-text-color: 220 11 68
         muted-text-color: 220 9 48
+        headings:
+          text-color: 220 20 96
+      widget-header:
+        text-color: 220 18 93
       widgets:
         background-color: 225 20 12
         border-color: 225 12 18
@@ -822,6 +870,10 @@ pages:
         text-color: 220 18 16
         secondary-text-color: 220 10 38
         muted-text-color: 220 8 52
+        headings:
+          text-color: 220 20 12
+      widget-header:
+        text-color: 220 18 14
       widgets:
         background-color: 0 0 100
         border-color: 220 14 86
@@ -913,6 +965,14 @@ pages:
     width: wide
     theme:
       custom-css-file: /assets/theme-page.css
+      header:
+        shadow: none
+      widgets:
+        shadow: none
+      widget-header:
+        font-size: small
+      cards:
+        shadow: none
     columns:
       - size: medium
         widgets:
@@ -921,7 +981,7 @@ pages:
             source: |
               ## Typography hierarchy
 
-              Primary text, **emphasis**, [links](https://github.com/glanceapp/glance), `code`, and supporting copy.
+              Primary text, **emphasis**, [links](https://github.com/samcro1967/glance), `code`, and supporting copy.
 
               <div class="theme-css-layers">
                 <span class="theme-css-global">Global CSS</span>
@@ -938,7 +998,7 @@ pages:
         widgets:
           - type: custom-api
             title: Semantic Components
-            url: https://api.github.com/repos/glanceapp/glance
+            url: https://api.github.com/repos/samcro1967/glance
             cache: 1h
             headers:
               Accept: application/vnd.github+json
@@ -990,7 +1050,7 @@ pages:
               - title: Links
                 links:
                   - title: Glance
-                    url: https://github.com/glanceapp/glance
+                    url: https://github.com/samcro1967/glance
 
   - name: Theme Composition
     slug: theme-composition
@@ -1078,7 +1138,7 @@ pages:
               - title: Development
                 links:
                   - title: Glance
-                    url: https://github.com/glanceapp/glance
+                    url: https://github.com/samcro1967/glance
                   - title: Documentation
                     url: https://github.com/samcro1967/glance/tree/dev/docs
               - title: Resources

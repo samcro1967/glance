@@ -5,255 +5,54 @@ import { throttledDebounce, isElementVisible, openURLInNewTab } from './utils.js
 import { elem, find, findAll } from './templating.js';
 import { attachExpandToggleButton, setupCollapsibleList } from './collapsible-list.js';
 
-const frontendDiagnosticsEnabled = pageData.frontendDiagnostics === true;
-const frontendDiagnosticsBuffer = [];
-const frontendDiagnosticsSession = frontendDiagnosticsEnabled
-    ? (
-        typeof crypto !== "undefined" &&
-        typeof crypto.randomUUID === "function"
-            ? crypto.randomUUID()
-            : `${Date.now()}-${Math.random().toString(36).slice(2)}`
-    ).slice(0, 64)
-    : "";
-let frontendDiagnosticsSequence = 0;
-let frontendDiagnosticsFlushTimer = null;
-let frontendDiagnosticsFlushInProgress = false;
-let frontendDiagnosticsImmediateFlushPending = false;
+import {
+    frontendDiagnostic,
+    frontendDiagnosticError,
+    frontendDiagnosticErrorDetail,
+    runFrontendDiagnosticAsyncStage,
+    runFrontendDiagnosticStage
+} from "./diagnostics.js";
 
-function frontendDiagnostic(event, fields = {}, flush = false) {
-    if (!frontendDiagnosticsEnabled) {
-        return;
-    }
-
-    const diagnostic = {
-        event,
-        page: pageData.slug || "",
-        session: frontendDiagnosticsSession,
-        sequence: ++frontendDiagnosticsSequence,
-    };
-
-    if (fields.widget !== undefined) {
-        diagnostic.widget = String(fields.widget);
-    }
-
-    if (fields.detail !== undefined && fields.detail !== "") {
-        diagnostic.detail = String(fields.detail).slice(0, 256);
-    }
-
-    if (fields.elapsedMS !== undefined) {
-        diagnostic.elapsed_ms = Math.max(0, fields.elapsedMS);
-    }
-
-    if (fields.status !== undefined) {
-        diagnostic.status = fields.status;
-    }
-
-    if (fields.length !== undefined) {
-        diagnostic.length = Math.max(0, fields.length);
-    }
-
-    if (fields.state !== undefined) {
-        diagnostic.state = fields.state;
-    }
-
-    frontendDiagnosticsBuffer.push(diagnostic);
-
-    if (flush) {
-        if (frontendDiagnosticsFlushInProgress) {
-            frontendDiagnosticsImmediateFlushPending = true;
-        } else {
-            flushFrontendDiagnostics();
-        }
-        return;
-    }
-
-    if (frontendDiagnosticsFlushTimer === null) {
-        frontendDiagnosticsFlushTimer = setTimeout(
-            flushFrontendDiagnostics,
-            1000
-        );
-    }
-}
-
-function flushFrontendDiagnostics() {
-    if (
-        !frontendDiagnosticsEnabled ||
-        frontendDiagnosticsFlushInProgress ||
-        frontendDiagnosticsBuffer.length === 0
-    ) {
-        return;
-    }
-
-    if (frontendDiagnosticsFlushTimer !== null) {
-        clearTimeout(frontendDiagnosticsFlushTimer);
-        frontendDiagnosticsFlushTimer = null;
-    }
-
-    const events = frontendDiagnosticsBuffer.splice(0, 50);
-    frontendDiagnosticsFlushInProgress = true;
-
-    fetch(`${pageData.baseURL}/api/frontend-diagnostics`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ events }),
-        keepalive: true,
-    })
-        .catch(() => {
-            // Diagnostics must never interfere with normal page behavior.
-        })
-        .finally(() => {
-            frontendDiagnosticsFlushInProgress = false;
-
-            if (frontendDiagnosticsBuffer.length === 0) {
-                frontendDiagnosticsImmediateFlushPending = false;
-                return;
-            }
-
-            if (frontendDiagnosticsImmediateFlushPending) {
-                frontendDiagnosticsImmediateFlushPending = false;
-                flushFrontendDiagnostics();
-                return;
-            }
-
-            frontendDiagnosticsFlushTimer = setTimeout(
-                flushFrontendDiagnostics,
-                1000
-            );
-        });
-}
-
-function frontendDiagnosticErrorDetail(value) {
-    if (value instanceof Error) {
-        return `${value.name}: ${value.message}`.slice(0, 256);
-    }
-
-    return String(value).slice(0, 256);
-}
-
-function setupFrontendDiagnosticsLifecycle() {
-    if (!frontendDiagnosticsEnabled) {
-        return;
-    }
-
-    window.addEventListener("error", (event) => {
-        frontendDiagnostic("window_error", {
-            detail: frontendDiagnosticErrorDetail(
-                event.error ?? event.message ?? "unknown error"
-            ),
-        }, true);
-    });
-
-    window.addEventListener("unhandledrejection", (event) => {
-        frontendDiagnostic("unhandled_rejection", {
-            detail: frontendDiagnosticErrorDetail(event.reason),
-        }, true);
-    });
-
-    window.addEventListener("pageshow", (event) => {
-        frontendDiagnostic("page_show", {
-            detail: `persisted=${event.persisted} visibility=${document.visibilityState} online=${navigator.onLine}`,
-        }, true);
-    });
-
-    document.addEventListener("visibilitychange", () => {
-        frontendDiagnostic("visibility_change", {
-            detail: `visibility=${document.visibilityState}`,
-        });
-    });
-
-    window.addEventListener("online", () => {
-        frontendDiagnostic("network_online");
-    });
-
-    window.addEventListener("offline", () => {
-        frontendDiagnostic("network_offline");
-    });
-}
-
-setupFrontendDiagnosticsLifecycle();
-
-function runFrontendDiagnosticStage(name, callback) {
-    if (!frontendDiagnosticsEnabled) {
-        return callback();
-    }
-
-    const started = performance.now();
-
-    frontendDiagnostic("page_initialize_start", {
-        detail: name,
-    }, true);
-
-    try {
-        const result = callback();
-
-        frontendDiagnostic("page_initialize_complete", {
-            detail: name,
-            elapsedMS: performance.now() - started,
-        });
-
-        return result;
-    } catch (error) {
-        frontendDiagnostic("page_initialize_error", {
-            detail: `${name}: ${frontendDiagnosticErrorDetail(error)}`,
-            elapsedMS: performance.now() - started,
-        }, true);
-
-        throw error;
-    }
-}
-
-async function runFrontendDiagnosticAsyncStage(name, callback) {
-    if (!frontendDiagnosticsEnabled) {
-        return callback();
-    }
-
-    const started = performance.now();
-
-    frontendDiagnostic("page_initialize_start", {
-        detail: name,
-    }, true);
-
-    try {
-        const result = await callback();
-
-        frontendDiagnostic("page_initialize_complete", {
-            detail: name,
-            elapsedMS: performance.now() - started,
-        });
-
-        return result;
-    } catch (error) {
-        frontendDiagnostic("page_initialize_error", {
-            detail: `${name}: ${frontendDiagnosticErrorDetail(error)}`,
-            elapsedMS: performance.now() - started,
-        }, true);
-
-        throw error;
-    }
-}
+const PAGE_CONTENT_FETCH_TIMEOUT_MS = 5000;
 
 async function fetchPageContent(pageData) {
-    // TODO: handle non 200 status codes/time outs
-    // TODO: add retries
     const fetchStarted = performance.now();
     frontendDiagnostic("page_content_fetch_start");
 
-    const response = await fetch(`${pageData.baseURL}/api/pages/${pageData.slug}/content/`);
-    frontendDiagnostic("page_content_fetch_response", {
-        status: response.status,
-        elapsedMS: performance.now() - fetchStarted,
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(
+        () => controller.abort(),
+        PAGE_CONTENT_FETCH_TIMEOUT_MS
+    );
 
-    const bodyStarted = performance.now();
-    const content = await response.text();
-    frontendDiagnostic("page_content_fetch_complete", {
-        length: content.length,
-        elapsedMS: performance.now() - bodyStarted,
-    });
+    try {
+        const response = await fetch(
+            `${pageData.baseURL}/api/pages/${pageData.slug}/content/`,
+            { signal: controller.signal }
+        );
 
-    return content;
+        frontendDiagnostic("page_content_fetch_response", {
+            status: response.status,
+            elapsedMS: performance.now() - fetchStarted,
+        });
+
+        if (!response.ok) {
+            throw new Error(
+                `Failed to load page content: ${response.status} ${response.statusText}`
+            );
+        }
+
+        const bodyStarted = performance.now();
+        const content = await response.text();
+        frontendDiagnostic("page_content_fetch_complete", {
+            length: content.length,
+            elapsedMS: performance.now() - bodyStarted,
+        });
+
+        return content;
+    } finally {
+        clearTimeout(timeout);
+    }
 }
 
 function setupCarousels(root = document) {
@@ -362,6 +161,7 @@ const STATUS_BAR_TICKER_PIXELS_PER_SECOND = {
 };
 
 function setupStatusBarTickers(root = document) {
+    const cleanupCallbacks = [];
     const statusBars = root.querySelectorAll(".status-bar-mode-ticker");
 
     for (const statusBar of statusBars) {
@@ -417,6 +217,7 @@ function setupStatusBarTickers(root = document) {
             const resizeObserver = new ResizeObserver(updateTickerGeometry);
             resizeObserver.observe(items);
             resizeObserver.observe(statusBar);
+            cleanupCallbacks.push(() => resizeObserver.disconnect());
         }
 
         statusBar.addEventListener("pointerup", (event) => {
@@ -432,6 +233,8 @@ function setupStatusBarTickers(root = document) {
 
         statusBar.dataset.tickerInitialized = "true";
     }
+
+    return cleanupCallbacks;
 }
 
 const SEARCH_DOMAIN_PATTERN = /^(https?:\/\/\S+|[a-z0-9-]+(\.[a-z0-9-]+)+(:\d+)?([/?#]\S*)?)$/i;
@@ -864,6 +667,7 @@ function timeInZone(now, zone) {
         timeInZone = new Date(now.toLocaleString('en-US', { timeZone: zone }));
     } catch (e) {
         // TODO: indicate to the user that this is an invalid timezone
+        frontendDiagnosticError("timezone_invalid", e);
         console.error(e);
         timeInZone = now
     }
@@ -1246,7 +1050,7 @@ async function changeTheme(key, onChanged) {
             elapsedMS: performance.now() - themeChangeStarted,
         }, true);
 
-        throw error;
+        alert("Failed to set theme");
     }
 }
 
@@ -1283,7 +1087,6 @@ function initThemePicker() {
 
             isLoading = true;
             changeTheme(themeKey, function() {
-                isLoading = false;
                 pageData.theme = themeKey;
                 presetElems.forEach((e) => { e.classList.remove("current"); });
 
@@ -1297,6 +1100,8 @@ function initThemePicker() {
                     if (e.dataset.key != themeKey) return;
                     e.classList.add("current");
                 });
+            }).finally(() => {
+                isLoading = false;
             });
         });
     })
@@ -1341,6 +1146,7 @@ async function initializeLiveWidget(widgetElement) {
     cleanupCallbacks.push(...setupCollapsibleGrids(widgetElement));
     cleanupCallbacks.push(...setupMasonries(widgetElement));
     cleanupCallbacks.push(...await setupCalendars(widgetElement));
+    cleanupCallbacks.push(...setupStatusBarTickers(widgetElement));
 
     setupPopovers(widgetElement);
     setupCollapsibleLists(widgetElement);
@@ -1635,7 +1441,23 @@ async function setupPage() {
 
     const pageElement = document.getElementById("page");
     const pageContentElement = document.getElementById("page-content");
-    const pageContent = await fetchPageContent(pageData);
+
+    let pageContent;
+
+    try {
+        pageContent = await fetchPageContent(pageData);
+    } catch (error) {
+        frontendDiagnosticError("page_content_load_error", error);
+
+        const pageLoadError = pageElement.querySelector(".page-load-error");
+        if (pageLoadError) {
+            pageLoadError.hidden = false;
+        }
+
+        pageElement.classList.add("content-ready");
+        pageElement.setAttribute("aria-busy", "false");
+        return;
+    }
 
     const parseStarted = performance.now();
     frontendDiagnostic("page_parse_start", {}, true);

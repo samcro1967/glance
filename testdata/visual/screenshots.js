@@ -26,7 +26,11 @@ const VISUAL_PAGES_MAP = path.join(__dirname, 'visual-pages.json');
 const BASE_URL = (process.env.GLANCE_VISUAL_URL || 'http://127.0.0.1:18080').replace(/\/$/, '');
 const CHROME = process.env.GLANCE_VISUAL_CHROME || '/usr/bin/google-chrome';
 const MODE = process.argv.includes('--docs') ? 'docs' : process.argv.includes('--all') ? 'all' : 'qa';
-const VIEWPORT = { width: 1600, height: 1000 };
+const DEFAULT_VIEWPORT = { width: 1600, height: 1000 };
+const QA_VIEWPORTS = {
+  desktop: DEFAULT_VIEWPORT,
+  mobile: { width: 430, height: 900 },
+};
 
 const qaPageRoutes = {
   'layout-composition': '/layout-composition',
@@ -54,6 +58,19 @@ function optionValue(name) {
 const dashboardFilter = optionValue('dashboard');
 const pageFilter = optionValue('page');
 const imageFilter = optionValue('image');
+const viewportFilter = optionValue('viewport');
+const qaViewportName = viewportFilter || 'desktop';
+const qaViewport = QA_VIEWPORTS[qaViewportName];
+
+if (!qaViewport) {
+  throw new Error(
+    `Unknown QA viewport: ${qaViewportName}; expected ${Object.keys(QA_VIEWPORTS).join(', ')}`
+  );
+}
+
+if (viewportFilter && MODE !== 'qa') {
+  throw new Error('--viewport is only supported in QA mode');
+}
 
 const selectedFilters = [dashboardFilter, pageFilter, imageFilter]
   .filter(Boolean);
@@ -174,24 +191,71 @@ async function captureQa(browser) {
   const qaPages = selectedQaPages();
   const selective = Boolean(dashboardFilter || pageFilter);
 
+  const qaOutputRoot = qaViewportName === 'desktop'
+    ? SCREENSHOT_ROOT
+    : path.join(SCREENSHOT_ROOT, qaViewportName);
+
   if (selective) {
-    fs.mkdirSync(SCREENSHOT_ROOT, { recursive: true });
+    fs.mkdirSync(qaOutputRoot, { recursive: true });
   } else {
-    ensureCleanDirectory(SCREENSHOT_ROOT);
+    ensureCleanDirectory(qaOutputRoot);
   }
 
-  const context = await browser.newContext({ viewport: VIEWPORT, deviceScaleFactor: 1 });
+  const context = await browser.newContext({ viewport: qaViewport, deviceScaleFactor: 1 });
   const page = await context.newPage();
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
 
   for (const [dashboard, name, route] of qaPages) {
-    const directory = path.join(SCREENSHOT_ROOT, dashboard);
+    const directory = path.join(qaOutputRoot, dashboard);
     fs.mkdirSync(directory, { recursive: true });
     await openPage(page, route);
+
+    if (qaViewportName !== 'desktop') {
+      await page.locator('.mobile-navigation-page-links-input').evaluate(input => {
+        input.checked = false;
+      });
+
+      await page.waitForFunction(() => {
+        const navigation = document.querySelector('.mobile-navigation');
+        if (navigation === null) {
+          return false;
+        }
+
+        const navigationHeight = parseFloat(
+          getComputedStyle(document.documentElement).getPropertyValue('--mobile-navigation-height')
+        );
+
+        if (!Number.isFinite(navigationHeight)) {
+          return false;
+        }
+
+        const top = navigation.getBoundingClientRect().top;
+        return Math.abs(top - (window.innerHeight - navigationHeight)) < 1;
+      });
+    }
+
     const output = path.join(directory, `${name}.png`);
-    await page.screenshot({ path: output, fullPage: true });
+    await page.screenshot({
+      path: output,
+      fullPage: qaViewportName === 'desktop'
+    });
     console.log(`QA   ${dashboard}/${name}.png`);
+  }
+
+  if (qaViewportName !== 'desktop') {
+    console.log('');
+    console.log(`Page screenshots:   ${qaPages.length}`);
+    console.log('Widget screenshots: skipped for non-desktop QA viewport');
+    console.log(`Total screenshots:  ${qaPages.length}`);
+
+    await context.close();
+
+    if (pageErrors.length) {
+      console.warn(`Browser page errors observed: ${pageErrors.length}`);
+    }
+
+    return;
   }
 
   const widgetMappings = JSON.parse(fs.readFileSync(WIDGET_MAP, 'utf8'));
@@ -329,7 +393,7 @@ async function captureDocs(browser) {
   }
 
   for (const [filename, recipe] of browserMappings) {
-    const viewport = recipe.viewport || VIEWPORT;
+    const viewport = recipe.viewport || DEFAULT_VIEWPORT;
     const context = await browser.newContext({
       viewport,
       deviceScaleFactor: 1

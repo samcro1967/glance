@@ -1,4 +1,6 @@
 import "./vendor/chartjs/chart.umd.min.js";
+import { frontendDiagnosticError } from "./diagnostics.js";
+import { getPresentationConfig } from "./presentation-config.js";
 
 const initializedCharts = new WeakMap();
 
@@ -23,17 +25,10 @@ function chartPalette(colors) {
     return [colors.primary, colors.positive, colors.negative, colors.highlight, colors.subdue];
 }
 
-function presentationConfig(element) {
-    const widget = element.closest(".widget-type-custom-api");
-    const script = widget?.querySelector(":scope > .widget-content > script[data-glance-presentation-config]");
-    if (script === null || script === undefined) return {};
-    return JSON.parse(script.textContent);
-}
-
 function chartConfig(element) {
     const name = element.dataset.glanceChart;
     if (!name) throw new Error("Glance chart requires a configuration name");
-    const config = presentationConfig(element).charts?.[name];
+    const config = getPresentationConfig(element).charts?.[name];
     if (config === undefined) throw new Error(`Unknown Glance chart configuration: ${name}`);
     return config;
 }
@@ -229,6 +224,7 @@ function showChartError(element, error) {
     message.className = "glance-state glance-state-error";
     message.textContent = "Unable to render chart.";
     element.appendChild(message);
+    frontendDiagnosticError("presentation_chart_initialize_error", error);
     console.error("Failed to initialize Glance chart", error);
 }
 
@@ -303,6 +299,7 @@ export function refreshPresentationCharts() {
             current.instance.options = next.options;
             current.instance.update("none");
         } catch (error) {
+            frontendDiagnosticError("presentation_chart_theme_refresh_error", error);
             console.error("Failed to refresh Glance chart theme", error);
         }
     }
