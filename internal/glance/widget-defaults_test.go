@@ -43,11 +43,13 @@ func TestWidgetDefaultsGlobalThenTypeThenInstance(t *testing.T) {
 widget-defaults:
   global:
     title: Global title
+    icon: si:github
     title-url: https://global.example
     css-class: global-class
   types:
     rss:
       title: RSS title
+      icon: mdi:rss
       css-class: rss-class
 
 pages:
@@ -60,6 +62,7 @@ pages:
               - url: https://example.com/feed.xml
           - type: rss
             title: Instance title
+            icon: di:glance
             css-class: instance-class
             feeds:
               - url: https://example.com/feed.xml
@@ -74,6 +77,12 @@ pages:
 	if first.Title != "RSS title" {
 		t.Fatalf("first title = %q, want RSS title", first.Title)
 	}
+	if got := string(first.Icon.URL); got != "https://cdn.jsdelivr.net/npm/@mdi/svg@latest/svg/rss.svg" {
+		t.Fatalf("first icon = %q, want RSS type icon", got)
+	}
+	if !first.Icon.AutoInvert {
+		t.Fatal("RSS type icon did not preserve auto-invert")
+	}
 	if first.TitleURL != "https://global.example" {
 		t.Fatalf("first title-url = %q", first.TitleURL)
 	}
@@ -83,6 +92,12 @@ pages:
 
 	if second.Title != "Instance title" {
 		t.Fatalf("second title = %q", second.Title)
+	}
+	if got := string(second.Icon.URL); got != "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/glance.svg" {
+		t.Fatalf("second icon = %q, want instance icon", got)
+	}
+	if second.Icon.AutoInvert {
+		t.Fatal("instance dashboard icon unexpectedly auto-inverts")
 	}
 	if second.CSSClass != "instance-class" {
 		t.Fatalf("second css-class = %q", second.CSSClass)
@@ -150,6 +165,7 @@ func TestWidgetDefaultsExplicitEmptyStringOverridesInheritedString(t *testing.T)
 widget-defaults:
   global:
     title: Global title
+    icon: si:github
     title-url: https://global.example
     css-class: global-class
 
@@ -160,6 +176,7 @@ pages:
         widgets:
           - type: calendar
             title: ""
+            icon: ""
             title-url: ""
             css-class: ""
 `))
@@ -171,6 +188,12 @@ pages:
 
 	if widget.Title != "Calendar" {
 		t.Fatalf("title = %q, want built-in Calendar after explicit empty title", widget.Title)
+	}
+	if widget.Icon.URL != "" {
+		t.Fatalf("icon = %q, want explicit empty value", widget.Icon.URL)
+	}
+	if widget.Icon.AutoInvert {
+		t.Fatal("explicit empty icon unexpectedly auto-inverts")
 	}
 	if widget.TitleURL != "" {
 		t.Fatalf("title-url = %q, want explicit empty value", widget.TitleURL)
@@ -346,6 +369,7 @@ func TestVideosCollapseAfterRowsDefault(t *testing.T) {
 widget-defaults:
   types:
     videos:
+      icon: mdi:video
       collapse-after-rows: 6
 
 pages:
@@ -1788,6 +1812,7 @@ pages:
 func TestEveryRegisteredWidgetSupportsCommonCapabilities(t *testing.T) {
 	capabilities := []widgetCapability{
 		widgetCapabilityTitle,
+		widgetCapabilityIcon,
 		widgetCapabilityTitleURL,
 		widgetCapabilityHideHeader,
 		widgetCapabilityCSSClass,
@@ -1971,6 +1996,7 @@ widget-defaults:
     cache: 30m
   types:
     videos:
+      icon: mdi:video
       limit: 12
     rss:
       cache: 15m
@@ -2019,6 +2045,8 @@ pages:
 			"headers=\"[Authorization X-Alpha X-Zeta]\"",
 			"basic_auth=configured",
 			"msg=\"Widget defaults type\" type=videos",
+			"icon=https://cdn.jsdelivr.net/npm/@mdi/svg@latest/svg/video.svg",
+			"icon_auto_invert=true",
 			"limit=12",
 			"msg=\"Widget defaults overrides\" type=rss overrides=1 fields=[cache]",
 			"msg=\"Widget defaults overrides\" type=videos overrides=1 fields=[limit]",

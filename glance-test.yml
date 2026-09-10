@@ -103,6 +103,7 @@ widget-defaults:
 
   types:
     rss:
+      icon: mdi:rss
       title: "Inherited RSS"
       cache: 15m
       new-tab: false
@@ -117,6 +118,7 @@ widget-defaults:
         password: glance-test
 
     monitor:
+      icon: mdi:monitor
       title: "Inherited Monitor"
       cache: 1m
       new-tab: false
@@ -129,30 +131,35 @@ widget-defaults:
         password: glance-test
 
     hacker-news:
+      icon: si:ycombinator
       title: "Inherited Hacker News"
       limit: 6
       collapse-after: 4
       new-tab: false
 
     lobsters:
+      icon: mdi:rss
       title: "Inherited Lobsters"
       limit: 6
       collapse-after: 4
       new-tab: false
 
     reddit:
+      icon: si:reddit
       title: "Inherited Reddit"
       limit: 6
       collapse-after: 4
       new-tab: false
 
     releases:
+      icon: si:github
       title: "Inherited Releases"
       limit: 6
       collapse-after: 4
       new-tab: false
 
     videos:
+      icon: mdi:video
       title: "Inherited Videos"
       limit: 8
       collapse-after: 6
@@ -160,17 +167,20 @@ widget-defaults:
       new-tab: false
 
     twitch-top-games:
+      icon: si:twitch
       title: "Inherited Twitch Games"
       limit: 8
       collapse-after: 5
       new-tab: false
 
     twitch-channels:
+      icon: si:twitch
       title: "Inherited Twitch Channels"
       collapse-after: 5
       new-tab: false
 
     ics-events:
+      icon: mdi:calendar
       title: "Inherited ICS Events"
       limit: 6
       collapse-after: 4
@@ -184,6 +194,7 @@ widget-defaults:
         password: glance-test
 
     custom-api:
+      icon: si:json
       title: "Inherited Custom API"
       cache: 15m
       timeout: 8s
@@ -195,6 +206,7 @@ widget-defaults:
         password: glance-test
 
     extension:
+      icon: di:glance
       title: "Inherited Extension"
       cache: 15m
       timeout: 8s
@@ -206,24 +218,71 @@ widget-defaults:
         password: glance-test
 
     markets:
+      icon: mdi:chart-line
       title: "Inherited Markets"
       new-tab: false
 
     stocks:
+      icon: mdi:chart-line
       title: "Inherited Stocks Alias"
       new-tab: true
 
     repository:
+      icon: si:github
       title: "Inherited Repository"
       new-tab: false
 
     search:
+      icon: mdi:magnify
       title: "Inherited Search"
       new-tab: false
 
     bookmarks:
+      icon: mdi:bookmark-multiple
       title: "Inherited Bookmarks"
       new-tab: false
+
+    analog-clock:
+      icon: mdi:clock-outline
+
+    calculator:
+      icon: mdi:calculator
+
+    calendar:
+      icon: mdi:calendar
+
+    calendar-legacy:
+      icon: mdi:calendar-clock
+
+    change-detection:
+      icon: mdi:radar
+
+    clock:
+      icon: mdi:clock
+
+    dns-stats:
+      icon: si:adguard
+
+    docker-containers:
+      icon: mdi:docker
+
+    iframe:
+      icon: mdi:web
+
+    server-stats:
+      icon: mdi:server
+
+    timer:
+      icon: mdi:timer-outline
+
+    to-do:
+      icon: mdi:checkbox-marked-outline
+
+    unit-converter:
+      icon: mdi:swap-horizontal
+
+    weather:
+      icon: mdi:weather-partly-cloudy
 
 pages:
   - name: Layout & Composition
@@ -1063,10 +1122,12 @@ pages:
             widgets:
               - type: weather
                 title: Weather
+                icon: mdi:weather-partly-cloudy
                 location: St. Louis, Missouri, United States
                 units: imperial
               - type: markets
                 title: Markets
+                icon: mdi:chart-line
                 markets:
                   - symbol: SPY
                     name: S&P 500
@@ -1080,10 +1141,12 @@ pages:
             widgets:
               - type: hacker-news
                 title: Hacker News
+                icon: si:ycombinator
                 limit: 5
                 collapse-after: 3
               - type: reddit
                 title: Reddit
+                icon: si:reddit
                 subreddit: selfhosted
                 limit: 5
                 collapse-after: 3

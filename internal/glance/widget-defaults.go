@@ -12,6 +12,7 @@ type widgetDefaultsConfig struct {
 
 type widgetDefaultValues struct {
 	Title             *string            `yaml:"title"`
+	Icon              *customIconField   `yaml:"icon"`
 	TitleURL          *string            `yaml:"title-url"`
 	HideHeader        *bool              `yaml:"hide-header"`
 	CSSClass          *string            `yaml:"css-class"`
@@ -37,6 +38,9 @@ func (d widgetDefaultValues) configuredCapabilities() []widgetCapability {
 
 	if d.Title != nil {
 		capabilities = append(capabilities, widgetCapabilityTitle)
+	}
+	if d.Icon != nil {
+		capabilities = append(capabilities, widgetCapabilityIcon)
 	}
 	if d.TitleURL != nil {
 		capabilities = append(capabilities, widgetCapabilityTitleURL)
@@ -157,6 +161,9 @@ func resolveWidgetDefaultValues(widgetType string, defaults widgetDefaultsConfig
 	if typeDefaults, ok := defaults.Types[widgetType]; ok {
 		if typeDefaults.Title != nil {
 			resolved.Title = typeDefaults.Title
+		}
+		if typeDefaults.Icon != nil {
+			resolved.Icon = typeDefaults.Icon
 		}
 		if typeDefaults.TitleURL != nil {
 			resolved.TitleURL = typeDefaults.TitleURL
@@ -311,6 +318,9 @@ func applyWidgetBaseDefaults(candidate widget, defaults widgetDefaultsConfig) {
 
 	if resolved.Title != nil && !base.configuredFields["title"] {
 		base.Title = *resolved.Title
+	}
+	if resolved.Icon != nil && !base.configuredFields["icon"] {
+		base.Icon = *resolved.Icon
 	}
 	if resolved.TitleURL != nil && !base.configuredFields["title-url"] {
 		base.TitleURL = *resolved.TitleURL

@@ -951,3 +951,37 @@ func TestWidgetRefreshFailureLogsContentState(t *testing.T) {
 		})
 	}
 }
+
+func TestWidgetBaseTitleIconRendering(t *testing.T) {
+	tests := []struct {
+		name        string
+		widget      widgetBase
+		contains    []string
+		notContains []string
+	}{
+		{name: "no icon preserves title", widget: widgetBase{Title: "News"}, contains: []string{`<h2>News</h2>`}, notContains: []string{`widget-title-icon`}},
+		{name: "icon decorates title", widget: widgetBase{Title: "News", Icon: newCustomIconField("https://example.com/news.svg")}, contains: []string{`class="widget-title-icon"`, `src="https://example.com/news.svg"`, `alt=""`, `loading="lazy"`, `News`}},
+		{name: "auto invert icon", widget: widgetBase{Title: "News", Icon: newCustomIconField("auto-invert https://example.com/news.svg")}, contains: []string{`class="widget-title-icon flat-icon"`}},
+		{name: "linked title wraps icon and title", widget: widgetBase{Title: "News", TitleURL: "https://example.com", Icon: newCustomIconField("https://example.com/news.svg")}, contains: []string{`<h2><a class="widget-title" href="https://example.com">`, `class="widget-title-icon"`, `News</a></h2>`}},
+		{name: "blank title does not render icon", widget: widgetBase{Icon: newCustomIconField("https://example.com/news.svg")}, contains: []string{`<h2></h2>`}, notContains: []string{`widget-title-icon`}},
+		{name: "hidden header suppresses title icon", widget: widgetBase{Title: "News", HideHeader: true, Icon: newCustomIconField("https://example.com/news.svg")}, notContains: []string{`widget-header`, `widget-title-icon`, `News`}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			test.widget.Type = "test-widget"
+			tpl := mustParseTemplate("widget-base.html")
+			rendered := string(test.widget.renderTemplate(&test.widget, tpl))
+			for _, expected := range test.contains {
+				if !strings.Contains(rendered, expected) {
+					t.Errorf("rendered widget missing %q: %s", expected, rendered)
+				}
+			}
+			for _, unexpected := range test.notContains {
+				if strings.Contains(rendered, unexpected) {
+					t.Errorf("rendered widget unexpectedly contains %q: %s", unexpected, rendered)
+				}
+			}
+		})
+	}
+}
