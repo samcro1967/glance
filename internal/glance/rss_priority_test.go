@@ -36,6 +36,35 @@ func TestPriorityRSSInitializeDetailedAndBounds(t *testing.T) {
 	}
 }
 
+func TestPriorityRSSInitializeImageRequirements(t *testing.T) {
+	tests := []struct {
+		style         string
+		includeImages bool
+	}{
+		{style: "", includeImages: false},
+		{style: "detailed-list", includeImages: true},
+		{style: "horizontal-cards", includeImages: true},
+		{style: "horizontal-cards-2", includeImages: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.style, func(t *testing.T) {
+			widget := &rssWidget{
+				Style:        test.style,
+				FeedRequests: []rssFeedRequest{{URL: "https://example.com/feed"}},
+			}
+
+			if err := widget.initialize(); err != nil {
+				t.Fatal(err)
+			}
+
+			if got := widget.FeedRequests[0].IncludeImages; got != test.includeImages {
+				t.Fatalf("IncludeImages = %v, want %v", got, test.includeImages)
+			}
+		})
+	}
+}
+
 func TestPriorityRSSDescriptionSanitizationAndShortening(t *testing.T) {
 	input := "  <p class=\"x\">Hello&nbsp;   world</p>\n<strong>again</strong>  "
 	got := sanitizeFeedDescription(input)
