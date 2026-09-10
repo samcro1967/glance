@@ -1669,6 +1669,100 @@ pages:
 	}
 }
 
+func TestPageNavigationIcons(t *testing.T) {
+	app := newGlanceTestApplication(t, `
+pages:
+  - name: Home
+    icon: mdi:home
+    columns:
+      - size: full
+        widgets: []
+
+  - name: Plain
+    columns:
+      - size: full
+        widgets: []
+`)
+
+	page := &app.Config.Pages[0]
+
+	if got := string(page.Icon.URL); got != "https://cdn.jsdelivr.net/npm/@mdi/svg@latest/svg/home.svg" {
+		t.Fatalf("page icon URL = %q, want resolved MDI home icon", got)
+	}
+	if !page.Icon.AutoInvert {
+		t.Fatal("page MDI icon did not preserve auto-invert")
+	}
+	if app.Config.Pages[1].Icon.URL != "" {
+		t.Fatalf("page without icon resolved URL = %q, want empty", app.Config.Pages[1].Icon.URL)
+	}
+
+	request, err := http.NewRequest(http.MethodGet, "/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data := templateData{
+		App:             app,
+		Page:            page,
+		NavigationPages: pagePointers(app.Config.Pages),
+	}
+	app.populateTemplateRequestData(&data.Request, request, page)
+
+	var rendered strings.Builder
+	if err := pageTemplate.Execute(&rendered, data); err != nil {
+		t.Fatalf("render page: %v", err)
+	}
+
+	html := rendered.String()
+
+	icon := `<img class="nav-item-icon flat-icon" src="https://cdn.jsdelivr.net/npm/@mdi/svg@latest/svg/home.svg" alt="">`
+	if !strings.Contains(html, icon) {
+		t.Errorf("rendered navigation missing page icon %q", icon)
+	}
+
+	if strings.Contains(html, `class="nav-item-icon flat-icon" src="https://cdn.jsdelivr.net/npm/@mdi/svg@latest/svg/home.svg" alt="" loading="lazy"`) {
+		t.Error("page navigation icon unexpectedly uses lazy loading")
+	}
+
+	homeLinkStart := strings.Index(html, `href="/home"`)
+	homeLinkEnd := -1
+	if homeLinkStart >= 0 {
+		if offset := strings.Index(html[homeLinkStart:], `</a>`); offset >= 0 {
+			homeLinkEnd = homeLinkStart + offset
+		}
+	}
+	if homeLinkStart < 0 || homeLinkEnd < 0 {
+		t.Fatal("rendered navigation missing Home link")
+	}
+
+	homeLink := html[homeLinkStart:homeLinkEnd]
+	if !strings.Contains(homeLink, `class="nav-item-icon flat-icon"`) {
+		t.Error("Home icon is not inside the Home navigation link")
+	}
+	if !strings.Contains(homeLink, `<div class="nav-item-text">Home</div>`) {
+		t.Error("Home title is not inside the Home navigation link")
+	}
+
+	plainLinkStart := strings.Index(html, `href="/plain"`)
+	plainLinkEnd := -1
+	if plainLinkStart >= 0 {
+		if offset := strings.Index(html[plainLinkStart:], `</a>`); offset >= 0 {
+			plainLinkEnd = plainLinkStart + offset
+		}
+	}
+	if plainLinkStart < 0 || plainLinkEnd < 0 {
+		t.Fatal("rendered navigation missing Plain link")
+	}
+
+	plainLink := html[plainLinkStart:plainLinkEnd]
+	if strings.Contains(plainLink, `nav-item-icon`) {
+		t.Error("page without icon unexpectedly rendered a navigation icon")
+	}
+	if !strings.Contains(plainLink, `<div class="nav-item-text">Plain</div>`) {
+		t.Error("page without icon did not preserve its navigation title")
+	}
+}
+
 func TestApplicationCollectsRefreshWidgetLeaves(t *testing.T) {
 	app := newGlanceTestApplication(t, `
 pages:

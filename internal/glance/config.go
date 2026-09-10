@@ -82,6 +82,7 @@ type user struct {
 
 type page struct {
 	Title                  string          `yaml:"name"`
+	Icon                   customIconField `yaml:"icon"`
 	Slug                   string          `yaml:"slug"`
 	Width                  string          `yaml:"width"`
 	DesktopNavigationWidth string          `yaml:"desktop-navigation-width"`
