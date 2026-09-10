@@ -1,0 +1,23 @@
+# Canonical authentication fixture for frontend login regression checks.
+#
+# This file contains only public, test-only credentials and cryptographic
+# material. It must never contain production authentication information.
+
+server:
+  host: 0.0.0.0
+  port: 18080
+
+auth:
+  secret-key: "dIYdUB8hboKGTyXQ3+NiEb7O/u/ZEo/jWKVDXn9qytBHrCMK+EUy6IfDmKr+/xqizTRfi6ex70eukxwkSFrPlw=="
+  users:
+    test-user:
+      password: test-password
+
+branding:
+  app-name: "Glance Auth Test"
+
+pages:
+  - name: Login Test
+    slug: login-test
+    columns:
+      - size: full

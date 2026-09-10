@@ -1,14 +1,9 @@
 import "./vendor/datatables/dataTables.min.js";
 import "./vendor/datatables/dataTables.responsive.min.js";
+import { frontendDiagnosticError } from "./diagnostics.js";
+import { getPresentationConfig } from "./presentation-config.js";
 
 const initializedTables = new WeakMap();
-
-function presentationConfig(element) {
-    const widget = element.closest(".widget-type-custom-api");
-    const script = widget?.querySelector(":scope > .widget-content > script[data-glance-presentation-config]");
-    if (script === null || script === undefined) return {};
-    return JSON.parse(script.textContent);
-}
 
 function tableConfig(table) {
     const name = table.dataset.glanceTable;
@@ -23,7 +18,7 @@ function tableConfig(table) {
         };
     }
 
-    const config = presentationConfig(table).tables?.[name];
+    const config = getPresentationConfig(table).tables?.[name];
     if (config === undefined) {
         throw new Error(`Unknown Glance table configuration: ${name}`);
     }
@@ -86,6 +81,7 @@ export function setupPresentationTables(root = document) {
             const cleanup = setupTable(table);
             if (cleanup !== null) cleanupCallbacks.push(cleanup);
         } catch (error) {
+            frontendDiagnosticError("presentation_table_initialize_error", error);
             console.error("Failed to initialize Glance table", error);
         }
     }

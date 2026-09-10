@@ -6,7 +6,7 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps build goreleaser-check test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final
+.PHONY: help deps build goreleaser-check frontend-audit frontend-check test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final
 
 COUNT ?= 10
 COVERAGE_FILE ?= coverage.out
@@ -108,13 +108,15 @@ help:
 	@echo "DEVELOPMENT:"
 	@echo "  make deps                     Download Go module dependencies"
 	@echo "  make build                    Build all Go packages"
-	@echo "  make test-instance-start      Build/validate/start isolated test instance"
-	@echo "  make test-instance-status     Show isolated test instance status"
-	@echo "  make test-instance-stop       Stop test instance and remove runtime artifacts"
+	@echo "  make test-instance-start      Build current source and run local binary with deterministic test config"
+	@echo "  make test-instance-status     Show local deterministic test instance status"
+	@echo "  make test-instance-stop       Stop local deterministic test instance and remove runtime artifacts"
 	@echo "  make test-prod-start TEST_RUNTIME_CONTAINER=name"
-	@echo "                                Build current source and run with production runtime"
-	@echo "  make test-prod-status         Show local production-runtime test status"
-	@echo "  make test-prod-stop           Stop local production-runtime test and remove image"
+	@echo "                                Build current source into an isolated test container using"
+	@echo "                                the named production container as its runtime reference"
+	@echo "                                Production is not modified or replaced"
+	@echo "  make test-prod-status         Show isolated production-runtime test container status"
+	@echo "  make test-prod-stop           Remove isolated production-runtime test container and local image"
 	@echo "  make test-container-start TEST_RUNTIME_CONTAINER=name"
 	@echo "                                Pull and start isolated published dev container"
 	@echo "  make test-container-status    Show isolated container status"
@@ -231,7 +233,7 @@ staged-check:
 docs-check:
 	python3 scripts/check_docs.py
 
-check: test test-race build fmt-check diff-check staged-check docs-check
+check: test test-race build fmt-check diff-check staged-check docs-check frontend-audit
 
 coverage:
 	go test ./... -coverprofile=$(COVERAGE_FILE)
@@ -1715,7 +1717,7 @@ test-instance-start: test-instance-fixture-start
 	echo "$$pid" > "$(TEST_PID_FILE)"; \
 	ready=0; \
 	for i in $$(seq 1 10); do \
-		code="$$(curl -sS -o /dev/null -w '%{http_code}' "$(TEST_URL)/" 2>/dev/null || true)"; \
+		code="$$(curl -sS -o /dev/null -w '%{http_code}' "$(TEST_URL)/api/healthz" 2>/dev/null || true)"; \
 		if [ "$$code" = "200" ]; then \
 			ready=1; \
 			break; \
@@ -2070,10 +2072,22 @@ test-container-stop:
 	echo "Preserved image $(TEST_CONTAINER_IMAGE).";
 
 # -----------------------------------------------------------------------------
-# Visual QA
+# Frontend validation and visual QA
 # -----------------------------------------------------------------------------
 
-.PHONY: visual-check visual-screenshots visual-docs visual-docs-promote visual-all
+.PHONY: frontend-audit frontend-check frontend-coverage visual-check visual-screenshots visual-docs visual-docs-promote visual-all
+
+frontend-audit:
+	@echo "=== FRONTEND ARCHITECTURE AUDIT ==="
+	@python3 scripts/audit_frontend.py
+
+frontend-check:
+	@echo "=== FRONTEND REGRESSION CHECK ==="
+	@bash testdata/visual/run.sh frontend
+
+frontend-coverage:
+	@echo "=== FRONTEND JS EXECUTION COVERAGE ==="
+	@bash testdata/visual/run.sh frontend-coverage
 
 visual-check:
 	@echo "=== VISUAL QA CONTRACT ==="
@@ -2081,7 +2095,7 @@ visual-check:
 
 visual-screenshots: visual-check
 	@echo "=== VISUAL QA SCREENSHOTS ==="
-	@bash testdata/visual/run.sh qa $(if $(DASHBOARD),--dashboard=$(DASHBOARD)) $(if $(PAGE),--page=$(PAGE))
+	@bash testdata/visual/run.sh qa $(if $(DASHBOARD),--dashboard=$(DASHBOARD)) $(if $(PAGE),--page=$(PAGE)) $(if $(VIEWPORT),--viewport=$(VIEWPORT))
 
 visual-docs:
 	@echo "=== VISUAL DOCUMENTATION STAGING CONTRACT ==="

@@ -34,7 +34,11 @@ const lang = {
 };
 
 container.clearStyles("display");
-setTimeout(() => usernameInput.focus(), 200);
+setTimeout(() => {
+    if (!container.contains(document.activeElement)) {
+        usernameInput.focus();
+    }
+}, 200);
 
 toggleVisibilityButton
     .html(showPasswordSVG)
@@ -93,18 +97,29 @@ async function handleLoginAttempt() {
     loginButton.disable();
     state.isLoading = true;
 
-    const response = await fetch(AUTH_ENDPOINT, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            username: usernameInput.value,
-            password: passwordInput.value
-        }),
-    });
+    let response;
+    try {
+        response = await fetch(AUTH_ENDPOINT, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                username: usernameInput.value,
+                password: passwordInput.value
+            }),
+        });
+    } catch (error) {
+        state.lastUsername = "";
+        state.lastPassword = "";
+        errorMessage.text(lang.unknownError);
+        passwordInput.focus();
+        return;
+    } finally {
+        state.isLoading = false;
+        enableLoginButtonIfCriteriaMet();
+    }
 
-    state.isLoading = false;
     if (response.status === 200) {
         setTimeout(() => { window.location.href = pageData.baseURL + "/"; }, 300);
 

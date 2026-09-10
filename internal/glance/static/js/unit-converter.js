@@ -1,3 +1,5 @@
+import { frontendDiagnosticError } from "./diagnostics.js";
+
 function unitLabel(unit) {
     if (!unit.symbol || unit.symbol === unit.name)
         return unit.name;
@@ -99,6 +101,7 @@ function initializeConverter(element) {
     try {
         catalog = JSON.parse(catalogElement.textContent);
     } catch (error) {
+        frontendDiagnosticError("unit_converter_catalog_parse_error", error);
         console.error("Failed to parse unit converter catalog:", error);
         return;
     }

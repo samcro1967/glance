@@ -4,6 +4,7 @@
 /.idea
 /glance*.yml
 !/glance-test.yml
+!/glance-test-auth.yml
 /.glance-test
 /.glance-test.pid
 /.glance-test.log

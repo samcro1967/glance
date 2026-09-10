@@ -83,6 +83,25 @@ const dockerContainers = [
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${HOST}:${PORT}`);
 
+  if (url.pathname === '/custom-api-presentation') {
+    sendJson(res, {
+      full_name: 'samcro1967/glance',
+      description: 'Deterministic Custom API presentation fixture',
+      stargazers_count: 1967,
+      services: [
+        { name: 'Dashboard', status: 'Healthy', latency: 12 },
+        { name: 'Fixture API', status: 'Healthy', latency: 7 }
+      ],
+      chart: {
+        labels: ['Mon', 'Tue', 'Wed', 'Thu'],
+        series: [
+          { label: 'CPU', values: [42, 55, 48, 61] }
+        ]
+      }
+    });
+    return;
+  }
+
   if (url.pathname === '/visual-test-extension') {
     res.writeHead(200, {
       'Content-Type': 'text/html; charset=utf-8',
