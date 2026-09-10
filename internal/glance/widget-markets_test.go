@@ -7,6 +7,51 @@ import (
 	"testing"
 )
 
+func TestMarketPreviousClose(t *testing.T) {
+	tests := []struct {
+		name          string
+		current       float64
+		previousClose float64
+		prices        []float64
+		want          float64
+	}{
+		{
+			name:          "prefers explicit previous close",
+			current:       105,
+			previousClose: 101,
+			prices:        []float64{95, 99, 105},
+			want:          101,
+		},
+		{
+			name:    "uses latest nonzero historical close",
+			current: 105,
+			prices:  []float64{95, 99, 0, 105},
+			want:    99,
+		},
+		{
+			name:    "falls back to current price",
+			current: 105,
+			prices:  []float64{0, 0, 105},
+			want:    105,
+		},
+		{
+			name:    "handles sparse price history",
+			current: 105,
+			prices:  []float64{105},
+			want:    105,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got := marketPreviousClose(test.current, test.previousClose, test.prices)
+			if got != test.want {
+				t.Fatalf("marketPreviousClose() = %v, want %v", got, test.want)
+			}
+		})
+	}
+}
+
 func TestMarketsFetchCancellationPreservesClassificationAndCause(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

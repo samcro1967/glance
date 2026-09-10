@@ -378,6 +378,23 @@ func TestComprehensiveContainerEmptyLifecycle(t *testing.T) {
 	}
 }
 
+func TestComprehensiveGroupTitleIcons(t *testing.T) {
+	child := &markdownWidget{Source: "Test", widgetBase: widgetBase{Type: "markdown", Title: "News", TitleURL: "https://example.com", Icon: newCustomIconField("auto-invert https://example.com/news.svg")}}
+	group := &groupWidget{widgetBase: widgetBase{Type: "group"}, containerWidgetBase: containerWidgetBase{Widgets: widgets{child}}}
+	if err := group.initialize(); err != nil {
+		t.Fatal(err)
+	}
+	rendered := string(group.Render())
+	for _, expected := range []string{`class="widget-group-title widget-title glance-tab`, `data-title-url="https://example.com"`, `class="widget-title-icon flat-icon"`, `src="https://example.com/news.svg"`, `alt=""`, `loading="lazy"`, `News`} {
+		if !strings.Contains(rendered, expected) {
+			t.Errorf("rendered group missing %q: %s", expected, rendered)
+		}
+	}
+	if !child.HideHeader {
+		t.Fatal("group child header should remain hidden")
+	}
+}
+
 func TestComprehensiveContainerRejectsUnsupportedNesting(t *testing.T) {
 	split := &splitColumnWidget{}
 	split.Type = "split-column"

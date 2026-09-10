@@ -106,6 +106,7 @@ type marketResponseJson struct {
 				Currency           string  `json:"currency"`
 				Symbol             string  `json:"symbol"`
 				RegularMarketPrice float64 `json:"regularMarketPrice"`
+				PreviousClose      float64 `json:"previousClose"`
 				ChartPreviousClose float64 `json:"chartPreviousClose"`
 				ShortName          string  `json:"shortName"`
 				PriceHint          int     `json:"priceHint"`
@@ -189,11 +190,11 @@ func fetchMarketsDataFromYahoo(ctx context.Context, marketRequests []marketReque
 			prices = prices[len(prices)-marketChartDays:]
 		}
 
-		previous := result.Meta.RegularMarketPrice
-
-		if len(prices) >= 2 && prices[len(prices)-2] != 0 {
-			previous = prices[len(prices)-2]
-		}
+		previous := marketPreviousClose(
+			result.Meta.RegularMarketPrice,
+			result.Meta.PreviousClose,
+			prices,
+		)
 
 		points := svgPolylineCoordsFromYValues(100, 50, maybeCopySliceWithoutZeroValues(prices))
 
@@ -236,6 +237,20 @@ func fetchMarketsDataFromYahoo(ctx context.Context, marketRequests []marketReque
 	}
 
 	return markets, nil
+}
+
+func marketPreviousClose(current, previousClose float64, prices []float64) float64 {
+	if previousClose != 0 {
+		return previousClose
+	}
+
+	for i := len(prices) - 2; i >= 0; i-- {
+		if prices[i] != 0 {
+			return prices[i]
+		}
+	}
+
+	return current
 }
 
 var currencyToSymbol = map[string]string{

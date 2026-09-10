@@ -203,6 +203,20 @@
 
 /* Linked titles remain interactive without making every widget heading use
  * the application's accent color at rest. */
+.widget-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-width: 0;
+}
+
+.widget-title-icon {
+    width: 1em;
+    height: 1em;
+    flex: 0 0 1em;
+    object-fit: contain;
+}
+
 .widget > .widget-header > h2 > a {
     color: inherit;
     transition:

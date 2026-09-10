@@ -117,6 +117,12 @@ func logWidgetDefaultValues(
 	if values.Title != nil {
 		args = append(args, "title", *values.Title)
 	}
+	if values.Icon != nil {
+		args = append(args, "icon", values.Icon.URL)
+		if values.Icon.AutoInvert {
+			args = append(args, "icon_auto_invert", true)
+		}
+	}
 	if values.TitleURL != nil {
 		args = append(args, "title_url", *values.TitleURL)
 	}

@@ -65,10 +65,12 @@ func (widget *rssWidget) initialize() error {
 		widget.CardHeight = 0
 	}
 
-	if widget.Style == "detailed-list" {
-		for i := range widget.FeedRequests {
-			widget.FeedRequests[i].IsDetailed = true
-		}
+	for i := range widget.FeedRequests {
+		widget.FeedRequests[i].IsDetailed = widget.Style == "detailed-list"
+		widget.FeedRequests[i].IncludeImages =
+			widget.Style == "detailed-list" ||
+				widget.Style == "horizontal-cards" ||
+				widget.Style == "horizontal-cards-2"
 	}
 
 	widget.NoItemsMessage = "No items were returned from the feeds."
@@ -144,7 +146,8 @@ type rssFeedRequest struct {
 		Username string `yaml:"username"`
 		Password string `yaml:"password"`
 	} `yaml:"basic-auth"`
-	IsDetailed bool `yaml:"-"`
+	IsDetailed    bool `yaml:"-"`
+	IncludeImages bool `yaml:"-"`
 }
 
 func (request *rssFeedRequest) UnmarshalYAML(node *yaml.Node) error {
@@ -335,24 +338,26 @@ func (widget *rssWidget) fetchItemsFromFeedTask(ctx context.Context, request rss
 			rssItem.ChannelName = feed.Title
 		}
 
-		rssItem.ImageURL = feedItemImageURL(item, feed, request.URL)
+		if request.IncludeImages {
+			rssItem.ImageURL = feedItemImageURL(item, feed, request.URL)
 
-		// For some reason gofeed sometimes converts absolute URLs to relative ones, so we need to fix
-		// that here and provide the user with an option to override the prefix in case we get it wrong
-		if strings.HasPrefix(rssItem.ImageURL, "/") {
-			prefix := strings.TrimPrefix(feed.Link, "/")
-			if request.ThumbnailLinkPrefix != "" {
-				prefix = strings.TrimPrefix(request.ThumbnailLinkPrefix, "/")
-			} else if prefix == "" {
-				parsed, err := url.Parse(request.URL)
-				if err != nil {
-					prefix = request.URL
-				} else {
-					prefix = parsed.Scheme + "://" + parsed.Host
+			// For some reason gofeed sometimes converts absolute URLs to relative ones, so we need to fix
+			// that here and provide the user with an option to override the prefix in case we get it wrong
+			if strings.HasPrefix(rssItem.ImageURL, "/") {
+				prefix := strings.TrimPrefix(feed.Link, "/")
+				if request.ThumbnailLinkPrefix != "" {
+					prefix = strings.TrimPrefix(request.ThumbnailLinkPrefix, "/")
+				} else if prefix == "" {
+					parsed, err := url.Parse(request.URL)
+					if err != nil {
+						prefix = request.URL
+					} else {
+						prefix = parsed.Scheme + "://" + parsed.Host
+					}
 				}
-			}
 
-			rssItem.ImageURL = strings.TrimRight(prefix, "/") + rssItem.ImageURL
+				rssItem.ImageURL = strings.TrimRight(prefix, "/") + rssItem.ImageURL
+			}
 		}
 
 		if item.PublishedParsed != nil {

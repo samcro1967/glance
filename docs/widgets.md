@@ -16,6 +16,7 @@ Every widget supports a common set of configuration properties in addition to it
 | --- | --- | --- | --- |
 | `type` | string | yes | — |
 | `title` | string | no | widget-defined |
+| `icon` | string | no | — |
 | `title-url` | string | no | widget-defined |
 | `hide-header` | boolean | no | `false` |
 | `cache` | duration | no | widget-defined |
@@ -26,6 +27,13 @@ Used to specify the widget.
 
 ### `title`
 The title of the widget. If left blank it will be defined by the widget.
+
+### `icon`
+An optional icon displayed immediately before the widget title. The value can be a direct image URL or an icon-library reference using the `si:`, `sh:`, `di:`, or `mdi:` prefixes documented in [Configuration: Icons](configuration.md#icons). Prefix the value with `auto-invert ` to automatically invert the icon for dark themes where supported.
+
+The icon is shown only when the widget has a non-empty title. If `title-url` is configured, the icon and title share the same link. `hide-header: true` hides the icon together with the rest of the widget header. Group children display their title icons in the corresponding group tabs, while widgets inside a Stack use their normal widget headers.
+
+`icon` also participates in [widget defaults](configuration.md#widget-defaults). An explicit empty value (`icon: ""`) suppresses an icon inherited from a global or type default.
 
 ### `title-url`
 The URL to go to when clicking on the widget's title. If left blank it will be defined by the widget (if available).

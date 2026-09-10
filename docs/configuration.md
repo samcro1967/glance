@@ -242,6 +242,7 @@ The following capabilities are common to registered widgets and may be configure
 | Name | Type | Description |
 | ---- | ---- | ----------- |
 | `title` | string | Default widget title |
+| `icon` | string | Default widget title icon |
 | `title-url` | string | Default URL opened by the widget title |
 | `hide-header` | boolean | Whether the widget header is hidden |
 | `css-class` | string | Default custom CSS class |
@@ -313,7 +314,7 @@ Inherited HTTP headers are merged with more-specific headers, with the more-spec
 
 ## Icons
 
-For widgets which provide you with the ability to specify icons such as the monitor, bookmarks, docker containers, etc, you can use the `icon` property to specify a URL to an image or use icon names from multiple libraries via prefixes:
+The common widget `icon` property adds an optional icon immediately before the widget title. It accepts a direct image URL or an icon name from one of the supported libraries using the prefixes below. The same icon syntax is also used by widget-specific item and service icons, such as Monitor entries, Bookmarks, and Docker containers.
 
 ```yml
 icon: si:immich # si for Simple icons https://simpleicons.org/
@@ -321,6 +322,12 @@ icon: sh:immich # sh for selfh.st icons https://selfh.st/icons/
 icon: di:immich # di for Dashboard icons https://github.com/homarr-labs/dashboard-icons
 icon: mdi:camera # mdi for Material Design icons https://pictogrammers.com/library/mdi/
 ```
+
+Widget title icons are rendered only when the widget has a non-empty title. When `title-url` is configured, the icon and title are part of the same link. `hide-header: true` suppresses the title icon together with the header. Group child icons appear in their group tabs, while widgets inside a Stack render title icons in their normal headers.
+
+Title icons participate in `widget-defaults`, so they can be configured globally, by widget type, or on an individual widget using the normal precedence rules. An explicit empty value (`icon: ""`) suppresses an inherited title icon. Widget-specific item or service icons remain independent of the widget title icon.
+
+Prefix an icon value with `auto-invert ` to automatically invert it for dark themes. The `si:` and `mdi:` prefixes enable auto-inversion automatically.
 
 The `sh:` and `di:` prefixes request SVG icons by default. If an icon is only available as a PNG, add the extension to its name:
 
