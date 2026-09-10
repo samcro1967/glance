@@ -286,6 +286,7 @@ widget-defaults:
 
 pages:
   - name: Layout & Composition
+    icon: mdi:view-dashboard
     slug: layout-composition
     width: wide
     head-widgets:
@@ -390,6 +391,7 @@ pages:
             units: imperial
 
   - name: Feeds & Content
+    icon: mdi:rss
     slug: feeds-content
     width: wide
     columns:
@@ -454,6 +456,7 @@ pages:
             collapse-after: 5
 
   - name: Search, Links & Custom Content
+    icon: mdi:magnify
     slug: search-custom-content
     width: wide
     columns:
@@ -590,6 +593,7 @@ pages:
             height: 240
 
   - name: Date, Time & Weather
+    icon: mdi:weather-partly-cloudy
     slug: date-time-weather
     width: wide
     columns:
@@ -660,6 +664,7 @@ pages:
             start-sunday: true
 
   - name: Homelab & Monitoring
+    icon: mdi:server
     slug: homelab-monitoring
     width: wide
     columns:
@@ -713,6 +718,7 @@ pages:
               Monitoring widgets use local deterministic fixture data for reproducible visual QA.
 
   - name: Development & Releases
+    icon: si:github
     slug: development-releases
     width: wide
     columns:
@@ -735,6 +741,7 @@ pages:
               - syncthing/syncthing
 
   - name: Markets & Streaming
+    icon: mdi:chart-line
     slug: markets-streaming
     width: wide
     columns:
@@ -779,6 +786,7 @@ pages:
               - pools-hot-tubs-and-beaches
 
   - name: Utilities
+    icon: mdi:tools
     slug: utilities
     width: wide
     columns:
@@ -802,6 +810,7 @@ pages:
             css-class: visual-fixture-calculator
 
   - name: Theme Global
+    icon: mdi:palette
     slug: theme-global
     width: wide
     columns:
@@ -853,6 +862,7 @@ pages:
                     url: https://github.com/samcro1967/glance
 
   - name: Theme Dark Page
+    icon: mdi:weather-night
     slug: theme-dark-page
     width: wide
     theme:
@@ -918,6 +928,7 @@ pages:
             autofocus: false
 
   - name: Theme Light Page
+    icon: mdi:white-balance-sunny
     slug: theme-light-page
     width: wide
     theme:
@@ -983,6 +994,7 @@ pages:
             autofocus: false
 
   - name: Theme Partial Override
+    icon: mdi:palette-outline
     slug: theme-partial
     width: wide
     theme:
@@ -1020,6 +1032,7 @@ pages:
             autofocus: false
 
   - name: Theme Components
+    icon: mdi:view-grid
     slug: theme-components
     width: wide
     theme:
@@ -1112,6 +1125,7 @@ pages:
                     url: https://github.com/samcro1967/glance
 
   - name: Theme Composition
+    icon: mdi:layers
     slug: theme-composition
     width: wide
     columns:
@@ -1181,6 +1195,7 @@ pages:
   # documentation screenshots.
 
   - name: Overview
+    icon: di:glance
     slug: docs-overview
     width: wide
     columns:
@@ -1263,6 +1278,7 @@ pages:
             title: Today
 
   - name: Layouts
+    icon: mdi:view-dashboard-outline
     slug: docs-layouts
     width: wide
     columns:
@@ -1312,6 +1328,7 @@ pages:
             title: Calculator
 
   - name: Head & Bottom Widgets
+    icon: mdi:dock-window
     slug: docs-head-bottom
     width: wide
     head-widgets:
@@ -1378,6 +1395,7 @@ pages:
             units: imperial
 
   - name: Startpage
+    icon: mdi:home
     slug: docs-startpage
     width: slim
     center-vertically: true
@@ -1421,6 +1439,7 @@ pages:
                     url: https://www.reddit.com/
 
   - name: Markets
+    icon: mdi:chart-line
     slug: docs-markets
     width: wide
     columns:
@@ -1465,6 +1484,7 @@ pages:
             style: vertical-list
 
   - name: Gaming
+    icon: si:twitch
     slug: docs-gaming
     width: wide
     columns:
@@ -1505,6 +1525,7 @@ pages:
               in a focused dashboard.
 
   - name: Extension Example
+    icon: di:glance
     slug: docs-extension
     width: slim
     columns:

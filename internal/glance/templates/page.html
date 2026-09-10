@@ -8,7 +8,12 @@
 
 {{ define "navigation-links" }}
 {{ range .NavigationPages }}
-<a href="{{ $.App.Config.Server.BaseURL }}{{ $.DashboardPath }}/{{ .Slug }}" class="nav-item{{ if eq .Slug $.Page.Slug }} nav-item-current{{ end }}"{{ if eq .Slug $.Page.Slug }} aria-current="page"{{ end }}><div class="nav-item-text">{{ .Title }}</div></a>
+<a href="{{ $.App.Config.Server.BaseURL }}{{ $.DashboardPath }}/{{ .Slug }}" class="nav-item{{ if eq .Slug $.Page.Slug }} nav-item-current{{ end }}"{{ if eq .Slug $.Page.Slug }} aria-current="page"{{ end }}>
+    {{- if .Icon.URL }}
+    <img class="nav-item-icon{{ if .Icon.AutoInvert }} flat-icon{{ end }}" src="{{ .Icon.URL }}" alt="">
+    {{- end }}
+    <div class="nav-item-text">{{ .Title }}</div>
+</a>
 {{ end }}
 {{ end }}
 
