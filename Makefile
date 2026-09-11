@@ -6,7 +6,7 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps build goreleaser-check frontend-audit frontend-check test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final
+.PHONY: help deps build goreleaser-check frontend-audit frontend-check test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-docs deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final
 
 COUNT ?= 10
 COVERAGE_FILE ?= coverage.out
@@ -48,6 +48,11 @@ DEV_BRANCH ?= dev
 STABLE_BRANCH ?= main
 PR_BASE ?= $(DEV_BRANCH)
 
+# Internal lifecycle control. Normal workflows verify development images.
+# ship-docs suppresses only the wait/verification step after its scope guard
+# proves the feature contains approved non-runtime documentation changes.
+SKIP_IMAGE_WATCH ?= 0
+
 FORK_RELEASE_ID ?= samcro1967
 FORK_RELEASE_WIDTH ?= 3
 GORELEASER_VERSION ?= v2.18.1
@@ -69,6 +74,9 @@ help:
 	@echo "  make ship TITLE='Description' [BODY_FILE=file]"
 	@echo "                                Feature -> dev -> main -> formal release; NEVER deploys"
 	@echo "                                BODY_FILE optionally supplies the feature PR body"
+	@echo "  make ship-docs TITLE='Description' [BODY_FILE=file]"
+	@echo "                                Non-runtime docs -> dev -> main -> dev synchronization"
+	@echo "                                NO formal release, tag, image verification, or deployment"
 	@echo "  make deploy-finish            Deploy formal release -> sync main back to dev -> final verification"
 	@echo
 	@echo "NORMAL WORKFLOW:"
@@ -77,6 +85,8 @@ help:
 	@echo "                                when origin/dev is its ancestor; parked commits are included"
 	@echo "  ... edit, stage, commit ..."
 	@echo "  make ship TITLE='Description' [BODY_FILE=file]"
+	@echo "  make ship-docs TITLE='Description' [BODY_FILE=file]"
+	@echo "                                Use only for guarded non-runtime documentation changes"
 	@echo "  make deploy-finish"
 	@echo
 	@echo "RECOVERY / INDIVIDUAL STAGES:"
@@ -95,6 +105,7 @@ help:
 	@echo
 	@echo "SAFEGUARDS:"
 	@echo "  Composite stages fail immediately when any required command fails."
+	@echo "  ship-docs refuses changes outside its explicit non-runtime documentation allowlist."
 	@echo "  PR finish targets verify feature/dev/main direction before merging."
 	@echo "  PR CI watches match the exact PR head SHA, not merely the branch name."
 	@echo "  Dev image watches match the exact current dev SHA."
@@ -747,7 +758,11 @@ pr-finish:
 	$(MAKE) pr-watch PR="$$pr"; \
 	$(MAKE) pr-merge PR="$$pr"; \
 	$(MAKE) post-merge PR="$$pr"; \
-	$(MAKE) image-watch; \
+	if [ "$(SKIP_IMAGE_WATCH)" = "1" ]; then \
+		echo "Skipping development image verification for guarded non-runtime documentation workflow."; \
+	else \
+		$(MAKE) image-watch; \
+	fi; \
 	$(MAKE) status
 
 promote-finish:
@@ -814,7 +829,11 @@ sync-finish:
 	$(MAKE) pr-watch PR="$$pr"; \
 	$(MAKE) pr-merge PR="$$pr"; \
 	$(MAKE) post-merge PR="$$pr"; \
-	$(MAKE) image-watch; \
+	if [ "$(SKIP_IMAGE_WATCH)" = "1" ]; then \
+		echo "Skipping development image verification for guarded non-runtime documentation workflow."; \
+	else \
+		$(MAKE) image-watch; \
+	fi; \
 	$(MAKE) status
 
 
@@ -1207,6 +1226,152 @@ ship:
 	echo "Formal release completed and verified."; \
 	echo "Production was NOT deployed."; \
 	echo "Run make deploy-finish to cross the explicit production boundary."
+
+
+ship-docs:
+	@set -euo pipefail; \
+	if [ -z "$(TITLE)" ]; then \
+		echo "TITLE is required. Example: make ship-docs TITLE='Update documentation'"; \
+		exit 2; \
+	fi; \
+	if [ -n "$(BODY_FILE)" ] && [ ! -f "$(BODY_FILE)" ]; then \
+		echo "BODY_FILE does not exist: $(BODY_FILE)"; \
+		exit 1; \
+	fi; \
+	feature="$$(git branch --show-current)"; \
+	if [ -z "$$feature" ] || [ "$$feature" = "$(DEV_BRANCH)" ] || [ "$$feature" = "$(STABLE_BRANCH)" ]; then \
+		echo "ship-docs must start on a feature branch; current branch is $${feature:-unknown}."; \
+		exit 1; \
+	fi; \
+	if [ -n "$$(git status --porcelain)" ]; then \
+		echo "ship-docs requires a clean working tree with the feature already committed."; \
+		git status --short; \
+		exit 1; \
+	fi; \
+	echo "=== VALIDATE NON-RUNTIME DOCUMENTATION SCOPE ==="; \
+	git fetch origin --prune; \
+	if ! git merge-base --is-ancestor origin/$(DEV_BRANCH) HEAD; then \
+		echo "Refusing ship-docs: feature does not contain current origin/$(DEV_BRANCH)."; \
+		exit 1; \
+	fi; \
+	changed_paths="$$(mktemp)"; \
+	invalid_paths="$$(mktemp)"; \
+	generated_feature_body="$$(mktemp)"; \
+	promotion_body="$$(mktemp)"; \
+	sync_body="$$(mktemp)"; \
+	trap 'rm -f "$$changed_paths" "$$invalid_paths" "$$generated_feature_body" "$$promotion_body" "$$sync_body"' EXIT; \
+	git diff --name-only origin/$(DEV_BRANCH)...HEAD > "$$changed_paths"; \
+	if [ ! -s "$$changed_paths" ]; then \
+		echo "Refusing ship-docs: feature contains no changes relative to origin/$(DEV_BRANCH)."; \
+		exit 1; \
+	fi; \
+	while IFS= read -r path; do \
+		case "$$path" in \
+			docs/*|README.md|glance-test.yml|scripts/check_docs.py|testdata/visual/*) \
+				;; \
+			Makefile|.github/workflows/build-image.yaml) \
+				if [ "$$feature" = "feature/custom-api-examples" ]; then \
+					echo "Bootstrap lifecycle exception: $$path"; \
+				else \
+					printf '%s\n' "$$path" >> "$$invalid_paths"; \
+				fi; \
+				;; \
+			*) \
+				printf '%s\n' "$$path" >> "$$invalid_paths"; \
+				;; \
+		esac; \
+	done < "$$changed_paths"; \
+	if [ -s "$$invalid_paths" ]; then \
+		echo "Refusing ship-docs: runtime or unapproved paths changed:"; \
+		cat "$$invalid_paths"; \
+		exit 1; \
+	fi; \
+	echo "Approved changed paths:"; \
+	sed 's/^/  /' "$$changed_paths"; \
+	echo "Non-runtime documentation scope validated."; \
+	echo; \
+	echo "=== END-TO-END DOCUMENTATION PIPELINE ==="; \
+	echo "Feature=$$feature"; \
+	echo "Title=$(TITLE)"; \
+	echo; \
+	echo "=== PUSH FEATURE ==="; \
+	$(MAKE) push; \
+	if [ -n "$(BODY_FILE)" ]; then \
+		feature_body="$(BODY_FILE)"; \
+		echo "Feature PR body: $(BODY_FILE)"; \
+	else \
+		feature_body="$$generated_feature_body"; \
+		printf '%s\n\n%s\n' '## Summary' '$(TITLE)' > "$$feature_body"; \
+		echo "Feature PR body: generated summary"; \
+	fi; \
+	echo; \
+	echo "=== FEATURE -> $(DEV_BRANCH) ==="; \
+	feature_pr="$$(gh pr list --repo "$(REPO)" --head "$$feature" --base "$(DEV_BRANCH)" --state open --json number --jq '.[0].number // empty')"; \
+	if [ -z "$$feature_pr" ]; then \
+		$(MAKE) pr-create TITLE="$(TITLE)" BODY_FILE="$$feature_body"; \
+		feature_pr="$$(python3 scripts/resolve_pr.py --repo "$(REPO)" --head "$$feature" --base "$(DEV_BRANCH)")"; \
+	else \
+		echo "Reusing existing feature PR #$$feature_pr."; \
+	fi; \
+	$(MAKE) pr-finish PR="$$feature_pr" SKIP_IMAGE_WATCH=1; \
+	echo; \
+	echo "=== $(DEV_BRANCH) -> $(STABLE_BRANCH) ==="; \
+	printf '%s\n\n%s\n' '## Summary' 'Promote validated non-runtime documentation changes to the stable branch.' > "$$promotion_body"; \
+	promotion_pr="$$(gh pr list --repo "$(REPO)" --head "$(DEV_BRANCH)" --base "$(STABLE_BRANCH)" --state open --json number --jq '.[0].number // empty')"; \
+	if [ -z "$$promotion_pr" ]; then \
+		$(MAKE) promote-create TITLE="Promote documentation to main" BODY_FILE="$$promotion_body"; \
+		promotion_pr="$$(python3 scripts/resolve_pr.py --repo "$(REPO)" --head "$(DEV_BRANCH)" --base "$(STABLE_BRANCH)")"; \
+	else \
+		echo "Reusing existing promotion PR #$$promotion_pr."; \
+	fi; \
+	$(MAKE) promote-finish PR="$$promotion_pr"; \
+	echo; \
+	echo "=== PREPARE $(STABLE_BRANCH) -> $(DEV_BRANCH) SYNCHRONIZATION ==="; \
+	git switch "$(DEV_BRANCH)"; \
+	git pull --ff-only origin "$(DEV_BRANCH)"; \
+	printf '%s\n\n%s\n' '## Summary' 'Synchronize stable documentation history back into development.' > "$$sync_body"; \
+	sync_pr="$$(gh pr list --repo "$(REPO)" --head "$(STABLE_BRANCH)" --base "$(DEV_BRANCH)" --state open --json number --jq '.[0].number // empty')"; \
+	if [ -z "$$sync_pr" ]; then \
+		$(MAKE) sync-dev-create TITLE="Sync documentation main back to dev" BODY_FILE="$$sync_body"; \
+		sync_pr="$$(python3 scripts/resolve_pr.py --repo "$(REPO)" --head "$(STABLE_BRANCH)" --base "$(DEV_BRANCH)")"; \
+	else \
+		echo "Reusing existing synchronization PR #$$sync_pr."; \
+	fi; \
+	$(MAKE) sync-finish PR="$$sync_pr" SKIP_IMAGE_WATCH=1; \
+	echo; \
+	echo "=== FINAL DOCUMENTATION WORKFLOW VERIFICATION ==="; \
+	git fetch origin --prune; \
+	current="$$(git branch --show-current)"; \
+	if [ "$$current" != "$(DEV_BRANCH)" ]; then \
+		echo "Final verification failed: expected current branch $(DEV_BRANCH), found $$current."; \
+		exit 1; \
+	fi; \
+	if [ -n "$$(git status --porcelain)" ]; then \
+		echo "Final verification failed: working tree is not clean."; \
+		git status --short; \
+		exit 1; \
+	fi; \
+	if [ "$$(git rev-parse $(DEV_BRANCH))" != "$$(git rev-parse origin/$(DEV_BRANCH))" ]; then \
+		echo "Final verification failed: local $(DEV_BRANCH) does not match origin/$(DEV_BRANCH)."; \
+		exit 1; \
+	fi; \
+	if [ "$$(git rev-parse $(STABLE_BRANCH))" != "$$(git rev-parse origin/$(STABLE_BRANCH))" ]; then \
+		echo "Final verification failed: local $(STABLE_BRANCH) does not match origin/$(STABLE_BRANCH)."; \
+		exit 1; \
+	fi; \
+	if ! git merge-base --is-ancestor "$(STABLE_BRANCH)" "$(DEV_BRANCH)"; then \
+		echo "Final verification failed: $(STABLE_BRANCH) is not contained in $(DEV_BRANCH)."; \
+		exit 1; \
+	fi; \
+	echo "Worktree:              clean"; \
+	echo "Current branch:        $(DEV_BRANCH)"; \
+	echo "Dev matches origin:    yes"; \
+	echo "Main matches origin:   yes"; \
+	echo "Main contained in dev: yes"; \
+	echo "Formal release:        not created"; \
+	echo "Production deployment: not performed"; \
+	echo; \
+	echo "=== SHIP DOCS COMPLETE ==="
 
 release-finish:
 	@set -euo pipefail; \
