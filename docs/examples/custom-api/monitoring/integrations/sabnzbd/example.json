@@ -1,0 +1,57 @@
+{
+  "icon": "⚡",
+  "updated": "2026-09-11 08:20",
+  "state": "ok",
+  "message": "SABnzbd idle",
+  "metrics": [
+    {
+      "label": "Status",
+      "value": "Idle",
+      "state": "ok"
+    },
+    {
+      "label": "Queue",
+      "value": "0",
+      "state": "neutral"
+    },
+    {
+      "label": "Speed",
+      "value": "0",
+      "state": "neutral"
+    },
+    {
+      "label": "Today",
+      "value": "25.1 G",
+      "state": "neutral"
+    },
+    {
+      "label": "This Week",
+      "value": "420.3 G",
+      "state": "neutral"
+    },
+    {
+      "label": "Free Space",
+      "value": "379.60",
+      "state": "neutral"
+    },
+    {
+      "label": "Version",
+      "value": "5.1.3",
+      "state": "neutral"
+    }
+  ],
+  "details": [],
+  "expandable_label": "Recent Downloads",
+  "expandable_items": [
+    {
+      "label": "Example Download",
+      "value": "Completed",
+      "state": "ok"
+    },
+    {
+      "label": "Another Download",
+      "value": "Completed",
+      "state": "ok"
+    }
+  ]
+}

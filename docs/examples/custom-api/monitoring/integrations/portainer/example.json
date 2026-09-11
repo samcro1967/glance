@@ -1,0 +1,73 @@
+{
+  "icon": "🐳",
+  "updated": "2026-09-11 08:20",
+  "state": "error",
+  "message": "1 container needs attention",
+  "metrics": [
+    {
+      "label": "Containers",
+      "value": "12",
+      "state": "neutral"
+    },
+    {
+      "label": "Running",
+      "value": "11",
+      "state": "ok"
+    },
+    {
+      "label": "Stopped",
+      "value": "1",
+      "state": "error"
+    },
+    {
+      "label": "Unhealthy",
+      "value": "0",
+      "state": "neutral"
+    },
+    {
+      "label": "Images",
+      "value": "15",
+      "state": "neutral"
+    },
+    {
+      "label": "Volumes",
+      "value": "5",
+      "state": "neutral"
+    },
+    {
+      "label": "Networks",
+      "value": "4",
+      "state": "neutral"
+    },
+    {
+      "label": "Stacks",
+      "value": "3",
+      "state": "neutral"
+    },
+    {
+      "label": "Disk",
+      "value": "12.4 GB",
+      "state": "neutral"
+    },
+    {
+      "label": "Docker",
+      "value": "28.5.2",
+      "state": "neutral"
+    }
+  ],
+  "details": [
+    {
+      "label": "example-worker",
+      "value": "Stopped",
+      "state": "error"
+    }
+  ],
+  "expandable_label": "Container Details",
+  "expandable_items": [
+    {
+      "label": "example-worker",
+      "value": "Stopped",
+      "state": "error"
+    }
+  ]
+}

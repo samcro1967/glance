@@ -322,5 +322,155 @@
     "capture": "element",
     "route": "/date-time-weather",
     "selector": ".visual-fixture-weather"
+  },
+  "examples/custom-api/monitoring/argus.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/screenshots/examples-custom-api-monitoring",
+    "selector": ".visual-example-monitoring-argus",
+    "viewport": {
+      "width": 1600,
+      "height": 1000
+    }
+  },
+  "examples/custom-api/monitoring/beszel.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/screenshots/examples-custom-api-monitoring",
+    "selector": ".visual-example-monitoring-beszel",
+    "viewport": {
+      "width": 1600,
+      "height": 1000
+    }
+  },
+  "examples/custom-api/monitoring/coraza.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/screenshots/examples-custom-api-monitoring",
+    "selector": ".visual-example-monitoring-coraza",
+    "viewport": {
+      "width": 1600,
+      "height": 1000
+    }
+  },
+  "examples/custom-api/monitoring/docker-updates.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/screenshots/examples-custom-api-monitoring",
+    "selector": ".visual-example-monitoring-docker-updates",
+    "viewport": {
+      "width": 1600,
+      "height": 1000
+    }
+  },
+  "examples/custom-api/monitoring/drone.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/screenshots/examples-custom-api-monitoring",
+    "selector": ".visual-example-monitoring-drone",
+    "viewport": {
+      "width": 1600,
+      "height": 1000
+    }
+  },
+  "examples/custom-api/monitoring/gotify.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/screenshots/examples-custom-api-monitoring",
+    "selector": ".visual-example-monitoring-gotify",
+    "viewport": {
+      "width": 1600,
+      "height": 1000
+    }
+  },
+  "examples/custom-api/monitoring/healthchecks.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/screenshots/examples-custom-api-monitoring",
+    "selector": ".visual-example-monitoring-healthchecks",
+    "viewport": {
+      "width": 1600,
+      "height": 1000
+    }
+  },
+  "examples/custom-api/monitoring/internet-speed.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/screenshots/examples-custom-api-monitoring",
+    "selector": ".visual-example-monitoring-internet-speed",
+    "viewport": {
+      "width": 1600,
+      "height": 1000
+    }
+  },
+  "examples/custom-api/monitoring/portainer.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/screenshots/examples-custom-api-monitoring",
+    "selector": ".visual-example-monitoring-portainer",
+    "viewport": {
+      "width": 1600,
+      "height": 1000
+    }
+  },
+  "examples/custom-api/monitoring/radarr.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/screenshots/examples-custom-api-monitoring",
+    "selector": ".visual-example-monitoring-radarr",
+    "viewport": {
+      "width": 1600,
+      "height": 1000
+    }
+  },
+  "examples/custom-api/monitoring/restic.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/screenshots/examples-custom-api-monitoring",
+    "selector": ".visual-example-monitoring-restic",
+    "viewport": {
+      "width": 1600,
+      "height": 1000
+    }
+  },
+  "examples/custom-api/monitoring/sabnzbd.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/screenshots/examples-custom-api-monitoring",
+    "selector": ".visual-example-monitoring-sabnzbd",
+    "viewport": {
+      "width": 1600,
+      "height": 1000
+    }
+  },
+  "examples/custom-api/monitoring/sonarr.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/screenshots/examples-custom-api-monitoring",
+    "selector": ".visual-example-monitoring-sonarr",
+    "viewport": {
+      "width": 1600,
+      "height": 1000
+    }
+  },
+  "examples/custom-api/monitoring/tdarr.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/screenshots/examples-custom-api-monitoring",
+    "selector": ".visual-example-monitoring-tdarr",
+    "viewport": {
+      "width": 1600,
+      "height": 1000
+    }
+  },
+  "examples/custom-api/monitoring/uptime-kuma.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/screenshots/examples-custom-api-monitoring",
+    "selector": ".visual-example-monitoring-uptime-kuma",
+    "viewport": {
+      "width": 1600,
+      "height": 1000
+    }
   }
 }

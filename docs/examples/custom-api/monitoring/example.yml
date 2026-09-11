@@ -1,0 +1,8 @@
+- type: custom-api
+  title: Service Monitor
+  url: https://example.com/monitoring.json
+  cache: 5m
+  headers:
+    Accept: application/json
+  template: |
+    $include: template.yml

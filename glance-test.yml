@@ -1545,6 +1545,161 @@ pages:
               Extensions can return HTML that reuses Glance's native
               presentation primitives and follows the active theme.
 
+
+  - name: Custom API Monitoring
+    icon: mdi:monitor-dashboard
+    slug: examples-custom-api-monitoring
+    width: wide
+    columns:
+      - size: full
+        widgets:
+          - type: group
+            widgets:
+              - type: custom-api
+                title: Beszel Metrics
+                icon: sh:beszel
+                css-class: visual-example-monitoring-beszel
+                url: http://127.0.0.1:18089/examples/custom-api/monitoring/beszel
+                cache: 1h
+                headers:
+                  Accept: application/json
+                template: |
+                  $include: docs/examples/custom-api/monitoring/template.yml
+              - type: custom-api
+                title: Internet Speed
+                css-class: visual-example-monitoring-internet-speed
+                url: http://127.0.0.1:18089/examples/custom-api/monitoring/internet-speed
+                cache: 1h
+                headers:
+                  Accept: application/json
+                template: |
+                  $include: docs/examples/custom-api/monitoring/template.yml
+              - type: custom-api
+                title: Uptime Kuma
+                css-class: visual-example-monitoring-uptime-kuma
+                url: http://127.0.0.1:18089/examples/custom-api/monitoring/uptime-kuma
+                cache: 1h
+                headers:
+                  Accept: application/json
+                template: |
+                  $include: docs/examples/custom-api/monitoring/template.yml
+          - type: group
+            widgets:
+              - type: custom-api
+                title: Downloads
+                css-class: visual-example-monitoring-sabnzbd
+                url: http://127.0.0.1:18089/examples/custom-api/monitoring/sabnzbd
+                cache: 1h
+                headers:
+                  Accept: application/json
+                template: |
+                  $include: docs/examples/custom-api/monitoring/template.yml
+              - type: custom-api
+                title: Movies
+                css-class: visual-example-monitoring-radarr
+                url: http://127.0.0.1:18089/examples/custom-api/monitoring/radarr
+                cache: 1h
+                headers:
+                  Accept: application/json
+                template: |
+                  $include: docs/examples/custom-api/monitoring/template.yml
+              - type: custom-api
+                title: TV
+                css-class: visual-example-monitoring-sonarr
+                url: http://127.0.0.1:18089/examples/custom-api/monitoring/sonarr
+                cache: 1h
+                headers:
+                  Accept: application/json
+                template: |
+                  $include: docs/examples/custom-api/monitoring/template.yml
+              - type: custom-api
+                title: Tdarr
+                css-class: visual-example-monitoring-tdarr
+                url: http://127.0.0.1:18089/examples/custom-api/monitoring/tdarr
+                cache: 1h
+                headers:
+                  Accept: application/json
+                template: |
+                  $include: docs/examples/custom-api/monitoring/template.yml
+      - size: full
+        widgets:
+          - type: group
+            widgets:
+              - type: custom-api
+                title: Argus
+                css-class: visual-example-monitoring-argus
+                url: http://127.0.0.1:18089/examples/custom-api/monitoring/argus
+                cache: 1h
+                headers:
+                  Accept: application/json
+                template: |
+                  $include: docs/examples/custom-api/monitoring/template.yml
+              - type: custom-api
+                title: Drone
+                css-class: visual-example-monitoring-drone
+                url: http://127.0.0.1:18089/examples/custom-api/monitoring/drone
+                cache: 1h
+                headers:
+                  Accept: application/json
+                template: |
+                  $include: docs/examples/custom-api/monitoring/template.yml
+              - type: custom-api
+                title: Gotify
+                css-class: visual-example-monitoring-gotify
+                url: http://127.0.0.1:18089/examples/custom-api/monitoring/gotify
+                cache: 1h
+                headers:
+                  Accept: application/json
+                template: |
+                  $include: docs/examples/custom-api/monitoring/template.yml
+              - type: custom-api
+                title: Healthchecks
+                css-class: visual-example-monitoring-healthchecks
+                url: http://127.0.0.1:18089/examples/custom-api/monitoring/healthchecks
+                cache: 1h
+                headers:
+                  Accept: application/json
+                template: |
+                  $include: docs/examples/custom-api/monitoring/template.yml
+              - type: custom-api
+                title: Portainer
+                css-class: visual-example-monitoring-portainer
+                url: http://127.0.0.1:18089/examples/custom-api/monitoring/portainer
+                cache: 1h
+                headers:
+                  Accept: application/json
+                template: |
+                  $include: docs/examples/custom-api/monitoring/template.yml
+          - type: group
+            widgets:
+              - type: custom-api
+                title: Restic
+                css-class: visual-example-monitoring-restic
+                url: http://127.0.0.1:18089/examples/custom-api/monitoring/restic
+                cache: 1h
+                headers:
+                  Accept: application/json
+                template: |
+                  $include: docs/examples/custom-api/monitoring/template.yml
+              - type: custom-api
+                title: Docker_Updates
+                css-class: visual-example-monitoring-docker-updates
+                url: http://127.0.0.1:18089/examples/custom-api/monitoring/docker-updates
+                cache: 1h
+                headers:
+                  Accept: application/json
+                template: |
+                  $include: docs/examples/custom-api/monitoring/template.yml
+              - type: custom-api
+                title: Coraza
+                css-class: visual-example-monitoring-coraza
+                url: http://127.0.0.1:18089/examples/custom-api/monitoring/coraza
+                cache: 1h
+                headers:
+                  Accept: application/json
+                template: |
+                  $include: docs/examples/custom-api/monitoring/template.yml
+
 dashboards:
   Default:
     - layout-composition
@@ -1572,3 +1727,4 @@ dashboards:
     - docs-markets
     - docs-gaming
     - docs-extension
+    - examples-custom-api-monitoring

@@ -1,0 +1,62 @@
+{
+  "icon": "🎬",
+  "updated": "2026-09-11 08:20",
+  "state": "ok",
+  "message": "Radarr operational",
+  "metrics": [
+    {
+      "label": "Movies",
+      "value": "506",
+      "state": "neutral"
+    },
+    {
+      "label": "Monitored",
+      "value": "324",
+      "state": "ok"
+    },
+    {
+      "label": "Downloaded",
+      "value": "316",
+      "state": "neutral"
+    },
+    {
+      "label": "Wanted",
+      "value": "3",
+      "state": "warning"
+    },
+    {
+      "label": "Queue",
+      "value": "0",
+      "state": "neutral"
+    },
+    {
+      "label": "Queue Size",
+      "value": "0.0 MB",
+      "state": "neutral"
+    },
+    {
+      "label": "Version",
+      "value": "6.4.4",
+      "state": "neutral"
+    }
+  ],
+  "details": [],
+  "expandable_label": "Wanted Movies",
+  "expandable_items": [
+    {
+      "label": "Example Movie",
+      "value": "2026",
+      "state": "warning"
+    },
+    {
+      "label": "Another Movie",
+      "value": "2027",
+      "state": "warning"
+    },
+    {
+      "label": "Upcoming Movie",
+      "value": "Wanted",
+      "state": "warning"
+    }
+  ]
+}

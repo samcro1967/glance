@@ -1,0 +1,22 @@
+{
+  "icon": "🖥️",
+  "updated": "2026-09-11 08:00",
+  "state": "error",
+  "message": "1 system needs attention",
+  "metrics": [
+    {"value": "3", "label": "Systems"},
+    {"value": "2", "label": "Up"},
+    {"value": "1", "label": "Down"},
+    {"value": "1", "label": "Warnings"}
+  ],
+  "details": [
+    {"label": "bravo", "value": "CPU 82.4%", "state": "warning"},
+    {"label": "charlie", "value": "Down", "state": "error"}
+  ],
+  "expandable_label": "System Details",
+  "expandable_items": [
+    {"label": "alpha", "value": "CPU 24.1% · Memory 48.6% · Disk 61.2% · Uptime 12d 4h · 192.0.2.10 · v0.12.4", "state": "ok"},
+    {"label": "bravo", "value": "CPU 82.4% · Memory 57.3% · Disk 68.9% · Uptime 8d 7h · 192.0.2.11 · v0.12.4", "state": "warning"},
+    {"label": "charlie", "value": "Down · 192.0.2.12 · v0.12.4", "state": "error"}
+  ]
+}

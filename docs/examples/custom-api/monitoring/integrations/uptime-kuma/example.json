@@ -1,0 +1,30 @@
+{
+  "icon": "📡",
+  "updated": "2026-09-11 08:20",
+  "state": "error",
+  "message": "1 monitor is down",
+  "metrics": [
+    {
+      "label": "Total",
+      "value": "40",
+      "state": "neutral"
+    },
+    {
+      "label": "Up",
+      "value": "39",
+      "state": "ok"
+    },
+    {
+      "label": "Down",
+      "value": "1",
+      "state": "error"
+    }
+  ],
+  "details": [
+    {
+      "label": "Example Service",
+      "value": "Down",
+      "state": "error"
+    }
+  ]
+}

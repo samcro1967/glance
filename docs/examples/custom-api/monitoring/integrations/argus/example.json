@@ -1,0 +1,32 @@
+{
+  "icon": "⬆️",
+  "updated": "2026-09-11 08:20",
+  "state": "warning",
+  "message": "1 update available",
+  "metrics": [
+    {
+      "label": "Services",
+      "value": "35",
+      "state": "neutral"
+    },
+    {
+      "label": "Updates",
+      "value": "1",
+      "state": "warning"
+    },
+    {
+      "label": "Skipped",
+      "value": "0",
+      "state": "neutral"
+    }
+  ],
+  "details": [],
+  "expandable_label": "Update Details",
+  "expandable_items": [
+    {
+      "label": "Example Service",
+      "value": "2.9.1 → 3.11.4",
+      "state": "warning"
+    }
+  ]
+}

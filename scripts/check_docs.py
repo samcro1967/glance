@@ -9,6 +9,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 WIDGETS = DOCS / "widgets"
+EXAMPLES = DOCS / "examples"
+EXAMPLE_INDEX = DOCS / "examples.md"
 CONFIGURATION = DOCS / "configuration.md"
 WIDGET_INDEX = DOCS / "widgets.md"
 
@@ -59,7 +61,13 @@ BACK_TO_TOP = "[Back to top]"
 
 
 def markdown_files() -> list[Path]:
-    return [CONFIGURATION, WIDGET_INDEX, *sorted(WIDGETS.glob("*.md"))]
+    return [
+        CONFIGURATION,
+        WIDGET_INDEX,
+        EXAMPLE_INDEX,
+        *sorted(WIDGETS.glob("*.md")),
+        *sorted(EXAMPLES.rglob("*.md")),
+    ]
 
 
 def strip_fenced_code(text: str) -> str:
