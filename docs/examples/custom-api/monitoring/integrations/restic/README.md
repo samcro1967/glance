@@ -91,4 +91,3 @@ The producer schedule and the Custom API `cache` interval are independent. The e
 ---
 
 [Glance README](../../../../../../README.md) · [Configuration](../../../../../configuration.md) · [Widgets](../../../../../widgets.md) · [Examples](../../../../../examples.md) · [Custom API Monitoring](../../README.md) · [Back to top](#restic)
-
