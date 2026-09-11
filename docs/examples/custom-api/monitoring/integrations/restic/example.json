@@ -1,0 +1,42 @@
+{
+  "icon": "💾",
+  "updated": "2026-09-11 04:00",
+  "state": "ok",
+  "message": "Backups current",
+  "metrics": [
+    {
+      "label": "Last Backup",
+      "value": "3 hours",
+      "state": "ok"
+    },
+    {
+      "label": "Snapshots",
+      "value": "15",
+      "state": "neutral"
+    },
+    {
+      "label": "Latest Size",
+      "value": "403.591 GiB",
+      "state": "neutral"
+    }
+  ],
+  "details": [],
+  "expandable_label": "Snapshot Details",
+  "expandable_items": [
+    {
+      "label": "Snapshot Time",
+      "value": "Sep 11 01:00 AM CDT",
+      "state": "neutral"
+    },
+    {
+      "label": "Snapshot ID",
+      "value": "8ea1e6ca",
+      "state": "neutral"
+    },
+    {
+      "label": "Repository",
+      "value": "/backups/restic/example-host",
+      "state": "neutral"
+    }
+  ]
+}

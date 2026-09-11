@@ -1,0 +1,63 @@
+{
+  "icon": "🌐",
+  "updated": "2026-09-11 08:15",
+  "state": "warning",
+  "message": "Internet speed below benchmark",
+  "metrics": [
+    {
+      "label": "Download",
+      "value": "746.11 Mbps",
+      "state": "ok"
+    },
+    {
+      "label": "Upload",
+      "value": "319.35 Mbps",
+      "state": "error"
+    },
+    {
+      "label": "Ping",
+      "value": "12.1 ms",
+      "state": "neutral"
+    }
+  ],
+  "details": [
+    {
+      "label": "Upload Benchmark",
+      "value": "Failed · 319 Mbps · Minimum 500 Mbps",
+      "state": "error"
+    }
+  ],
+  "expandable_label": "Test Details",
+  "expandable_items": [
+    {
+      "label": "Jitter",
+      "value": "3.9 ms",
+      "state": "neutral"
+    },
+    {
+      "label": "Packet Loss",
+      "value": "0%",
+      "state": "ok"
+    },
+    {
+      "label": "Download Benchmark",
+      "value": "Passed · 746 Mbps · Minimum 500 Mbps",
+      "state": "ok"
+    },
+    {
+      "label": "Upload Benchmark",
+      "value": "Failed · 319 Mbps · Minimum 500 Mbps",
+      "state": "error"
+    },
+    {
+      "label": "ISP",
+      "value": "Example ISP",
+      "state": "neutral"
+    },
+    {
+      "label": "Server",
+      "value": "Example Speedtest Server",
+      "state": "neutral"
+    }
+  ]
+}

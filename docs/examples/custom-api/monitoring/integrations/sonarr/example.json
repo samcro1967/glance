@@ -1,0 +1,62 @@
+{
+  "icon": "📺",
+  "updated": "2026-09-11 08:20",
+  "state": "ok",
+  "message": "Sonarr operational",
+  "metrics": [
+    {
+      "label": "Series",
+      "value": "53",
+      "state": "neutral"
+    },
+    {
+      "label": "Monitored",
+      "value": "48",
+      "state": "ok"
+    },
+    {
+      "label": "Missing Series",
+      "value": "2",
+      "state": "warning"
+    },
+    {
+      "label": "Missing Episodes",
+      "value": "7",
+      "state": "warning"
+    },
+    {
+      "label": "Downloaded",
+      "value": "1087",
+      "state": "neutral"
+    },
+    {
+      "label": "Queue",
+      "value": "0",
+      "state": "neutral"
+    },
+    {
+      "label": "Queue Size",
+      "value": "0.0 MB",
+      "state": "neutral"
+    },
+    {
+      "label": "Version",
+      "value": "4.0.20",
+      "state": "neutral"
+    }
+  ],
+  "details": [],
+  "expandable_label": "Missing Series",
+  "expandable_items": [
+    {
+      "label": "Example Series",
+      "value": "5 episodes",
+      "state": "warning"
+    },
+    {
+      "label": "Another Series",
+      "value": "2 episodes",
+      "state": "warning"
+    }
+  ]
+}

@@ -1,0 +1,115 @@
+<div class="monitoring">
+  <div class="flex items-start justify-between gap-10 margin-bottom-10">
+    <div class="flex items-center gap-10 min-width-0">
+      <div class="size-h2 shrink-0">
+        {{ .JSON.String "icon" }}
+      </div>
+
+      {{ $state := .JSON.String "state" }}
+
+      {{ if eq $state "ok" }}
+        <div class="glance-status glance-status-positive">
+          {{ .JSON.String "message" }}
+        </div>
+      {{ else if eq $state "warning" }}
+        <div class="glance-status glance-status-warning">
+          {{ .JSON.String "message" }}
+        </div>
+      {{ else if eq $state "error" }}
+        <div class="glance-status glance-status-negative">
+          {{ .JSON.String "message" }}
+        </div>
+      {{ else }}
+        <div class="glance-status glance-status-neutral">
+          {{ .JSON.String "message" }}
+        </div>
+      {{ end }}
+    </div>
+
+    <div class="color-subdue shrink-0 text-compact">
+      {{ .JSON.String "updated" }}
+    </div>
+  </div>
+
+  {{ $metrics := .JSON.Array "metrics" }}
+
+  {{ if gt (len $metrics) 0 }}
+    <div class="glance-metrics">
+      {{ range $metrics }}
+        <div class="glance-metric">
+          <div class="glance-metric-value">
+            {{ .String "value" }}
+          </div>
+
+          <div class="glance-metric-label">
+            {{ .String "label" }}
+          </div>
+        </div>
+      {{ end }}
+    </div>
+  {{ end }}
+
+  {{ $details := .JSON.Array "details" }}
+
+  {{ if gt (len $details) 0 }}
+    <div class="glance-key-values margin-top-10">
+      {{ range $details }}
+        {{ $state := .String "state" }}
+
+        <div class="glance-key-value">
+          <span>{{ .String "label" }}</span>
+
+          {{ if eq $state "ok" }}
+            <span class="color-positive">
+              {{ .String "value" }}
+            </span>
+          {{ else if eq $state "error" }}
+            <span class="color-negative">
+              {{ .String "value" }}
+            </span>
+          {{ else }}
+            <span>
+              {{ .String "value" }}
+            </span>
+          {{ end }}
+        </div>
+      {{ end }}
+    </div>
+  {{ end }}
+
+  {{ if .JSON.Exists "expandable_items" }}
+    {{ $items := .JSON.Array "expandable_items" }}
+
+    {{ if gt (len $items) 0 }}
+      <details class="glance-details margin-top-10">
+        <summary class="glance-summary">
+          {{ .JSON.String "expandable_label" }}
+        </summary>
+
+        <div class="glance-key-values">
+          {{ range $items }}
+            {{ $state := .String "state" }}
+
+            <div class="glance-key-value">
+              <span>{{ .String "label" }}</span>
+
+              {{ if eq $state "ok" }}
+                <span class="color-positive">
+                  {{ .String "value" }}
+                </span>
+              {{ else if eq $state "error" }}
+                <span class="color-negative">
+                  {{ .String "value" }}
+                </span>
+              {{ else }}
+                <span>
+                  {{ .String "value" }}
+                </span>
+              {{ end }}
+            </div>
+          {{ end }}
+        </div>
+      </details>
+    {{ end }}
+  {{ end }}
+</div>

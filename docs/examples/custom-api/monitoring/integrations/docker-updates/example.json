@@ -1,0 +1,37 @@
+{
+  "icon": "🐳",
+  "updated": "2026-09-11 02:06",
+  "state": "ok",
+  "message": "2 Updated",
+  "metrics": [
+    {
+      "label": "Services",
+      "value": "12",
+      "state": "neutral"
+    },
+    {
+      "label": "Running",
+      "value": "12",
+      "state": "ok"
+    },
+    {
+      "label": "Changed",
+      "value": "2",
+      "state": "neutral"
+    }
+  ],
+  "details": [],
+  "expandable_label": "Update Details",
+  "expandable_items": [
+    {
+      "label": "example-api",
+      "value": "Updated",
+      "state": "neutral"
+    },
+    {
+      "label": "example-worker",
+      "value": "Updated",
+      "state": "neutral"
+    }
+  ]
+}

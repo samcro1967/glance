@@ -7,7 +7,7 @@
   <a href="docs/fork.md">About this fork</a>
 </p>
 <p align="center">
-  <a href="https://github.com/glanceapp/community-widgets">Community widgets</a> •
+  <a href="docs/examples.md">Examples</a> •
   <a href="docs/preconfigured-pages.md">Preconfigured pages</a> •
   <a href="docs/themes.md">Themes</a>
 </p>

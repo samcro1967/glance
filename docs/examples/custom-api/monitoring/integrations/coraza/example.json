@@ -1,0 +1,57 @@
+{
+  "icon": "🛡️",
+  "updated": "2026-09-11 08:20",
+  "state": "ok",
+  "message": "3 malicious requests blocked",
+  "metrics": [
+    {
+      "label": "Detected",
+      "value": "3",
+      "state": "warning"
+    },
+    {
+      "label": "Blocked",
+      "value": "3",
+      "state": "ok"
+    },
+    {
+      "label": "Known Hosts",
+      "value": "2",
+      "state": "neutral"
+    },
+    {
+      "label": "Unknown Hosts",
+      "value": "1",
+      "state": "warning"
+    },
+    {
+      "label": "Clients",
+      "value": "2",
+      "state": "neutral"
+    },
+    {
+      "label": "Rules",
+      "value": "2",
+      "state": "neutral"
+    }
+  ],
+  "details": [],
+  "expandable_label": "Recent WAF Events",
+  "expandable_items": [
+    {
+      "label": "app.example.com · 192.0.2.10",
+      "value": "Blocked · Rule 930130",
+      "state": "ok"
+    },
+    {
+      "label": "api.example.com · 198.51.100.20",
+      "value": "Blocked · Rule 942550",
+      "state": "ok"
+    },
+    {
+      "label": "unknown.example.com · 198.51.100.20",
+      "value": "Blocked · Rule 920440",
+      "state": "ok"
+    }
+  ]
+}
