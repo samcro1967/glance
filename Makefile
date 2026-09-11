@@ -814,6 +814,7 @@ sync-finish:
 		echo "Origin: $$origin_revision"; \
 		exit 1; \
 	fi; \
+	pre_merge_tree="$$(git rev-parse $(DEV_BRANCH)^{tree})"; \
 	pr="$(PR)"; \
 	if [ -z "$$pr" ]; then \
 		pr="$$(python3 scripts/resolve_pr.py --repo "$(REPO)" --head "$(STABLE_BRANCH)" --base "$(DEV_BRANCH)")"; \
@@ -829,13 +830,16 @@ sync-finish:
 	$(MAKE) pr-watch PR="$$pr"; \
 	$(MAKE) pr-merge PR="$$pr"; \
 	$(MAKE) post-merge PR="$$pr"; \
+	post_merge_tree="$$(git rev-parse $(DEV_BRANCH)^{tree})"; \
 	if [ "$(SKIP_IMAGE_WATCH)" = "1" ]; then \
 		echo "Skipping development image verification for guarded non-runtime documentation workflow."; \
+	elif [ "$$pre_merge_tree" = "$$post_merge_tree" ]; then \
+		echo "Synchronization changed history only; development tree is unchanged."; \
+		echo "Skipping development image verification because no new image is required."; \
 	else \
 		$(MAKE) image-watch; \
 	fi; \
 	$(MAKE) status
-
 
 image-runs:
 	@gh run list \
