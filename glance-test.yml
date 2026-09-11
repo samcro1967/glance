@@ -998,6 +998,7 @@ pages:
     slug: theme-partial
     width: wide
     theme:
+      density: normal
       accent-color: 32 90 60
       navigation:
         accent-color: 32 90 60
@@ -1036,6 +1037,7 @@ pages:
     slug: theme-components
     width: wide
     theme:
+      density: compact
       custom-css-file: /assets/theme-page.css
       header:
         shadow: none
@@ -1128,6 +1130,8 @@ pages:
     icon: mdi:layers
     slug: theme-composition
     width: wide
+    theme:
+      density: spacious
     columns:
       - size: medium
         widgets:

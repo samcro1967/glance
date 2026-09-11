@@ -234,63 +234,10 @@ For requests concerning upstream Glance rather than fork-specific functionality,
 
 ## Development and contributing
 
-Development follows a controlled integration and release model:
+Contributions and fork development follow a controlled `development branch → dev → main → formal release → explicit production deployment` workflow.
 
-```text
-development branch → dev → main → formal release → explicit production deployment
-```
+The repository Makefile is the authoritative interface for normal development, testing, validation, visual QA, pull-request, release, and deployment operations. Changes should preserve existing behavior and upstream compatibility where practical, reuse established Glance architecture and semantic presentation primitives, and include appropriate regression tests and documentation updates.
 
-The protected `dev` branch is the integration branch for development. Focused feature, fix, refactor, and documentation branches are created from `dev` and return to `dev` through pull requests. The protected `main` branch is the stable, release-ready branch and receives changes through controlled promotion from `dev`.
+See **[CONTRIBUTING.md](CONTRIBUTING.md)** for development practices, implementation expectations, testing requirements, frontend and visual-QA workflows, documentation screenshots, and pull-request validation.
 
-Direct development on `dev` or `main` is intentionally avoided.
-
-### Repository workflow
-
-The repository `Makefile` is the authoritative interface for normal development, validation, pull-request, release, and deployment operations. Prefer its targets over reproducing those workflows with ad hoc commands.
-
-Common development and validation commands include:
-
-```text
-make test
-make test-race
-make build
-make check
-make coverage
-make vuln
-make status
-make staged-diff
-make test-instance-start
-make test-instance-status
-make test-instance-stop
-make frontend-audit
-make frontend-check
-make frontend-coverage
-make visual-check
-make visual-final
-```
-
-Normal branch and pull-request operations are also guarded by Makefile targets, including `make branch`, `make push`, `make pr-create`, and the composite pull-request lifecycle targets documented in [About this fork](docs/fork.md#development-and-ci-validation).
-
-### Validation expectations
-
-Changes should preserve existing behavior unless the change intentionally modifies a documented contract. In particular:
-
-* Avoid unnecessary divergence from upstream Glance.
-* Avoid new dependencies unless they provide a clear benefit that cannot reasonably be achieved with the existing stack.
-* Preserve backward-compatible configuration wherever practical.
-* Add or update regression tests for behavior changes and defect fixes.
-* Use the race detector for concurrency-sensitive changes.
-* Keep documentation synchronized with user-visible configuration and behavior.
-* Use the repository's visual-QA workflow for UI and presentation changes rather than maintaining unrelated manual screenshots.
-* Prefer the semantic theme and presentation systems over widget-specific hard-coded colors or duplicated visual behavior.
-* Do not introduce a JavaScript package-management/build pipeline such as `package.json` unless the project architecture is deliberately changed to require one.
-
-Pull requests targeting `dev` and `main` are validated by CI. Local `make check` is the standard pre-pull-request validation suite.
-
-### Releases and deployment
-
-A successful push to the protected `dev` branch publishes the mutable `dev` container image. Promotion from `dev` to `main` does not itself create a formal release.
-
-Formal releases are created explicitly from validated `main` using the repository release tooling. Release creation and production deployment are deliberately separate operations: creating a release does not automatically change the running production service.
-
-The complete workflow, including branch safeguards, CI, test instances, visual QA, release tooling, container publication, production deployment safeguards, and upstream synchronization, is documented in **[About this fork](docs/fork.md)**.
+See **[About this fork](docs/fork.md#development-and-ci-validation)** for the complete branch, CI, release, image-publication, deployment, and upstream-maintenance architecture.

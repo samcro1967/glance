@@ -154,3 +154,92 @@ func TestSameThemeSurfaceIncludesWidgetTypography(t *testing.T) {
 		t.Fatal("different widget font-weight should compare unequal")
 	}
 }
+
+func TestMergeThemeDensity(t *testing.T) {
+	base := themeProperties{Density: "compact"}
+	override := themeProperties{Density: "spacious"}
+	override.configuredFields = yamlConfiguredFields{"density": true}
+
+	merged := mergeThemeProperties(base, override)
+	if merged.Density != "spacious" {
+		t.Fatalf("Density = %q, want %q", merged.Density, "spacious")
+	}
+}
+
+func TestMergeThemeDensityPreservesUnconfiguredBase(t *testing.T) {
+	base := themeProperties{Density: "comfortable"}
+	override := themeProperties{Density: "compact"}
+
+	merged := mergeThemeProperties(base, override)
+	if merged.Density != "comfortable" {
+		t.Fatalf("Density = %q, want preserved base value %q", merged.Density, "comfortable")
+	}
+}
+
+func TestValidateThemeDensity(t *testing.T) {
+	tests := []struct {
+		name    string
+		density string
+		wantErr bool
+	}{
+		{name: "compact", density: "compact"},
+		{name: "normal", density: "normal"},
+		{name: "comfortable", density: "comfortable"},
+		{name: "spacious", density: "spacious"},
+		{name: "invalid", density: "dense", wantErr: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			theme := themeProperties{Density: tt.density}
+			theme.configuredFields = yamlConfiguredFields{"density": true}
+
+			err := theme.validate("theme")
+			if tt.wantErr && err == nil {
+				t.Fatal("expected validation error")
+			}
+			if !tt.wantErr && err != nil {
+				t.Fatalf("unexpected validation error: %v", err)
+			}
+		})
+	}
+}
+
+func TestThemeCSSIncludesDensity(t *testing.T) {
+	theme := themeProperties{Density: "compact"}
+
+	if err := theme.init(); err != nil {
+		t.Fatalf("init theme: %v", err)
+	}
+
+	if !strings.Contains(string(theme.CSS), "--theme-density: compact;") {
+		t.Fatalf("theme CSS missing density variable: %s", theme.CSS)
+	}
+}
+
+func TestThemeCSSOmitsUnconfiguredDensity(t *testing.T) {
+	theme := themeProperties{}
+
+	if err := theme.init(); err != nil {
+		t.Fatalf("init theme: %v", err)
+	}
+
+	if strings.Contains(string(theme.CSS), "--theme-density:") {
+		t.Fatalf("theme CSS unexpectedly contains density variable: %s", theme.CSS)
+	}
+}
+
+func TestSameThemeIncludesDensity(t *testing.T) {
+	base := themeProperties{Density: "normal"}
+	same := base
+
+	if !base.SameAs(&same) {
+		t.Fatal("identical density should compare equal")
+	}
+
+	different := base
+	different.Density = "compact"
+	if base.SameAs(&different) {
+		t.Fatal("different density should compare unequal")
+	}
+}
