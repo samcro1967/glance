@@ -10,6 +10,7 @@ available for advanced or highly specialized presentation.
 Themes can control:
 
 -   Core colors and light or dark appearance
+-   Dashboard density and shared information spacing
 -   Typography and headings
 -   Page backgrounds, overlays, and ambient accents
 -   Header appearance
@@ -67,6 +68,7 @@ Themes are configured with the top-level `theme` property:
 
 ``` yaml
 theme:
+  density: normal
   light: false
   background-color: 215 33 3
   primary-color: 213 31 67
@@ -80,6 +82,32 @@ theme:
 
 All properties are optional. Existing Glance configurations using only
 the original theme properties remain valid.
+
+## Density
+
+The `density` property controls shared dashboard information spacing without scaling the entire interface.
+
+``` yaml
+theme:
+  density: compact
+```
+
+Supported values are `compact`, `normal`, `comfortable`, and `spacious`. `normal` is the compatibility baseline; omitting `density` produces the same spacing as explicitly configuring `normal`.
+
+Density adjusts shared dashboard rhythm such as widget spacing and padding, widget-header spacing, lists, cards, grids, tables, metrics, and key/value layouts. It does not indiscriminately resize typography, controls, thumbnails, charts, calendars, clocks, calculator geometry, or other specialized widget presentation.
+
+Density participates in the normal theme hierarchy and can therefore be overridden for an individual page:
+
+``` yaml
+pages:
+  - name: Home
+    theme:
+      density: compact
+    columns:
+      # ...
+```
+
+Widget-specific presentation can retain deliberate spacing where applying the shared density rhythm would harm readability or the widget information model.
 
 ## Colors
 
@@ -104,6 +132,10 @@ Do not include commas, `hsl()`, or percent signs.
   ------------------------------------------------------------------------------
   Property                       Type                    Description
   ------------------------------ ----------------------- -----------------------
+  `density`                      enum                    Shared spacing profile: `compact`,
+                                                         `normal`, `comfortable`, or
+                                                         `spacious`.
+
   `light`                        boolean                 Uses light-scheme text
                                                          and contrast behavior
                                                          when `true`.

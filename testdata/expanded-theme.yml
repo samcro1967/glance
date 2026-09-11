@@ -2,6 +2,7 @@
 # This file intentionally exercises the complete public semantic theme contract.
 theme:
   custom-css-file: /assets/theme-global.css
+  density: comfortable
   light: false
   background-color: 222 24 6
   primary-color: 214 72 68

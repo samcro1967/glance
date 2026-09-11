@@ -1,4 +1,63 @@
 :root {
+    {{ if .Density }}--theme-density: {{ .Density }};
+    {{ if eq .Density "compact" }}
+    --widget-gap: 17px;
+    --widget-content-vertical-padding: 1.35rem;
+    --widget-content-horizontal-padding: 1.5rem;
+    --density-widget-header-gap: 0.9rem;
+    --density-widget-header-inline-padding: 0.2rem;
+    --density-widget-title-gap: 0.5rem;
+    --density-presentation-gap: 0.75rem;
+    --density-key-values-gap: 0.45rem;
+    --density-card-padding-block: 0.6rem;
+    --density-card-padding-inline: 0.8rem;
+    --density-table-padding-block: 0.4rem;
+    --density-table-padding-inline: 0.55rem;
+    --density-list-row-padding-block: 0.75rem;
+    --density-list-row-padding-inline: 0.85rem;
+    --density-mobile-list-row-padding-block: 0.75rem;
+    --density-mobile-list-row-padding-inline: 0.85rem;
+    --density-list-row-meta-gap: 0.2rem;
+    --density-list-edge-padding: 0.25rem;
+    {{ else if eq .Density "comfortable" }}
+    --widget-gap: 28px;
+    --widget-content-vertical-padding: 2.15rem;
+    --widget-content-horizontal-padding: 2.35rem;
+    --density-widget-header-gap: 1.5rem;
+    --density-widget-header-inline-padding: 0.4rem;
+    --density-widget-title-gap: 0.7rem;
+    --density-presentation-gap: 1.25rem;
+    --density-key-values-gap: 0.75rem;
+    --density-card-padding-block: 1rem;
+    --density-card-padding-inline: 1.2rem;
+    --density-table-padding-block: 0.7rem;
+    --density-table-padding-inline: 0.85rem;
+    --density-list-row-padding-block: 1.3rem;
+    --density-list-row-padding-inline: 1.4rem;
+    --density-mobile-list-row-padding-block: 1.3rem;
+    --density-mobile-list-row-padding-inline: 1.4rem;
+    --density-list-row-meta-gap: 0.3rem;
+    --density-list-edge-padding: 0.45rem;
+    {{ else if eq .Density "spacious" }}
+    --widget-gap: 34px;
+    --widget-content-vertical-padding: 2.5rem;
+    --widget-content-horizontal-padding: 2.8rem;
+    --density-widget-header-gap: 1.8rem;
+    --density-widget-header-inline-padding: 0.5rem;
+    --density-widget-title-gap: 0.8rem;
+    --density-presentation-gap: 1.5rem;
+    --density-key-values-gap: 0.9rem;
+    --density-card-padding-block: 1.2rem;
+    --density-card-padding-inline: 1.45rem;
+    --density-table-padding-block: 0.85rem;
+    --density-table-padding-inline: 1rem;
+    --density-list-row-padding-block: 1.55rem;
+    --density-list-row-padding-inline: 1.65rem;
+    --density-mobile-list-row-padding-block: 1.55rem;
+    --density-mobile-list-row-padding-inline: 1.65rem;
+    --density-list-row-meta-gap: 0.35rem;
+    --density-list-edge-padding: 0.55rem;
+    {{ end }}{{ end }}
     {{ if .BackgroundColor }}
     --bgh: {{ .BackgroundColor.H }};
     --bgs: {{ .BackgroundColor.S }}%;

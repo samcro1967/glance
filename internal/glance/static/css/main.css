@@ -18,10 +18,26 @@
     --tsm: 1;
 
     --widget-gap: 23px;
-    --widget-content-vertical-padding: 15px;
-    --widget-content-horizontal-padding: 17px;
+    --widget-content-vertical-padding: 1.8rem;
+    --widget-content-horizontal-padding: 2rem;
     --widget-content-padding: var(--widget-content-vertical-padding) var(--widget-content-horizontal-padding);
     --content-bounds-padding: 15px;
+
+    --density-widget-header-gap: 1.25rem;
+    --density-widget-header-inline-padding: 0.3rem;
+    --density-widget-title-gap: 0.6rem;
+    --density-presentation-gap: 1rem;
+    --density-key-values-gap: 0.6rem;
+    --density-card-padding-block: 0.8rem;
+    --density-card-padding-inline: 1rem;
+    --density-table-padding-block: 0.55rem;
+    --density-table-padding-inline: 0.7rem;
+    --density-list-row-padding-block: 1.05rem;
+    --density-list-row-padding-inline: 1.15rem;
+    --density-mobile-list-row-padding-block: 0.9rem;
+    --density-mobile-list-row-padding-inline: 0.85rem;
+    --density-list-row-meta-gap: 0.25rem;
+    --density-list-edge-padding: 0.35rem;
     --border-radius: 5px;
     --mobile-navigation-height: 50px;
 

@@ -1269,13 +1269,6 @@ ship-docs:
 		case "$$path" in \
 			docs/*|README.md|glance-test.yml|scripts/check_docs.py|testdata/visual/*) \
 				;; \
-			Makefile|.github/workflows/build-image.yaml) \
-				if [ "$$feature" = "feature/custom-api-examples" ]; then \
-					echo "Bootstrap lifecycle exception: $$path"; \
-				else \
-					printf '%s\n' "$$path" >> "$$invalid_paths"; \
-				fi; \
-				;; \
 			*) \
 				printf '%s\n' "$$path" >> "$$invalid_paths"; \
 				;; \
