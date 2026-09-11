@@ -203,6 +203,7 @@ type themeElevatedSurfaceProperties struct {
 
 type themeProperties struct {
 	CustomCSSFile            string         `yaml:"custom-css-file"`
+	Density                  string         `yaml:"density"`
 	BackgroundColor          *hslColorField `yaml:"background-color"`
 	PrimaryColor             *hslColorField `yaml:"primary-color"`
 	PositiveColor            *hslColorField `yaml:"positive-color"`
@@ -605,6 +606,10 @@ func mergeThemeElevatedSurface(base themeElevatedSurfaceProperties, override the
 
 func mergeThemeProperties(base themeProperties, override themeProperties) themeProperties {
 	merged := base
+
+	if override.configuredFields["density"] {
+		merged.Density = override.Density
+	}
 	merged.Typography = mergeThemeTypography(base.Typography, override.Typography)
 	merged.Page = mergeThemePage(base.Page, override.Page)
 	merged.Header = mergeThemeHeader(base.Header, override.Header)
@@ -811,6 +816,12 @@ func (t *themeProperties) validateComponentTypography(path string) error {
 }
 
 func (t *themeProperties) validate(path string) error {
+	if t.configuredFields["density"] {
+		if err := validateThemeEnum(path+".density", t.Density, "compact", "normal", "comfortable", "spacious"); err != nil {
+			return err
+		}
+	}
+
 	if err := t.validateTypography(path); err != nil {
 		return err
 	}
@@ -1218,6 +1229,7 @@ func (t1 *themeProperties) SameAs(t2 *themeProperties) bool {
 	}
 
 	return t1.Light == t2.Light &&
+		t1.Density == t2.Density &&
 		t1.ContrastMultiplier == t2.ContrastMultiplier &&
 		t1.TextSaturationMultiplier == t2.TextSaturationMultiplier &&
 		t1.BackgroundColor.SameAs(t2.BackgroundColor) &&

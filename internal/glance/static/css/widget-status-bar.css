@@ -3,7 +3,7 @@
     background: var(--theme-widget-background-color, var(--color-widget-background));
     border: 1px solid var(--theme-widget-border-color, var(--color-widget-content-border));
     border-radius: var(--theme-widget-radius, var(--border-radius));
-    box-shadow: 0px 3px 0px 0px hsl(var(--bghs), calc(var(--scheme) (var(--scheme) var(--bgl)) - 0.5%));
+    box-shadow: var(--theme-widget-shadow, 0px 3px 0px 0px hsl(var(--bghs), calc(var(--scheme) (var(--scheme) var(--bgl)) - 0.5%)));
 }
 
 .status-bar {

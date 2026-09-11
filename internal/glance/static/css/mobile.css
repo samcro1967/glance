@@ -46,10 +46,10 @@
         left: var(--content-bounds-padding);
         right: var(--content-bounds-padding);
         z-index: 11;
-        background-color: var(--color-widget-background);
-        border: 1px solid var(--color-widget-content-border);
+        background-color: var(--theme-navigation-background-color, var(--theme-widget-background-color, var(--color-widget-background)));
+        border: 1px solid var(--theme-navigation-border-color, var(--theme-widget-border-color, var(--color-widget-content-border)));
         border-bottom: 0;
-        border-radius: var(--border-radius) var(--border-radius) 0 0;
+        border-radius: var(--theme-navigation-radius, var(--theme-widget-radius, var(--border-radius))) var(--theme-navigation-radius, var(--theme-widget-radius, var(--border-radius))) 0 0;
         transition: transform .3s;
     }
 
@@ -61,12 +61,12 @@
     }
 
     .mobile-navigation-actions > *:active {
-        background-color: var(--color-widget-background-highlight);
+        background-color: var(--theme-control-background-color, var(--color-widget-background-highlight));
     }
 
     .mobile-navigation:has(.mobile-navigation-page-links-input:checked) .hamburger-icon {
         --spacing: 7px;
-        color: var(--color-primary);
+        color: var(--theme-navigation-accent-color, var(--theme-accent-color, var(--color-primary)));
         height: 2px;
     }
 
@@ -75,8 +75,8 @@
     }
 
     .mobile-navigation-page-links {
-        border-top: 1px solid var(--color-widget-content-border);
-        border-bottom: 1px solid var(--color-widget-content-border);
+        border-top: 1px solid var(--theme-navigation-border-color, var(--theme-separator-color, var(--color-widget-content-border)));
+        border-bottom: 1px solid var(--theme-navigation-border-color, var(--theme-separator-color, var(--color-widget-content-border)));
         padding: 20px var(--content-bounds-padding);
         display: flex;
         align-items: center;
@@ -127,7 +127,7 @@
     }
 
     .mobile-navigation-input:checked + .mobile-navigation-pill {
-        background: var(--color-primary);
+        background: var(--theme-navigation-accent-color, var(--theme-accent-color, var(--color-primary)));
         width: 30px;
     }
 
@@ -205,8 +205,6 @@
     :root {
         font-size: 9.4px;
         --widget-gap: 15px;
-        --widget-content-vertical-padding: 10px;
-        --widget-content-horizontal-padding: 10px;
         --content-bounds-padding: 10px;
     }
 

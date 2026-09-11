@@ -1,7 +1,7 @@
 .glance-metrics {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
-    gap: 1rem;
+    gap: var(--density-presentation-gap);
 }
 
 .glance-metric {
@@ -68,14 +68,14 @@
 
 .glance-key-values {
     display: grid;
-    gap: 0.6rem;
+    gap: var(--density-key-values-gap);
 }
 
 .glance-key-value {
     display: grid;
     grid-template-columns: minmax(0, auto) minmax(0, 1fr);
     align-items: baseline;
-    gap: 1rem;
+    gap: var(--density-presentation-gap);
 }
 
 .glance-key {
@@ -92,7 +92,7 @@
 .glance-card {
     display: flex;
     flex-direction: column;
-    padding: 0.8rem 1rem;
+    padding: var(--density-card-padding-block) var(--density-card-padding-inline);
     background: var(--theme-card-background-color, var(--color-widget-background));
     border: 1px solid var(--theme-card-border-color, var(--color-widget-content-border));
     border-radius: var(--theme-card-radius, var(--border-radius));
@@ -131,7 +131,7 @@
 .glance-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
-    gap: 1rem;
+    gap: var(--density-presentation-gap);
 }
 
 .glance-state {
@@ -179,7 +179,7 @@
 
 .glance-table th,
 .glance-table td {
-    padding: 0.55rem 0.7rem;
+    padding: var(--density-table-padding-block) var(--density-table-padding-inline);
     border-bottom: 1px solid var(--theme-separator-color, var(--color-separator));
     text-align: left;
 }
@@ -630,9 +630,9 @@
  * ========================================================================= */
 
 .glance-list {
-    --glance-list-row-padding-block: 1.05rem;
-    --glance-list-row-padding-inline: 1.15rem;
-    --glance-list-row-gap: 0.25rem;
+    --glance-list-row-padding-block: var(--density-list-row-padding-block);
+    --glance-list-row-padding-inline: var(--density-list-row-padding-inline);
+    --glance-list-row-gap: var(--density-list-row-meta-gap);
 
     display: flex;
     flex-direction: column;
@@ -661,11 +661,11 @@
 }
 
 .glance-list-row:first-child {
-    padding-top: 0.35rem;
+    padding-top: var(--density-list-edge-padding);
 }
 
 .glance-list-row:last-child {
-    padding-bottom: 0.35rem;
+    padding-bottom: var(--density-list-edge-padding);
     border-bottom: 0;
 }
 
@@ -702,8 +702,8 @@
 
 @media (max-width: 550px) {
     .glance-list {
-        --glance-list-row-padding-block: 0.9rem;
-        --glance-list-row-padding-inline: 0.85rem;
+        --glance-list-row-padding-block: var(--density-mobile-list-row-padding-block);
+        --glance-list-row-padding-inline: var(--density-mobile-list-row-padding-inline);
     }
 }
 
