@@ -408,6 +408,18 @@ async function captureDocs(browser) {
 
       if (recipe.capture === 'element') {
         const locator = page.locator(recipe.selector).nth(recipe.nth || 0);
+
+        if (!(await locator.isVisible())) {
+          const tabpanel = locator.locator('xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " widget-group-content ")][1]');
+          const tabpanelId = await tabpanel.getAttribute('id');
+
+          if (tabpanelId) {
+            const group = tabpanel.locator('xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " widget-type-group ")][1]');
+            const tab = group.locator(`.widget-group-title[aria-controls="${tabpanelId}"]`);
+            await tab.click();
+          }
+        }
+
         await locator.waitFor({ state: 'visible', timeout: 15000 });
         await locator.screenshot({ path: output });
       } else if (recipe.capture === 'page') {

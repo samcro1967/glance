@@ -1,0 +1,42 @@
+{
+  "icon": "🔔",
+  "updated": "2026-09-11 08:20",
+  "state": "ok",
+  "message": "Gotify operational",
+  "metrics": [
+    {
+      "label": "Applications",
+      "value": "24",
+      "state": "neutral"
+    },
+    {
+      "label": "Messages",
+      "value": "3",
+      "state": "neutral"
+    },
+    {
+      "label": "Health",
+      "value": "Healthy",
+      "state": "ok"
+    },
+    {
+      "label": "Version",
+      "value": "3.1.0",
+      "state": "neutral"
+    }
+  ],
+  "details": [],
+  "expandable_label": "Application Details",
+  "expandable_items": [
+    {
+      "label": "Backups",
+      "value": "1 message",
+      "state": "neutral"
+    },
+    {
+      "label": "Monitoring",
+      "value": "2 messages",
+      "state": "neutral"
+    }
+  ]
+}

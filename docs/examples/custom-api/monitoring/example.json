@@ -1,0 +1,49 @@
+{
+  "icon": "\u25cf",
+  "updated": "2026-09-10 21:00",
+  "state": "warning",
+  "message": "1 service needs attention",
+  "metrics": [
+    {
+      "value": "12",
+      "label": "Services"
+    },
+    {
+      "value": "11",
+      "label": "Healthy"
+    },
+    {
+      "value": "1",
+      "label": "Issues"
+    }
+  ],
+  "details": [
+    {
+      "label": "API",
+      "value": "Healthy",
+      "state": "ok"
+    },
+    {
+      "label": "Database",
+      "value": "Unavailable",
+      "state": "error"
+    }
+  ],
+  "expandable_label": "Service Details",
+  "expandable_items": [
+    {
+      "label": "api",
+      "value": "Healthy",
+      "state": "ok"
+    },
+    {
+      "label": "database",
+      "value": "Unavailable",
+      "state": "error"
+    },
+    {
+      "label": "worker",
+      "value": "Running"
+    }
+  ]
+}

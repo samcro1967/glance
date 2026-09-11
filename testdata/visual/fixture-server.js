@@ -1,9 +1,44 @@
 'use strict';
 
+const fs = require('fs');
 const http = require('http');
+const path = require('path');
 
 const HOST = '127.0.0.1';
 const PORT = 18089;
+
+const monitoringExampleNames = [
+  'argus',
+  'beszel',
+  'coraza',
+  'docker-updates',
+  'drone',
+  'gotify',
+  'healthchecks',
+  'internet-speed',
+  'portainer',
+  'radarr',
+  'restic',
+  'sabnzbd',
+  'sonarr',
+  'tdarr',
+  'uptime-kuma',
+];
+
+const monitoringExamples = Object.fromEntries(
+  monitoringExampleNames.map((name) => [
+    name,
+    JSON.parse(
+      fs.readFileSync(
+        path.join(
+          __dirname,
+          `../../docs/examples/custom-api/monitoring/integrations/${name}/example.json`
+        ),
+        'utf8'
+      )
+    ),
+  ])
+);
 
 function sendJson(res, value) {
   res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -171,6 +206,17 @@ const server = http.createServer((req, res) => {
   if (url.pathname === '/containers/json') {
     sendJson(res, dockerContainers);
     return;
+  }
+
+  const monitoringExamplePrefix = '/examples/custom-api/monitoring/';
+  if (url.pathname.startsWith(monitoringExamplePrefix)) {
+    const name = url.pathname.slice(monitoringExamplePrefix.length);
+    const example = monitoringExamples[name];
+
+    if (example !== undefined) {
+      sendJson(res, example);
+      return;
+    }
   }
 
   res.writeHead(404, { 'Content-Type': 'text/plain' });

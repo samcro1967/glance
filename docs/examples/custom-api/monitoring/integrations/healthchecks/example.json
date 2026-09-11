@@ -1,0 +1,37 @@
+{
+  "icon": "❤️",
+  "updated": "2026-09-11 08:20",
+  "state": "warning",
+  "message": "1 check is due",
+  "metrics": [
+    {
+      "label": "Checks",
+      "value": "51",
+      "state": "neutral"
+    },
+    {
+      "label": "Up",
+      "value": "50",
+      "state": "ok"
+    },
+    {
+      "label": "Due",
+      "value": "1",
+      "state": "warning"
+    },
+    {
+      "label": "Down",
+      "value": "0",
+      "state": "neutral"
+    }
+  ],
+  "details": [],
+  "expandable_label": "Check Details",
+  "expandable_items": [
+    {
+      "label": "Nightly Backup",
+      "value": "Due · Last 2026-09-11 08:05",
+      "state": "warning"
+    }
+  ]
+}

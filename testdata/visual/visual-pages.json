@@ -24,6 +24,7 @@
     "docs-startpage",
     "docs-markets",
     "docs-gaming",
-    "docs-extension"
+    "docs-extension",
+    "examples-custom-api-monitoring"
   ]
 }
