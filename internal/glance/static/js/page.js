@@ -516,10 +516,13 @@ function setupLazyImages(root = document) {
                     image.classList.add("cached");
                     setTimeout(() => imageFinishedTransition(image), 1);
                 } else {
-                    // TODO: also handle error event
                     image.addEventListener("load", () => {
                         image.classList.add("loaded");
                         setTimeout(() => imageFinishedTransition(image), 400);
+                    });
+                    image.addEventListener("error", () => {
+                        image.classList.add("error");
+                        imageFinishedTransition(image);
                     });
                 }
             }

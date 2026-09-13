@@ -131,7 +131,7 @@ img[loading=lazy].cached:not(.finished-transition) {
     transition: none;
 }
 
-img[loading=lazy]:not(.loaded, .cached) {
+img[loading=lazy]:not(.loaded, .cached, .error) {
     opacity: 0;
 }
 
