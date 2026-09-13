@@ -2,8 +2,11 @@ package glance
 
 import (
 	"context"
+	"fmt"
 	"html/template"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"strings"
 	"testing"
@@ -207,5 +210,36 @@ func TestServerStopBeforeStart(t *testing.T) {
 		}
 	default:
 		// The scheduler observed cancellation before starting the widget.
+	}
+}
+
+func TestProfilingIsNotExposedByMainRouter(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		t.Run(fmt.Sprintf("frontend_diagnostics_%t", enabled), func(t *testing.T) {
+			app := &application{}
+			app.Config.Server.FrontendDiagnostics = enabled
+
+			recorder := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodGet, "/debug/pprof/", nil)
+			app.router().ServeHTTP(recorder, request)
+
+			if recorder.Code != http.StatusNotFound {
+				t.Fatalf("main router pprof status = %d, want %d", recorder.Code, http.StatusNotFound)
+			}
+		})
+	}
+}
+
+func TestFrontendDiagnosticProfileHandlerExposesStandardProfiles(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/debug/pprof/", nil)
+	frontendDiagnosticProfileHandler().ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("pprof index status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+
+	if !strings.Contains(recorder.Body.String(), "goroutine") {
+		t.Fatal("pprof index does not expose standard runtime profiles")
 	}
 }

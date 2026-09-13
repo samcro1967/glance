@@ -1,26 +1,39 @@
 package glance
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"sync"
 	"sync/atomic"
 )
 
 var frontendDiagnosticsLiveUpdateConnectionID atomic.Uint64
+var frontendDiagnosticCommandID atomic.Uint64
 
-type liveUpdateSubscription struct {
-	mu      sync.Mutex
-	pending map[uint64]struct{}
-	ready   chan struct{}
-	closed  bool
+const frontendDiagnosticCommandQueueLimit = 8
+
+type frontendDiagnosticCommand struct {
+	ID      uint64 `json:"id"`
+	Command string `json:"command"`
 }
 
-func newLiveUpdateSubscription() *liveUpdateSubscription {
+type liveUpdateSubscription struct {
+	mu                 sync.Mutex
+	pending            map[uint64]struct{}
+	widgetIDs          map[uint64]struct{}
+	diagnosticCommands []frontendDiagnosticCommand
+	ready              chan struct{}
+	closed             bool
+}
+
+func newLiveUpdateSubscription(widgetIDs map[uint64]struct{}) *liveUpdateSubscription {
 	return &liveUpdateSubscription{
-		pending: make(map[uint64]struct{}),
-		ready:   make(chan struct{}, 1),
+		pending:   make(map[uint64]struct{}),
+		widgetIDs: widgetIDs,
+		ready:     make(chan struct{}, 1),
 	}
 }
 
@@ -32,12 +45,58 @@ func (s *liveUpdateSubscription) publish(widgetID uint64) {
 		return
 	}
 
+	if s.widgetIDs != nil {
+		if _, interested := s.widgetIDs[widgetID]; !interested {
+			return
+		}
+	}
+
 	s.pending[widgetID] = struct{}{}
 
 	select {
 	case s.ready <- struct{}{}:
 	default:
 	}
+}
+
+func (s *liveUpdateSubscription) publishDiagnosticCommand(
+	command frontendDiagnosticCommand,
+) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.closed {
+		return
+	}
+
+	if len(s.diagnosticCommands) >= frontendDiagnosticCommandQueueLimit {
+		copy(s.diagnosticCommands, s.diagnosticCommands[1:])
+		s.diagnosticCommands = s.diagnosticCommands[:frontendDiagnosticCommandQueueLimit-1]
+	}
+
+	s.diagnosticCommands = append(s.diagnosticCommands, command)
+
+	select {
+	case s.ready <- struct{}{}:
+	default:
+	}
+}
+
+func (s *liveUpdateSubscription) takeDiagnosticCommands() []frontendDiagnosticCommand {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if len(s.diagnosticCommands) == 0 {
+		return nil
+	}
+
+	commands := append(
+		[]frontendDiagnosticCommand(nil),
+		s.diagnosticCommands...,
+	)
+	s.diagnosticCommands = s.diagnosticCommands[:0]
+
+	return commands
 }
 
 func (s *liveUpdateSubscription) takePending() []uint64 {
@@ -81,8 +140,8 @@ func newLiveUpdateBroker() *liveUpdateBroker {
 	}
 }
 
-func (b *liveUpdateBroker) subscribe() (*liveUpdateSubscription, func()) {
-	subscription := newLiveUpdateSubscription()
+func (b *liveUpdateBroker) subscribe(widgetIDs map[uint64]struct{}) (*liveUpdateSubscription, func()) {
+	subscription := newLiveUpdateSubscription(widgetIDs)
 
 	b.mu.Lock()
 	if b.closed {
@@ -118,6 +177,21 @@ func (b *liveUpdateBroker) publish(widgetID uint64) {
 
 	for subscriber := range b.subscribers {
 		subscriber.publish(widgetID)
+	}
+}
+
+func (b *liveUpdateBroker) publishDiagnosticCommand(
+	command frontendDiagnosticCommand,
+) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	if b.closed {
+		return
+	}
+
+	for subscriber := range b.subscribers {
+		subscriber.publishDiagnosticCommand(command)
 	}
 }
 
@@ -171,7 +245,22 @@ func (a *application) handleLiveUpdatesRequest(w http.ResponseWriter, r *http.Re
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("X-Accel-Buffering", "no")
 
-	subscription, unsubscribe := a.liveUpdates.subscribe()
+	var widgetIDs map[uint64]struct{}
+	if requestedWidgetIDs, filtered := r.URL.Query()["widget"]; filtered {
+		widgetIDs = make(map[uint64]struct{}, len(requestedWidgetIDs))
+		for _, value := range requestedWidgetIDs {
+			widgetID, err := strconv.ParseUint(value, 10, 64)
+			if err != nil {
+				continue
+			}
+			if _, exists := a.widgetByID[widgetID]; !exists {
+				continue
+			}
+			widgetIDs[widgetID] = struct{}{}
+		}
+	}
+
+	subscription, unsubscribe := a.liveUpdates.subscribe(widgetIDs)
 	defer unsubscribe()
 
 	if a.Config.Server.FrontendDiagnostics {
@@ -224,6 +313,49 @@ func (a *application) handleLiveUpdatesRequest(w http.ResponseWriter, r *http.Re
 					)
 				}
 				return
+			}
+
+			for _, command := range subscription.takeDiagnosticCommands() {
+				payload, err := json.Marshal(command)
+				if err != nil {
+					slog.Warn(
+						"Failed to encode frontend diagnostic command",
+						"command_id", command.ID,
+						"command", command.Command,
+						"error", err,
+					)
+					continue
+				}
+
+				if _, err := fmt.Fprintf(
+					w,
+					"event: diagnostic\ndata: %s\n\n",
+					payload,
+				); err != nil {
+					if a.Config.Server.FrontendDiagnostics {
+						slog.Info(
+							"Frontend diagnostic",
+							"source", "server",
+							"event", "diagnostic_command_write_failed",
+							"connection", connectionID,
+							"command_id", command.ID,
+							"command", command.Command,
+							"error", err,
+						)
+					}
+					return
+				}
+
+				if a.Config.Server.FrontendDiagnostics {
+					slog.Info(
+						"Frontend diagnostic",
+						"source", "server",
+						"event", "diagnostic_command_write",
+						"connection", connectionID,
+						"command_id", command.ID,
+						"command", command.Command,
+					)
+				}
 			}
 
 			for _, widgetID := range subscription.takePending() {

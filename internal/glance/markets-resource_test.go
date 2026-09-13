@@ -17,12 +17,15 @@ func resetYahooMarketResourceCache(t *testing.T) {
 
 	yahooMarketResourceCache.mu.Lock()
 	oldEntries := yahooMarketResourceCache.entries
+	oldLastPrune := yahooMarketResourceCache.lastPrune
 	yahooMarketResourceCache.entries = make(map[string]*keyedResourceCacheEntry[marketResponseJson])
+	yahooMarketResourceCache.lastPrune = time.Time{}
 	yahooMarketResourceCache.mu.Unlock()
 
 	t.Cleanup(func() {
 		yahooMarketResourceCache.mu.Lock()
 		yahooMarketResourceCache.entries = oldEntries
+		yahooMarketResourceCache.lastPrune = oldLastPrune
 		yahooMarketResourceCache.mu.Unlock()
 	})
 }

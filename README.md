@@ -42,6 +42,7 @@ See **[About the samcro1967 Glance fork](docs/fork.md)** for the complete record
 * Shared provider resources where equivalent requests can safely reuse data
 * Stale-data preservation where supported so temporary dependency failures do not unnecessarily replace useful content
 * Formal container images for 64-bit Linux AMD64 and ARM64 platforms
+* Integrated runtime diagnostics, frontend performance telemetry, Go profiling, and repeatable benchmarks for investigating production performance without relying on speculative optimization
 
 ### Highly customizable
 

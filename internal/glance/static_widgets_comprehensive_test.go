@@ -464,7 +464,10 @@ func TestStatusBarTickerBrowserContract(t *testing.T) {
 		`new ResizeObserver(updateTickerGeometry)`,
 		`resizeObserver.observe(items)`,
 		`resizeObserver.observe(statusBar)`,
+		`const handlePointerUp = (event) => {`,
+		`statusBar.addEventListener("pointerup", handlePointerUp)`,
 		`cleanupCallbacks.push(() => resizeObserver.disconnect())`,
+		`statusBar.removeEventListener("pointerup", handlePointerUp)`,
 		`return cleanupCallbacks`,
 		`cleanupCallbacks.push(...setupStatusBarTickers(widgetElement))`,
 		`event.pointerType !== "mouse"`,
@@ -477,6 +480,52 @@ func TestStatusBarTickerBrowserContract(t *testing.T) {
 	for _, fragment := range required {
 		if !strings.Contains(source, fragment) {
 			t.Fatalf("page.js missing Status Bar ticker contract fragment %q", fragment)
+		}
+	}
+}
+
+func TestCarouselBrowserCleanupContract(t *testing.T) {
+	pageJS, err := os.ReadFile(filepath.Join("static", "js", "page.js"))
+	if err != nil {
+		t.Fatalf("read page.js: %v", err)
+	}
+
+	source := string(pageJS)
+
+	required := []string{
+		`itemsContainer.addEventListener("scroll", determineSideCutoffsRateLimited)`,
+		`window.addEventListener("resize", determineSideCutoffsRateLimited)`,
+		`itemsContainer.removeEventListener("scroll", determineSideCutoffsRateLimited)`,
+		`window.removeEventListener("resize", determineSideCutoffsRateLimited)`,
+	}
+
+	for _, fragment := range required {
+		if !strings.Contains(source, fragment) {
+			t.Fatalf("page.js missing carousel cleanup contract fragment %q", fragment)
+		}
+	}
+}
+
+func TestPopoverBrowserInitializationContract(t *testing.T) {
+	popoverJS, err := os.ReadFile(filepath.Join("static", "js", "popover.js"))
+	if err != nil {
+		t.Fatalf("read popover.js: %v", err)
+	}
+
+	source := string(popoverJS)
+
+	required := []string{
+		`if (target.dataset.popoverInitialized === "true")`,
+		`target.dataset.popoverInitialized = "true"`,
+		`target.addEventListener("click", handleMouseEnter)`,
+		`target.addEventListener("keydown", handleKeyboardActivation)`,
+		`target.addEventListener("mouseenter", handleMouseEnter)`,
+		`target.addEventListener("mouseleave", handleMouseLeave)`,
+	}
+
+	for _, fragment := range required {
+		if !strings.Contains(source, fragment) {
+			t.Fatalf("popover.js missing initialization contract fragment %q", fragment)
 		}
 	}
 }

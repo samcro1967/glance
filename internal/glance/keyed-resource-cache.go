@@ -24,6 +24,7 @@ type keyedResourceCache[K comparable, V any] struct {
 	mu            sync.Mutex
 	entries       map[K]*keyedResourceCacheEntry[V]
 	idleRetention time.Duration
+	lastPrune     time.Time
 }
 
 func newKeyedResourceCache[K comparable, V any](idleRetention time.Duration) *keyedResourceCache[K, V] {
@@ -91,7 +92,10 @@ func (cache *keyedResourceCache[K, V]) entry(
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
 
-	cache.pruneIdleEntriesLocked(key, now)
+	if cache.shouldPruneLocked(now) {
+		cache.pruneIdleEntriesLocked(key, now)
+		cache.lastPrune = now
+	}
 
 	entry, ok := cache.entries[key]
 	if !ok {
@@ -104,6 +108,22 @@ func (cache *keyedResourceCache[K, V]) entry(
 	entry.mu.Unlock()
 
 	return entry
+}
+
+func (cache *keyedResourceCache[K, V]) shouldPruneLocked(now time.Time) bool {
+	if cache.idleRetention <= 0 {
+		return false
+	}
+
+	interval := cache.idleRetention / 4
+	if interval > time.Minute {
+		interval = time.Minute
+	}
+	if interval < time.Second {
+		interval = time.Second
+	}
+
+	return cache.lastPrune.IsZero() || now.Sub(cache.lastPrune) >= interval
 }
 
 func (cache *keyedResourceCache[K, V]) pruneIdleEntriesLocked(

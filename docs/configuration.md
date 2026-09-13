@@ -437,6 +437,7 @@ server:
 | proxied | boolean | no | false |
 | base-url | string | no | |
 | assets-path | string | no |  |
+| frontend-diagnostics | boolean | no | false |
 
 #### `host`
 The address which the server will listen on. Setting it to `localhost` means that only the machine that the server is running on will be able to access the dashboard. By default it will listen on all interfaces.
@@ -456,6 +457,15 @@ The base URL that Glance is hosted under. No need to specify this unless you're 
 
 #### `assets-path`
 The path to a directory that will be served by the server under the `/assets/` path. This is handy for widgets like the Monitor where you have to specify an icon URL and you want to self host all the icons rather than pointing to an external source.
+
+#### `frontend-diagnostics`
+Enables additional runtime diagnostics intended for development, troubleshooting, and performance investigation. It defaults to `false` and is not required for normal dashboard operation.
+
+When enabled, Glance records structured browser lifecycle, error, live-update, page-loading, and performance telemetry in the server logs. Performance diagnostics include page-content and initialization timing, live widget replacement timing, browser performance snapshots, long-task observations, and page resource and DOM measurements. Backend HTTP request timing is also recorded so browser-side observations can be correlated with server-side request latency.
+
+Enabled diagnostics also provide a typed backend-to-browser diagnostic command channel over the existing live-update connection. Supported diagnostic operations can therefore be requested from the server and executed by connected Glance browsers, with results returned through the normal diagnostic logging path. The command channel accepts only diagnostic operations explicitly implemented by Glance; it does not provide arbitrary remote JavaScript execution.
+
+Go `pprof` endpoints are enabled at the same time on a separate loopback-only listener at `127.0.0.1:6060`. The profiling listener is not registered on the normal Glance HTTP router and is therefore intended for local diagnostic access from the Glance host. The repository Makefile provides controlled capture and summary targets for development use.
 
 > [!IMPORTANT]
 >

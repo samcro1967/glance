@@ -49,6 +49,10 @@ export function frontendDiagnostic(event, fields = {}, flush = false) {
         diagnostic.state = fields.state;
     }
 
+    if (fields.metrics !== undefined) {
+        diagnostic.metrics = fields.metrics;
+    }
+
     frontendDiagnosticsBuffer.push(diagnostic);
 
     if (flush) {
@@ -132,6 +136,144 @@ export function frontendDiagnosticError(event, error, fields = {}, flush = true)
     }, flush);
 }
 
+function frontendDiagnosticLongTaskCapture(durationMS = 30000) {
+    if (!frontendDiagnosticsEnabled) {
+        return;
+    }
+
+    if (
+        typeof PerformanceObserver === "undefined" ||
+        !PerformanceObserver.supportedEntryTypes?.includes("longtask")
+    ) {
+        frontendDiagnostic("long_task_capture_unsupported");
+        return;
+    }
+
+    let count = 0;
+    let totalDuration = 0;
+    let maxDuration = 0;
+    const startedAt = performance.now();
+
+    const observer = new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+            count++;
+            totalDuration += entry.duration;
+            maxDuration = Math.max(maxDuration, entry.duration);
+        }
+    });
+
+    try {
+        observer.observe({ type: "longtask", buffered: true });
+    } catch (error) {
+        frontendDiagnosticError(
+            "long_task_capture_error",
+            error
+        );
+        return;
+    }
+
+    frontendDiagnostic("long_task_capture_start", {
+        metrics: {
+            duration_ms: durationMS,
+        },
+    });
+
+    setTimeout(() => {
+        observer.disconnect();
+
+        frontendDiagnostic("long_task_capture_complete", {
+            elapsedMS: performance.now() - startedAt,
+            metrics: {
+                count,
+                total_duration_ms: totalDuration,
+                max_duration_ms: maxDuration,
+            },
+        }, true);
+    }, durationMS);
+}
+
+function frontendDiagnosticPerformanceSnapshot(reason) {
+    if (!frontendDiagnosticsEnabled) {
+        return;
+    }
+
+    const resources = performance.getEntriesByType("resource");
+    const navigation = performance.getEntriesByType("navigation")[0];
+
+    frontendDiagnostic("performance_snapshot", {
+        detail: `reason=${reason}`,
+        metrics: {
+            elements: document.getElementsByTagName("*").length,
+            widgets: document.querySelectorAll("[data-widget-id]").length,
+            images: document.images.length,
+            tables: document.getElementsByTagName("table").length,
+            resources: resources.length,
+        },
+    }, true);
+
+    if (navigation) {
+        frontendDiagnostic("navigation_snapshot", {
+            detail: `type=${navigation.type}`,
+            elapsedMS: navigation.duration,
+            metrics: {
+                dom_interactive_ms: navigation.domInteractive,
+                dom_content_loaded_ms: navigation.domContentLoadedEventEnd,
+                load_ms: navigation.loadEventEnd,
+                transfer_bytes: navigation.transferSize,
+                encoded_bytes: navigation.encodedBodySize,
+                decoded_bytes: navigation.decodedBodySize,
+            },
+        });
+    }
+
+    if (resources.length > 0) {
+        let transferBytes = 0;
+        let encodedBytes = 0;
+        let decodedBytes = 0;
+        let totalDuration = 0;
+        let slowest = null;
+
+        for (const resource of resources) {
+            transferBytes += resource.transferSize || 0;
+            encodedBytes += resource.encodedBodySize || 0;
+            decodedBytes += resource.decodedBodySize || 0;
+            totalDuration += resource.duration || 0;
+
+            if (slowest === null || resource.duration > slowest.duration) {
+                slowest = resource;
+            }
+        }
+
+        frontendDiagnostic("resource_snapshot", {
+            detail: `slowest=${slowest?.name?.slice(0, 240) ?? ""}`,
+            metrics: {
+                count: resources.length,
+                transfer_bytes: transferBytes,
+                encoded_bytes: encodedBytes,
+                decoded_bytes: decodedBytes,
+                total_duration_ms: totalDuration,
+                slowest_ms: slowest?.duration ?? 0,
+            },
+        });
+    }
+
+    if (
+        performance.memory &&
+        Number.isFinite(performance.memory.usedJSHeapSize)
+    ) {
+        frontendDiagnostic("memory_snapshot", {
+            metrics: {
+                used_js_heap_bytes: performance.memory.usedJSHeapSize,
+                total_js_heap_bytes: performance.memory.totalJSHeapSize,
+                js_heap_limit_bytes: performance.memory.jsHeapSizeLimit,
+            },
+        });
+    }
+}
+export function captureFrontendPerformanceSnapshot(reason = "manual") {
+    frontendDiagnosticPerformanceSnapshot(reason);
+}
+
 function setupFrontendDiagnosticsLifecycle() {
     if (!frontendDiagnosticsEnabled) {
         return;
@@ -170,6 +312,13 @@ function setupFrontendDiagnosticsLifecycle() {
     window.addEventListener("offline", () => {
         frontendDiagnostic("network_offline");
     });
+
+    window.addEventListener("load", () => {
+        setTimeout(() => {
+            frontendDiagnosticPerformanceSnapshot("window_load");
+            frontendDiagnosticLongTaskCapture();
+        }, 0);
+    }, { once: true });
 }
 
 setupFrontendDiagnosticsLifecycle();
