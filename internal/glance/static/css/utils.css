@@ -408,7 +408,6 @@ details[open] .summary::after {
     gap: 2px;
     padding: 2px;
     height: 1.5rem;
-    /* naughty, but oh so beautiful */
     margin-inline: -3px;
 }
 

@@ -249,8 +249,8 @@ body {
 
 @keyframes loadingContainerEntrance {
     from {
-        /* Using 0.001 instead of 0 fixes a random 1s freeze on Chrome on page load when all */
-        /* elements have opacity 0 and are animated in. I don't want to be a web dev anymore. */
+        /* Using 0.001 instead of 0 avoids a Chrome page-load freeze when all elements */
+        /* begin at zero opacity and animate into view. */
         opacity: 0.001;
     }
 }

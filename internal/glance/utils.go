@@ -223,8 +223,7 @@ func ternary[T any](condition bool, a, b T) T {
 	return b
 }
 
-// Having compile time errors about unused variables is cool and all, but I don't want to
-// have to constantly comment out my code while I'm working on it and testing things out
+// ItsUsedTrustMeBro marks values as used when temporarily exercising code paths during development.
 func ItsUsedTrustMeBro(...any) {}
 
 func hslToHex(h, s, l float64) string {

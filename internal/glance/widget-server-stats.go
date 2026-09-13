@@ -159,8 +159,6 @@ type serverStatsRequest struct {
 	Token                      string               `yaml:"token"`
 	Timeout                    durationField        `yaml:"timeout"`
 	AllowInsecure              bool                 `yaml:"allow-insecure"`
-	// Support for other agents
-	// Provider                   string              `yaml:"provider"`
 }
 
 func (request *serverStatsRequest) UnmarshalYAML(node *yaml.Node) error {
