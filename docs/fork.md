@@ -122,7 +122,7 @@ Several production defects were discovered through this process, reproduced with
 Development follows a two-branch integration and release model:
 
 ```text
-development branch → dev → main → formal release
+development branch → dev → main → formal release → production deployment → main-to-dev synchronization
 ```
 
 The long-lived `dev` branch is the integration branch for ongoing development. Focused feature, fix, refactor, and documentation branches are created from a clean local `dev` branch and merged back into `dev` through pull requests. Local `dev` may intentionally contain committed work that has not yet been pushed when that work is being parked for inclusion in the next feature pull request. In that state, `origin/dev` must remain an ancestor of local `dev`; behind or diverged histories are not accepted for new branch creation.
@@ -161,6 +161,7 @@ make test-prod-stop
 make test-container-start TEST_RUNTIME_CONTAINER=<container>
 make test-container-status
 make test-container-stop
+make test-all-stop
 make fmt-check
 make diff-check
 make staged-check
@@ -176,6 +177,9 @@ make upstream-status
 make verify-dev
 make verify-main
 make branch NEW_BRANCH=feature/example
+make park
+make ship TITLE='...' BODY_FILE=<file>
+make ship-docs TITLE='...' BODY_FILE=<file>
 make push
 make pr-create TITLE='...' BODY_FILE=<file>
 make promote-create TITLE='...' BODY_FILE=<file>
@@ -196,15 +200,18 @@ make release
 make release-finish
 make deploy-status
 make deploy
+make deploy-finish
 ```
 
 `make branch` creates normal development branches from a clean `dev` branch. When local `dev` exactly matches `origin/dev`, branch creation proceeds normally. When local `dev` is strictly ahead and `origin/dev` is its ancestor, the target reports the committed parked work and intentionally carries those commits into the new feature branch. Branch creation refuses local `dev` histories that are behind or have diverged from `origin/dev`. `make pr-create` creates the normal feature-to-`dev` pull request and intentionally refuses to operate from either long-lived branch. `make promote-create` is the explicit path for creating a `dev`-to-`main` promotion pull request.
 
 `make post-merge` determines the merged pull request's base branch automatically. After a normal feature merge it updates and leaves the repository on `dev`; after a promotion merge it updates and leaves the repository on `main`. Ordinary updates remain fast-forward-only. When parked local `dev` commits were carried by a merged feature pull request and therefore make the old local `dev` history non-fast-forwardable to the resulting remote merge commit, the target reconciles local `dev` only after verifying that the merged feature revision is contained in `origin/dev` and that the old local `dev` history is contained in that feature revision. Long-lived branches are preserved while merged local feature branches are cleaned up.
 
-The composite workflow targets provide guarded end-to-end lifecycle stages while retaining the individual targets for inspection and recovery. `make pr-finish` validates a feature-to-`dev` pull request, watches its exact-head CI run, merges it, performs post-merge cleanup, and watches publication of the resulting `dev` image. `make promote-finish` performs the corresponding guarded `dev`-to-`main` promotion through validation, merge, cleanup, and stable-branch verification. `make sync-finish` handles the post-release `main`-to-`dev` synchronization and resulting `dev` image. `make workflow-status` provides a combined view of repository relationships, release state, recent CI and image activity, and deployment state.
+The Makefile provides high-level workflows for normal operation while retaining the individual lifecycle targets for inspection and recovery. `make ship` is the normal end-to-end workflow for runtime and code changes: it stops Makefile-managed development and test runtimes, integrates the feature through `dev`, promotes `dev` to `main`, creates and verifies the formal release, deploys and verifies production, synchronizes `main` back to `dev`, performs final workflow verification, and again stops managed development and test runtimes. When `BODY_FILE` is supplied to `make ship`, it is treated as a consumable workflow input: it is retained if the workflow fails and removed only after the complete workflow succeeds. `make ship-docs` is the guarded high-level alternative for qualifying non-runtime documentation changes and does not create a formal release or deploy production.
 
-`make release-finish` is the guarded formal-release pipeline for `main`: it performs release validation and tag creation, watches the formal release workflow, and reports release and deployment status. It intentionally does **not** deploy production. Production deployment remains a separate explicit action through `make deploy`, preserving a deliberate boundary between creating a release and changing the running production service.
+The lower-level composite workflow targets remain available as recovery primitives. If a high-level workflow stops, `make workflow-status` should be used first to establish repository, release, CI, image, and deployment state before selecting the appropriate resume target. `make pr-finish` validates a feature-to-`dev` pull request, watches its exact-head CI run, merges it, performs post-merge cleanup, and watches publication of the resulting `dev` image. `make promote-finish` performs the corresponding guarded `dev`-to-`main` promotion through validation, merge, cleanup, and stable-branch verification. `make sync-finish` handles the post-release `main`-to-`dev` synchronization and resulting `dev` image. `make workflow-status` provides a combined view of repository relationships, release state, recent CI and image activity, and deployment state.
+
+`make release-finish` remains the guarded formal-release stage for `main`: it performs release validation and tag creation, watches the formal release workflow, and reports release and deployment status. When invoked by itself it intentionally does **not** deploy production. `make deploy` remains the guarded production-deployment primitive, while `make deploy-finish` is the recovery/resume stage that deploys an already released `main`, synchronizes `main` back to `dev`, and performs final verification. The high-level `make ship` workflow intentionally composes these guarded stages and is therefore the explicit end-to-end path that crosses the production boundary.
 
 `make check` runs the standard local pre-pull-request validation suite, including frontend architecture auditing through `make frontend-audit`, which enforces semantic theme and frontend diagnostic ownership contracts. Deterministic browser regression testing remains an explicit validation step through `make frontend-check`, which validates page recovery, desktop and mobile behavior, theme interaction, live replacement, disclosures, contained frontend failures, and authentication recovery against an isolated test instance. `make frontend-coverage` executes those same maintained browser scenarios with native Chromium/V8 coverage enabled and reports named-function execution for Glance-owned JavaScript. Modules not loaded by those scenarios are reported separately rather than being included in the execution denominator. The result is informational coverage for identifying meaningful frontend test gaps; it is not line, statement, or branch coverage and does not enforce a percentage threshold. Repeated test targets are available for concurrency-sensitive or high-risk changes where a single successful test execution may not provide sufficient confidence.
 
@@ -225,6 +232,8 @@ Reliability and performance regression coverage also includes controlled schedul
 After changes have integrated into dev, test-container-start validates the published ghcr.io/samcro1967/glance:dev artifact against the same real runtime configuration. It verifies the successful development-image workflow for the current origin/dev revision, pulls the development image, starts an isolated container on port 18080, and verifies the expected image and revision. test-container-status reports container and HTTP status, while test-container-stop removes the isolated container while preserving the pulled image.
 
 The canonical source test, local production-runtime test, and published-development-image test intentionally share port 18080 and are used mutually exclusively. Together they provide deterministic fixture validation, pre-commit validation against the real dashboard, and post-integration validation of the exact published development artifact.
+
+`make test-all-stop` is the aggregate cleanup target for all Makefile-managed development and test runtimes. It delegates to the existing source-test, production-runtime-test, and published-development-image stop targets rather than duplicating their cleanup logic, preserving each lifecycle's ownership semantics. The aggregate target is safe to run when one or more managed runtimes are already absent.
 
 ## Security and dependency maintenance
 
