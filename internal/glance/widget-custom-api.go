@@ -668,8 +668,15 @@ func fetchAndRenderCustomAPIRequest(
 		Options:               options,
 	}
 
+	runtimeTemplate, err := tmpl.Clone()
+	if err != nil {
+		return emptyBody, fmt.Errorf("cloning custom API template: %w", err)
+	}
+
+	runtimeTemplate = runtimeTemplate.Funcs(customAPIRuntimeTemplateFuncs(ctx))
+
 	var templateBuffer bytes.Buffer
-	err = tmpl.Execute(&templateBuffer, &data)
+	err = runtimeTemplate.Execute(&templateBuffer, &data)
 	if err != nil {
 		return emptyBody, err
 	}
@@ -688,6 +695,23 @@ func fetchAndRenderCustomAPIRequest(
 	}
 
 	return template.HTML(rendered), nil
+}
+
+func customAPIRuntimeTemplateFuncs(ctx context.Context) template.FuncMap {
+	return template.FuncMap{
+		"getResponse": func(req *CustomAPIRequest) (*customAPIResponseData, error) {
+			if err := req.initialize(); err != nil {
+				return nil, fmt.Errorf("initializing custom API template request: %w", err)
+			}
+
+			data, err := fetchCustomAPIResponse(ctx, req)
+			if err != nil {
+				return nil, fmt.Errorf("fetching response within custom API template: %w", err)
+			}
+
+			return data, nil
+		},
+	}
 }
 
 func customAPIHTMLHasVisibleText(value string) bool {
@@ -1061,24 +1085,8 @@ var customAPITemplateFuncs = func() template.FuncMap {
 			req.BasicAuth.Password = password
 			return req
 		},
-		"getResponse": func(req *CustomAPIRequest) *customAPIResponseData {
-			err := req.initialize()
-			if err != nil {
-				panic(fmt.Sprintf("initializing request: %v", err))
-			}
-
-			data, err := fetchCustomAPIResponse(context.Background(), req)
-			if err != nil {
-				slog.Error("Could not fetch response within custom API template", "error", err)
-				return &customAPIResponseData{
-					JSON: decoratedGJSONResult{gjson.Result{}},
-					Response: &http.Response{
-						Status: err.Error(),
-					},
-				}
-			}
-
-			return data
+		"getResponse": func(req *CustomAPIRequest) (*customAPIResponseData, error) {
+			return nil, errors.New("getResponse requires an active custom API refresh context")
 		},
 	}
 
