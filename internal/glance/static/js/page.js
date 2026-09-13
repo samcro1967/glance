@@ -88,6 +88,7 @@ function setupCarousels(root = document) {
         window.addEventListener("resize", determineSideCutoffsRateLimited);
 
         const cleanup = () => {
+            itemsContainer.removeEventListener("scroll", determineSideCutoffsRateLimited);
             window.removeEventListener("resize", determineSideCutoffsRateLimited);
         };
 
@@ -220,7 +221,7 @@ function setupStatusBarTickers(root = document) {
             cleanupCallbacks.push(() => resizeObserver.disconnect());
         }
 
-        statusBar.addEventListener("pointerup", (event) => {
+        const handlePointerUp = (event) => {
             if (event.pointerType !== "mouse") {
                 return;
             }
@@ -229,6 +230,11 @@ function setupStatusBarTickers(root = document) {
             if (link != null) {
                 link.blur();
             }
+        };
+
+        statusBar.addEventListener("pointerup", handlePointerUp);
+        cleanupCallbacks.push(() => {
+            statusBar.removeEventListener("pointerup", handlePointerUp);
         });
 
         statusBar.dataset.tickerInitialized = "true";
