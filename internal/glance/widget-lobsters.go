@@ -88,8 +88,18 @@ func fetchLobstersPostsFromFeed(ctx context.Context, feedUrl string) (forumPostL
 
 	posts := make(forumPostList, 0, len(feed))
 
+	invalidPosts := 0
+	var firstFailure error
+
 	for i := range feed {
-		createdAt, _ := time.Parse(time.RFC3339, feed[i].CreatedAt)
+		createdAt, err := time.Parse(time.RFC3339, feed[i].CreatedAt)
+		if err != nil {
+			invalidPosts++
+			if firstFailure == nil {
+				firstFailure = fmt.Errorf("parsing Lobsters post timestamp: %w", err)
+			}
+			continue
+		}
 
 		posts = append(posts, forumPost{
 			Title:           feed[i].Title,
@@ -104,7 +114,27 @@ func fetchLobstersPostsFromFeed(ctx context.Context, feedUrl string) (forumPostL
 	}
 
 	if len(posts) == 0 {
+		if firstFailure != nil {
+			return nil, contentFetchError(
+				errNoContent,
+				invalidPosts,
+				len(feed),
+				"posts",
+				firstFailure,
+			)
+		}
+
 		return nil, fmt.Errorf("%w: Lobsters feed returned no posts", errNoContent)
+	}
+
+	if invalidPosts > 0 {
+		return posts, contentFetchError(
+			errPartialContent,
+			invalidPosts,
+			len(feed),
+			"posts",
+			firstFailure,
+		)
 	}
 
 	return posts, nil

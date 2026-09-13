@@ -114,3 +114,55 @@ func TestFetchLobstersPostsFromFeedCancellation(t *testing.T) {
 		t.Fatal("server did not observe Lobsters request cancellation")
 	}
 }
+
+func TestFetchLobstersPostsFromFeedInvalidTimestampIsPartial(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[
+			{"created_at":"bad","title":"invalid","url":"https://example.invalid/invalid"},
+			{"created_at":"2026-08-30T12:00:00Z","title":"valid","url":"https://example.invalid/valid"}
+		]`))
+	}))
+	defer server.Close()
+
+	posts, err := fetchLobstersPostsFromFeed(context.Background(), server.URL)
+
+	if !errors.Is(err, errPartialContent) {
+		t.Fatalf("error = %v, want errPartialContent", err)
+	}
+	if len(posts) != 1 {
+		t.Fatalf("posts = %#v, want one valid post", posts)
+	}
+	if posts[0].Title != "valid" {
+		t.Fatalf("post title = %q, want valid", posts[0].Title)
+	}
+	if posts[0].TimePosted.IsZero() {
+		t.Fatal("valid Lobsters post has zero timestamp")
+	}
+	if !strings.Contains(err.Error(), "parsing Lobsters post timestamp") {
+		t.Fatalf("error missing timestamp context: %q", err)
+	}
+}
+
+func TestFetchLobstersPostsFromFeedAllInvalidTimestampsIsNoContent(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`[
+			{"created_at":"bad-one","title":"one","url":"https://example.invalid/1"},
+			{"created_at":"bad-two","title":"two","url":"https://example.invalid/2"}
+		]`))
+	}))
+	defer server.Close()
+
+	posts, err := fetchLobstersPostsFromFeed(context.Background(), server.URL)
+
+	if posts != nil {
+		t.Fatalf("posts = %#v, want nil", posts)
+	}
+	if !errors.Is(err, errNoContent) {
+		t.Fatalf("error = %v, want errNoContent", err)
+	}
+	if !strings.Contains(err.Error(), "parsing Lobsters post timestamp") {
+		t.Fatalf("error missing timestamp context: %q", err)
+	}
+}
