@@ -391,6 +391,151 @@ func TestFetchAndRenderCustomAPIRequestCancellationStopsSubrequests(t *testing.T
 	}
 }
 
+func TestFetchAndRenderCustomAPIRequestCancellationStopsDynamicRequest(t *testing.T) {
+	dynamicRequestStarted := make(chan struct{})
+	dynamicRequestCancelled := make(chan struct{})
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/primary":
+			_, _ = w.Write([]byte(`{"value":"primary"}`))
+		case "/dynamic":
+			close(dynamicRequestStarted)
+
+			select {
+			case <-r.Context().Done():
+				close(dynamicRequestCancelled)
+			case <-time.After(time.Second):
+				t.Error("dynamic custom API request context was not cancelled")
+			}
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	primaryReq := newTestCustomAPIRequest(t, server.URL+"/primary")
+
+	compiledTemplate, err := template.New("").Funcs(customAPITemplateFuncs).Parse(
+		`{{ $response := getResponse (newRequest "` + server.URL + `/dynamic") }}{{ $response.Body }}`,
+	)
+	if err != nil {
+		t.Fatalf("compile template: %v", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := fetchAndRenderCustomAPIRequest(
+			ctx,
+			primaryReq,
+			nil,
+			nil,
+			compiledTemplate,
+		)
+		done <- err
+	}()
+
+	select {
+	case <-dynamicRequestStarted:
+	case <-time.After(time.Second):
+		t.Fatal("dynamic custom API request did not start")
+	}
+
+	cancel()
+
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("expected cancelled dynamic request to fail template refresh")
+		}
+
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("expected context.Canceled, got %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("custom API refresh did not return after dynamic request cancellation")
+	}
+
+	select {
+	case <-dynamicRequestCancelled:
+	case <-time.After(time.Second):
+		t.Fatal("server did not observe dynamic request cancellation")
+	}
+}
+
+func TestFetchAndRenderCustomAPIRequestDynamicTransportFailurePropagates(t *testing.T) {
+	primaryServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"value":"primary"}`))
+	}))
+	defer primaryServer.Close()
+
+	primaryReq := newTestCustomAPIRequest(t, primaryServer.URL)
+
+	compiledTemplate, err := template.New("").Funcs(customAPITemplateFuncs).Parse(
+		`{{ $response := getResponse (newRequest "http://127.0.0.1:1/unreachable") }}{{ $response.Body }}`,
+	)
+	if err != nil {
+		t.Fatalf("compile template: %v", err)
+	}
+
+	_, err = fetchAndRenderCustomAPIRequest(
+		context.Background(),
+		primaryReq,
+		nil,
+		nil,
+		compiledTemplate,
+	)
+	if err == nil {
+		t.Fatal("expected dynamic transport failure to fail custom API refresh")
+	}
+
+	if !strings.Contains(err.Error(), "fetching response within custom API template") {
+		t.Fatalf("expected dynamic request failure context, got %v", err)
+	}
+}
+
+func TestFetchAndRenderCustomAPIRequestDynamicNon2xxBodyRemainsInspectable(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/primary":
+			_, _ = w.Write([]byte(`{"value":"primary"}`))
+		case "/dynamic":
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"message":"not found"}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	primaryReq := newTestCustomAPIRequest(t, server.URL+"/primary")
+
+	compiledTemplate, err := template.New("").Funcs(customAPITemplateFuncs).Parse(
+		`{{ $response := getResponse (newRequest "` + server.URL + `/dynamic") }}{{ $response.JSON.String "message" }}`,
+	)
+	if err != nil {
+		t.Fatalf("compile template: %v", err)
+	}
+
+	rendered, err := fetchAndRenderCustomAPIRequest(
+		context.Background(),
+		primaryReq,
+		nil,
+		nil,
+		compiledTemplate,
+	)
+	if err != nil {
+		t.Fatalf("expected dynamic non-2xx body to remain inspectable, got %v", err)
+	}
+
+	if !strings.Contains(string(rendered), "not found") {
+		t.Fatalf("expected rendered non-2xx response body, got %q", rendered)
+	}
+}
+
 func TestParseCustomAPITemplateErrorLine(t *testing.T) {
 	tests := []struct {
 		name    string
