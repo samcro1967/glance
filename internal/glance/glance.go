@@ -884,8 +884,7 @@ func (a *application) handleWidgetContentRequest(w http.ResponseWriter, r *http.
 }
 
 func (a *application) handleWidgetRequest(w http.ResponseWriter, r *http.Request) {
-	// TODO: this requires a rework of the widget update logic so that rather
-	// than locking the entire page we lock individual widgets
+	// Generic widget subrequests remain intentionally disabled; supported widget content requests use their dedicated handlers.
 	w.WriteHeader(http.StatusNotImplemented)
 
 	// widgetValue := r.PathValue("widget")

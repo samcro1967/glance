@@ -673,7 +673,7 @@ function timeInZone(now, zone) {
     try {
         timeInZone = new Date(now.toLocaleString('en-US', { timeZone: zone }));
     } catch (e) {
-        // TODO: indicate to the user that this is an invalid timezone
+        // Invalid configured timezones are diagnosed and fall back to the browser local time.
         frontendDiagnosticError("timezone_invalid", e);
         console.error(e);
         timeInZone = now

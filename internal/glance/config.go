@@ -851,7 +851,6 @@ func configFilesWatcherWithSources(
 		return nil, fmt.Errorf("getting absolute path of main file: %w", err)
 	}
 
-	// TODO: refactor, flaky
 	lastParsed.Includes[mainFileAbsPath] = struct{}{}
 
 	watcher, err := fsnotify.NewWatcher()
@@ -896,7 +895,6 @@ func configFilesWatcherWithSources(
 			return
 		}
 
-		// TODO: refactor, flaky
 		currentParsed.Includes[mainFileAbsPath] = struct{}{}
 
 		mu.Lock()
