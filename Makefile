@@ -6,7 +6,7 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps build goreleaser-check frontend-audit frontend-check test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-docs deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final
+.PHONY: help deps build goreleaser-check frontend-audit frontend-check test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch park push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-docs deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final
 
 COUNT ?= 10
 COVERAGE_FILE ?= coverage.out
@@ -84,6 +84,7 @@ help:
 	@echo "                                Clean local dev may contain committed parked work"
 	@echo "                                when origin/dev is its ancestor; parked commits are included"
 	@echo "  ... edit, stage, commit ..."
+	@echo "  make park                     Keep committed feature work locally on dev; NEVER pushes"
 	@echo "  make ship TITLE='Description' [BODY_FILE=file]"
 	@echo "  make ship-docs TITLE='Description' [BODY_FILE=file]"
 	@echo "                                Use only for guarded non-runtime documentation changes"
@@ -167,6 +168,7 @@ help:
 	@echo "  make verify-dev               Refresh origin and inspect dev"
 	@echo "  make verify-main              Refresh origin/upstream and inspect main"
 	@echo "  make branch NEW_BRANCH=name   Create feature branch; clean dev may include parked commits"
+	@echo "  make park                     Park committed feature work on local dev; NEVER pushes"
 	@echo "  make push                     Push clean feature branch; refuses dev/main"
 	@echo
 	@echo "PULL REQUESTS:"
@@ -356,6 +358,52 @@ branch:
 	fi; \
 	echo "Creating branch $(NEW_BRANCH) from $$local_revision..."; \
 	git switch -c "$(NEW_BRANCH)"
+
+park:
+	@set -euo pipefail; \
+	feature="$$(git branch --show-current)"; \
+	if [ -z "$$feature" ]; then \
+		echo "Unable to determine current branch."; \
+		exit 1; \
+	fi; \
+	if [ "$$feature" = "$(DEV_BRANCH)" ] || [ "$$feature" = "$(STABLE_BRANCH)" ]; then \
+		echo "Parking requires a feature branch; current branch is $$feature."; \
+		exit 1; \
+	fi; \
+	if [ -n "$$(git status --porcelain)" ]; then \
+		echo "Parking requires a clean working tree with the feature already committed."; \
+		git status --short; \
+		exit 1; \
+	fi; \
+	echo "Refreshing origin..."; \
+	git fetch origin --prune; \
+	dev_revision="$$(git rev-parse $(DEV_BRANCH))"; \
+	origin_revision="$$(git rev-parse origin/$(DEV_BRANCH))"; \
+	feature_revision="$$(git rev-parse HEAD)"; \
+	if ! git merge-base --is-ancestor "$$origin_revision" "$$dev_revision"; then \
+		echo "Refusing park: local $(DEV_BRANCH) is behind or has diverged from origin/$(DEV_BRANCH)."; \
+		echo "Dev:    $$dev_revision"; \
+		echo "Origin: $$origin_revision"; \
+		exit 1; \
+	fi; \
+	if ! git merge-base --is-ancestor "$$dev_revision" "$$feature_revision"; then \
+		echo "Refusing park: feature does not contain the complete local $(DEV_BRANCH) history."; \
+		echo "Dev:     $$dev_revision"; \
+		echo "Feature: $$feature_revision"; \
+		exit 1; \
+	fi; \
+	if [ "$$dev_revision" = "$$feature_revision" ]; then \
+		echo "Refusing park: feature contains no committed work beyond local $(DEV_BRANCH)."; \
+		exit 1; \
+	fi; \
+	commits="$$(git rev-list --count "$$dev_revision..$$feature_revision")"; \
+	echo "Parking $$commits feature commit(s) from $$feature onto local $(DEV_BRANCH)..."; \
+	git switch "$(DEV_BRANCH)"; \
+	git merge --ff-only "$$feature"; \
+	git branch -d "$$feature"; \
+	parked="$$(git rev-list --count "$$origin_revision..$(DEV_BRANCH)")"; \
+	echo "Local $(DEV_BRANCH) now contains $$parked parked commit(s) not yet in origin/$(DEV_BRANCH)."; \
+	echo "No remote branches were changed."
 
 push:
 	@set -euo pipefail; \
