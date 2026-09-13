@@ -87,7 +87,7 @@ func TestComprehensiveLobstersCustomEmptyAndBadTime(t *testing.T) {
 		return wave3Response(200, `[]`, nil), nil
 	})
 	posts, err := fetchLobstersPosts(context.Background(), "https://custom.invalid/feed", "", "hot", nil)
-	if err != nil || len(posts) != 1 || !posts[0].TimePosted.IsZero() {
+	if posts != nil || !errors.Is(err, errNoContent) {
 		t.Fatalf("posts=%#v err=%v", posts, err)
 	}
 	_, err = fetchLobstersPostsFromFeed(context.Background(), "https://custom.invalid/empty")

@@ -18,6 +18,8 @@ import (
 
 var widgetIDCounter atomic.Uint64
 
+var widgetErrorFallbackTemplate = mustParseTemplate("widget-base.html")
+
 func newWidget(widgetType string) (widget, error) {
 	if widgetType == "" {
 		return nil, errors.New("widget 'type' property is empty or not specified")
@@ -320,8 +322,10 @@ func (w *widgetBase) renderTemplate(data any, t *template.Template) template.HTM
 		if err2 != nil {
 			slog.Error("Failed to render error within widget", "error", err2, "initial_error", err)
 			w.templateBuffer.Reset()
-			// TODO: add some kind of a generic widget error template when the widget
-			// failed to render, and we also failed to re-render the widget with the error
+			if fallbackErr := widgetErrorFallbackTemplate.Execute(&w.templateBuffer, data); fallbackErr != nil {
+				slog.Error("Failed to render generic widget error", "error", fallbackErr, "initial_error", err)
+				w.templateBuffer.Reset()
+			}
 		}
 	}
 

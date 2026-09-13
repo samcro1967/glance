@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"io"
 	"log/slog"
 	"net/http"
 	"sort"
@@ -132,7 +131,7 @@ func (widget *dnsStatsWidget) Render() template.HTML {
 
 type dnsStats struct {
 	TotalQueries      int
-	BlockedQueries    int // we don't actually use this anywhere in templates, maybe remove it later?
+	BlockedQueries    int
 	BlockedPercent    int
 	ResponseTime      float64
 	DomainsBlocked    int
@@ -604,11 +603,9 @@ func fetchPiholeStats(
 				)
 			}
 		} else {
-			// The API from v5 used to return 144 data points, but v6 returns 145.
-			// We only show data from the last 24 hours hours, Pihole returns data
-			// points in a 10 minute interval, 24*(60/10) = 144. Why is there an extra
-			// data point? I don't know, but we'll just ignore the first one since it's
-			// the oldest data point.
+			// Pi-hole v5 returned 144 data points while v6 returns 145.
+			// The widget displays the latest 24 hours at 10-minute intervals, so discard
+			// the oldest sample when v6 supplies the additional data point.
 			history := seriesResponse.History[1:]
 
 			const interval = 10
@@ -699,7 +696,7 @@ func fetchPiholeSessionID(ctx context.Context, instanceURL string, client *http.
 	}
 	defer response.Body.Close()
 
-	body, err := io.ReadAll(response.Body)
+	body, err := readDefaultHTTPResponseBody(response.Body)
 	if err != nil {
 		return "", fmt.Errorf("reading authentication response: %w", err)
 	}

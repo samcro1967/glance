@@ -37,8 +37,6 @@ type calendar struct {
 	Days              []int
 }
 
-// TODO: very inflexible, refactor to allow more customizability
-// TODO: allow changing between showing the previous and next week and the entire month
 func newCalendar(now time.Time, startSunday bool) *calendar {
 	year, week := now.ISOWeek()
 	weekday := now.Weekday()

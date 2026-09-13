@@ -120,7 +120,6 @@ type marketResponseJson struct {
 	} `json:"chart"`
 }
 
-// TODO: allow changing chart time frame
 const marketChartDays = 21
 
 func fetchMarketsDataFromYahoo(ctx context.Context, marketRequests []marketRequest) (marketList, error) {

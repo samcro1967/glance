@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"html"
 	"html/template"
-	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -161,7 +160,7 @@ func fetchExtension(ctx context.Context, options extensionRequestOptions) (exten
 	}
 	defer response.Body.Close()
 
-	body, err := io.ReadAll(response.Body)
+	body, err := readDefaultHTTPResponseBody(response.Body)
 	if err != nil {
 		return extension{}, fmt.Errorf("%w: could not read body: %w", errNoContent, err)
 	}

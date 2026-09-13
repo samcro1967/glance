@@ -1494,9 +1494,9 @@ func TestRemainingValueContainerAndTemplateBehavior(t *testing.T) {
 		),
 	)
 
-	got := base.renderTemplate(base, bad)
+	got := string(base.renderTemplate(base, bad))
 
-	if got != "" ||
+	if !strings.Contains(got, `class="widget-error-header"`) ||
 		base.ContentAvailable ||
 		base.Error == nil {
 		t.Fatalf(

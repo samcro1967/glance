@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"html"
 	"html/template"
-	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -421,9 +420,8 @@ var getRedditLoidCookie = func(
 	state.mu.Lock()
 	defer state.mu.Unlock()
 
-	// Caching for 6 hours is a bit arbitrary, presumably the cookie is valid for 24 hours,
-	// but we want to keep the cache time short in the event that a cookie becomes invalid
-	// for whatever reason, since we don't have a way to force refresh it.
+	// Limit LOID cookie caching to six hours so an invalid cookie does not persist for
+	// an extended period; this flow has no explicit forced-refresh mechanism.
 	if time.Since(state.lastUpdate) < 6*time.Hour && state.loid != "" {
 		return state.loid, nil
 	}
@@ -466,7 +464,7 @@ func fetchRedditLoidCookie(ctx context.Context, client requestDoer) (string, err
 		return "", unexpectedHTTPStatusError(response)
 	}
 
-	challengeBody, err := io.ReadAll(response.Body)
+	challengeBody, err := readDefaultHTTPResponseBody(response.Body)
 	if err != nil {
 		return "", fmt.Errorf("reading Reddit challenge response: %w", err)
 	}

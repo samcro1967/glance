@@ -75,39 +75,40 @@ DEPLOY_RETRY_DELAY ?= 2
 help:
 	@echo "GLANCE FORK WORKFLOW"
 	@echo
-	@echo "SAFE END-TO-END STAGES:"
-	@echo "  make ship TITLE='Description' [BODY_FILE=file]"
-	@echo "                                Feature -> dev -> main -> formal release; NEVER deploys"
-	@echo "                                BODY_FILE optionally supplies the feature PR body"
-	@echo "  make ship-docs TITLE='Description' [BODY_FILE=file]"
-	@echo "                                Non-runtime docs -> dev -> main -> dev synchronization"
-	@echo "                                NO formal release, tag, image verification, or deployment"
-	@echo "  make deploy-finish            Deploy formal release -> sync main back to dev -> final verification"
-	@echo
-	@echo "NORMAL WORKFLOW:"
+	@echo "HIGH-LEVEL WORKFLOWS -- START HERE:"
 	@echo "  make branch NEW_BRANCH=feature/name"
-	@echo "                                Clean local dev may contain committed parked work"
-	@echo "                                when origin/dev is its ancestor; parked commits are included"
-	@echo "  ... edit, stage, commit ..."
-	@echo "  make park                     Keep committed feature work locally on dev; NEVER pushes"
+	@echo "                                Start feature work from local dev; parked commits are included"
+	@echo "  make park                     Return committed feature work to local dev without pushing"
 	@echo "  make ship TITLE='Description' [BODY_FILE=file]"
+	@echo "                                Complete runtime workflow: feature -> dev -> main -> release"
+	@echo "                                -> production -> main/dev sync -> final verification"
+	@echo "                                Stops development/test runtimes before and after shipping"
+	@echo "                                BODY_FILE is consumed and removed only after full success"
 	@echo "  make ship-docs TITLE='Description' [BODY_FILE=file]"
-	@echo "                                Use only for guarded non-runtime documentation changes"
-	@echo "  make deploy-finish"
+	@echo "                                Complete guarded docs-only workflow; no release or deployment"
+	@echo "  make workflow-status          Show repository, release, CI, image, and deployment state"
 	@echo
-	@echo "RECOVERY / INDIVIDUAL STAGES:"
+	@echo "NORMAL ORDER:"
+	@echo "  1. make branch NEW_BRANCH=feature/name"
+	@echo "  2. edit, validate, stage, and commit"
+	@echo "  3. make park                  Optional: accumulate committed work locally on dev"
+	@echo "  4. make ship TITLE=...        Runtime/code changes: finish everything through production"
+	@echo "     make ship-docs TITLE=...   Docs-only alternative when its scope guard permits it"
+	@echo
+	@echo "RECOVERY / RESUME STAGES -- USE WHEN A HIGH-LEVEL WORKFLOW STOPS:"
+	@echo "  Run make workflow-status first, then resume at the failed/incomplete stage."
 	@echo "  make pr-finish [PR=55]        feature -> dev: auto-resolve PR, CI, merge, cleanup, dev image"
 	@echo "  make promote-finish [PR=56]   dev -> main: auto-resolve PR, CI, merge, update/verify main"
-	@echo "  make release-finish           main: validate, tag, push, watch formal release"
-	@echo "                               DOES NOT deploy production"
+	@echo "  make release-finish           main: validate, tag, push, watch formal release; no deploy"
+	@echo "  make deploy-finish            released main: deploy -> sync main back to dev -> verify"
 	@echo "  make sync-finish [PR=57]      main -> dev: auto-resolve PR, CI, merge, update dev, dev image"
-	@echo "  make workflow-status          Combined repository/release/CI/deployment status"
+	@echo "  make workflow-status          Inspect state before choosing a recovery stage"
 	@echo
 	@echo "LIFECYCLE:"
 	@echo "  feature -> dev PR -> PR CI -> merge -> dev image"
 	@echo "  dev -> main PR -> PR CI -> merge -> formal release -> release image"
-	@echo "  explicit production deploy"
-	@echo "  main -> dev sync PR -> PR CI -> merge -> dev image"
+	@echo "  production deploy -> production verification"
+	@echo "  main -> dev sync PR -> PR CI -> merge -> dev image -> final verification"
 	@echo
 	@echo "SAFEGUARDS:"
 	@echo "  Composite stages fail immediately when any required command fails."
@@ -124,7 +125,9 @@ help:
 	@echo "  Deploy pulls latest and verifies its embedded version matches that tag."
 	@echo "  Deploy verifies running container version, image ID, and HTTP readiness."
 	@echo "  dev/main are preserved; merged feature branches are cleaned."
-	@echo "  No composite PR/release stage deploys production."
+	@echo "  ship is the explicit end-to-end production workflow."
+	@echo "  Lower-level PR/release stages never deploy production on their own."
+	@echo "  Supplied ship BODY_FILE is retained on failure and removed only after full success."
 	@echo
 	@echo "DEVELOPMENT:"
 	@echo "  make deps                     Download Go module dependencies"
@@ -148,6 +151,7 @@ help:
 	@echo "                                Pull and start isolated published dev container"
 	@echo "  make test-container-status    Show isolated container status"
 	@echo "  make test-container-stop      Remove isolated container"
+	@echo "  make test-all-stop            Stop/clean every Makefile-managed development/test runtime"
 	@echo
 	@echo "VISUAL QA / DOCUMENTATION:"
 	@echo "  make visual-check             Validate visual QA and documentation contracts"
@@ -1242,9 +1246,12 @@ ship:
 		git status --short; \
 		exit 1; \
 	fi; \
-	echo "=== END-TO-END RELEASE PIPELINE ==="; \
+	echo "=== END-TO-END RELEASE + DEPLOYMENT PIPELINE ==="; \
 	echo "Feature=$$feature"; \
 	echo "Title=$(TITLE)"; \
+	echo; \
+	echo "=== PRE-SHIP DEVELOPMENT RUNTIME CLEANUP ==="; \
+	$(MAKE) --no-print-directory test-all-stop; \
 	echo; \
 	echo "=== PUSH FEATURE ==="; \
 	$(MAKE) push; \
@@ -1288,10 +1295,19 @@ ship:
 	echo "=== FORMAL RELEASE ==="; \
 	$(MAKE) release-finish; \
 	echo; \
+	echo "=== PRODUCTION DEPLOYMENT + DEVELOPMENT SYNCHRONIZATION ==="; \
+	$(MAKE) deploy-finish; \
+	echo; \
+	echo "=== POST-SHIP DEVELOPMENT RUNTIME CLEANUP ==="; \
+	$(MAKE) --no-print-directory test-all-stop; \
+	if [ -n "$(BODY_FILE)" ]; then \
+		rm -f -- "$(BODY_FILE)"; \
+		echo "Removed consumed feature PR body: $(BODY_FILE)"; \
+	fi; \
+	echo; \
 	echo "=== SHIP COMPLETE ==="; \
-	echo "Formal release completed and verified."; \
-	echo "Production was NOT deployed."; \
-	echo "Run make deploy-finish to cross the explicit production boundary."
+	echo "Release, production deployment, development synchronization, and final verification completed."; \
+	echo "All Makefile-managed development/test runtimes are stopped."
 
 
 ship-docs:
@@ -2227,6 +2243,15 @@ test-prod-stop:
 		echo "Removed image $(TEST_PROD_IMAGE)."; \
 	fi; \
 	rm -rf "$(TEST_PROD_CONFIG_DIR)"
+
+.PHONY: test-all-stop
+
+test-all-stop:
+	@echo "=== STOP ALL DEVELOPMENT/TEST RUNTIMES ==="
+	@$(MAKE) --no-print-directory test-instance-stop
+	@$(MAKE) --no-print-directory test-prod-stop
+	@$(MAKE) --no-print-directory test-container-stop
+	@echo "All Makefile-managed development/test runtimes are stopped."
 
 .PHONY: pprof-capture pprof-summary
 
