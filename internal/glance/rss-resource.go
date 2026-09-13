@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"io"
 	"net/http"
 	"sort"
 	"strings"
@@ -124,7 +123,7 @@ func fetchRSSResourceUncached(request *http.Request, options rssResourceRequestO
 		return resource, nil
 	}
 
-	body, err := io.ReadAll(response.Body)
+	body, err := readDefaultHTTPResponseBody(response.Body)
 	if err != nil {
 		return rssResourceResponse{}, fmt.Errorf("reading RSS response: %w", err)
 	}

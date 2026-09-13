@@ -312,7 +312,7 @@ func fetchDockerContainersFromSource(
 
 	var client *http.Client
 	if strings.HasPrefix(source, "tcp://") || strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://") {
-		client = &http.Client{}
+		client = newHTTPClient(0, false)
 		var err error
 		requestBaseURL, err = dockerContainersRemoteSourceURL(source)
 		if err != nil {
@@ -320,12 +320,15 @@ func fetchDockerContainersFromSource(
 		}
 	} else {
 		requestBaseURL = "http://docker"
+		transport := defaultHTTPTransport.Clone()
+		transport.Proxy = nil
+		transport.DialContext = func(ctx context.Context, _, _ string) (net.Conn, error) {
+			var dialer net.Dialer
+			return dialer.DialContext(ctx, "unix", source)
+		}
 		client = &http.Client{
-			Transport: &http.Transport{
-				DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-					return net.Dial("unix", source)
-				},
-			},
+			Transport: transport,
+			Timeout:   defaultClientTimeout,
 		}
 	}
 
@@ -353,8 +356,13 @@ func fetchDockerContainersFromSource(
 		return nil, fmt.Errorf("Docker API request: %w", unexpectedHTTPStatusError(response))
 	}
 
+	body, err := readDefaultHTTPResponseBody(response.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading Docker response: %w", err)
+	}
+
 	var containers []dockerContainerJsonResponse
-	if err := json.NewDecoder(response.Body).Decode(&containers); err != nil {
+	if err := json.Unmarshal(body, &containers); err != nil {
 		return nil, fmt.Errorf("decoding Docker response: %w", err)
 	}
 

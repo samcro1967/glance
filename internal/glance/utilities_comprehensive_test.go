@@ -148,6 +148,16 @@ func TestComprehensiveFileServerWithCache(t *testing.T) {
 	if rr.Code != http.StatusOK || rr.Body.String() != "hello" || rr.Header().Get("Cache-Control") != "public, max-age=90" {
 		t.Fatalf("status=%d body=%q cache=%q", rr.Code, rr.Body.String(), rr.Header().Get("Cache-Control"))
 	}
+
+	missingReq := httptest.NewRequest(http.MethodGet, "/missing.txt", nil)
+	missingRR := httptest.NewRecorder()
+	h.ServeHTTP(missingRR, missingReq)
+	if missingRR.Code != http.StatusNotFound {
+		t.Fatalf("missing status=%d want=%d", missingRR.Code, http.StatusNotFound)
+	}
+	if cache := missingRR.Header().Get("Cache-Control"); cache != "" {
+		t.Fatalf("missing cache=%q want empty", cache)
+	}
 }
 
 func TestComprehensiveParseRFC3339Time(t *testing.T) {

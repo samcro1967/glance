@@ -139,9 +139,7 @@ func serveApp(configPath string) error {
 		"config", configPath,
 	)
 
-	// TODO: refactor if this gets any more complex, the current implementation is
-	// difficult to reason about due to all of the callbacks and simultaneous operations,
-	// use a single goroutine and a channel to initiate synchronous changes to the server
+	// Configuration callbacks coordinate server replacement and runtime diagnostics during reloads.
 	exitChannel := make(chan error, 1)
 	hadValidConfigOnStartup := false
 	var stopServer func() error

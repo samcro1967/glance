@@ -516,10 +516,13 @@ function setupLazyImages(root = document) {
                     image.classList.add("cached");
                     setTimeout(() => imageFinishedTransition(image), 1);
                 } else {
-                    // TODO: also handle error event
                     image.addEventListener("load", () => {
                         image.classList.add("loaded");
                         setTimeout(() => imageFinishedTransition(image), 400);
+                    });
+                    image.addEventListener("error", () => {
+                        image.classList.add("error");
+                        imageFinishedTransition(image);
                     });
                 }
             }
@@ -673,7 +676,7 @@ function timeInZone(now, zone) {
     try {
         timeInZone = new Date(now.toLocaleString('en-US', { timeZone: zone }));
     } catch (e) {
-        // TODO: indicate to the user that this is an invalid timezone
+        // Invalid configured timezones are diagnosed and fall back to the browser local time.
         frontendDiagnosticError("timezone_invalid", e);
         console.error(e);
         timeInZone = now

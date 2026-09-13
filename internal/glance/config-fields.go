@@ -249,7 +249,7 @@ func (q *queryParametersField) UnmarshalYAML(node *yaml.Node) error {
 
 	*q = make(queryParametersField)
 
-	// TODO: refactor the duplication in the switch cases if any more types get added
+	// Keep scalar and collection query parameter coercion explicit so unsupported YAML types fail predictably.
 	for key, value := range decoded {
 		switch v := value.(type) {
 		case string:

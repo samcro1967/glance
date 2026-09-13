@@ -90,7 +90,7 @@ details[open] .summary::after {
     rotate: -90deg;
 }
 
-/* TODO: refactor, otherwise I hope I never have to change dynamic columns again */
+/* Dynamic columns share gap and separator calculations across their grid children. */
 .dynamic-columns {
     --list-half-gap: 0.5rem;
     gap: var(--widget-content-vertical-padding) var(--widget-content-horizontal-padding);
@@ -408,7 +408,6 @@ details[open] .summary::after {
     gap: 2px;
     padding: 2px;
     height: 1.5rem;
-    /* naughty, but oh so beautiful */
     margin-inline: -3px;
 }
 

@@ -123,11 +123,7 @@ const twitchChannelStatusOperationRequestBody = `[
 {"operationName":"StreamMetadata","variables":{"channelLogin":"%s"},"extensions":{"persistedQuery":{"version":1,"sha256Hash":"676ee2f834ede42eb4514cdb432b3134fefc12590080c9a2c9bb44a2a4a63266"}}}
 ]`
 
-// TODO: rework
-// The operations for multiple channels can all be sent in a single request
-// rather than sending a separate request for each channel. Need to figure out
-// what the limit is for max operations per request and batch operations in
-// multiple requests if number of channels exceeds allowed limit.
+// Channel status requests remain independent because Twitch does not expose a documented stable batch-operation limit for this request shape.
 
 func fetchChannelFromTwitchTask(ctx context.Context, channel string) (twitchChannel, error) {
 	result := twitchChannel{

@@ -952,6 +952,45 @@ func TestWidgetRefreshFailureLogsContentState(t *testing.T) {
 	}
 }
 
+func TestWidgetRenderTemplateFallsBackToGenericError(t *testing.T) {
+	widget := widgetBase{
+		ID:               42,
+		Type:             "broken-widget",
+		Title:            "Broken Widget",
+		ContentAvailable: true,
+	}
+
+	brokenTemplate := template.Must(template.New("broken").Funcs(template.FuncMap{
+		"fail": func() (string, error) {
+			return "", errors.New("deliberate render failure")
+		},
+	}).Parse(`<div class="partial">{{ fail }}</div>`))
+
+	rendered := string(widget.renderTemplate(&widget, brokenTemplate))
+
+	if rendered == "" {
+		t.Fatal("generic error fallback rendered empty content")
+	}
+	if !strings.Contains(rendered, `class="widget widget-type-broken-widget"`) {
+		t.Fatalf("generic error fallback missing widget container: %s", rendered)
+	}
+	if !strings.Contains(rendered, `class="widget-error-header"`) {
+		t.Fatalf("generic error fallback missing error presentation: %s", rendered)
+	}
+	if !strings.Contains(rendered, "deliberate render failure") {
+		t.Fatalf("generic error fallback missing original render error: %s", rendered)
+	}
+	if strings.Contains(rendered, `class="partial"`) {
+		t.Fatalf("generic error fallback retained partial broken output: %s", rendered)
+	}
+	if widget.ContentAvailable {
+		t.Fatal("render failure left content marked available")
+	}
+	if widget.Error == nil {
+		t.Fatal("render failure did not preserve widget error")
+	}
+}
+
 func TestWidgetBaseTitleIconRendering(t *testing.T) {
 	tests := []struct {
 		name        string

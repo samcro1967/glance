@@ -46,6 +46,7 @@ func (widget *serverStatsWidget) update(ctx context.Context) {
 	var resultMu sync.Mutex
 	succeeded := 0
 	failed := 0
+	partial := 0
 	var firstFailure error
 
 	recordSuccess := func() {
@@ -63,15 +64,29 @@ func (widget *serverStatsWidget) update(ctx context.Context) {
 		resultMu.Unlock()
 	}
 
+	recordPartial := func(err error) {
+		resultMu.Lock()
+		partial++
+		if firstFailure == nil {
+			firstFailure = err
+		}
+		resultMu.Unlock()
+	}
+
 	for i := range widget.Servers {
 		serv := &widget.Servers[i]
 
 		if serv.Type == "local" {
-			info, _ := sysinfo.Collect(serv.SystemInfoRequest)
+			info, errs := sysinfo.Collect(serv.SystemInfoRequest)
 
 			serv.Info = info
 			serv.IsReachable = true
-			recordSuccess()
+
+			if len(errs) > 0 {
+				recordPartial(fmt.Errorf("collecting local server stats: %v", errs[0]))
+			} else {
+				recordSuccess()
+			}
 
 			continue
 		}
@@ -105,8 +120,8 @@ func (widget *serverStatsWidget) update(ctx context.Context) {
 
 	var err error
 	switch {
-	case failed == 0:
-	case succeeded == 0:
+	case failed == 0 && partial == 0:
+	case failed == len(widget.Servers):
 		err = contentFetchError(
 			errNoContent,
 			failed,
@@ -117,7 +132,7 @@ func (widget *serverStatsWidget) update(ctx context.Context) {
 	default:
 		err = contentFetchError(
 			errPartialContent,
-			failed,
+			failed+partial,
 			len(widget.Servers),
 			"servers",
 			firstFailure,
@@ -144,8 +159,6 @@ type serverStatsRequest struct {
 	Token                      string               `yaml:"token"`
 	Timeout                    durationField        `yaml:"timeout"`
 	AllowInsecure              bool                 `yaml:"allow-insecure"`
-	// Support for other agents
-	// Provider                   string              `yaml:"provider"`
 }
 
 func (request *serverStatsRequest) UnmarshalYAML(node *yaml.Node) error {

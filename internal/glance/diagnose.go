@@ -3,7 +3,6 @@ package glance
 import (
 	"context"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"runtime"
@@ -173,9 +172,9 @@ func testHttpRequestWithHeaders(method, url string, headers map[string]string, e
 	}
 	defer response.Body.Close()
 
-	body, err := io.ReadAll(response.Body)
+	body, err := readDefaultHTTPResponseBody(response.Body)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("reading diagnostic HTTP response: %w", err)
 	}
 
 	printableBody := strings.ReplaceAll(string(body), "\n", "")
