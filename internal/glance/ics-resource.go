@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"gopkg.in/yaml.v3"
-	"io"
 	"net/http"
 	"os"
 	"sort"
@@ -528,7 +527,7 @@ func fetchICSSource(ctx context.Context, source icsEventSource, cache *icsSource
 		return nil, unexpectedHTTPStatusError(resp)
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := readDefaultHTTPResponseBody(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("reading ICS response: %w", err)
 	}

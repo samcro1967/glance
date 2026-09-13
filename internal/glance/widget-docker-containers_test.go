@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -510,6 +511,30 @@ func TestFetchDockerContainersFromSourceAppliesLabelOverridesBeforeCategoryFilte
 			got,
 			"Configured Description",
 		)
+	}
+}
+
+func TestFetchDockerContainersFromSourceRejectsOversizedResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(strings.Repeat("x", int(defaultHTTPResponseBodyLimit)+1)))
+	}))
+	defer server.Close()
+
+	_, err := fetchDockerContainersFromSource(
+		context.Background(),
+		server.URL,
+		"",
+		false,
+		nil,
+	)
+	if err == nil {
+		t.Fatal("expected oversized Docker response error")
+	}
+
+	var tooLarge *httpResponseTooLargeError
+	if !errors.As(err, &tooLarge) {
+		t.Fatalf("error = %T %v, want wrapped *httpResponseTooLargeError", err, err)
 	}
 }
 

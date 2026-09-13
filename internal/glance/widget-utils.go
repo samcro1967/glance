@@ -23,7 +23,10 @@ var (
 	errPartialContent = errors.New("failed to retrieve some of the content")
 )
 
-const defaultClientTimeout = 5 * time.Second
+const (
+	defaultClientTimeout               = 5 * time.Second
+	defaultHTTPResponseBodyLimit int64 = 32 * 1024 * 1024
+)
 
 var defaultHTTPTransport = &http.Transport{
 	MaxIdleConnsPerHost: 10,
@@ -76,6 +79,14 @@ func getBrowserUserAgentHeader() string {
 
 func setBrowserUserAgentHeader(request *http.Request) {
 	request.Header.Set("User-Agent", getBrowserUserAgentHeader())
+}
+
+type httpResponseTooLargeError struct {
+	Limit int64
+}
+
+func (err *httpResponseTooLargeError) Error() string {
+	return fmt.Sprintf("HTTP response body exceeds %d byte limit", err.Limit)
 }
 
 type httpStatusError struct {
@@ -165,6 +176,11 @@ func classifyRefreshFailure(err error) refreshFailureClass {
 		return refreshFailureMalformed
 	}
 
+	var responseTooLargeErr *httpResponseTooLargeError
+	if errors.As(err, &responseTooLargeErr) {
+		return refreshFailureMalformed
+	}
+
 	return refreshFailureUnknown
 }
 
@@ -219,6 +235,25 @@ func contentFetchError(
 	)
 }
 
+func readHTTPResponseBody(body io.Reader, limit int64) ([]byte, error) {
+	limited := io.LimitReader(body, limit+1)
+
+	data, err := io.ReadAll(limited)
+	if err != nil {
+		return nil, err
+	}
+
+	if int64(len(data)) > limit {
+		return nil, &httpResponseTooLargeError{Limit: limit}
+	}
+
+	return data, nil
+}
+
+func readDefaultHTTPResponseBody(body io.Reader) ([]byte, error) {
+	return readHTTPResponseBody(body, defaultHTTPResponseBodyLimit)
+}
+
 func fetchHTTPResponseBody(client requestDoer, request *http.Request) ([]byte, error) {
 	response, err := client.Do(request)
 	if err != nil {
@@ -229,7 +264,7 @@ func fetchHTTPResponseBody(client requestDoer, request *http.Request) ([]byte, e
 	}
 	defer response.Body.Close()
 
-	body, err := io.ReadAll(response.Body)
+	body, err := readDefaultHTTPResponseBody(response.Body)
 	if err != nil {
 		return nil, fmt.Errorf("reading HTTP response: %w", err)
 	}

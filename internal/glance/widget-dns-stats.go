@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"io"
 	"log/slog"
 	"net/http"
 	"sort"
@@ -699,7 +698,7 @@ func fetchPiholeSessionID(ctx context.Context, instanceURL string, client *http.
 	}
 	defer response.Body.Close()
 
-	body, err := io.ReadAll(response.Body)
+	body, err := readDefaultHTTPResponseBody(response.Body)
 	if err != nil {
 		return "", fmt.Errorf("reading authentication response: %w", err)
 	}

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"html"
 	"html/template"
-	"io"
 	"log/slog"
 	"net"
 	"net/http"
@@ -466,7 +465,7 @@ func fetchRedditLoidCookie(ctx context.Context, client requestDoer) (string, err
 		return "", unexpectedHTTPStatusError(response)
 	}
 
-	challengeBody, err := io.ReadAll(response.Body)
+	challengeBody, err := readDefaultHTTPResponseBody(response.Body)
 	if err != nil {
 		return "", fmt.Errorf("reading Reddit challenge response: %w", err)
 	}

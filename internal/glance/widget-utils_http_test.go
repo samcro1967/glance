@@ -1,6 +1,7 @@
 package glance
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -224,5 +225,69 @@ func TestFetchHTTPResponseBodyClosesResponseBody(t *testing.T) {
 				t.Fatal("response body was not closed")
 			}
 		})
+	}
+}
+
+func TestReadHTTPResponseBodyBoundsResponse(t *testing.T) {
+	const limit int64 = 8
+
+	body, err := readHTTPResponseBody(strings.NewReader("12345678"), limit)
+	if err != nil {
+		t.Fatalf("exact-limit response failed: %v", err)
+	}
+	if got := string(body); got != "12345678" {
+		t.Fatalf("body = %q, want %q", got, "12345678")
+	}
+
+	_, err = readHTTPResponseBody(strings.NewReader("123456789"), limit)
+	if err == nil {
+		t.Fatal("expected oversized response error")
+	}
+
+	var tooLarge *httpResponseTooLargeError
+	if !errors.As(err, &tooLarge) {
+		t.Fatalf("error = %T %v, want *httpResponseTooLargeError", err, err)
+	}
+	if tooLarge.Limit != limit {
+		t.Fatalf("limit = %d, want %d", tooLarge.Limit, limit)
+	}
+	if got := classifyRefreshFailure(err); got != refreshFailureMalformed {
+		t.Fatalf("classification = %q, want %q", got, refreshFailureMalformed)
+	}
+}
+
+func TestFetchHTTPResponseBodyRejectsOversizedResponse(t *testing.T) {
+	body := &trackingReadCloser{
+		Reader: io.LimitReader(
+			strings.NewReader(strings.Repeat("x", int(defaultHTTPResponseBodyLimit)+1)),
+			defaultHTTPResponseBodyLimit+1,
+		),
+	}
+
+	client := testRequestDoer(func(*http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Status:     "200 OK",
+			Body:       body,
+		}, nil
+	})
+
+	request, err := http.NewRequest(http.MethodGet, "https://example.com", nil)
+	if err != nil {
+		t.Fatalf("creating request: %v", err)
+	}
+
+	_, err = fetchHTTPResponseBody(client, request)
+	if err == nil {
+		t.Fatal("expected oversized response error")
+	}
+
+	var tooLarge *httpResponseTooLargeError
+	if !errors.As(err, &tooLarge) {
+		t.Fatalf("error = %T %v, want wrapped *httpResponseTooLargeError", err, err)
+	}
+
+	if !body.closed {
+		t.Fatal("response body was not closed")
 	}
 }

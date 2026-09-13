@@ -562,9 +562,9 @@ func fetchCustomAPIResponse(ctx context.Context, req *CustomAPIRequest) (*custom
 	}
 	defer resp.Body.Close()
 
-	bodyBytes, err := io.ReadAll(resp.Body)
+	bodyBytes, err := readDefaultHTTPResponseBody(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("reading custom API response: %w", err)
 	}
 
 	body := strings.TrimSpace(string(bodyBytes))
