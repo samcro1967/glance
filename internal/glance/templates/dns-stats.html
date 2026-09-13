@@ -11,9 +11,9 @@
             <div class="color-highlight size-h3 glance-metric-value">{{ .Stats.BlockedPercent }}%</div>
             <div class="size-h6 glance-metric-label">BLOCKED</div>
         </div>
-        {{ if gt .Stats.ResponseTime 0 }}
+        {{ if gt .Stats.ResponseTime 0.0 }}
         <div class="glance-metric">
-            <div class="color-highlight size-h3 glance-metric-value">{{ .Stats.ResponseTime | formatNumber }}ms</div>
+            <div class="color-highlight size-h3 glance-metric-value">{{ .Stats.FormattedResponseTime }}ms</div>
             <div class="size-h6 glance-metric-label">LATENCY</div>
         </div>
         {{ else }}

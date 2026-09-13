@@ -134,10 +134,18 @@ type dnsStats struct {
 	TotalQueries      int
 	BlockedQueries    int // we don't actually use this anywhere in templates, maybe remove it later?
 	BlockedPercent    int
-	ResponseTime      int
+	ResponseTime      float64
 	DomainsBlocked    int
 	Series            [dnsStatsBars]dnsStatsSeries
 	TopBlockedDomains []dnsStatsBlockedDomain
+}
+
+func (stats *dnsStats) FormattedResponseTime() string {
+	if stats.ResponseTime < 1 {
+		return fmt.Sprintf("%.2f", stats.ResponseTime)
+	}
+
+	return fmt.Sprintf("%d", int(stats.ResponseTime))
 }
 
 type dnsStatsSeries struct {
@@ -182,7 +190,7 @@ func fetchAdguardStats(ctx context.Context, instanceURL string, allowInsecure bo
 	stats := &dnsStats{
 		TotalQueries:      responseJson.TotalQueries,
 		BlockedQueries:    responseJson.BlockedQueries,
-		ResponseTime:      int(responseJson.ResponseTime * 1000),
+		ResponseTime:      responseJson.ResponseTime * 1000,
 		TopBlockedDomains: make([]dnsStatsBlockedDomain, 0, topBlockedDomainsCount),
 	}
 

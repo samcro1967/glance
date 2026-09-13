@@ -31,7 +31,7 @@ func TestFetchAdguardStatsZeroGraphMaximum(t *testing.T) {
 			"dns_queries": [],
 			"num_blocked_filtering": 0,
 			"blocked_filtering": [],
-			"avg_processing_time": 0.001,
+			"avg_processing_time": 0.00021,
 			"top_blocked_domains": []
 		}`)
 	}))
@@ -54,6 +54,37 @@ func TestFetchAdguardStatsZeroGraphMaximum(t *testing.T) {
 		t.Fatalf("unexpected total queries: got %d, want 100", stats.TotalQueries)
 	}
 
+	if diff := stats.ResponseTime - 0.21; diff < -0.000001 || diff > 0.000001 {
+		t.Fatalf("unexpected response time: got %vms, want approximately 0.21ms", stats.ResponseTime)
+	}
+
+	widget := &dnsStatsWidget{
+		Service:    dnsServiceAdguard,
+		URL:        server.URL,
+		HourFormat: "24h",
+		HideGraph:  true,
+	}
+	if err := widget.initialize(); err != nil {
+		t.Fatalf("initialize AdGuard widget: %v", err)
+	}
+	widget.update(context.Background())
+
+	if widget.Stats == nil {
+		t.Fatal("AdGuard widget stats were not populated")
+	}
+
+	rendered := string(widget.Render())
+
+	if !strings.Contains(rendered, "0.21ms") {
+		t.Fatalf("rendered AdGuard latency missing 0.21ms: %s", rendered)
+	}
+	if !strings.Contains(rendered, "LATENCY") {
+		t.Fatalf("rendered AdGuard latency missing LATENCY label: %s", rendered)
+	}
+	if strings.Contains(rendered, "DOMAINS") {
+		t.Fatalf("rendered AdGuard latency unexpectedly fell back to DOMAINS: %s", rendered)
+	}
+
 	for i := range stats.Series {
 		if stats.Series[i].PercentTotal != 0 {
 			t.Fatalf(
@@ -62,6 +93,27 @@ func TestFetchAdguardStatsZeroGraphMaximum(t *testing.T) {
 				stats.Series[i].PercentTotal,
 			)
 		}
+	}
+}
+
+func TestDNSStatsFormattedResponseTime(t *testing.T) {
+	tests := []struct {
+		name string
+		ms   float64
+		want string
+	}{
+		{name: "sub-millisecond", ms: 0.21, want: "0.21"},
+		{name: "whole millisecond", ms: 1, want: "1"},
+		{name: "fractional milliseconds preserve truncation", ms: 1.9, want: "1"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			stats := &dnsStats{ResponseTime: test.ms}
+			if got := stats.FormattedResponseTime(); got != test.want {
+				t.Fatalf("formatted response time: got %q, want %q", got, test.want)
+			}
+		})
 	}
 }
 
