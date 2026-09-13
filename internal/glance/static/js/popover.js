@@ -237,6 +237,10 @@ export function setupPopovers(root = document) {
     for (let i = 0; i < targets.length; i++) {
         const target = targets[i];
 
+        if (target.dataset.popoverInitialized === "true") {
+            continue;
+        }
+
         if (target.dataset.popoverTrigger === "click") {
             target.addEventListener("click", handleMouseEnter);
             target.addEventListener("keydown", handleKeyboardActivation);
@@ -245,5 +249,6 @@ export function setupPopovers(root = document) {
         }
 
         target.addEventListener("mouseleave", handleMouseLeave);
+        target.dataset.popoverInitialized = "true";
     }
 }

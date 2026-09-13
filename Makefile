@@ -6,7 +6,7 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps build goreleaser-check frontend-audit frontend-check test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-docs deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final
+.PHONY: help deps build goreleaser-check frontend-audit frontend-check test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch park push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-docs deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final
 
 COUNT ?= 10
 COVERAGE_FILE ?= coverage.out
@@ -33,6 +33,11 @@ TEST_CONTAINER_URL ?= http://127.0.0.1:$(TEST_CONTAINER_PORT)
 TEST_RUNTIME_CONTAINER ?=
 TEST_PROD_IMAGE ?= glance-prod-test:local
 TEST_PROD_CONTAINER ?= glance-prod-test
+TEST_FRONTEND_DIAGNOSTICS ?= false
+TEST_PROD_CONFIG_DIR ?= .glance-prod-test-config
+PPROF_DIR ?= .pprof
+PROFILE ?= heap
+PPROF_SECONDS ?= 30
 
 CI_RUN_RETRIES ?= 12
 CI_RUN_RETRY_DELAY ?= 5
@@ -84,6 +89,7 @@ help:
 	@echo "                                Clean local dev may contain committed parked work"
 	@echo "                                when origin/dev is its ancestor; parked commits are included"
 	@echo "  ... edit, stage, commit ..."
+	@echo "  make park                     Keep committed feature work locally on dev; NEVER pushes"
 	@echo "  make ship TITLE='Description' [BODY_FILE=file]"
 	@echo "  make ship-docs TITLE='Description' [BODY_FILE=file]"
 	@echo "                                Use only for guarded non-runtime documentation changes"
@@ -130,8 +136,14 @@ help:
 	@echo "                                Build current source into an isolated test container using"
 	@echo "                                the named production container as its runtime reference"
 	@echo "                                Production is not modified or replaced"
+	@echo "                                Set TEST_FRONTEND_DIAGNOSTICS=true to enable browser diagnostics"
 	@echo "  make test-prod-status         Show isolated production-runtime test container status"
 	@echo "  make test-prod-stop           Remove isolated production-runtime test container and local image"
+	@echo "  make benchmark                Run Go benchmarks with allocation statistics"
+	@echo "  make pprof-capture PROFILE=heap [PPROF_SECONDS=30]"
+	@echo "                                Capture a Go runtime profile from diagnostics-enabled production test"
+	@echo "  make pprof-summary PROFILE=heap"
+	@echo "                                Show top entries from the newest captured profile"
 	@echo "  make test-container-start TEST_RUNTIME_CONTAINER=name"
 	@echo "                                Pull and start isolated published dev container"
 	@echo "  make test-container-status    Show isolated container status"
@@ -167,6 +179,7 @@ help:
 	@echo "  make verify-dev               Refresh origin and inspect dev"
 	@echo "  make verify-main              Refresh origin/upstream and inspect main"
 	@echo "  make branch NEW_BRANCH=name   Create feature branch; clean dev may include parked commits"
+	@echo "  make park                     Park committed feature work on local dev; NEVER pushes"
 	@echo "  make push                     Push clean feature branch; refuses dev/main"
 	@echo
 	@echo "PULL REQUESTS:"
@@ -215,6 +228,9 @@ test:
 
 test-race:
 	go test -race ./...
+
+benchmark:
+	go test ./... -run=^\$$ -bench=. -benchmem
 
 test-count:
 	go test ./... -count=$(COUNT)
@@ -356,6 +372,52 @@ branch:
 	fi; \
 	echo "Creating branch $(NEW_BRANCH) from $$local_revision..."; \
 	git switch -c "$(NEW_BRANCH)"
+
+park:
+	@set -euo pipefail; \
+	feature="$$(git branch --show-current)"; \
+	if [ -z "$$feature" ]; then \
+		echo "Unable to determine current branch."; \
+		exit 1; \
+	fi; \
+	if [ "$$feature" = "$(DEV_BRANCH)" ] || [ "$$feature" = "$(STABLE_BRANCH)" ]; then \
+		echo "Parking requires a feature branch; current branch is $$feature."; \
+		exit 1; \
+	fi; \
+	if [ -n "$$(git status --porcelain)" ]; then \
+		echo "Parking requires a clean working tree with the feature already committed."; \
+		git status --short; \
+		exit 1; \
+	fi; \
+	echo "Refreshing origin..."; \
+	git fetch origin --prune; \
+	dev_revision="$$(git rev-parse $(DEV_BRANCH))"; \
+	origin_revision="$$(git rev-parse origin/$(DEV_BRANCH))"; \
+	feature_revision="$$(git rev-parse HEAD)"; \
+	if ! git merge-base --is-ancestor "$$origin_revision" "$$dev_revision"; then \
+		echo "Refusing park: local $(DEV_BRANCH) is behind or has diverged from origin/$(DEV_BRANCH)."; \
+		echo "Dev:    $$dev_revision"; \
+		echo "Origin: $$origin_revision"; \
+		exit 1; \
+	fi; \
+	if ! git merge-base --is-ancestor "$$dev_revision" "$$feature_revision"; then \
+		echo "Refusing park: feature does not contain the complete local $(DEV_BRANCH) history."; \
+		echo "Dev:     $$dev_revision"; \
+		echo "Feature: $$feature_revision"; \
+		exit 1; \
+	fi; \
+	if [ "$$dev_revision" = "$$feature_revision" ]; then \
+		echo "Refusing park: feature contains no committed work beyond local $(DEV_BRANCH)."; \
+		exit 1; \
+	fi; \
+	commits="$$(git rev-list --count "$$dev_revision..$$feature_revision")"; \
+	echo "Parking $$commits feature commit(s) from $$feature onto local $(DEV_BRANCH)..."; \
+	git switch "$(DEV_BRANCH)"; \
+	git merge --ff-only "$$feature"; \
+	git branch -d "$$feature"; \
+	parked="$$(git rev-list --count "$$origin_revision..$(DEV_BRANCH)")"; \
+	echo "Local $(DEV_BRANCH) now contains $$parked parked commit(s) not yet in origin/$(DEV_BRANCH)."; \
+	echo "No remote branches were changed."
 
 push:
 	@set -euo pipefail; \
@@ -814,6 +876,7 @@ sync-finish:
 		echo "Origin: $$origin_revision"; \
 		exit 1; \
 	fi; \
+	pre_merge_tree="$$(git rev-parse $(DEV_BRANCH)^{tree})"; \
 	pr="$(PR)"; \
 	if [ -z "$$pr" ]; then \
 		pr="$$(python3 scripts/resolve_pr.py --repo "$(REPO)" --head "$(STABLE_BRANCH)" --base "$(DEV_BRANCH)")"; \
@@ -829,13 +892,16 @@ sync-finish:
 	$(MAKE) pr-watch PR="$$pr"; \
 	$(MAKE) pr-merge PR="$$pr"; \
 	$(MAKE) post-merge PR="$$pr"; \
+	post_merge_tree="$$(git rev-parse $(DEV_BRANCH)^{tree})"; \
 	if [ "$(SKIP_IMAGE_WATCH)" = "1" ]; then \
 		echo "Skipping development image verification for guarded non-runtime documentation workflow."; \
+	elif [ "$$pre_merge_tree" = "$$post_merge_tree" ]; then \
+		echo "Synchronization changed history only; development tree is unchanged."; \
+		echo "Skipping development image verification because no new image is required."; \
 	else \
 		$(MAKE) image-watch; \
 	fi; \
 	$(MAKE) status
-
 
 image-runs:
 	@gh run list \
@@ -1993,6 +2059,10 @@ test-instance-stop:
 
 test-prod-start:
 	@set -euo pipefail; \
+	if [ "$(TEST_FRONTEND_DIAGNOSTICS)" != "false" ] && [ "$(TEST_FRONTEND_DIAGNOSTICS)" != "true" ]; then \
+		echo "TEST_FRONTEND_DIAGNOSTICS must be true or false."; \
+		exit 1; \
+	fi; \
 	if [ -z "$(TEST_RUNTIME_CONTAINER)" ]; then \
 		echo "TEST_RUNTIME_CONTAINER is required."; \
 		echo "Example: make test-prod-start TEST_RUNTIME_CONTAINER=glance"; \
@@ -2026,6 +2096,31 @@ test-prod-start:
 	echo "Image ID: $$image_id"; \
 	echo; \
 	echo "=== START WITH PRODUCTION RUNTIME ==="; \
+	config_override=""; \
+	cleanup_config_override() { \
+		if [ -n "$$config_override" ]; then \
+			rm -rf "$$config_override"; \
+		fi; \
+	}; \
+	trap cleanup_config_override EXIT; \
+	if [ "$(TEST_FRONTEND_DIAGNOSTICS)" = "true" ]; then \
+		config_source="$$(docker inspect "$(TEST_RUNTIME_CONTAINER)" --format '{{range .Mounts}}{{if eq .Destination "/app/config"}}{{println .Source}}{{end}}{{end}}')"; \
+		if [ -z "$$config_source" ] || [ ! -d "$$config_source" ]; then \
+			echo "Runtime reference does not have a usable /app/config bind mount."; \
+			exit 1; \
+		fi; \
+		config_override="$(TEST_PROD_CONFIG_DIR)"; \
+		rm -rf "$$config_override"; \
+		mkdir -p "$$config_override"; \
+		cp -a "$$config_source"/. "$$config_override"/; \
+		config_file="$$config_override/glance.yml"; \
+		if [ "$$(grep -Ec '^[[:space:]]*frontend-diagnostics:[[:space:]]*false([[:space:]]*(#.*)?)?$$' "$$config_file")" -ne 1 ]; then \
+			echo "Expected exactly one disabled frontend-diagnostics setting in $$config_file."; \
+			rm -rf "$$config_override"; \
+			exit 1; \
+		fi; \
+		sed -i -E 's/^([[:space:]]*frontend-diagnostics:[[:space:]]*)false([[:space:]]*(#.*)?)$$/\1true\2/' "$$config_file"; \
+	fi; \
 	declare -a env_args mount_args network_args sysctl_args; \
 	while IFS= read -r entry; do \
 		[ -n "$$entry" ] || continue; \
@@ -2039,6 +2134,9 @@ test-prod-start:
 		[ -n "$$destination" ] || continue; \
 		case "$$type" in \
 			bind) \
+				if [ -n "$$config_override" ] && [ "$$destination" = "/app/config" ]; then \
+					source="$$(realpath "$$config_override")"; \
+				fi; \
 				if [ "$$rw" = "false" ]; then \
 					mount_args+=(-v "$${source}:$${destination}:ro"); \
 				else \
@@ -2089,8 +2187,12 @@ test-prod-start:
 		echo "Container: $$container_image"; \
 		exit 1; \
 	fi; \
+	if [ -n "$$config_override" ]; then \
+		trap - EXIT; \
+	fi; \
 	echo "Production-runtime test started."; \
 	echo "Mode=current source + production runtime"; \
+	echo "Frontend diagnostics=$(TEST_FRONTEND_DIAGNOSTICS)"; \
 	echo "Runtime reference=$(TEST_RUNTIME_CONTAINER)"; \
 	echo "Container=$(TEST_PROD_CONTAINER)"; \
 	echo "Image=$(TEST_PROD_IMAGE)"; \
@@ -2123,7 +2225,79 @@ test-prod-stop:
 	if docker image inspect "$(TEST_PROD_IMAGE)" >/dev/null 2>&1; then \
 		docker image rm "$(TEST_PROD_IMAGE)" >/dev/null; \
 		echo "Removed image $(TEST_PROD_IMAGE)."; \
-	fi
+	fi; \
+	rm -rf "$(TEST_PROD_CONFIG_DIR)"
+
+.PHONY: pprof-capture pprof-summary
+
+pprof-capture:
+	@set -euo pipefail; \
+	case "$(PROFILE)" in \
+		cpu|heap|allocs|goroutine|mutex|block|threadcreate) ;; \
+		*) \
+			echo "Unsupported PROFILE=$(PROFILE)."; \
+			echo "Supported: cpu heap allocs goroutine mutex block threadcreate"; \
+			exit 1; \
+			;; \
+	esac; \
+	if ! docker inspect "$(TEST_PROD_CONTAINER)" >/dev/null 2>&1; then \
+		echo "Production-runtime test container does not exist."; \
+		echo "Start it with TEST_FRONTEND_DIAGNOSTICS=true first."; \
+		exit 1; \
+	fi; \
+	if [ "$$(docker inspect "$(TEST_PROD_CONTAINER)" --format "{{.State.Running}}")" != "true" ]; then \
+		echo "Production-runtime test container is not running."; \
+		exit 1; \
+	fi; \
+	if ! docker exec "$(TEST_PROD_CONTAINER)" wget -qO /dev/null "http://127.0.0.1:6060/debug/pprof/"; then \
+		echo "Profiling is not available in $(TEST_PROD_CONTAINER)."; \
+		echo "Restart with TEST_FRONTEND_DIAGNOSTICS=true."; \
+		exit 1; \
+	fi; \
+	mkdir -p "$(PPROF_DIR)"; \
+	timestamp="$$(date +%Y%m%d-%H%M%S)"; \
+	output="$(PPROF_DIR)/$(PROFILE)-$$timestamp.pprof"; \
+	container_output="/tmp/glance-$(PROFILE)-$$timestamp.pprof"; \
+	if [ "$(PROFILE)" = "cpu" ]; then \
+		case "$(PPROF_SECONDS)" in \
+			""|*[!0-9]*) echo "PPROF_SECONDS must be a positive integer."; exit 1 ;; \
+		esac; \
+		if [ "$(PPROF_SECONDS)" -lt 1 ]; then \
+			echo "PPROF_SECONDS must be a positive integer."; \
+			exit 1; \
+		fi; \
+		url="http://127.0.0.1:6060/debug/pprof/profile?seconds=$(PPROF_SECONDS)"; \
+	else \
+		url="http://127.0.0.1:6060/debug/pprof/$(PROFILE)"; \
+	fi; \
+	echo "Capturing $(PROFILE) profile from $(TEST_PROD_CONTAINER)..."; \
+	docker exec "$(TEST_PROD_CONTAINER)" wget -qO "$$container_output" "$$url"; \
+	docker cp "$(TEST_PROD_CONTAINER):$$container_output" "$$output" >/dev/null; \
+	docker exec "$(TEST_PROD_CONTAINER)" rm -f "$$container_output"; \
+	if [ ! -s "$$output" ]; then \
+		echo "Captured profile is empty: $$output"; \
+		rm -f "$$output"; \
+		exit 1; \
+	fi; \
+	echo "Profile: $$output"; \
+	wc -c "$$output"
+
+pprof-summary:
+	@set -euo pipefail; \
+	case "$(PROFILE)" in \
+		cpu|heap|allocs|goroutine|mutex|block|threadcreate) ;; \
+		*) \
+			echo "Unsupported PROFILE=$(PROFILE)."; \
+			exit 1; \
+			;; \
+	esac; \
+	profile="$$(ls -1t "$(PPROF_DIR)/$(PROFILE)-"*.pprof 2>/dev/null | head -1 || true)"; \
+	if [ -z "$$profile" ]; then \
+		echo "No captured $(PROFILE) profile found in $(PPROF_DIR)."; \
+		exit 1; \
+	fi; \
+	echo "Profile: $$profile"; \
+	go tool pprof -top "$$profile"
 
 .PHONY: test-container-start test-container-status test-container-stop
 

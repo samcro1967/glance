@@ -16,12 +16,15 @@ func resetOpenMeteoPlaceResourceCache(t *testing.T) {
 
 	openMeteoPlaceResourceCache.mu.Lock()
 	old := openMeteoPlaceResourceCache.entries
+	oldLastPrune := openMeteoPlaceResourceCache.lastPrune
 	openMeteoPlaceResourceCache.entries = make(map[string]*keyedResourceCacheEntry[*openMeteoPlaceResponseJson])
+	openMeteoPlaceResourceCache.lastPrune = time.Time{}
 	openMeteoPlaceResourceCache.mu.Unlock()
 
 	t.Cleanup(func() {
 		openMeteoPlaceResourceCache.mu.Lock()
 		openMeteoPlaceResourceCache.entries = old
+		openMeteoPlaceResourceCache.lastPrune = oldLastPrune
 		openMeteoPlaceResourceCache.mu.Unlock()
 	})
 }
@@ -157,12 +160,15 @@ func resetOpenMeteoWeatherResourceCache(t *testing.T) {
 
 	openMeteoWeatherResourceCache.mu.Lock()
 	old := openMeteoWeatherResourceCache.entries
+	oldLastPrune := openMeteoWeatherResourceCache.lastPrune
 	openMeteoWeatherResourceCache.entries = make(map[openMeteoWeatherResourceKey]*keyedResourceCacheEntry[*openMeteoWeatherResponseJson])
+	openMeteoWeatherResourceCache.lastPrune = time.Time{}
 	openMeteoWeatherResourceCache.mu.Unlock()
 
 	t.Cleanup(func() {
 		openMeteoWeatherResourceCache.mu.Lock()
 		openMeteoWeatherResourceCache.entries = old
+		openMeteoWeatherResourceCache.lastPrune = oldLastPrune
 		openMeteoWeatherResourceCache.mu.Unlock()
 	})
 }

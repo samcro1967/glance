@@ -311,3 +311,49 @@ func TestKeyedResourceCacheFetchesDifferentKeysConcurrently(t *testing.T) {
 		t.Fatalf("second Get: %v", err)
 	}
 }
+
+func TestKeyedResourceCachePruningIsAmortized(t *testing.T) {
+	cache := newKeyedResourceCache[int, int](time.Minute)
+	now := time.Now()
+
+	cache.entries[1] = &keyedResourceCacheEntry[int]{
+		cached: cachedEntry[int]{
+			value:     1,
+			timestamp: now,
+		},
+		hasValue: true,
+		lastUsed: now.Add(-2 * time.Minute),
+	}
+	cache.entries[2] = &keyedResourceCacheEntry[int]{
+		cached: cachedEntry[int]{
+			value:     2,
+			timestamp: now,
+		},
+		hasValue: true,
+		lastUsed: now,
+	}
+
+	cache.mu.Lock()
+	cache.lastPrune = now
+	cache.pruneIdleEntriesLocked(2, now)
+	cache.lastPrune = now
+	cache.mu.Unlock()
+
+	if _, ok := cache.entries[1]; ok {
+		t.Fatal("idle cache entry was not pruned")
+	}
+	if _, ok := cache.entries[2]; !ok {
+		t.Fatal("requested cache entry was unexpectedly pruned")
+	}
+
+	cache.mu.Lock()
+	if cache.shouldPruneLocked(now.Add(10 * time.Second)) {
+		cache.mu.Unlock()
+		t.Fatal("cache requested another prune before amortization interval elapsed")
+	}
+	if !cache.shouldPruneLocked(now.Add(20 * time.Second)) {
+		cache.mu.Unlock()
+		t.Fatal("cache did not request pruning after amortization interval elapsed")
+	}
+	cache.mu.Unlock()
+}
