@@ -33,6 +33,8 @@ TEST_CONTAINER_URL ?= http://127.0.0.1:$(TEST_CONTAINER_PORT)
 TEST_RUNTIME_CONTAINER ?=
 TEST_PROD_IMAGE ?= glance-prod-test:local
 TEST_PROD_CONTAINER ?= glance-prod-test
+TEST_FRONTEND_DIAGNOSTICS ?= false
+TEST_PROD_CONFIG_DIR ?= .glance-prod-test-config
 
 CI_RUN_RETRIES ?= 12
 CI_RUN_RETRY_DELAY ?= 5
@@ -131,6 +133,7 @@ help:
 	@echo "                                Build current source into an isolated test container using"
 	@echo "                                the named production container as its runtime reference"
 	@echo "                                Production is not modified or replaced"
+	@echo "                                Set TEST_FRONTEND_DIAGNOSTICS=true to enable browser diagnostics"
 	@echo "  make test-prod-status         Show isolated production-runtime test container status"
 	@echo "  make test-prod-stop           Remove isolated production-runtime test container and local image"
 	@echo "  make test-container-start TEST_RUNTIME_CONTAINER=name"
@@ -2045,6 +2048,10 @@ test-instance-stop:
 
 test-prod-start:
 	@set -euo pipefail; \
+	if [ "$(TEST_FRONTEND_DIAGNOSTICS)" != "false" ] && [ "$(TEST_FRONTEND_DIAGNOSTICS)" != "true" ]; then \
+		echo "TEST_FRONTEND_DIAGNOSTICS must be true or false."; \
+		exit 1; \
+	fi; \
 	if [ -z "$(TEST_RUNTIME_CONTAINER)" ]; then \
 		echo "TEST_RUNTIME_CONTAINER is required."; \
 		echo "Example: make test-prod-start TEST_RUNTIME_CONTAINER=glance"; \
@@ -2078,6 +2085,31 @@ test-prod-start:
 	echo "Image ID: $$image_id"; \
 	echo; \
 	echo "=== START WITH PRODUCTION RUNTIME ==="; \
+	config_override=""; \
+	cleanup_config_override() { \
+		if [ -n "$$config_override" ]; then \
+			rm -rf "$$config_override"; \
+		fi; \
+	}; \
+	trap cleanup_config_override EXIT; \
+	if [ "$(TEST_FRONTEND_DIAGNOSTICS)" = "true" ]; then \
+		config_source="$$(docker inspect "$(TEST_RUNTIME_CONTAINER)" --format '{{range .Mounts}}{{if eq .Destination "/app/config"}}{{println .Source}}{{end}}{{end}}')"; \
+		if [ -z "$$config_source" ] || [ ! -d "$$config_source" ]; then \
+			echo "Runtime reference does not have a usable /app/config bind mount."; \
+			exit 1; \
+		fi; \
+		config_override="$(TEST_PROD_CONFIG_DIR)"; \
+		rm -rf "$$config_override"; \
+		mkdir -p "$$config_override"; \
+		cp -a "$$config_source"/. "$$config_override"/; \
+		config_file="$$config_override/glance.yml"; \
+		if [ "$$(grep -Ec '^[[:space:]]*frontend-diagnostics:[[:space:]]*false([[:space:]]*(#.*)?)?$$' "$$config_file")" -ne 1 ]; then \
+			echo "Expected exactly one disabled frontend-diagnostics setting in $$config_file."; \
+			rm -rf "$$config_override"; \
+			exit 1; \
+		fi; \
+		sed -i -E 's/^([[:space:]]*frontend-diagnostics:[[:space:]]*)false([[:space:]]*(#.*)?)$$/\1true\2/' "$$config_file"; \
+	fi; \
 	declare -a env_args mount_args network_args sysctl_args; \
 	while IFS= read -r entry; do \
 		[ -n "$$entry" ] || continue; \
@@ -2091,6 +2123,9 @@ test-prod-start:
 		[ -n "$$destination" ] || continue; \
 		case "$$type" in \
 			bind) \
+				if [ -n "$$config_override" ] && [ "$$destination" = "/app/config" ]; then \
+					source="$$(realpath "$$config_override")"; \
+				fi; \
 				if [ "$$rw" = "false" ]; then \
 					mount_args+=(-v "$${source}:$${destination}:ro"); \
 				else \
@@ -2141,8 +2176,12 @@ test-prod-start:
 		echo "Container: $$container_image"; \
 		exit 1; \
 	fi; \
+	if [ -n "$$config_override" ]; then \
+		trap - EXIT; \
+	fi; \
 	echo "Production-runtime test started."; \
 	echo "Mode=current source + production runtime"; \
+	echo "Frontend diagnostics=$(TEST_FRONTEND_DIAGNOSTICS)"; \
 	echo "Runtime reference=$(TEST_RUNTIME_CONTAINER)"; \
 	echo "Container=$(TEST_PROD_CONTAINER)"; \
 	echo "Image=$(TEST_PROD_IMAGE)"; \
@@ -2175,7 +2214,8 @@ test-prod-stop:
 	if docker image inspect "$(TEST_PROD_IMAGE)" >/dev/null 2>&1; then \
 		docker image rm "$(TEST_PROD_IMAGE)" >/dev/null; \
 		echo "Removed image $(TEST_PROD_IMAGE)."; \
-	fi
+	fi; \
+	rm -rf "$(TEST_PROD_CONFIG_DIR)"
 
 .PHONY: test-container-start test-container-status test-container-stop
 
