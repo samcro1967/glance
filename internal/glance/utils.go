@@ -147,14 +147,39 @@ func titleToSlug(s string) string {
 	return s
 }
 
+type cacheControlResponseWriter struct {
+	http.ResponseWriter
+	cacheControlValue string
+	wroteHeader       bool
+}
+
+func (w *cacheControlResponseWriter) WriteHeader(statusCode int) {
+	if w.wroteHeader {
+		return
+	}
+	w.wroteHeader = true
+	if statusCode >= http.StatusOK && statusCode < http.StatusBadRequest {
+		w.Header().Set("Cache-Control", w.cacheControlValue)
+	}
+	w.ResponseWriter.WriteHeader(statusCode)
+}
+
+func (w *cacheControlResponseWriter) Write(p []byte) (int, error) {
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+	return w.ResponseWriter.Write(p)
+}
+
 func fileServerWithCache(fs http.FileSystem, cacheDuration time.Duration) http.Handler {
 	server := http.FileServer(fs)
 	cacheControlValue := fmt.Sprintf("public, max-age=%d", int(cacheDuration.Seconds()))
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// TODO: fix always setting cache control even if the file doesn't exist
-		w.Header().Set("Cache-Control", cacheControlValue)
-		server.ServeHTTP(w, r)
+		server.ServeHTTP(&cacheControlResponseWriter{
+			ResponseWriter:    w,
+			cacheControlValue: cacheControlValue,
+		}, r)
 	})
 }
 
