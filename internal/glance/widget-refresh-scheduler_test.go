@@ -88,7 +88,7 @@ func TestRefreshDueWidgetsPublishesUpdatedWidget(t *testing.T) {
 	close(testWidget.updateBlock)
 
 	broker := newLiveUpdateBroker()
-	subscription, unsubscribe := broker.subscribe()
+	subscription, unsubscribe := broker.subscribe(nil)
 	defer unsubscribe()
 
 	refreshDueWidgets(
@@ -113,7 +113,7 @@ func TestRefreshDueWidgetsDoesNotPublishWidgetThatIsNotDue(t *testing.T) {
 	close(testWidget.updateBlock)
 
 	broker := newLiveUpdateBroker()
-	subscription, unsubscribe := broker.subscribe()
+	subscription, unsubscribe := broker.subscribe(nil)
 	defer unsubscribe()
 
 	refreshDueWidgets(
@@ -135,7 +135,7 @@ func TestRefreshDueWidgetsDoesNotPublishBusyWidget(t *testing.T) {
 	testWidget.setID(42)
 
 	broker := newLiveUpdateBroker()
-	subscription, unsubscribe := broker.subscribe()
+	subscription, unsubscribe := broker.subscribe(nil)
 	defer unsubscribe()
 
 	testWidget.lockRefresh()

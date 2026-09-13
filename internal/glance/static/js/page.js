@@ -6,6 +6,7 @@ import { elem, find, findAll } from './templating.js';
 import { attachExpandToggleButton, setupCollapsibleList } from './collapsible-list.js';
 
 import {
+    captureFrontendPerformanceSnapshot,
     frontendDiagnostic,
     frontendDiagnosticError,
     frontendDiagnosticErrorDetail,
@@ -1368,7 +1369,24 @@ function setupLiveWidgetUpdates() {
 
         frontendDiagnostic("live_updates_connect");
 
-        events = new EventSource(`${pageData.baseURL}/api/live-updates`);
+        const liveUpdateURL = new URL(
+            `${pageData.baseURL}/api/live-updates`,
+            window.location.href
+        );
+
+        const widgetIDs = new Set();
+        document.querySelectorAll("[data-widget-id]").forEach((widgetElement) => {
+            const widgetID = widgetElement.dataset.widgetId;
+            if (/^\d+$/.test(widgetID)) {
+                widgetIDs.add(widgetID);
+            }
+        });
+
+        for (const widgetID of widgetIDs) {
+            liveUpdateURL.searchParams.append("widget", widgetID);
+        }
+
+        events = new EventSource(liveUpdateURL.toString());
         const currentEvents = events;
 
         currentEvents.addEventListener("open", () => {
@@ -1381,6 +1399,40 @@ function setupLiveWidgetUpdates() {
             frontendDiagnostic("live_updates_error", {
                 state: currentEvents.readyState,
             }, true);
+        });
+
+        currentEvents.addEventListener("diagnostic", (event) => {
+            let command;
+
+            try {
+                command = JSON.parse(event.data);
+            } catch (error) {
+                frontendDiagnosticError(
+                    "diagnostic_command_invalid",
+                    error,
+                    { length: event.data.length }
+                );
+                return;
+            }
+
+            if (
+                !Number.isSafeInteger(command.id) ||
+                command.id <= 0 ||
+                command.command !== "performance_snapshot"
+            ) {
+                frontendDiagnostic("diagnostic_command_unsupported", {
+                    detail: String(command.command ?? "").slice(0, 128),
+                }, true);
+                return;
+            }
+
+            frontendDiagnostic("diagnostic_command_received", {
+                detail: `id=${command.id} command=${command.command}`,
+            }, true);
+
+            captureFrontendPerformanceSnapshot(
+                `command_${command.id}`
+            );
         });
 
         currentEvents.addEventListener("widget", (event) => {
@@ -1542,6 +1594,8 @@ async function setupPage() {
         frontendDiagnostic("page_setup_complete", {
             elapsedMS: performance.now() - setupStarted,
         }, true);
+
+        captureFrontendPerformanceSnapshot("page_setup_complete");
     }
 }
 

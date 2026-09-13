@@ -35,6 +35,9 @@ TEST_PROD_IMAGE ?= glance-prod-test:local
 TEST_PROD_CONTAINER ?= glance-prod-test
 TEST_FRONTEND_DIAGNOSTICS ?= false
 TEST_PROD_CONFIG_DIR ?= .glance-prod-test-config
+PPROF_DIR ?= .pprof
+PROFILE ?= heap
+PPROF_SECONDS ?= 30
 
 CI_RUN_RETRIES ?= 12
 CI_RUN_RETRY_DELAY ?= 5
@@ -136,6 +139,11 @@ help:
 	@echo "                                Set TEST_FRONTEND_DIAGNOSTICS=true to enable browser diagnostics"
 	@echo "  make test-prod-status         Show isolated production-runtime test container status"
 	@echo "  make test-prod-stop           Remove isolated production-runtime test container and local image"
+	@echo "  make benchmark                Run Go benchmarks with allocation statistics"
+	@echo "  make pprof-capture PROFILE=heap [PPROF_SECONDS=30]"
+	@echo "                                Capture a Go runtime profile from diagnostics-enabled production test"
+	@echo "  make pprof-summary PROFILE=heap"
+	@echo "                                Show top entries from the newest captured profile"
 	@echo "  make test-container-start TEST_RUNTIME_CONTAINER=name"
 	@echo "                                Pull and start isolated published dev container"
 	@echo "  make test-container-status    Show isolated container status"
@@ -220,6 +228,9 @@ test:
 
 test-race:
 	go test -race ./...
+
+benchmark:
+	go test ./... -run=^\$$ -bench=. -benchmem
 
 test-count:
 	go test ./... -count=$(COUNT)
@@ -2216,6 +2227,77 @@ test-prod-stop:
 		echo "Removed image $(TEST_PROD_IMAGE)."; \
 	fi; \
 	rm -rf "$(TEST_PROD_CONFIG_DIR)"
+
+.PHONY: pprof-capture pprof-summary
+
+pprof-capture:
+	@set -euo pipefail; \
+	case "$(PROFILE)" in \
+		cpu|heap|allocs|goroutine|mutex|block|threadcreate) ;; \
+		*) \
+			echo "Unsupported PROFILE=$(PROFILE)."; \
+			echo "Supported: cpu heap allocs goroutine mutex block threadcreate"; \
+			exit 1; \
+			;; \
+	esac; \
+	if ! docker inspect "$(TEST_PROD_CONTAINER)" >/dev/null 2>&1; then \
+		echo "Production-runtime test container does not exist."; \
+		echo "Start it with TEST_FRONTEND_DIAGNOSTICS=true first."; \
+		exit 1; \
+	fi; \
+	if [ "$$(docker inspect "$(TEST_PROD_CONTAINER)" --format "{{.State.Running}}")" != "true" ]; then \
+		echo "Production-runtime test container is not running."; \
+		exit 1; \
+	fi; \
+	if ! docker exec "$(TEST_PROD_CONTAINER)" wget -qO /dev/null "http://127.0.0.1:6060/debug/pprof/"; then \
+		echo "Profiling is not available in $(TEST_PROD_CONTAINER)."; \
+		echo "Restart with TEST_FRONTEND_DIAGNOSTICS=true."; \
+		exit 1; \
+	fi; \
+	mkdir -p "$(PPROF_DIR)"; \
+	timestamp="$$(date +%Y%m%d-%H%M%S)"; \
+	output="$(PPROF_DIR)/$(PROFILE)-$$timestamp.pprof"; \
+	container_output="/tmp/glance-$(PROFILE)-$$timestamp.pprof"; \
+	if [ "$(PROFILE)" = "cpu" ]; then \
+		case "$(PPROF_SECONDS)" in \
+			""|*[!0-9]*) echo "PPROF_SECONDS must be a positive integer."; exit 1 ;; \
+		esac; \
+		if [ "$(PPROF_SECONDS)" -lt 1 ]; then \
+			echo "PPROF_SECONDS must be a positive integer."; \
+			exit 1; \
+		fi; \
+		url="http://127.0.0.1:6060/debug/pprof/profile?seconds=$(PPROF_SECONDS)"; \
+	else \
+		url="http://127.0.0.1:6060/debug/pprof/$(PROFILE)"; \
+	fi; \
+	echo "Capturing $(PROFILE) profile from $(TEST_PROD_CONTAINER)..."; \
+	docker exec "$(TEST_PROD_CONTAINER)" wget -qO "$$container_output" "$$url"; \
+	docker cp "$(TEST_PROD_CONTAINER):$$container_output" "$$output" >/dev/null; \
+	docker exec "$(TEST_PROD_CONTAINER)" rm -f "$$container_output"; \
+	if [ ! -s "$$output" ]; then \
+		echo "Captured profile is empty: $$output"; \
+		rm -f "$$output"; \
+		exit 1; \
+	fi; \
+	echo "Profile: $$output"; \
+	wc -c "$$output"
+
+pprof-summary:
+	@set -euo pipefail; \
+	case "$(PROFILE)" in \
+		cpu|heap|allocs|goroutine|mutex|block|threadcreate) ;; \
+		*) \
+			echo "Unsupported PROFILE=$(PROFILE)."; \
+			exit 1; \
+			;; \
+	esac; \
+	profile="$$(ls -1t "$(PPROF_DIR)/$(PROFILE)-"*.pprof 2>/dev/null | head -1 || true)"; \
+	if [ -z "$$profile" ]; then \
+		echo "No captured $(PROFILE) profile found in $(PPROF_DIR)."; \
+		exit 1; \
+	fi; \
+	echo "Profile: $$profile"; \
+	go tool pprof -top "$$profile"
 
 .PHONY: test-container-start test-container-status test-container-stop
 

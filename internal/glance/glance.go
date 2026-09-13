@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/http/pprof"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -775,12 +776,13 @@ func (a *application) handlePageContentRequest(w http.ResponseWriter, r *http.Re
 	var err error
 	var responseBytes bytes.Buffer
 
+	page.updateOutdatedWidgets(r.Context())
+	a.Config.FooterMicroWidgets.updateOutdatedWidgets(r.Context())
+
 	func() {
 		page.mu.Lock()
 		defer page.mu.Unlock()
 
-		page.updateOutdatedWidgets(r.Context())
-		a.Config.FooterMicroWidgets.updateOutdatedWidgets(r.Context())
 		err = pageContentTemplate.Execute(&responseBytes, pageData)
 	}()
 
@@ -958,6 +960,10 @@ func (a *application) router() http.Handler {
 	mux.HandleFunc("GET /api/widgets/{widget}/content/{$}", a.handleWidgetContentRequest)
 	mux.HandleFunc("GET /api/live-updates", a.handleLiveUpdatesRequest)
 	mux.HandleFunc("POST /api/frontend-diagnostics", a.handleFrontendDiagnosticsRequest)
+	mux.HandleFunc(
+		"POST /api/frontend-diagnostics/performance-snapshot",
+		a.handleFrontendPerformanceSnapshotRequest,
+	)
 	mux.HandleFunc("GET /api/diagnostics", a.handleRuntimeDiagnosticsRequest)
 	mux.HandleFunc("/api/widgets/{widget}/{path...}", a.handleWidgetRequest)
 	mux.HandleFunc("GET /api/healthz", func(w http.ResponseWriter, _ *http.Request) {
@@ -1000,6 +1006,21 @@ func (a *application) router() http.Handler {
 		mux.Handle("/assets/{path...}", http.StripPrefix("/assets/", assetsFS))
 	}
 
+	if !a.Config.Server.FrontendDiagnostics {
+		return mux
+	}
+
+	return a.frontendDiagnosticHTTPPerformanceHandler(mux)
+}
+
+func frontendDiagnosticProfileHandler() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+
 	return mux
 }
 
@@ -1016,10 +1037,34 @@ func (a *application) server() (func() error, func() error) {
 		ReadTimeout:       10 * time.Second,
 	}
 
+	var profileServer *http.Server
+	var profileWG sync.WaitGroup
+
+	if a.Config.Server.FrontendDiagnostics {
+		profileServer = &http.Server{
+			Addr:              "127.0.0.1:6060",
+			Handler:           frontendDiagnosticProfileHandler(),
+			ReadHeaderTimeout: 5 * time.Second,
+		}
+	}
+
 	schedulerCtx, stopScheduler := context.WithCancel(context.Background())
 	var schedulerWG sync.WaitGroup
 
 	start := func() error {
+		if profileServer != nil {
+			profileWG.Add(1)
+			go func() {
+				defer profileWG.Done()
+
+				slog.Info("Performance profiling server starting", "address", profileServer.Addr)
+
+				if err := profileServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+					slog.Error("Performance profiling server stopped unexpectedly", "error", err)
+				}
+			}()
+		}
+
 		slog.Info(
 			"Server starting",
 			"host", a.Config.Server.Host,
@@ -1057,6 +1102,10 @@ func (a *application) server() (func() error, func() error) {
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			a.liveUpdates.close()
 			stopScheduler()
+			if profileServer != nil {
+				_ = profileServer.Close()
+			}
+			profileWG.Wait()
 			schedulerWG.Wait()
 			return err
 		}
@@ -1074,9 +1123,19 @@ func (a *application) server() (func() error, func() error) {
 
 		serverErr := server.Close()
 
+		var profileErr error
+		if profileServer != nil {
+			profileErr = profileServer.Close()
+		}
+
+		profileWG.Wait()
 		schedulerWG.Wait()
 
-		return serverErr
+		if serverErr != nil {
+			return serverErr
+		}
+
+		return profileErr
 	}
 
 	return start, stop

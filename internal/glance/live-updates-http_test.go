@@ -223,6 +223,158 @@ pages:
 	}
 }
 
+func TestLiveUpdatesFiltersWidgetNotifications(t *testing.T) {
+	app := newGlanceTestApplication(t, `
+pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets:
+          - type: html
+            source: "<p>included</p>"
+          - type: html
+            source: "<p>excluded</p>"
+`)
+
+	if len(app.refreshWidgets) != 2 {
+		t.Fatalf("refresh widget count = %d, want 2", len(app.refreshWidgets))
+	}
+
+	includedID := app.refreshWidgets[0].GetID()
+	excludedID := app.refreshWidgets[1].GetID()
+
+	server := httptest.NewServer(app.router())
+	defer server.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	request, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
+		server.URL+"/api/live-updates?widget="+strconv.FormatUint(includedID, 10),
+		nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want %d", response.StatusCode, http.StatusOK)
+	}
+
+	app.liveUpdates.publish(excludedID)
+	app.liveUpdates.publish(includedID)
+
+	readDone := make(chan string, 1)
+	go func() {
+		reader := bufio.NewReader(response.Body)
+		var event strings.Builder
+
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				readDone <- ""
+				return
+			}
+
+			event.WriteString(line)
+			if line == "\n" {
+				readDone <- event.String()
+				return
+			}
+		}
+	}()
+
+	select {
+	case event := <-readDone:
+		want := "event: widget\ndata: " + strconv.FormatUint(includedID, 10) + "\n\n"
+		if event != want {
+			t.Fatalf("SSE event = %q, want %q", event, want)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for filtered SSE widget notification")
+	}
+}
+
+func TestLiveUpdatesInvalidWidgetFilterRemainsEmpty(t *testing.T) {
+	app := newGlanceTestApplication(t, `
+pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets:
+          - type: html
+            source: "<p>registered</p>"
+`)
+
+	if len(app.refreshWidgets) != 1 {
+		t.Fatalf("refresh widget count = %d, want 1", len(app.refreshWidgets))
+	}
+
+	registeredID := app.refreshWidgets[0].GetID()
+
+	server := httptest.NewServer(app.router())
+	defer server.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	request, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
+		server.URL+"/api/live-updates?widget=not-a-number&widget=999999999",
+		nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want %d", response.StatusCode, http.StatusOK)
+	}
+
+	app.liveUpdates.publish(registeredID)
+
+	readDone := make(chan string, 1)
+	go func() {
+		reader := bufio.NewReader(response.Body)
+		var event strings.Builder
+
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				readDone <- ""
+				return
+			}
+
+			event.WriteString(line)
+			if line == "\n" {
+				readDone <- event.String()
+				return
+			}
+		}
+	}()
+
+	select {
+	case event := <-readDone:
+		t.Fatalf("unexpected SSE event for empty widget filter: %q", event)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
 func TestLiveUpdatesStopsWhenBrokerCloses(t *testing.T) {
 	app := newGlanceTestApplication(t, `
 pages:

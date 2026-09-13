@@ -3,10 +3,13 @@ package glance
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
+	"math"
 	"net/http"
 	"strings"
+	"time"
 )
 
 const (
@@ -24,16 +27,86 @@ type frontendDiagnosticBatch struct {
 }
 
 type frontendDiagnosticEvent struct {
-	Event     string  `json:"event"`
-	Page      string  `json:"page,omitempty"`
-	Session   string  `json:"session,omitempty"`
-	Widget    string  `json:"widget,omitempty"`
-	Detail    string  `json:"detail,omitempty"`
-	Sequence  uint64  `json:"sequence,omitempty"`
-	ElapsedMS float64 `json:"elapsed_ms,omitempty"`
-	Status    int     `json:"status,omitempty"`
-	Length    *int    `json:"length,omitempty"`
-	State     *int    `json:"state,omitempty"`
+	Event     string             `json:"event"`
+	Page      string             `json:"page,omitempty"`
+	Session   string             `json:"session,omitempty"`
+	Widget    string             `json:"widget,omitempty"`
+	Detail    string             `json:"detail,omitempty"`
+	Sequence  uint64             `json:"sequence,omitempty"`
+	ElapsedMS float64            `json:"elapsed_ms,omitempty"`
+	Status    int                `json:"status,omitempty"`
+	Length    *int               `json:"length,omitempty"`
+	State     *int               `json:"state,omitempty"`
+	Metrics   map[string]float64 `json:"metrics,omitempty"`
+}
+
+func (a *application) handleFrontendPerformanceSnapshotRequest(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	if !a.Config.Server.FrontendDiagnostics {
+		http.NotFound(w, r)
+		return
+	}
+
+	if a.handleUnauthorizedResponse(w, r, showUnauthorizedJSON) {
+		return
+	}
+
+	if a.liveUpdates == nil {
+		http.Error(
+			w,
+			"Live updates unavailable",
+			http.StatusServiceUnavailable,
+		)
+		return
+	}
+
+	command := frontendDiagnosticCommand{
+		ID:      frontendDiagnosticCommandID.Add(1),
+		Command: "performance_snapshot",
+	}
+
+	a.liveUpdates.publishDiagnosticCommand(command)
+
+	slog.Info(
+		"Frontend diagnostic",
+		"source", "server",
+		"event", "diagnostic_command_publish",
+		"command_id", command.ID,
+		"command", command.Command,
+	)
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
+	fmt.Fprintf(
+		w,
+		`{"id":%d,"command":"%s"}`,
+		command.ID,
+		command.Command,
+	)
+}
+
+func (a *application) frontendDiagnosticHTTPPerformanceHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/frontend-diagnostics" ||
+			r.URL.Path == "/api/live-updates" {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		started := time.Now()
+		next.ServeHTTP(w, r)
+
+		slog.Info(
+			"Frontend diagnostic",
+			"source", "server",
+			"event", "http_request_complete",
+			"method", r.Method,
+			"path", r.URL.Path,
+			"elapsed_ms", float64(time.Since(started).Microseconds())/1000,
+		)
+	})
 }
 
 func (a *application) handleFrontendDiagnosticsRequest(w http.ResponseWriter, r *http.Request) {
@@ -118,6 +191,9 @@ func (a *application) handleFrontendDiagnosticsRequest(w http.ResponseWriter, r 
 		if event.ElapsedMS != 0 {
 			attrs = append(attrs, "elapsed_ms", event.ElapsedMS)
 		}
+		for name, value := range event.Metrics {
+			attrs = append(attrs, name, value)
+		}
 
 		slog.Info("Frontend diagnostic", attrs...)
 	}
@@ -147,6 +223,7 @@ func validFrontendDiagnosticEvent(event frontendDiagnosticEvent) bool {
 		event.ElapsedMS < 0 ||
 		event.Status < 0 ||
 		event.Status > 999 ||
+		!validFrontendDiagnosticMetrics(event.Metrics) ||
 		(event.Length != nil && *event.Length < 0) ||
 		(event.State != nil && (*event.State < 0 || *event.State > 2)) {
 		return false
@@ -164,6 +241,29 @@ func validFrontendDiagnosticEvent(event frontendDiagnosticEvent) bool {
 		!containsFrontendDiagnosticControlCharacters(event.Session) &&
 		!containsFrontendDiagnosticControlCharacters(event.Widget) &&
 		!containsFrontendDiagnosticControlCharacters(event.Detail)
+}
+
+func validFrontendDiagnosticMetrics(metrics map[string]float64) bool {
+	if len(metrics) > 32 {
+		return false
+	}
+
+	for name, value := range metrics {
+		if name == "" || len(name) > frontendDiagnosticsMaxEventLength ||
+			value < 0 || math.IsNaN(value) || math.IsInf(value, 0) {
+			return false
+		}
+
+		for _, r := range name {
+			if (r < 'a' || r > 'z') &&
+				(r < '0' || r > '9') &&
+				r != '_' {
+				return false
+			}
+		}
+	}
+
+	return true
 }
 
 func containsFrontendDiagnosticControlCharacters(value string) bool {
