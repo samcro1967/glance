@@ -161,7 +161,9 @@ func serveApp(configPath string) error {
 	}
 
 	configDiagnostics := newConfigRuntimeDiagnostics(configPath)
+	profilingDiagnostics := newProfilingRuntimeDiagnostics()
 	initialApp.configDiagnostics = configDiagnostics
+	initialApp.profilingDiagnostics = profilingDiagnostics
 
 	initialHandler := initialApp.router()
 	server, err := newProcessServer(
@@ -172,6 +174,7 @@ func serveApp(configPath string) error {
 	if err != nil {
 		return fmt.Errorf("starting server: %w", err)
 	}
+	server.profileDiagnostics = profilingDiagnostics
 
 	initialRuntime := initialApp.startRuntime()
 	generation := &runtimeGeneration{
@@ -225,7 +228,7 @@ func serveApp(configPath string) error {
 			return
 		}
 
-		previousRuntime, err := generation.reload(server, candidateConfig, configDiagnostics)
+		previousRuntime, err := generation.reload(server, candidateConfig, configDiagnostics, profilingDiagnostics)
 		if err != nil {
 			configDiagnostics.recordReloadRejected(err)
 			slog.Warn(

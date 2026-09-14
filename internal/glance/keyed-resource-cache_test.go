@@ -212,6 +212,81 @@ func TestKeyedResourceCacheWaitingCallerCanCancel(t *testing.T) {
 	}
 }
 
+func TestKeyedResourceCacheLeaderCancellationDoesNotCancelSharedFetch(t *testing.T) {
+	cache := newKeyedResourceCache[string, string](time.Hour)
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+	fetchCanceled := make(chan struct{}, 1)
+	var calls atomic.Int32
+
+	fetch := func(ctx context.Context) (string, error) {
+		calls.Add(1)
+		close(started)
+
+		select {
+		case <-release:
+			return "value", nil
+		case <-ctx.Done():
+			fetchCanceled <- struct{}{}
+			return "", ctx.Err()
+		}
+	}
+	valid := func(cachedEntry[string], time.Time) bool {
+		return true
+	}
+
+	leaderCtx, cancelLeader := context.WithCancel(context.Background())
+	leaderDone := make(chan error, 1)
+	go func() {
+		_, err := cache.Get(leaderCtx, "key", valid, fetch)
+		leaderDone <- err
+	}()
+
+	<-started
+
+	waiterDone := make(chan error, 1)
+	go func() {
+		value, err := cache.Get(context.Background(), "key", valid, fetch)
+		if err == nil && value != "value" {
+			err = errors.New("waiting caller received unexpected value")
+		}
+		waiterDone <- err
+	}()
+
+	cancelLeader()
+
+	select {
+	case err := <-leaderDone:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("leader Get error = %v, want context.Canceled", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("leader Get did not stop waiting after cancellation")
+	}
+
+	select {
+	case <-fetchCanceled:
+		t.Fatal("leader cancellation canceled process-shared fetch")
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	close(release)
+
+	select {
+	case err := <-waiterDone:
+		if err != nil {
+			t.Fatalf("waiting Get: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("waiting caller did not receive shared fetch result")
+	}
+
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("fetch calls = %d, want 1", got)
+	}
+}
+
 func TestKeyedResourceCacheEvictsIdleEntries(t *testing.T) {
 	retention := time.Hour
 	cache := newKeyedResourceCache[string, string](retention)

@@ -3,6 +3,7 @@ package glance
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,6 +16,7 @@ func TestSnapshotWidgetRefreshDiagnostics(t *testing.T) {
 	candidate.Title = "Test Widget"
 	candidate.refreshDegraded = true
 	candidate.refreshFailureClass = refreshFailureTransient
+	candidate.lastRefreshError = "connection refused"
 	candidate.refreshFailureCount = 2
 
 	now := time.Now()
@@ -40,6 +42,9 @@ func TestSnapshotWidgetRefreshDiagnostics(t *testing.T) {
 	}
 	if !got.Degraded {
 		t.Fatalf("unexpected widget state: %#v", got)
+	}
+	if got.FailureCause != "connection refused" {
+		t.Fatalf("failure cause = %q, want connection refused", got.FailureCause)
 	}
 	if got.ConsecutiveFailures != 2 {
 		t.Fatalf("consecutive failures = %d, want 2", got.ConsecutiveFailures)
@@ -173,6 +178,7 @@ func TestRuntimeDiagnosticsResponseFromSnapshot(t *testing.T) {
 				Title:               "Test Widget",
 				Degraded:            true,
 				FailureClass:        refreshFailureTransient,
+				FailureCause:        "connection refused",
 				ConsecutiveFailures: 1,
 				LastAttempt:         now,
 				LastDuration:        250 * time.Millisecond,
@@ -209,6 +215,9 @@ func TestRuntimeDiagnosticsResponseFromSnapshot(t *testing.T) {
 	if widget.ID != 42 || widget.Type != "test" || widget.Title != "Test Widget" {
 		t.Fatalf("unexpected widget identity: %#v", widget)
 	}
+	if widget.FailureCause != "connection refused" {
+		t.Fatalf("failure cause = %q, want connection refused", widget.FailureCause)
+	}
 	if widget.LastAttempt == nil || widget.RefreshStartedAt == nil || widget.NextUpdate == nil {
 		t.Fatalf("expected populated timestamps: %#v", widget)
 	}
@@ -232,6 +241,11 @@ pages:
         widgets:
           - type: hacker-news
 `)
+
+	profilingDiagnostics := newProfilingRuntimeDiagnostics()
+	profilingDiagnostics.recordRunning()
+	profilingDiagnostics.recordFailure(errors.New("profiling unavailable"))
+	app.profilingDiagnostics = profilingDiagnostics
 
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodGet, "/api/diagnostics", nil)
@@ -272,6 +286,15 @@ pages:
 			len(response.Widgets),
 			len(app.refreshWidgets),
 		)
+	}
+	if !response.Profiling.Requested || response.Profiling.Running {
+		t.Fatalf("profiling diagnostics = %+v, want requested and not running", response.Profiling)
+	}
+	if response.Profiling.LastFailureAt == nil {
+		t.Fatalf("profiling diagnostics = %+v, want failure timestamp", response.Profiling)
+	}
+	if response.Profiling.LastFailure != "profiling unavailable" {
+		t.Fatalf("profiling failure = %q, want profiling unavailable", response.Profiling.LastFailure)
 	}
 }
 

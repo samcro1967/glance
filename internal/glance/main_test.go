@@ -320,7 +320,7 @@ func TestRuntimeGenerationRejectsListenerChangeWithoutDisturbingCurrentGeneratio
 	candidate := oldApp.Config
 	candidate.Server.Port = 65534
 
-	_, err = generation.reload(server, &candidate, diagnostics)
+	_, err = generation.reload(server, &candidate, diagnostics, nil)
 	if err == nil {
 		t.Fatal("expected listener change to be rejected")
 	}
@@ -383,7 +383,7 @@ pages:
 `)
 	candidate := candidateApp.Config
 
-	previousRuntime, err := generation.reload(server, &candidate, diagnostics)
+	previousRuntime, err := generation.reload(server, &candidate, diagnostics, nil)
 	if err != nil {
 		t.Fatalf("reload generation: %v", err)
 	}
@@ -451,7 +451,7 @@ func TestRuntimeGenerationApplicationFailurePreservesCurrentGeneration(t *testin
 	}
 	candidate.Auth.SecretKey = "not-valid-base64"
 
-	_, err = generation.reload(server, &candidate, diagnostics)
+	_, err = generation.reload(server, &candidate, diagnostics, nil)
 	if err == nil {
 		t.Fatal("expected candidate application construction to fail")
 	}
@@ -475,7 +475,15 @@ func TestProcessServerProfilingCanBeReconciledWithoutMainServerImpact(t *testing
 	}
 	defer func() { _ = server.shutdown() }()
 
+	diagnostics := newProfilingRuntimeDiagnostics()
+	server.profileDiagnostics = diagnostics
+
 	server.reconcileProfiling(false)
+	got := diagnostics.snapshot()
+	if got.Requested || got.Running {
+		t.Fatalf("disabled profiling diagnostics = %+v, want not requested and not running", got)
+	}
+
 	server.profileMu.Lock()
 	profileServer := server.profileServer
 	server.profileMu.Unlock()
@@ -491,12 +499,22 @@ func TestProcessServerProfilingCanBeReconciledWithoutMainServerImpact(t *testing
 		t.Fatal("profiling server did not start when enabled")
 	}
 
+	got = diagnostics.snapshot()
+	if !got.Requested || !got.Running {
+		t.Fatalf("enabled profiling diagnostics = %+v, want requested and running", got)
+	}
+
 	server.reconcileProfiling(false)
 	server.profileMu.Lock()
 	profileServer = server.profileServer
 	server.profileMu.Unlock()
 	if profileServer != nil {
 		t.Fatal("profiling server remained configured after disable")
+	}
+
+	got = diagnostics.snapshot()
+	if got.Requested || got.Running {
+		t.Fatalf("disabled profiling diagnostics = %+v, want not requested and not running", got)
 	}
 }
 
@@ -513,6 +531,9 @@ func TestProcessServerProfilingBindFailureIsNonfatal(t *testing.T) {
 	}
 	defer func() { _ = server.shutdown() }()
 
+	diagnostics := newProfilingRuntimeDiagnostics()
+	server.profileDiagnostics = diagnostics
+
 	server.reconcileProfiling(true)
 
 	deadline := time.Now().Add(time.Second)
@@ -528,6 +549,17 @@ func TestProcessServerProfilingBindFailureIsNonfatal(t *testing.T) {
 			t.Fatal("profiling server did not clear failed bind state")
 		}
 		time.Sleep(10 * time.Millisecond)
+	}
+
+	got := diagnostics.snapshot()
+	if !got.Requested || got.Running {
+		t.Fatalf("failed profiling diagnostics = %+v, want requested and not running", got)
+	}
+	if got.LastFailureAt.IsZero() || got.LastFailure == "" {
+		t.Fatalf("failed profiling diagnostics = %+v, want recorded failure", got)
+	}
+	if !strings.Contains(got.LastFailure, "address already in use") {
+		t.Fatalf("profiling failure = %q, want address already in use", got.LastFailure)
 	}
 
 	recorder := httptest.NewRecorder()
@@ -547,5 +579,13 @@ func TestProcessServerProfilingBindFailureIsNonfatal(t *testing.T) {
 	server.profileMu.Unlock()
 	if profileServer == nil {
 		t.Fatal("profiling server did not retry after failed bind was cleared")
+	}
+
+	got = diagnostics.snapshot()
+	if !got.Requested || !got.Running {
+		t.Fatalf("retried profiling diagnostics = %+v, want requested and running", got)
+	}
+	if !got.LastFailureAt.IsZero() || got.LastFailure != "" {
+		t.Fatalf("retried profiling diagnostics = %+v, want stale failure cleared", got)
 	}
 }

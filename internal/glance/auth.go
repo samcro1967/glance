@@ -14,7 +14,6 @@ import (
 	mathrand "math/rand/v2"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -313,7 +312,7 @@ func (a *application) setAuthSessionCookie(w http.ResponseWriter, r *http.Reques
 		Name:     AUTH_SESSION_COOKIE_NAME,
 		Value:    token,
 		Expires:  expires,
-		Secure:   strings.ToLower(r.Header.Get("X-Forwarded-Proto")) == "https",
+		Secure:   a.requestIsSecure(r),
 		Path:     a.Config.Server.BaseURL + "/",
 		SameSite: http.SameSiteLaxMode,
 		HttpOnly: true,

@@ -92,6 +92,7 @@ func (g *runtimeGeneration) reload(
 	server *processServer,
 	candidateConfig *config,
 	diagnostics *configRuntimeDiagnostics,
+	profilingDiagnostics *profilingRuntimeDiagnostics,
 ) (*applicationRuntime, error) {
 	if candidateConfig.Server.Host != g.config.Server.Host ||
 		candidateConfig.Server.Port != g.config.Server.Port {
@@ -110,6 +111,7 @@ func (g *runtimeGeneration) reload(
 	}
 
 	candidateApp.configDiagnostics = diagnostics
+	candidateApp.profilingDiagnostics = profilingDiagnostics
 	candidateRuntime := candidateApp.startRuntime()
 
 	previousRuntime := g.runtime
@@ -126,9 +128,10 @@ type processServer struct {
 	server   *http.Server
 	handler  *swappableHandler
 
-	profileMu     sync.Mutex
-	profileServer *http.Server
-	profileWG     sync.WaitGroup
+	profileMu          sync.Mutex
+	profileServer      *http.Server
+	profileWG          sync.WaitGroup
+	profileDiagnostics *profilingRuntimeDiagnostics
 }
 
 func newProcessServer(host string, port uint16, initial http.Handler) (*processServer, error) {
@@ -170,6 +173,7 @@ func (s *processServer) reconcileProfiling(enabled bool) {
 
 	if enabled {
 		if s.profileServer != nil {
+			s.profileDiagnostics.recordRunning()
 			return
 		}
 
@@ -180,12 +184,14 @@ func (s *processServer) reconcileProfiling(enabled bool) {
 			IdleTimeout:       120 * time.Second,
 		}
 		s.profileServer = profileServer
+		s.profileDiagnostics.recordRunning()
 		s.profileWG.Add(1)
 		go func() {
 			defer s.profileWG.Done()
 			slog.Info("Performance profiling server starting", "address", profileServer.Addr)
 			if err := profileServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 				slog.Error("Performance profiling server stopped unexpectedly", "error", err)
+				s.profileDiagnostics.recordFailure(err)
 				s.profileMu.Lock()
 				if s.profileServer == profileServer {
 					s.profileServer = nil
@@ -197,11 +203,13 @@ func (s *processServer) reconcileProfiling(enabled bool) {
 	}
 
 	if s.profileServer == nil {
+		s.profileDiagnostics.recordDisabled()
 		return
 	}
 
 	profileServer := s.profileServer
 	s.profileServer = nil
+	s.profileDiagnostics.recordDisabled()
 	if err := profileServer.Close(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		slog.Warn("Failed to stop performance profiling server", "error", err)
 	}

@@ -203,6 +203,78 @@ func TestRSSResourceWaitingCallerCanCancel(t *testing.T) {
 	}
 }
 
+func TestRSSResourceLeaderCancellationDoesNotCancelSharedFetch(t *testing.T) {
+	resetRSSResourceRequests(t)
+
+	var calls atomic.Int32
+	started := make(chan struct{})
+	release := make(chan struct{})
+	transportCanceled := make(chan struct{}, 1)
+
+	wave3Transport(t, func(request *http.Request) (*http.Response, error) {
+		calls.Add(1)
+		close(started)
+
+		select {
+		case <-release:
+			return rssResourceTestResponse(request), nil
+		case <-request.Context().Done():
+			transportCanceled <- struct{}{}
+			return nil, request.Context().Err()
+		}
+	})
+
+	leaderCtx, cancelLeader := context.WithCancel(context.Background())
+	leaderDone := make(chan error, 1)
+	go func() {
+		request := rssResourceTestRequest(t, map[string]string{"X-Test": "same"})
+		request = request.WithContext(leaderCtx)
+		_, err := fetchRSSResource(leaderCtx, request, rssResourceRequestOptions{})
+		leaderDone <- err
+	}()
+
+	<-started
+
+	waiterDone := make(chan error, 1)
+	go func() {
+		request := rssResourceTestRequest(t, map[string]string{"X-Test": "same"})
+		_, err := fetchRSSResource(context.Background(), request, rssResourceRequestOptions{})
+		waiterDone <- err
+	}()
+
+	cancelLeader()
+
+	select {
+	case err := <-leaderDone:
+		if err != context.Canceled {
+			t.Fatalf("leader fetch error = %v, want %v", err, context.Canceled)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("leader fetch did not stop waiting after cancellation")
+	}
+
+	select {
+	case <-transportCanceled:
+		t.Fatal("leader cancellation canceled process-shared RSS request")
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	close(release)
+
+	select {
+	case err := <-waiterDone:
+		if err != nil {
+			t.Fatalf("waiting fetch: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("waiting caller did not receive shared RSS result")
+	}
+
+	if got := calls.Load(); got != 1 {
+		t.Fatalf("HTTP calls = %d, want 1", got)
+	}
+}
+
 func TestRSSWidgetsShareResourceWithoutSharingConfiguration(t *testing.T) {
 	resetRSSResourceRequests(t)
 

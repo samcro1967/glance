@@ -54,35 +54,44 @@ func (cache *keyedResourceCache[K, V]) Get(
 	if entry.current != nil {
 		call := entry.current
 		entry.mu.Unlock()
-
-		select {
-		case <-call.done:
-			return call.val, call.err
-		case <-ctx.Done():
-			var zero V
-			return zero, ctx.Err()
-		}
+		return waitForKeyedResourceCacheCall(ctx, call)
 	}
 
 	call := &keyedResourceCacheCall[V]{done: make(chan struct{})}
 	entry.current = call
 	entry.mu.Unlock()
 
-	call.val, call.err = fetch(ctx)
+	fetchCtx := context.WithoutCancel(ctx)
+	go func() {
+		call.val, call.err = fetch(fetchCtx)
 
-	entry.mu.Lock()
-	if call.err == nil {
-		entry.cached = cachedEntry[V]{
-			value:     call.val,
-			timestamp: time.Now(),
+		entry.mu.Lock()
+		if call.err == nil {
+			entry.cached = cachedEntry[V]{
+				value:     call.val,
+				timestamp: time.Now(),
+			}
+			entry.hasValue = true
 		}
-		entry.hasValue = true
-	}
-	entry.current = nil
-	close(call.done)
-	entry.mu.Unlock()
+		entry.current = nil
+		close(call.done)
+		entry.mu.Unlock()
+	}()
 
-	return call.val, call.err
+	return waitForKeyedResourceCacheCall(ctx, call)
+}
+
+func waitForKeyedResourceCacheCall[V any](
+	ctx context.Context,
+	call *keyedResourceCacheCall[V],
+) (V, error) {
+	select {
+	case <-call.done:
+		return call.val, call.err
+	case <-ctx.Done():
+		var zero V
+		return zero, ctx.Err()
+	}
 }
 
 func (cache *keyedResourceCache[K, V]) entry(
