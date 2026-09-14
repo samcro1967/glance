@@ -156,57 +156,63 @@ type widgetNewTabSetter interface {
 }
 
 func resolveWidgetDefaultValues(widgetType string, defaults widgetDefaultsConfig) widgetDefaultValues {
-	resolved := defaults.Global
+	resolved := builtinWidgetDefaults[widgetType]
+	resolved = overlayWidgetDefaultValues(resolved, defaults.Global)
 
 	if typeDefaults, ok := defaults.Types[widgetType]; ok {
-		if typeDefaults.Title != nil {
-			resolved.Title = typeDefaults.Title
-		}
-		if typeDefaults.Icon != nil {
-			resolved.Icon = typeDefaults.Icon
-		}
-		if typeDefaults.TitleURL != nil {
-			resolved.TitleURL = typeDefaults.TitleURL
-		}
-		if typeDefaults.HideHeader != nil {
-			resolved.HideHeader = typeDefaults.HideHeader
-		}
-		if typeDefaults.CSSClass != nil {
-			resolved.CSSClass = typeDefaults.CSSClass
-		}
-		if typeDefaults.Cache != nil {
-			resolved.Cache = typeDefaults.Cache
-		}
-		if typeDefaults.NewTab != nil {
-			resolved.NewTab = typeDefaults.NewTab
-		}
-		if typeDefaults.Limit != nil {
-			resolved.Limit = typeDefaults.Limit
-		}
-		if typeDefaults.CollapseAfter != nil {
-			resolved.CollapseAfter = typeDefaults.CollapseAfter
-		}
-		if typeDefaults.CollapseAfterRows != nil {
-			resolved.CollapseAfterRows = typeDefaults.CollapseAfterRows
-		}
-		if typeDefaults.Timeout != nil {
-			resolved.Timeout = typeDefaults.Timeout
-		}
-		if typeDefaults.AllowInsecure != nil {
-			resolved.AllowInsecure = typeDefaults.AllowInsecure
-		}
-		if typeDefaults.Headers != nil {
-			resolved.Headers = mergeStringMaps(resolved.Headers, typeDefaults.Headers)
-		}
-		if typeDefaults.BasicAuth != nil {
-			resolved.BasicAuth = typeDefaults.BasicAuth
-		}
-		if typeDefaults.Proxy != nil {
-			resolved.Proxy = typeDefaults.Proxy
-		}
+		resolved = overlayWidgetDefaultValues(resolved, typeDefaults)
 	}
 
 	return resolved
+}
+
+func overlayWidgetDefaultValues(base, override widgetDefaultValues) widgetDefaultValues {
+	if override.Title != nil {
+		base.Title = override.Title
+	}
+	if override.Icon != nil {
+		base.Icon = override.Icon
+	}
+	if override.TitleURL != nil {
+		base.TitleURL = override.TitleURL
+	}
+	if override.HideHeader != nil {
+		base.HideHeader = override.HideHeader
+	}
+	if override.CSSClass != nil {
+		base.CSSClass = override.CSSClass
+	}
+	if override.Cache != nil {
+		base.Cache = override.Cache
+	}
+	if override.NewTab != nil {
+		base.NewTab = override.NewTab
+	}
+	if override.Limit != nil {
+		base.Limit = override.Limit
+	}
+	if override.CollapseAfter != nil {
+		base.CollapseAfter = override.CollapseAfter
+	}
+	if override.CollapseAfterRows != nil {
+		base.CollapseAfterRows = override.CollapseAfterRows
+	}
+	if override.Timeout != nil {
+		base.Timeout = override.Timeout
+	}
+	if override.AllowInsecure != nil {
+		base.AllowInsecure = override.AllowInsecure
+	}
+	if override.Headers != nil {
+		base.Headers = mergeStringMaps(base.Headers, override.Headers)
+	}
+	if override.BasicAuth != nil {
+		base.BasicAuth = override.BasicAuth
+	}
+	if override.Proxy != nil {
+		base.Proxy = override.Proxy
+	}
+	return base
 }
 
 func mergeStringMaps(base, override map[string]string) map[string]string {
