@@ -8,7 +8,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 )
 
 type rssResourceResponse struct {
@@ -100,12 +99,7 @@ func fetchRSSResource(ctx context.Context, request *http.Request, options rssRes
 }
 
 func fetchRSSResourceUncached(request *http.Request, options rssResourceRequestOptions) (rssResourceResponse, error) {
-	baseClient := ternary(options.AllowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
-	client := *baseClient
-
-	if options.Timeout > 0 {
-		client.Timeout = time.Duration(options.Timeout)
-	}
+	client := newHTTPClient(options.Timeout, options.AllowInsecure)
 
 	response, err := client.Do(request)
 	if err != nil {

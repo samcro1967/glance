@@ -469,12 +469,14 @@ func TestStatusBarTickerBrowserContract(t *testing.T) {
 		`cleanupCallbacks.push(() => resizeObserver.disconnect())`,
 		`statusBar.removeEventListener("pointerup", handlePointerUp)`,
 		`return cleanupCallbacks`,
-		`cleanupCallbacks.push(...setupStatusBarTickers(widgetElement))`,
+		`...runStage("status_bar_tickers", () => setupStatusBarTickers(root))`,
+		`async function initializeContentRoot(root, diagnostics = false)`,
+		`const cleanupCallbacks = await initializeContentRoot(widgetElement)`,
 		`event.pointerType !== "mouse"`,
 		`event.target.closest("a")`,
 		`link.blur()`,
 		`"status_bar_tickers"`,
-		`() => setupStatusBarTickers()`,
+		`await initializeContentRoot(document, true)`,
 	}
 
 	for _, fragment := range required {
