@@ -1419,7 +1419,7 @@ ship-nonruntime:
 	fi; \
 	$(MAKE) sync-finish PR="$$sync_pr" SKIP_IMAGE_WATCH=1; \
 	echo; \
-	echo "=== FINAL DOCUMENTATION WORKFLOW VERIFICATION ==="; \
+	echo "=== FINAL NON-RUNTIME WORKFLOW VERIFICATION ==="; \
 	git fetch origin --prune; \
 	current="$$(git branch --show-current)"; \
 	if [ "$$current" != "$(DEV_BRANCH)" ]; then \
@@ -1451,7 +1451,7 @@ ship-nonruntime:
 	echo "Formal release:        not created"; \
 	echo "Production deployment: not performed"; \
 	echo; \
-	echo "=== SHIP DOCS COMPLETE ==="
+	echo "=== SHIP NON-RUNTIME COMPLETE ==="
 
 release-finish:
 	@set -euo pipefail; \
