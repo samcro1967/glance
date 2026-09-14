@@ -1849,6 +1849,72 @@ func TestEveryRegisteredWidgetSupportsCommonCapabilities(t *testing.T) {
 	}
 }
 
+func TestBuiltinWidgetDefaultsResolutionPrecedence(t *testing.T) {
+	globalCache := durationField(4 * time.Hour)
+	typeCache := durationField(3 * time.Hour)
+	globalCollapse := 8
+	typeCollapse := 6
+
+	resolved := resolveWidgetDefaultValues("rss", widgetDefaultsConfig{})
+	if resolved.Cache == nil || time.Duration(*resolved.Cache) != 2*time.Hour {
+		t.Fatalf("built-in RSS cache = %v, want 2h", resolved.Cache)
+	}
+	if resolved.CollapseAfter == nil || *resolved.CollapseAfter != 5 {
+		t.Fatalf("built-in RSS collapse-after = %v, want 5", resolved.CollapseAfter)
+	}
+	if resolved.Limit == nil || *resolved.Limit != 25 {
+		t.Fatalf("built-in RSS limit = %v, want 25", resolved.Limit)
+	}
+
+	resolved = resolveWidgetDefaultValues("rss", widgetDefaultsConfig{
+		Global: widgetDefaultValues{
+			Cache:         &globalCache,
+			CollapseAfter: &globalCollapse,
+		},
+		Types: map[string]widgetDefaultValues{
+			"rss": {
+				Cache:         &typeCache,
+				CollapseAfter: &typeCollapse,
+			},
+		},
+	})
+	if resolved.Cache == nil || time.Duration(*resolved.Cache) != 3*time.Hour {
+		t.Fatalf("type RSS cache = %v, want 3h", resolved.Cache)
+	}
+	if resolved.CollapseAfter == nil || *resolved.CollapseAfter != 6 {
+		t.Fatalf("type RSS collapse-after = %v, want 6", resolved.CollapseAfter)
+	}
+}
+
+func TestBuiltinWidgetDefaultsApplyWithoutUserDefaults(t *testing.T) {
+	config, err := newConfigFromYAML([]byte(`
+pages:
+  - name: Test
+    columns:
+      - size: full
+        widgets:
+          - type: rss
+            feeds:
+              - url: https://example.com/feed.xml
+          - type: videos
+            channels:
+              - existing-channel
+`))
+	if err != nil {
+		t.Fatalf("newConfigFromYAML: %v", err)
+	}
+
+	rss := config.Pages[0].Columns[0].Widgets[0].(*rssWidget)
+	if rss.cacheDuration != 2*time.Hour || rss.CollapseAfter != 5 {
+		t.Fatalf("RSS built-ins = cache %v collapse %d, want 2h/5", rss.cacheDuration, rss.CollapseAfter)
+	}
+
+	videos := config.Pages[0].Columns[0].Widgets[1].(*videosWidget)
+	if videos.cacheDuration != time.Hour || videos.CollapseAfter != 7 || videos.CollapseAfterRows != 4 {
+		t.Fatalf("Videos built-ins = cache %v collapse %d rows %d, want 1h/7/4", videos.cacheDuration, videos.CollapseAfter, videos.CollapseAfterRows)
+	}
+}
+
 func TestConfigWithoutWidgetDefaultsPreservesExistingWidgetConfiguration(t *testing.T) {
 	config, err := newConfigFromYAML([]byte(`
 pages:

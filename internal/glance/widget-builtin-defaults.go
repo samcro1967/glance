@@ -2,12 +2,12 @@ package glance
 
 import "time"
 
-// builtinWidgetDefaults catalogs user-observable built-in defaults that are
-// candidates for centralized resolution. Existing initialize methods remain
-// the runtime authority until each default is migrated here with regression
-// coverage.
+// builtinWidgetDefaults is the lowest-precedence source for centralized
+// user-observable widget defaults. User-configured global defaults, type
+// defaults, and explicit widget configuration override these values.
 var builtinWidgetDefaults = map[string]widgetDefaultValues{
 	"change-detection": {
+		Limit:         intDefault(10),
 		CollapseAfter: intDefault(5),
 		Cache:         durationDefault(time.Hour),
 	},
@@ -24,14 +24,17 @@ var builtinWidgetDefaults = map[string]widgetDefaultValues{
 		Cache: durationDefault(30 * time.Minute),
 	},
 	"hacker-news": {
+		Limit:         intDefault(15),
 		CollapseAfter: intDefault(5),
 		Cache:         durationDefault(30 * time.Minute),
 	},
 	"ics-events": {
+		Limit:         intDefault(25),
 		CollapseAfter: intDefault(5),
 		Cache:         durationDefault(30 * time.Minute),
 	},
 	"lobsters": {
+		Limit:         intDefault(15),
 		CollapseAfter: intDefault(5),
 		Cache:         durationDefault(time.Hour),
 	},
@@ -43,10 +46,12 @@ var builtinWidgetDefaults = map[string]widgetDefaultValues{
 		Timeout: durationDefault(3 * time.Second),
 	},
 	"reddit": {
+		Limit:         intDefault(15),
 		CollapseAfter: intDefault(5),
 		Cache:         durationDefault(30 * time.Minute),
 	},
 	"releases": {
+		Limit:         intDefault(10),
 		CollapseAfter: intDefault(5),
 		Cache:         durationDefault(2 * time.Hour),
 	},
@@ -54,6 +59,7 @@ var builtinWidgetDefaults = map[string]widgetDefaultValues{
 		Cache: durationDefault(time.Hour),
 	},
 	"rss": {
+		Limit:         intDefault(25),
 		CollapseAfter: intDefault(5),
 		Cache:         durationDefault(2 * time.Hour),
 	},
@@ -66,10 +72,12 @@ var builtinWidgetDefaults = map[string]widgetDefaultValues{
 		Cache:         durationDefault(10 * time.Minute),
 	},
 	"twitch-top-games": {
+		Limit:         intDefault(10),
 		CollapseAfter: intDefault(5),
 		Cache:         durationDefault(10 * time.Minute),
 	},
 	"videos": {
+		Limit:             intDefault(25),
 		CollapseAfter:     intDefault(7),
 		CollapseAfterRows: intDefault(4),
 		Cache:             durationDefault(time.Hour),

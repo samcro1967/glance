@@ -1148,24 +1148,62 @@ function cleanupLiveWidget(widgetElement) {
     liveWidgetCleanupCallbacks.delete(widgetElement);
 }
 
-async function initializeLiveWidget(widgetElement) {
+async function initializeContentRoot(root, diagnostics = false) {
     const cleanupCallbacks = [];
 
-    cleanupCallbacks.push(...setupPresentation(widgetElement));
-    cleanupCallbacks.push(...setupCarousels(widgetElement));
-    cleanupCallbacks.push(...setupCollapsibleGrids(widgetElement));
-    cleanupCallbacks.push(...setupMasonries(widgetElement));
-    cleanupCallbacks.push(...await setupCalendars(widgetElement));
-    cleanupCallbacks.push(...setupStatusBarTickers(widgetElement));
+    const runStage = (name, callback) => {
+        if (diagnostics) {
+            return runFrontendDiagnosticStage(name, callback);
+        }
 
-    setupPopovers(widgetElement);
-    setupCollapsibleLists(widgetElement);
-    setupLazyImages(widgetElement);
-    setupTruncatedElementTitles(widgetElement);
+        return callback();
+    };
+
+    const runAsyncStage = async (name, callback) => {
+        if (diagnostics) {
+            return runFrontendDiagnosticAsyncStage(name, callback);
+        }
+
+        return callback();
+    };
+
+    cleanupCallbacks.push(
+        ...runStage("presentation", () => setupPresentation(root))
+    );
+    runStage("popovers", () => setupPopovers(root));
+
+    cleanupCallbacks.push(
+        ...await runAsyncStage("calendars", () => setupCalendars(root))
+    );
+    cleanupCallbacks.push(
+        ...runStage("carousels", () => setupCarousels(root))
+    );
+    cleanupCallbacks.push(
+        ...runStage("status_bar_tickers", () => setupStatusBarTickers(root))
+    );
+
+    runStage("collapsible_lists", () => setupCollapsibleLists(root));
+
+    cleanupCallbacks.push(
+        ...runStage("collapsible_grids", () => setupCollapsibleGrids(root))
+    );
+    cleanupCallbacks.push(
+        ...runStage("masonries", () => setupMasonries(root))
+    );
+
+    runStage("lazy_images", () => setupLazyImages(root));
 
     updateRelativeTimeForElements(
-        widgetElement.querySelectorAll("[data-dynamic-relative-time]")
+        root.querySelectorAll("[data-dynamic-relative-time]")
     );
+
+    return cleanupCallbacks;
+}
+
+async function initializeLiveWidget(widgetElement) {
+    const cleanupCallbacks = await initializeContentRoot(widgetElement);
+
+    setupTruncatedElementTitles(widgetElement);
 
     if (cleanupCallbacks.length > 0) {
         liveWidgetCleanupCallbacks.set(widgetElement, cleanupCallbacks);
@@ -1528,15 +1566,11 @@ async function setupPage() {
     });
 
     try {
-        runFrontendDiagnosticStage("presentation", () => setupPresentation());
-        runFrontendDiagnosticStage("popovers", () => setupPopovers());
+        await initializeContentRoot(document, true);
+
         runFrontendDiagnosticStage("clocks", () => setupClocks());
         runFrontendDiagnosticStage("footer_micro_clocks", () => setupFooterMicroClocks());
         runFrontendDiagnosticStage("analog_clocks", () => setupAnalogClocks());
-        await runFrontendDiagnosticAsyncStage(
-            "calendars",
-            () => setupCalendars()
-        );
         await runFrontendDiagnosticAsyncStage(
             "timers",
             () => setupTimers()
@@ -1553,27 +1587,12 @@ async function setupPage() {
             "calculators",
             () => setupCalculators()
         );
-        runFrontendDiagnosticStage("carousels", () => setupCarousels());
-        runFrontendDiagnosticStage(
-            "status_bar_tickers",
-            () => setupStatusBarTickers()
-        );
         runFrontendDiagnosticStage("search_boxes", () => setupSearchBoxes());
-        runFrontendDiagnosticStage(
-            "collapsible_lists",
-            () => setupCollapsibleLists()
-        );
-        runFrontendDiagnosticStage(
-            "collapsible_grids",
-            () => setupCollapsibleGrids()
-        );
         runFrontendDiagnosticStage("groups", () => setupGroups());
-        runFrontendDiagnosticStage("masonries", () => setupMasonries());
         runFrontendDiagnosticStage(
             "relative_time",
             () => setupDynamicRelativeTime()
         );
-        runFrontendDiagnosticStage("lazy_images", () => setupLazyImages());
         runFrontendDiagnosticStage(
             "live_updates",
             () => setupLiveWidgetUpdates()
