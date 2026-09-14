@@ -1993,7 +1993,7 @@ test-instance-start: test-instance-fixture-start
 		rm -f "$(TEST_PID_FILE)"; \
 	fi; \
 	echo "=== BUILD TEST BINARY ==="; \
-	go build -o "$(TEST_BINARY)" . || { \
+	go build -ldflags "-X github.com/samcro1967/glance/internal/glance.buildRevision=$$(git rev-parse HEAD)" -o "$(TEST_BINARY)" . || { \
 		$(MAKE) --no-print-directory test-instance-fixture-stop; \
 		exit 1; \
 	}; \
@@ -2120,7 +2120,7 @@ test-prod-start:
 		fi; \
 	fi; \
 	echo "=== BUILD CURRENT SOURCE TEST IMAGE ==="; \
-	docker build -t "$(TEST_PROD_IMAGE)" .; \
+	docker build --build-arg BUILD_REVISION="$$(git rev-parse HEAD)" -t "$(TEST_PROD_IMAGE)" .; \
 	image_id="$$(docker image inspect "$(TEST_PROD_IMAGE)" --format "{{.Id}}")"; \
 	echo "Image ID: $$image_id"; \
 	echo; \

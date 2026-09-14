@@ -290,6 +290,15 @@ async function main() {
           data: String(widgetID)
         });
       };
+
+      window.__glanceTestLiveUpdateError = () => {
+        const source = instances.at(-1);
+        if (!source) {
+          throw new Error('No EventSource is available for the live-update error regression');
+        }
+
+        source.dispatch('error', { type: 'error' });
+      };
     });
 
     await openPage(page, '/layout-composition', coveragePath);
@@ -354,6 +363,104 @@ async function main() {
     }
 
     console.log('PASS Status Bar repeated live replacement lifecycle');
+
+    let liveUpdateErrorCount = 0;
+
+    const captureLiveUpdateErrors = async route => {
+      const body = route.request().postData();
+
+      if (body) {
+        try {
+          const payload = JSON.parse(body);
+          liveUpdateErrorCount += (payload.events || [])
+            .filter(event => event.event === 'live_updates_error')
+            .length;
+        } catch {
+          // The server remains responsible for validating malformed diagnostics.
+        }
+      }
+
+      await route.continue();
+    };
+
+    await page.route('**/api/frontend-diagnostics', captureLiveUpdateErrors);
+
+    const genuineErrorResponse = page.waitForResponse(response => {
+      if (
+        response.request().method() !== 'POST' ||
+        new URL(response.url()).pathname !== '/api/frontend-diagnostics' ||
+        response.status() !== 204
+      ) {
+        return false;
+      }
+
+      const body = response.request().postData();
+      if (!body) return false;
+
+      try {
+        return JSON.parse(body).events?.some(
+          event => event.event === 'live_updates_error'
+        ) === true;
+      } catch {
+        return false;
+      }
+    });
+
+    await page.evaluate(() => {
+      window.__glanceTestLiveUpdateError();
+    });
+    await genuineErrorResponse;
+
+    if (liveUpdateErrorCount !== 1) {
+      throw new Error(
+        `Genuine live-update error diagnostic count is ${liveUpdateErrorCount}, expected 1`
+      );
+    }
+
+    await page.evaluate(() => {
+      window.dispatchEvent(new PageTransitionEvent('pagehide', {
+        persisted: true
+      }));
+      window.__glanceTestLiveUpdateError();
+    });
+
+    const flushBarrier = page.waitForResponse(response => {
+      if (
+        response.request().method() !== 'POST' ||
+        new URL(response.url()).pathname !== '/api/frontend-diagnostics' ||
+        response.status() !== 204
+      ) {
+        return false;
+      }
+
+      const body = response.request().postData();
+      if (!body) return false;
+
+      try {
+        return JSON.parse(body).events?.some(
+          event => event.event === 'page_show'
+        ) === true;
+      } catch {
+        return false;
+      }
+    });
+
+    await page.evaluate(() => {
+      window.dispatchEvent(new PageTransitionEvent('pageshow', {
+        persisted: false
+      }));
+    });
+    await flushBarrier;
+
+    if (liveUpdateErrorCount !== 1) {
+      throw new Error(
+        `Intentional live-update close produced an error diagnostic; count=${liveUpdateErrorCount}`
+      );
+    }
+
+    await page.unroute('**/api/frontend-diagnostics', captureLiveUpdateErrors);
+
+    console.log('PASS intentional live-update close does not report an error');
 
     const horizontalOverflow = await page.evaluate(() =>
       document.documentElement.scrollWidth - document.documentElement.clientWidth

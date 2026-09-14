@@ -9,6 +9,7 @@ import (
 	"math"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -38,6 +39,150 @@ type frontendDiagnosticEvent struct {
 	Length    *int               `json:"length,omitempty"`
 	State     *int               `json:"state,omitempty"`
 	Metrics   map[string]float64 `json:"metrics,omitempty"`
+}
+
+const frontendDiagnosticsRecentProblemLimit = 20
+
+type frontendRuntimeDiagnosticProblem struct {
+	RecordedAt time.Time
+	Event      frontendDiagnosticEvent
+}
+
+type frontendRuntimeDiagnosticsSnapshot struct {
+	TotalEvents        uint64
+	TotalProblemEvents uint64
+	LastEventAt        time.Time
+	LastPage           string
+	LastSession        string
+	ProblemCounts      map[string]uint64
+	RecentProblems     []frontendRuntimeDiagnosticProblem
+}
+
+type frontendRuntimeDiagnostics struct {
+	mu                 sync.RWMutex
+	totalEvents        uint64
+	totalProblemEvents uint64
+	lastEventAt        time.Time
+	lastPage           string
+	lastSession        string
+	problemCounts      map[string]uint64
+	recentProblems     []frontendRuntimeDiagnosticProblem
+}
+
+func newFrontendRuntimeDiagnostics() *frontendRuntimeDiagnostics {
+	return &frontendRuntimeDiagnostics{
+		problemCounts: make(map[string]uint64),
+	}
+}
+
+func frontendDiagnosticIsProblem(event string) bool {
+	switch event {
+	case "window_error",
+		"unhandled_rejection",
+		"page_content_load_error",
+		"widget_replacement_invalid",
+		"widget_current_missing",
+		"live_update_invalid",
+		"diagnostic_command_unsupported",
+		"long_task_capture_unsupported":
+		return true
+	}
+
+	return strings.HasSuffix(event, "_error")
+}
+
+func cloneFrontendDiagnosticEvent(event frontendDiagnosticEvent) frontendDiagnosticEvent {
+	cloned := event
+
+	if event.Metrics != nil {
+		cloned.Metrics = make(map[string]float64, len(event.Metrics))
+		for name, value := range event.Metrics {
+			cloned.Metrics[name] = value
+		}
+	}
+
+	return cloned
+}
+
+func (d *frontendRuntimeDiagnostics) record(events []frontendDiagnosticEvent) {
+	if d == nil || len(events) == 0 {
+		return
+	}
+
+	now := time.Now()
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if d.problemCounts == nil {
+		d.problemCounts = make(map[string]uint64)
+	}
+
+	for _, event := range events {
+		d.totalEvents++
+		d.lastEventAt = now
+
+		if event.Page != "" {
+			d.lastPage = event.Page
+		}
+		if event.Session != "" {
+			d.lastSession = event.Session
+		}
+
+		if !frontendDiagnosticIsProblem(event.Event) {
+			continue
+		}
+
+		d.totalProblemEvents++
+		d.problemCounts[event.Event]++
+
+		d.recentProblems = append(
+			d.recentProblems,
+			frontendRuntimeDiagnosticProblem{
+				RecordedAt: now,
+				Event:      cloneFrontendDiagnosticEvent(event),
+			},
+		)
+
+		if len(d.recentProblems) > frontendDiagnosticsRecentProblemLimit {
+			d.recentProblems = append(
+				[]frontendRuntimeDiagnosticProblem(nil),
+				d.recentProblems[len(d.recentProblems)-frontendDiagnosticsRecentProblemLimit:]...,
+			)
+		}
+	}
+}
+
+func (d *frontendRuntimeDiagnostics) snapshot() frontendRuntimeDiagnosticsSnapshot {
+	if d == nil {
+		return frontendRuntimeDiagnosticsSnapshot{}
+	}
+
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	snapshot := frontendRuntimeDiagnosticsSnapshot{
+		TotalEvents:        d.totalEvents,
+		TotalProblemEvents: d.totalProblemEvents,
+		LastEventAt:        d.lastEventAt,
+		LastPage:           d.lastPage,
+		LastSession:        d.lastSession,
+		ProblemCounts:      make(map[string]uint64, len(d.problemCounts)),
+		RecentProblems:     make([]frontendRuntimeDiagnosticProblem, len(d.recentProblems)),
+	}
+
+	for name, count := range d.problemCounts {
+		snapshot.ProblemCounts[name] = count
+	}
+
+	for i, problem := range d.recentProblems {
+		snapshot.RecentProblems[i] = frontendRuntimeDiagnosticProblem{
+			RecordedAt: problem.RecordedAt,
+			Event:      cloneFrontendDiagnosticEvent(problem.Event),
+		}
+	}
+
+	return snapshot
 }
 
 func (a *application) handleFrontendPerformanceSnapshotRequest(
@@ -156,6 +301,10 @@ func (a *application) handleFrontendDiagnosticsRequest(w http.ResponseWriter, r 
 			http.Error(w, "Invalid diagnostic event", http.StatusBadRequest)
 			return
 		}
+	}
+
+	if a.frontendDiagnostics != nil {
+		a.frontendDiagnostics.record(batch.Events)
 	}
 
 	for _, event := range batch.Events {
