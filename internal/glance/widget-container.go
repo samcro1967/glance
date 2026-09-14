@@ -2,7 +2,6 @@ package glance
 
 import (
 	"context"
-	"sync"
 	"time"
 )
 
@@ -28,21 +27,16 @@ func (widget *containerWidgetBase) _initializeWidgets() error {
 	return nil
 }
 
-func (widget *containerWidgetBase) _update(ctx context.Context) {
-	var wg sync.WaitGroup
+func (container *containerWidgetBase) _update(ctx context.Context) {
 	now := time.Now()
-
-	for w := range widget.Widgets {
-		widget := widget.Widgets[w]
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			refreshWidgetIfNeeded(ctx, widget, &now)
-		}()
+	task := func(child widget) (struct{}, error) {
+		refreshWidgetIfNeeded(ctx, child, &now)
+		return struct{}{}, nil
 	}
 
-	wg.Wait()
+	_, _, _ = workerPoolDo(
+		newJob(task, []widget(container.Widgets)).withWorkers(widgetNestedConcurrency).withContext(ctx),
+	)
 }
 
 func (widget *containerWidgetBase) _setProviders(providers *widgetProviders) {

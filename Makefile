@@ -6,7 +6,7 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps build goreleaser-check frontend-audit frontend-check validate validate-all test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch park push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-nonruntime deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final lint lighthouse
+.PHONY: help deps build goreleaser-check frontend-audit frontend-check validate validate-all test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln image-vuln status staged-diff upstream-status upstream-dev-status branch park push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-nonruntime deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final lint lighthouse
 
 COUNT ?= 10
 COVERAGE_FILE ?= coverage.out
@@ -63,6 +63,8 @@ FORK_RELEASE_WIDTH ?= 3
 GORELEASER_VERSION ?= v2.18.1
 GOLANGCI_LINT_VERSION ?= v2.13.2
 LIGHTHOUSE_VERSION ?= 13.4.1
+GRYPE ?= grype
+GRYPE_FALLBACK ?= $(HOME)/Documents/Docker/grype/grype
 
 DEPLOY_IMAGE ?= ghcr.io/samcro1967/glance:latest
 DEPLOY_DEV_IMAGE ?= ghcr.io/samcro1967/glance:dev
@@ -172,6 +174,7 @@ help:
 	@echo "  make test-race-count COUNT=10 Repeated race tests"
 	@echo "  make coverage                 Generate test coverage"
 	@echo "  make vuln                     Go vulnerability analysis"
+	@echo "  make image-vuln IMAGE=image   Show fixable container vulnerabilities; informational only"
 	@echo "  make fmt-check                Verify changed Go files are formatted"
 	@echo "  make diff-check               Working-tree whitespace validation"
 	@echo "  make staged-check             Staged whitespace validation"
@@ -292,6 +295,9 @@ coverage:
 
 vuln:
 	govulncheck ./...
+
+image-vuln:
+	@image="$(IMAGE)"; grype="$(GRYPE)"; if [ -z "$$image" ]; then echo "IMAGE is required. Example: make image-vuln IMAGE=$(DEPLOY_DEV_IMAGE)"; exit 2; fi; if ! command -v "$$grype" >/dev/null 2>&1; then if [ -x "$(GRYPE_FALLBACK)" ]; then grype="$(GRYPE_FALLBACK)"; else echo "WARNING: CONTAINER VULNERABILITY SCAN UNAVAILABLE"; echo "Image: $$image"; echo "Grype executable was not found. Pipeline will continue without container vulnerability visibility."; exit 0; fi; fi; echo "=== CONTAINER VULNERABILITY SCAN ==="; echo "Image: $$image"; "$$grype" version || true; echo; if ! "$$grype" "$$image" --only-fixed; then echo; echo "WARNING: CONTAINER VULNERABILITY SCAN FAILED"; echo "Image: $$image"; echo "Security visibility is unavailable for this artifact. Pipeline will continue."; fi; echo; echo "Container vulnerability findings are informational. Pipeline will continue."
 
 status:
 	@echo "=== BRANCH ==="
@@ -844,6 +850,7 @@ pr-finish:
 		echo "Skipping development image verification for guarded non-runtime workflow."; \
 	else \
 		$(MAKE) image-watch; \
+		$(MAKE) image-vuln IMAGE="$(DEPLOY_DEV_IMAGE)"; \
 	fi; \
 	$(MAKE) status
 
@@ -1463,6 +1470,7 @@ release-finish:
 	@echo "=== FORMAL RELEASE PIPELINE ==="
 	@$(MAKE) release
 	@$(MAKE) release-watch
+	@release_tag="$$(git tag --points-at HEAD --list 'v*-$(FORK_RELEASE_ID).r*' --sort=-version:refname | head -1)"; $(MAKE) image-vuln IMAGE="ghcr.io/$(REPO):$$release_tag"
 	@$(MAKE) release-status
 	@$(MAKE) deploy-status
 	@echo

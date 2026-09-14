@@ -609,27 +609,26 @@ func fetchICSResources(ctx context.Context, sources []icsEventSource, cache *ics
 		err    error
 	}
 
-	results := make([]result, len(sources))
-	var wg sync.WaitGroup
+	task := func(source icsEventSource) (result, error) {
+		body, err := fetchICSSource(ctx, source, cache)
+		if err != nil {
+			return result{err: err}, nil
+		}
 
-	for i := range sources {
-		wg.Add(1)
-
-		go func(index int) {
-			defer wg.Done()
-
-			body, err := fetchICSSource(ctx, sources[index], cache)
-			if err != nil {
-				results[index].err = err
-				return
-			}
-
-			events, err := parseICSResource(body, sources[index], windowStart, windowEnd)
-			results[index] = result{events: events, err: err}
-		}(i)
+		events, err := parseICSResource(body, source, windowStart, windowEnd)
+		return result{events: events, err: err}, nil
 	}
 
-	wg.Wait()
+	results, _, poolErr := workerPoolDo(
+		newJob(task, sources).withWorkers(widgetNestedConcurrency).withContext(ctx),
+	)
+	if poolErr != nil {
+		for i := range results {
+			if results[i].err == nil && results[i].events == nil {
+				results[i].err = poolErr
+			}
+		}
+	}
 
 	var events []icsEvent
 	failed := 0

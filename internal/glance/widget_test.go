@@ -8,6 +8,7 @@ import (
 	"html/template"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -59,36 +60,27 @@ func (widget *refreshTestWidget) Render() template.HTML {
 	return ""
 }
 
-func TestPageUpdateOutdatedWidgetsPropagatesCancellation(t *testing.T) {
+func TestPageContentRequestDoesNotRefreshWidgets(t *testing.T) {
 	testWidget := newRefreshTestWidget()
-	page := &page{
+	testPage := &page{
+		Slug:        "home",
 		HeadWidgets: []widget{testWidget},
 	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		page.updateOutdatedWidgets(ctx)
-	}()
-
-	select {
-	case <-testWidget.updateStart:
-	case <-time.After(time.Second):
-		t.Fatal("widget refresh did not start")
+	app := &application{
+		slugToPage: map[string]*page{"home": testPage},
 	}
 
-	cancel()
+	request := httptest.NewRequest(http.MethodGet, "/api/pages/home/content/", nil)
+	request.SetPathValue("page", "home")
+	response := httptest.NewRecorder()
 
-	select {
-	case <-done:
-	case <-time.After(time.Second):
-		t.Fatal("page refresh did not stop after context cancellation")
+	app.handlePageContentRequest(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
 	}
-
-	if got := testWidget.updateCount.Load(); got != 1 {
-		t.Fatalf("update count = %d, want 1", got)
+	if got := testWidget.updateCount.Load(); got != 0 {
+		t.Fatalf("update count = %d, want 0; page-content requests must not own widget refreshes", got)
 	}
 }
 
