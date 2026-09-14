@@ -1,8 +1,10 @@
 package glance
 
 import (
+	"bytes"
 	"context"
 	"html/template"
+	"log/slog"
 	"os"
 	"strings"
 	"sync/atomic"
@@ -448,6 +450,59 @@ func TestRefreshTelemetryRecordsBusySkip(t *testing.T) {
 	if testWidget.refreshAttempts != 0 {
 		t.Fatalf("refresh attempts = %d, want 0", testWidget.refreshAttempts)
 	}
+}
+
+func TestWidgetSchedulerAnomaliesLogTransitionsWithoutNoise(t *testing.T) {
+	var logOutput bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logOutput, nil)))
+	defer slog.SetDefault(previousLogger)
+
+	testWidget := newRefreshTestWidget()
+	testWidget.setID(42)
+	testWidget.Type = "scheduler-test"
+	states := make(map[uint64]*widgetSchedulerAnomalyState)
+	scanInterval := time.Second
+
+	testWidget.refreshTelemetryMu.Lock()
+	testWidget.lastSchedulerLag = 3 * time.Second
+	testWidget.refreshTelemetryMu.Unlock()
+	evaluateWidgetSchedulerAnomalies([]widget{testWidget}, scanInterval, states)
+	evaluateWidgetSchedulerAnomalies([]widget{testWidget}, scanInterval, states)
+
+	if got := strings.Count(logOutput.String(), "Widget refresh scheduler lag detected"); got != 1 {
+		t.Fatalf("lag warnings = %d, want 1; logs=%q", got, logOutput.String())
+	}
+
+	testWidget.refreshTelemetryMu.Lock()
+	testWidget.lastSchedulerLag = 0
+	testWidget.refreshTelemetryMu.Unlock()
+	evaluateWidgetSchedulerAnomalies([]widget{testWidget}, scanInterval, states)
+
+	if got := strings.Count(logOutput.String(), "Widget refresh scheduler lag recovered"); got != 1 {
+		t.Fatalf("lag recoveries = %d, want 1; logs=%q", got, logOutput.String())
+	}
+
+	for scan := 1; scan <= widgetLockSkipThreshold; scan++ {
+		testWidget.refreshTelemetryMu.Lock()
+		testWidget.refreshLockSkips++
+		testWidget.refreshTelemetryMu.Unlock()
+		evaluateWidgetSchedulerAnomalies([]widget{testWidget}, scanInterval, states)
+
+		if scan < widgetLockSkipThreshold && strings.Contains(logOutput.String(), "contention detected") {
+			t.Fatalf("contention warning emitted after %d skipped scans; logs=%q", scan, logOutput.String())
+		}
+	}
+
+	if got := strings.Count(logOutput.String(), "Widget refresh scheduler contention detected"); got != 1 {
+		t.Fatalf("contention warnings = %d, want 1; logs=%q", got, logOutput.String())
+	}
+
+	evaluateWidgetSchedulerAnomalies([]widget{testWidget}, scanInterval, states)
+	if got := strings.Count(logOutput.String(), "Widget refresh scheduler contention recovered"); got != 1 {
+		t.Fatalf("contention recoveries = %d, want 1; logs=%q", got, logOutput.String())
+	}
+
 }
 
 func TestWidgetNestedConcurrencyMatchesRefreshConcurrency(t *testing.T) {
