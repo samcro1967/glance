@@ -409,38 +409,30 @@ func newConfigFromParsedYAML(parsed *parsedYAMLConfig) (*config, error) {
 
 		for w := range config.Pages[p].HeadWidgets {
 			candidate := config.Pages[p].HeadWidgets[w]
-			defaultsSummary, defaultsErr := applyWidgetDefaultsTree(candidate, config.WidgetDefaults)
-			if defaultsErr != nil {
-				return nil, defaultsErr
+			defaultsSummary, err := initializeConfiguredWidget(
+				candidate,
+				config.WidgetDefaults,
+				parsed,
+				widgetSourceAt(pageSource.headWidgets, w),
+			)
+			if err != nil {
+				return nil, err
 			}
 			defaultsLogSummary.add(defaultsSummary)
-			if err := candidate.initialize(); err != nil {
-				formatted := formatWidgetInitError(err, candidate)
-				return nil, widgetInitializationDiagnostic(
-					parsed,
-					formatted,
-					candidate,
-					widgetSourceAt(pageSource.headWidgets, w),
-				)
-			}
 		}
 
 		for w := range config.Pages[p].BottomWidgets {
 			candidate := config.Pages[p].BottomWidgets[w]
-			defaultsSummary, defaultsErr := applyWidgetDefaultsTree(candidate, config.WidgetDefaults)
-			if defaultsErr != nil {
-				return nil, defaultsErr
+			defaultsSummary, err := initializeConfiguredWidget(
+				candidate,
+				config.WidgetDefaults,
+				parsed,
+				widgetSourceAt(pageSource.bottomWidgets, w),
+			)
+			if err != nil {
+				return nil, err
 			}
 			defaultsLogSummary.add(defaultsSummary)
-			if err := candidate.initialize(); err != nil {
-				formatted := formatWidgetInitError(err, candidate)
-				return nil, widgetInitializationDiagnostic(
-					parsed,
-					formatted,
-					candidate,
-					widgetSourceAt(pageSource.bottomWidgets, w),
-				)
-			}
 		}
 
 		for c := range config.Pages[p].Columns {
@@ -451,20 +443,16 @@ func newConfigFromParsedYAML(parsed *parsedYAMLConfig) (*config, error) {
 
 			for w := range config.Pages[p].Columns[c].Widgets {
 				candidate := config.Pages[p].Columns[c].Widgets[w]
-				defaultsSummary, defaultsErr := applyWidgetDefaultsTree(candidate, config.WidgetDefaults)
-				if defaultsErr != nil {
-					return nil, defaultsErr
+				defaultsSummary, err := initializeConfiguredWidget(
+					candidate,
+					config.WidgetDefaults,
+					parsed,
+					widgetSourceAt(columnSource.widgets, w),
+				)
+				if err != nil {
+					return nil, err
 				}
 				defaultsLogSummary.add(defaultsSummary)
-				if err := candidate.initialize(); err != nil {
-					formatted := formatWidgetInitError(err, candidate)
-					return nil, widgetInitializationDiagnostic(
-						parsed,
-						formatted,
-						candidate,
-						widgetSourceAt(columnSource.widgets, w),
-					)
-				}
 			}
 		}
 	}
@@ -697,6 +685,30 @@ func findWidgetSemanticSource(
 	}
 
 	return configWidgetSemanticSources{}, false
+}
+
+func initializeConfiguredWidget(
+	candidate widget,
+	defaults widgetDefaultsConfig,
+	parsed *parsedYAMLConfig,
+	source configWidgetSemanticSources,
+) (widgetDefaultsLogSummary, error) {
+	defaultsSummary, err := applyWidgetDefaultsTree(candidate, defaults)
+	if err != nil {
+		return widgetDefaultsLogSummary{}, err
+	}
+
+	if err := candidate.initialize(); err != nil {
+		formatted := formatWidgetInitError(err, candidate)
+		return widgetDefaultsLogSummary{}, widgetInitializationDiagnostic(
+			parsed,
+			formatted,
+			candidate,
+			source,
+		)
+	}
+
+	return defaultsSummary, nil
 }
 
 func widgetInitializationDiagnostic(
