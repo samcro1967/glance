@@ -612,46 +612,45 @@ func fetchAndRenderCustomAPIRequest(
 		requestCtx, cancel := context.WithCancel(ctx)
 		defer cancel()
 
-		var wg sync.WaitGroup
-		var mu sync.Mutex // protects subData and err
-
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-
-			var localErr error
-			primaryData, localErr = fetchCustomAPIResponse(requestCtx, primaryReq)
-
-			mu.Lock()
-			if localErr != nil && err == nil {
-				err = localErr
-				cancel()
-			}
-			mu.Unlock()
-		}()
-
-		for key, req := range subReqs {
-			wg.Add(1)
-
-			go func() {
-				defer wg.Done()
-
-				var localErr error
-				var data *customAPIResponseData
-				data, localErr = fetchCustomAPIResponse(requestCtx, req)
-
-				mu.Lock()
-				if localErr == nil {
-					subData[key] = data
-				} else if err == nil {
-					err = localErr
-					cancel()
-				}
-				mu.Unlock()
-			}()
+		type requestTask struct {
+			key     string
+			request *CustomAPIRequest
+			primary bool
 		}
 
-		wg.Wait()
+		tasks := make([]requestTask, 0, len(subReqs)+1)
+		tasks = append(tasks, requestTask{request: primaryReq, primary: true})
+		for key, req := range subReqs {
+			tasks = append(tasks, requestTask{key: key, request: req})
+		}
+
+		task := func(item requestTask) (*customAPIResponseData, error) {
+			data, fetchErr := fetchCustomAPIResponse(requestCtx, item.request)
+			if fetchErr != nil {
+				cancel()
+			}
+			return data, fetchErr
+		}
+
+		results, errs, poolErr := workerPoolDo(
+			newJob(task, tasks).withWorkers(widgetNestedConcurrency).withContext(requestCtx),
+		)
+		for i := range tasks {
+			if errs[i] != nil && err == nil {
+				err = errs[i]
+			}
+			if errs[i] != nil || results[i] == nil {
+				continue
+			}
+			if tasks[i].primary {
+				primaryData = results[i]
+			} else {
+				subData[tasks[i].key] = results[i]
+			}
+		}
+		if err == nil && poolErr != nil {
+			err = poolErr
+		}
 	}
 
 	emptyBody := template.HTML("")

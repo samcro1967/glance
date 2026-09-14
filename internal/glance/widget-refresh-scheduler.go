@@ -10,6 +10,7 @@ import (
 const (
 	widgetRefreshScanInterval = 30 * time.Second
 	widgetRefreshConcurrency  = 8
+	widgetNestedConcurrency   = 8
 )
 
 func refreshDueWidgetIfAvailable(

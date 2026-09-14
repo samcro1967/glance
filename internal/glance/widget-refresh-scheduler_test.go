@@ -3,6 +3,8 @@ package glance
 import (
 	"context"
 	"html/template"
+	"os"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -445,5 +447,35 @@ func TestRefreshTelemetryRecordsBusySkip(t *testing.T) {
 	}
 	if testWidget.refreshAttempts != 0 {
 		t.Fatalf("refresh attempts = %d, want 0", testWidget.refreshAttempts)
+	}
+}
+
+func TestWidgetNestedConcurrencyMatchesRefreshConcurrency(t *testing.T) {
+	if widgetNestedConcurrency != widgetRefreshConcurrency {
+		t.Fatalf("widgetNestedConcurrency = %d, want %d", widgetNestedConcurrency, widgetRefreshConcurrency)
+	}
+}
+
+func TestBoundedWidgetFanoutUsesSharedPolicy(t *testing.T) {
+	tests := []struct {
+		path string
+	}{
+		{path: "widget-container.go"},
+		{path: "ics-resource.go"},
+		{path: "widget-custom-api.go"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.path, func(t *testing.T) {
+			contents, err := os.ReadFile(test.path)
+			if err != nil {
+				t.Fatalf("read %s: %v", test.path, err)
+			}
+
+			text := string(contents)
+			if !strings.Contains(text, ".withWorkers(widgetNestedConcurrency)") {
+				t.Fatalf("%s does not use the shared nested widget concurrency policy", test.path)
+			}
+		})
 	}
 }
