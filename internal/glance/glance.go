@@ -2,13 +2,11 @@ package glance
 
 import (
 	"bytes"
-	"context"
 	"encoding/base64"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/pprof"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -509,52 +507,6 @@ func newApplication(c *config) (*application, error) {
 	return app, nil
 }
 
-func (p *page) updateOutdatedWidgets(ctx context.Context) {
-	now := time.Now()
-
-	var wg sync.WaitGroup
-
-	refreshWidget := func(widget widget) {
-		defer wg.Done()
-		refreshWidgetIfNeeded(ctx, widget, &now)
-	}
-
-	for w := range p.HeadWidgets {
-		wg.Add(1)
-		go refreshWidget(p.HeadWidgets[w])
-	}
-
-	for c := range p.Columns {
-		for w := range p.Columns[c].Widgets {
-			wg.Add(1)
-			go refreshWidget(p.Columns[c].Widgets[w])
-		}
-	}
-
-	for w := range p.BottomWidgets {
-		wg.Add(1)
-		go refreshWidget(p.BottomWidgets[w])
-	}
-
-	wg.Wait()
-}
-
-func (footer *footerMicroWidgets) updateOutdatedWidgets(ctx context.Context) {
-	now := time.Now()
-	widgets := footer.dynamicWidgets()
-
-	var wg sync.WaitGroup
-	for _, candidate := range widgets {
-		wg.Add(1)
-		go func(candidate widget) {
-			defer wg.Done()
-			refreshWidgetIfNeeded(ctx, candidate, &now)
-		}(candidate)
-	}
-
-	wg.Wait()
-}
-
 func (a *application) resolveUserDefinedAssetPath(path string) string {
 	if strings.HasPrefix(path, "/assets/") {
 		return a.Config.Server.BaseURL + path
@@ -778,9 +730,6 @@ func (a *application) handlePageContentRequest(w http.ResponseWriter, r *http.Re
 
 	var err error
 	var responseBytes bytes.Buffer
-
-	page.updateOutdatedWidgets(r.Context())
-	a.Config.FooterMicroWidgets.updateOutdatedWidgets(r.Context())
 
 	func() {
 		page.mu.Lock()
@@ -1007,121 +956,4 @@ func frontendDiagnosticProfileHandler() http.Handler {
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 
 	return mux
-}
-
-func (a *application) server() (func() error, func() error) {
-	var absAssetsPath string
-	if a.Config.Server.AssetsPath != "" {
-		absAssetsPath, _ = filepath.Abs(a.Config.Server.AssetsPath)
-	}
-
-	server := http.Server{
-		Addr:              fmt.Sprintf("%s:%d", a.Config.Server.Host, a.Config.Server.Port),
-		Handler:           a.router(),
-		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       10 * time.Second,
-	}
-
-	var profileServer *http.Server
-	var profileWG sync.WaitGroup
-
-	if a.Config.Server.FrontendDiagnostics {
-		profileServer = &http.Server{
-			Addr:              "127.0.0.1:6060",
-			Handler:           frontendDiagnosticProfileHandler(),
-			ReadHeaderTimeout: 5 * time.Second,
-		}
-	}
-
-	schedulerCtx, stopScheduler := context.WithCancel(context.Background())
-	var schedulerWG sync.WaitGroup
-
-	start := func() error {
-		if profileServer != nil {
-			profileWG.Add(1)
-			go func() {
-				defer profileWG.Done()
-
-				slog.Info("Performance profiling server starting", "address", profileServer.Addr)
-
-				if err := profileServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-					slog.Error("Performance profiling server stopped unexpectedly", "error", err)
-				}
-			}()
-		}
-
-		slog.Info(
-			"Server starting",
-			"host", a.Config.Server.Host,
-			"port", a.Config.Server.Port,
-			"base_url", a.Config.Server.BaseURL,
-			"assets_path", absAssetsPath,
-		)
-
-		schedulerWG.Add(1)
-		go func() {
-			defer schedulerWG.Done()
-
-			runWidgetRefreshScheduler(
-				schedulerCtx,
-				a.refreshWidgets,
-				widgetRefreshScanInterval,
-				widgetRefreshConcurrency,
-				a.liveUpdates,
-			)
-		}()
-
-		if a.shouldCheckForkReleaseStatus() {
-			schedulerWG.Add(1)
-			go func() {
-				defer schedulerWG.Done()
-
-				runForkReleaseStatusChecker(
-					schedulerCtx,
-					a.Version,
-					&a.releaseStatus,
-				)
-			}()
-		}
-
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			a.liveUpdates.close()
-			stopScheduler()
-			if profileServer != nil {
-				_ = profileServer.Close()
-			}
-			profileWG.Wait()
-			schedulerWG.Wait()
-			return err
-		}
-
-		slog.Info("Server stopped")
-
-		return nil
-	}
-
-	stop := func() error {
-		slog.Info("Server stopping")
-		a.liveUpdates.close()
-
-		stopScheduler()
-
-		serverErr := server.Close()
-
-		var profileErr error
-		if profileServer != nil {
-			profileErr = profileServer.Close()
-		}
-
-		profileWG.Wait()
-		schedulerWG.Wait()
-
-		if serverErr != nil {
-			return serverErr
-		}
-
-		return profileErr
-	}
-
-	return start, stop
 }

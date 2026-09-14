@@ -10,7 +10,91 @@ import (
 const (
 	widgetRefreshScanInterval = 30 * time.Second
 	widgetRefreshConcurrency  = 8
+	widgetNestedConcurrency   = 8
+	widgetSchedulerLagFactor  = 2
+	widgetLockSkipThreshold   = 3
 )
+
+type widgetSchedulerAnomalyState struct {
+	lagging              bool
+	contended            bool
+	lastLockSkips        uint64
+	consecutiveLockSkips int
+}
+
+func evaluateWidgetSchedulerAnomalies(
+	refreshWidgets []widget,
+	scanInterval time.Duration,
+	states map[uint64]*widgetSchedulerAnomalyState,
+) {
+	lagThreshold := time.Duration(widgetSchedulerLagFactor) * scanInterval
+
+	for _, candidate := range refreshWidgets {
+		base, ok := widgetBaseOf(candidate)
+		if !ok {
+			continue
+		}
+
+		base.refreshTelemetryMu.Lock()
+		lag := base.lastSchedulerLag
+		lockSkips := base.refreshLockSkips
+		base.refreshTelemetryMu.Unlock()
+
+		state := states[candidate.GetID()]
+		if state == nil {
+			state = &widgetSchedulerAnomalyState{}
+			states[candidate.GetID()] = state
+		}
+
+		lagging := lagThreshold > 0 && lag >= lagThreshold
+		if lagging && !state.lagging {
+			slog.Warn(
+				"Widget refresh scheduler lag detected",
+				"widget_id", candidate.GetID(),
+				"type", base.Type,
+				"title", base.Title,
+				"scheduler_lag", lag,
+				"threshold", lagThreshold,
+			)
+		} else if !lagging && state.lagging {
+			slog.Info(
+				"Widget refresh scheduler lag recovered",
+				"widget_id", candidate.GetID(),
+				"type", base.Type,
+				"title", base.Title,
+				"scheduler_lag", lag,
+			)
+		}
+		state.lagging = lagging
+
+		if lockSkips > state.lastLockSkips {
+			state.consecutiveLockSkips++
+		} else {
+			state.consecutiveLockSkips = 0
+		}
+		contended := state.consecutiveLockSkips >= widgetLockSkipThreshold
+		if contended && !state.contended {
+			slog.Warn(
+				"Widget refresh scheduler contention detected",
+				"widget_id", candidate.GetID(),
+				"type", base.Type,
+				"title", base.Title,
+				"consecutive_skipped_scans", state.consecutiveLockSkips,
+				"total_lock_skips", lockSkips,
+			)
+		} else if !contended && state.contended {
+			slog.Info(
+				"Widget refresh scheduler contention recovered",
+				"widget_id", candidate.GetID(),
+				"type", base.Type,
+				"title", base.Title,
+				"total_lock_skips", lockSkips,
+			)
+		}
+		state.contended = contended
+		state.lastLockSkips = lockSkips
+	}
+}
 
 func refreshDueWidgetIfAvailable(
 	ctx context.Context,
@@ -102,7 +186,10 @@ func runWidgetRefreshScheduler(
 	)
 	defer slog.Info("Widget refresh scheduler stopped")
 
+	anomalyStates := make(map[uint64]*widgetSchedulerAnomalyState, len(refreshWidgets))
+
 	refreshDueWidgets(ctx, refreshWidgets, concurrency, liveUpdates)
+	evaluateWidgetSchedulerAnomalies(refreshWidgets, scanInterval, anomalyStates)
 
 	ticker := time.NewTicker(scanInterval)
 	defer ticker.Stop()
@@ -113,6 +200,7 @@ func runWidgetRefreshScheduler(
 			return
 		case <-ticker.C:
 			refreshDueWidgets(ctx, refreshWidgets, concurrency, liveUpdates)
+			evaluateWidgetSchedulerAnomalies(refreshWidgets, scanInterval, anomalyStates)
 		}
 	}
 }

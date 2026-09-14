@@ -164,6 +164,44 @@ func TestMakefileWorkflowFinishTargets(t *testing.T) {
 	}
 }
 
+func TestMakefileImageVulnerabilityVisibility(t *testing.T) {
+	makefile := readRepositoryMakefile(t)
+
+	imageVuln := makeTargetRecipe(t, makefile, "image-vuln")
+	for _, fragment := range []string{
+		`--only-fixed`,
+		`WARNING: CONTAINER VULNERABILITY SCAN UNAVAILABLE`,
+		`WARNING: CONTAINER VULNERABILITY SCAN FAILED`,
+		`Pipeline will continue`,
+	} {
+		if !strings.Contains(imageVuln, fragment) {
+			t.Fatalf("image-vuln missing informational scan contract %q", fragment)
+		}
+	}
+
+	prFinish := makeTargetRecipe(t, makefile, "pr-finish")
+	requireRecipeFragmentsInOrder(
+		t,
+		prFinish,
+		`$(MAKE) image-watch`,
+		`$(MAKE) image-vuln IMAGE="$(DEPLOY_DEV_IMAGE)"`,
+	)
+
+	releaseFinish := makeTargetRecipe(t, makefile, "release-finish")
+	requireRecipeFragmentsInOrder(
+		t,
+		releaseFinish,
+		`$(MAKE) release-watch`,
+		`$(MAKE) image-vuln IMAGE="ghcr.io/$(REPO):$$release_tag"`,
+		`$(MAKE) release-status`,
+	)
+
+	nonRuntime := makeTargetRecipe(t, makefile, "ship-nonruntime")
+	if strings.Contains(nonRuntime, "image-vuln") {
+		t.Fatal("ship-nonruntime must not invoke container vulnerability scanning")
+	}
+}
+
 func TestMakefilePRAutoResolution(t *testing.T) {
 	makefile := readRepositoryMakefile(t)
 

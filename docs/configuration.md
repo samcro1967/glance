@@ -38,7 +38,7 @@ Configure the widgets, add more of them, add extra pages, etc. Make it your own!
 
 
 ### Auto reload
-Automatic config reload is supported, meaning that you can make changes to the config file and have them take effect on save without having to restart the container/service. Making changes to environment variables does not trigger a reload and requires manual restart. Deleting a config file will stop that file from being watched, even if it is recreated.
+Automatic config reload is supported, meaning that you can make changes to the config file and have them take effect on save without having to restart the container/service. Reloads are transactional: Glance prepares the replacement application while the current application continues serving requests, switches to the new configuration only after it has been successfully constructed, and then retires the previous application generation. Changes to `server.host` or `server.port` are rejected during automatic reload because they change the process listener and therefore require a manual restart. Making changes to environment variables does not trigger a reload and also requires manual restart. Deleting a config file will stop that file from being watched, even if it is recreated.
 
 > [!NOTE]
 >
@@ -440,10 +440,10 @@ server:
 | frontend-diagnostics | boolean | no | false |
 
 #### `host`
-The address which the server will listen on. Setting it to `localhost` means that only the machine that the server is running on will be able to access the dashboard. By default it will listen on all interfaces.
+The address which the server will listen on. Setting it to `localhost` means that only the machine that the server is running on will be able to access the dashboard. By default it will listen on all interfaces. Changing this property while Glance is running requires a manual restart; an automatic configuration reload that changes it is rejected while the existing application continues running.
 
 #### `port`
-A number between 1 and 65,535, so long as that port isn't already used by anything else.
+A number between 1 and 65,535, so long as that port isn't already used by anything else. Changing this property while Glance is running requires a manual restart; an automatic configuration reload that changes it is rejected while the existing application continues running.
 
 #### `proxied`
 Set to `true` if you're using a reverse proxy in front of Glance. This will make Glance use the `X-Forwarded-*` headers to determine the original request details.

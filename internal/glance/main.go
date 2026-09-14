@@ -1,9 +1,15 @@
 package glance
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"sync"
+	"syscall"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -139,133 +145,151 @@ func serveApp(configPath string) error {
 		"config", configPath,
 	)
 
-	// Configuration callbacks coordinate server replacement and runtime diagnostics during reloads.
-	exitChannel := make(chan error, 1)
-	hadValidConfigOnStartup := false
-	var stopServer func() error
+	parsedConfig, err := parseYAMLIncludesWithSources(configPath)
+	if err != nil {
+		return fmt.Errorf("parsing config: %w", err)
+	}
+
+	initialConfig, err := newConfigFromParsedYAML(parsedConfig)
+	if err != nil {
+		return fmt.Errorf("validating config file: %w", err)
+	}
+
+	initialApp, err := newApplication(initialConfig)
+	if err != nil {
+		return fmt.Errorf("creating application: %w", err)
+	}
+
 	configDiagnostics := newConfigRuntimeDiagnostics(configPath)
+	initialApp.configDiagnostics = configDiagnostics
+
+	initialHandler := initialApp.router()
+	server, err := newProcessServer(
+		initialApp.Config.Server.Host,
+		initialApp.Config.Server.Port,
+		initialHandler,
+	)
+	if err != nil {
+		return fmt.Errorf("starting server: %w", err)
+	}
+
+	initialRuntime := initialApp.startRuntime()
+	generation := &runtimeGeneration{
+		runtime: initialRuntime,
+		config:  &initialApp.Config,
+	}
+	var reloadMu sync.Mutex
+
+	server.reconcileProfiling(initialApp.Config.Server.FrontendDiagnostics)
+	configDiagnostics.recordLoaded(time.Now())
+
+	var absAssetsPath string
+	if initialApp.Config.Server.AssetsPath != "" {
+		absAssetsPath, _ = filepath.Abs(initialApp.Config.Server.AssetsPath)
+	}
+
+	slog.Info(
+		"Server starting",
+		"host", initialApp.Config.Server.Host,
+		"port", initialApp.Config.Server.Port,
+		"base_url", initialApp.Config.Server.BaseURL,
+		"assets_path", absAssetsPath,
+	)
+	slog.Info("Application configuration loaded successfully")
+
+	exitChannel := make(chan error, 1)
+	go func() {
+		if err := server.serve(); err != nil {
+			slog.Error("Server stopped unexpectedly", "error", err)
+			reportExitError(exitChannel, fmt.Errorf("serving application: %w", err))
+			return
+		}
+		reportExitError(exitChannel, nil)
+	}()
 
 	onChange := func(newParsed *parsedYAMLConfig) {
-		isReload := stopServer != nil
+		reloadMu.Lock()
+		defer reloadMu.Unlock()
 
-		if isReload {
-			configDiagnostics.recordReloadAttempt(time.Now())
-			slog.Info("Configuration changed, reloading")
-		}
+		configDiagnostics.recordReloadAttempt(time.Now())
+		slog.Info("Configuration changed, reloading")
 
-		config, err := newConfigFromParsedYAML(newParsed)
+		candidateConfig, err := newConfigFromParsedYAML(newParsed)
 		if err != nil {
-			if isReload {
-				configDiagnostics.recordReloadRejected(err)
-				logConfigDiagnostic(
-					slog.LevelWarn,
-					"Configuration reload rejected; keeping existing application",
-					err,
-				)
-			} else {
-				logConfigDiagnostic(slog.LevelError, "Configuration is invalid", err)
-			}
-
-			if !hadValidConfigOnStartup {
-				reportExitError(exitChannel, fmt.Errorf("validating config file: %w", err))
-			}
-
+			configDiagnostics.recordReloadRejected(err)
+			logConfigDiagnostic(
+				slog.LevelWarn,
+				"Configuration reload rejected; keeping existing application",
+				err,
+			)
 			return
 		}
 
-		app, err := newApplication(config)
+		previousRuntime, err := generation.reload(server, candidateConfig, configDiagnostics)
 		if err != nil {
-			if isReload {
-				configDiagnostics.recordReloadRejected(err)
-				slog.Warn(
-					"Application reload rejected; keeping existing application",
-					"error", err,
-				)
-			} else {
-				slog.Error("Failed to create application", "error", err)
-			}
-
-			if !hadValidConfigOnStartup {
-				reportExitError(exitChannel, fmt.Errorf("creating application: %w", err))
-			}
-
+			configDiagnostics.recordReloadRejected(err)
+			slog.Warn(
+				"Application reload rejected; keeping existing application",
+				"error", err,
+			)
 			return
 		}
 
-		if !hadValidConfigOnStartup {
-			hadValidConfigOnStartup = true
-		}
-
-		app.configDiagnostics = configDiagnostics
-
-		if stopServer != nil {
-			if err := stopServer(); err != nil {
-				slog.Error("Failed to stop server during configuration reload", "error", err)
-			}
-		}
-
-		var startServer func() error
-		startServer, stopServer = app.server()
-		go startServerAndReport(startServer, exitChannel)
-
-		if isReload {
-			configDiagnostics.recordReloadAccepted(time.Now())
-			slog.Info("Configuration reload accepted")
-		} else {
-			configDiagnostics.recordLoaded(time.Now())
-			slog.Info("Application configuration loaded successfully")
-		}
+		configDiagnostics.recordReloadAccepted(time.Now())
+		slog.Info("Configuration reload accepted")
+		previousRuntime.stop()
 	}
 
 	onErr := func(err error) {
 		slog.Error("Error watching configuration files", "error", err)
 	}
 
-	parsedConfig, err := parseYAMLIncludesWithSources(configPath)
-	if err != nil {
-		return fmt.Errorf("parsing config: %w", err)
-	}
-
-	stopWatching, err := configFilesWatcherWithSources(
+	stopWatching, watchErr := configFilesWatcherWithSources(
 		configPath,
 		parsedConfig,
 		onChange,
 		onErr,
 	)
-	if err == nil {
-		defer func() { _ = stopWatching() }()
+	if watchErr == nil {
+		defer func() {
+			if err := stopWatching(); err != nil {
+				slog.Warn("Failed to stop configuration file watcher", "error", err)
+			}
+		}()
 	} else {
 		slog.Warn(
 			"Failed to start configuration file watcher; configuration changes require a manual restart",
-			"error", err,
+			"error", watchErr,
 		)
-
-		config, err := newConfigFromParsedYAML(parsedConfig)
-		if err != nil {
-			return fmt.Errorf("validating config file: %w", err)
-		}
-
-		app, err := newApplication(config)
-		if err != nil {
-			return fmt.Errorf("creating application: %w", err)
-		}
-
-		slog.Info("Application configuration loaded successfully")
-
-		startServer, _ := app.server()
-		if err := startServer(); err != nil {
-			return fmt.Errorf("starting server: %w", err)
-		}
 	}
 
-	return <-exitChannel
-}
+	signalCtx, stopSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stopSignals()
 
-func startServerAndReport(startServer func() error, exitChannel chan<- error) {
-	if err := startServer(); err != nil {
-		slog.Error("Failed to start server", "error", err)
-		reportExitError(exitChannel, fmt.Errorf("starting server: %w", err))
+	var serveErr error
+	select {
+	case serveErr = <-exitChannel:
+	case <-signalCtx.Done():
+		slog.Info("Shutdown signal received")
 	}
+
+	reloadMu.Lock()
+	generation.runtime.stop()
+	reloadMu.Unlock()
+
+	if err := server.shutdown(); err != nil {
+		if serveErr != nil {
+			return errors.Join(serveErr, err)
+		}
+		return fmt.Errorf("shutting down server: %w", err)
+	}
+
+	if serveErr != nil {
+		return serveErr
+	}
+
+	slog.Info("Server stopped")
+	return nil
 }
 
 func reportExitError(exitChannel chan<- error, err error) {
