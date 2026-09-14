@@ -1365,7 +1365,7 @@ ship-docs:
 	fi; \
 	while IFS= read -r path; do \
 		case "$$path" in \
-			docs/*|README.md|glance-test.yml|scripts/check_docs.py|testdata/visual/*) \
+			docs/*|README.md|CONTRIBUTING.md|CODE_OF_CONDUCT.md|glance-test.yml|scripts/check_docs.py|testdata/visual/*) \
 				;; \
 			*) \
 				printf '%s\n' "$$path" >> "$$invalid_paths"; \
