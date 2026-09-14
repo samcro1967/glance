@@ -2,16 +2,18 @@
 
 Thank you for contributing to this Glance fork.
 
-This repository tracks upstream Glance while maintaining additional functionality, reliability improvements, operational hardening, regression protection, and release/deployment tooling. Contributions should preserve upstream compatibility where practical, reuse the existing architecture, and avoid unnecessary divergence.
+This repository is a maintained, substantially extended distribution of upstream Glance. It preserves upstream configuration compatibility and the familiar Glance user experience while maintaining additional functionality, architectural extensions, reliability improvements, operational hardening, diagnostics, regression protection, and controlled development, release, and deployment tooling.
 
-For the complete record of fork-specific functionality and lifecycle architecture, see [About this fork](docs/fork.md).
+Contributions should preserve upstream compatibility where practical, reuse the existing architecture and shared contracts, and avoid unnecessary divergence. Internal implementation does not need to remain identical to upstream when a change provides concrete functional, reliability, maintainability, observability, or regression-protection value.
+
+For the complete record of fork-specific functionality, architecture, compatibility, and lifecycle design, see [About this fork](docs/fork.md).
 
 ## Development model
 
 Development follows this integration and release path:
 
 ```text
-development branch → dev → main → formal release → explicit production deployment
+development branch → dev → main → formal release → explicit production deployment → main-to-dev synchronization
 ```
 
 `dev` is the protected integration branch for ongoing development. `main` is the protected stable and release-ready branch.
@@ -27,11 +29,13 @@ Direct development on `dev` or `main` is intentionally avoided.
 
 Local `dev` may intentionally contain committed work that has not yet been pushed when that work is being parked for inclusion in the next feature pull request. The repository Makefile understands this state and protects against starting work from a behind or diverged `dev` history.
 
-Promotion from `dev` to `main`, formal release creation, and production deployment are separate lifecycle stages. Merging a feature does not imply promotion, release, or deployment.
+Feature integration, promotion from `dev` to `main`, formal release creation, production deployment, and post-release main-to-dev synchronization are distinct lifecycle stages. Completing one stage does not implicitly authorize the next.
+
+The repository also provides explicit high-level workflows that deliberately compose multiple guarded stages. In particular, `make ship` is the normal end-to-end workflow for runtime and code changes when the complete feature-to-production lifecycle has been intentionally requested. Its invocation explicitly authorizes the documented stages it composes, subject to their validation and safety checks. `make ship-nonruntime` provides the corresponding guarded high-level workflow for qualifying non-runtime changes without creating a formal release or deploying production.
 
 ## Use the Makefile first
 
-The repository `Makefile` is the authoritative interface for normal development, validation, repository inspection, pull-request operations, CI monitoring, visual QA, release management, and deployment.
+The repository `Makefile` is the authoritative interface for normal development, validation, repository inspection, pull-request operations, CI monitoring, visual QA, release management, deployment, and lifecycle recovery.
 
 Prefer an existing Makefile target over manually reproducing the same operation with Git, GitHub CLI, Go, Docker, Compose, or other commands.
 
@@ -41,7 +45,9 @@ Run:
 make help
 ```
 
-to see the currently supported workflow.
+to see the currently supported workflow and target contracts.
+
+Do not infer what a workflow target does from its name alone when its behavior matters. Review the current Makefile help or target implementation before relying on assumptions about lifecycle boundaries, validation, cleanup, publication, or deployment.
 
 Common development targets include:
 
@@ -55,6 +61,7 @@ make validate
 make validate-all
 make lighthouse
 make coverage
+make benchmark
 make vuln
 make status
 make staged-diff
@@ -72,13 +79,13 @@ make visual-screenshots
 make visual-final
 ```
 
-Branch, pull-request, CI, release, and deployment operations are also guarded by Makefile targets. See [Development and CI validation](docs/fork.md#development-and-ci-validation) for the complete lifecycle.
+Branch, pull-request, CI, release, deployment, synchronization, and recovery operations are also guarded by Makefile targets. See [Development and CI validation](docs/fork.md#development-and-ci-validation) for the complete lifecycle.
 
 ## Implementation expectations
 
 Investigate the existing implementation before changing it.
 
-Prefer the smallest clean change that fits the existing Glance architecture. Reuse existing primitives, helpers, lifecycle contracts, presentation components, CSS, JavaScript infrastructure, configuration patterns, and provider/resource abstractions before creating new ones.
+Prefer the smallest clean change that fits the existing Glance architecture. Reuse existing primitives, helpers, lifecycle contracts, presentation components, CSS, JavaScript infrastructure, configuration patterns, HTTP infrastructure, and provider/resource abstractions before creating new ones.
 
 Changes should:
 
@@ -87,11 +94,13 @@ Changes should:
 - avoid unnecessary divergence from upstream;
 - avoid parallel implementations when an existing shared abstraction can be extended cleanly;
 - keep errors and degraded states visible rather than silently swallowing failures;
-- consider refresh behavior, cancellation, reloads, stale data, recovery, and concurrency where relevant;
+- consider refresh behavior, cancellation, reloads, stale data, recovery, concurrency, live replacement, and lifecycle ownership where relevant;
 - avoid unrelated cleanup unless it is necessary for the implementation;
 - avoid new dependencies unless they provide a clear benefit that cannot reasonably be achieved with the existing stack.
 
 For regressions, establish the expected behavior, current behavior, and likely cause or regression point before implementing a fix.
+
+For broader architectural work, investigate sufficiently to understand existing ownership boundaries and similar implementations before introducing or extending an abstraction. Prefer evidence of duplication, inconsistency, failure risk, or maintainability cost over speculative centralization.
 
 ## Testing
 
@@ -105,9 +114,25 @@ The standard local pre-pull-request suite is:
 make check
 ```
 
-This includes the Go test suite, race testing, build validation, whitespace checks, documentation validation, correctness-oriented Go static analysis, and maintained architecture audits.
+This includes the Go test suite, race testing, build validation, formatting and whitespace checks, documentation validation, correctness-oriented Go static analysis, frontend architecture auditing, and other maintained fast validation contracts.
 
-For comprehensive release-gate validation, use `make validate`. It extends `make check` with deterministic browser regression testing, visual QA contract validation, and Go vulnerability analysis. `make validate-all` additionally runs informational Go coverage, frontend execution coverage, benchmarks, and Lighthouse analysis for deeper engineering analysis; those measurements and Lighthouse scores are not release thresholds. `make lighthouse` can also be run independently against the deterministic test instance and reports category scores and accessibility findings while cleaning up its temporary report and test runtime.
+For comprehensive release-gate validation, use:
+
+```text
+make validate
+```
+
+`make validate` is the authoritative release gate. It extends `make check` with deterministic browser regression testing, visual QA contract validation, and Go vulnerability analysis.
+
+For deeper informational engineering analysis, use:
+
+```text
+make validate-all
+```
+
+`make validate-all` extends the authoritative release gate with Go coverage, frontend execution coverage, benchmarks, and Lighthouse analysis. Those measurements and Lighthouse scores are engineering evidence; they are not release thresholds unless a threshold is explicitly established elsewhere.
+
+`make lighthouse` can also be run independently against the deterministic test instance. It reports category scores and accessibility findings while cleaning up its temporary report and test runtime.
 
 Use:
 
@@ -123,7 +148,9 @@ make test-race
 
 when concurrency-sensitive behavior is involved.
 
-A successful compile or one passing test is not sufficient evidence for a runtime behavior change. Validate the behavior that actually changed.
+Repeated test targets are available where a single execution is insufficient evidence for concurrency-sensitive or intermittent behavior.
+
+A successful compile, static-analysis run, or one passing test is not sufficient evidence for a runtime behavior change. Validate the behavior that actually changed.
 
 ## Frontend changes
 
@@ -147,7 +174,7 @@ to validate frontend architecture contracts, including semantic theme ownership 
 
 `make frontend-coverage` runs the maintained browser scenarios with Chromium/V8 execution coverage for Glance-owned JavaScript. This coverage is informational and is intended to identify meaningful unexercised frontend code; it is not a percentage threshold for accepting changes.
 
-When changing live or dynamically initialized frontend behavior, consider initial rendering, navigation, refreshes, repeated live replacements, reconnects, cleanup, and browser errors where relevant.
+When changing live or dynamically initialized frontend behavior, consider initial rendering, navigation, refreshes, repeated live replacements, reconnects, cleanup, cancellation, resource ownership, and browser errors where relevant.
 
 Do not introduce a JavaScript package-management or build pipeline such as `package.json` unless the project architecture is deliberately changed to require one.
 
@@ -247,17 +274,20 @@ After a change has integrated into `dev`, the published `dev` image can be valid
 
 ## Documentation
 
-Keep documentation synchronized with user-visible configuration, behavior, and development contracts.
+Keep documentation synchronized with user-visible configuration, behavior, architecture, and development contracts.
 
 When applicable:
 
 - update widget documentation for widget configuration or behavior changes;
 - update [Configuration](docs/configuration.md) for shared or top-level configuration changes;
 - update [Themes](docs/themes.md) for public theme behavior;
-- update [About this fork](docs/fork.md) when fork-specific capabilities or architecture materially change;
+- update [About this fork](docs/fork.md) when fork-specific capabilities, architecture, compatibility contracts, or lifecycle behavior materially change;
+- update the main [README](README.md) when the high-level identity, supported capabilities, installation model, or user-facing project overview materially changes;
 - update generated documentation screenshots through the visual workflow when presentation changes affect them.
 
 Do not duplicate detailed reference material across documents unnecessarily. Prefer linking to the authoritative document for a subject.
+
+Avoid embedding volatile counts, percentages, benchmark values, or other measurements in general documentation unless the value itself represents a maintained contract. Prefer describing the underlying guarantee or measurement process when exact values are expected to evolve.
 
 Documentation is validated as part of the repository's standard validation workflow.
 
@@ -281,13 +311,25 @@ Keep commits and pull requests focused on the agreed problem.
 
 Normal development changes return to `dev` through a pull request.
 
-Use the Makefile-managed branch, push, pull-request, CI, merge, and cleanup workflows rather than manually reproducing them when the corresponding targets are available.
+Use the Makefile-managed branch, push, pull-request, CI, merge, cleanup, promotion, release, deployment, synchronization, and recovery workflows rather than manually reproducing them when the corresponding targets are available.
 
-Pull requests targeting protected branches are validated by CI. Required CI must succeed before merge.
+Pull requests targeting protected branches are validated through the repository's Makefile validation contract. Required CI must succeed before merge.
 
-A feature merge into `dev` is the end of the normal development integration stage. Promotion to `main`, formal release creation, and production deployment remain separate explicit stages.
+For incremental work, a feature merge into `dev` completes the normal feature-integration stage. Promotion to `main`, formal release creation, production deployment, and main-to-dev synchronization remain separate explicit lifecycle stages and should not be performed merely because the preceding stage succeeded.
 
-See [Development and CI validation](docs/fork.md#development-and-ci-validation) for the complete branch and pull-request lifecycle.
+When the complete lifecycle has explicitly been requested, `make ship` is the established high-level workflow and intentionally proceeds through its documented feature integration, promotion, release, production deployment, synchronization, and final-verification stages unless a validation, safety check, or other failure stops it. Do not artificially split an explicitly requested `make ship` workflow into manual lifecycle stages.
+
+For qualifying non-runtime changes, use the documented `make ship-nonruntime` workflow rather than creating an unnecessary formal runtime release or production deployment.
+
+If a high-level workflow stops, do not blindly rerun it. Use:
+
+```text
+make workflow-status
+```
+
+to establish the current repository, pull-request, CI, image, release, deployment, and synchronization state before choosing the appropriate Makefile recovery target.
+
+See [Development and CI validation](docs/fork.md#development-and-ci-validation) for the complete branch, pull-request, release, deployment, synchronization, and recovery lifecycle.
 
 ## Security and dependencies
 
@@ -301,10 +343,10 @@ Security and dependency validation available through the repository Makefile sho
 
 ## Upstream compatibility
 
-This fork intentionally continues to track upstream Glance.
+This fork intentionally continues to track upstream Glance while preserving upstream configuration compatibility as an explicit project goal.
 
-Avoid unnecessary divergence. Where practical, changes should fit existing upstream architecture and preserve compatibility so future upstream synchronization remains manageable.
+Avoid unnecessary divergence. Where practical, changes should preserve existing configuration and user-facing behavior and fit established Glance concepts so future upstream synchronization remains manageable. Internal architecture may evolve beyond upstream where doing so provides concrete functional, reliability, maintainability, observability, or regression-protection value.
 
 When functionality is derived from an upstream pull request, issue, or another Glance-derived project, preserve appropriate provenance in the fork documentation.
 
-The goal is not to change functioning areas solely for abstraction, cleanup, or coverage. Changes should address required functionality, observed defects, maintainability needs with concrete benefit, worthwhile upstream work, security/dependency maintenance, or meaningful regression protection.
+The goal is not to change functioning areas solely for abstraction, cleanup, or coverage. Changes should address required functionality, observed defects, maintainability needs with concrete benefit, worthwhile upstream work, security or dependency maintenance, or meaningful regression protection.
