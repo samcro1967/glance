@@ -2,6 +2,7 @@ package glance
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -244,6 +245,102 @@ func TestMakefilePRWatchRefreshesHeadDuringPolling(t *testing.T) {
 	if refresh < loop || refresh > runLookup {
 		t.Fatal("pr-watch must refresh headRefOid inside the retry loop before looking up the validation run")
 	}
+}
+
+func TestMakefileNonRuntimeShippingWorkflow(t *testing.T) {
+	makefile := readRepositoryMakefile(t)
+	ship := makeTargetRecipe(t, makefile, "ship-nonruntime")
+
+	if strings.Contains(makefile, "ship-docs") {
+		t.Fatal("obsolete ship-docs workflow must not remain")
+	}
+
+	requireRecipeFragmentsInOrder(
+		t,
+		ship,
+		`git diff --name-only origin/$(DEV_BRANCH)...HEAD`,
+		`python3 scripts/check_nonruntime_changes.py`,
+		`$(MAKE) push`,
+		`$(MAKE) pr-finish PR="$$feature_pr" SKIP_IMAGE_WATCH=1`,
+		`$(MAKE) promote-finish PR="$$promotion_pr"`,
+		`$(MAKE) sync-finish PR="$$sync_pr" SKIP_IMAGE_WATCH=1`,
+	)
+
+	for _, forbidden := range []string{
+		"release-finish",
+		"deploy-finish",
+		"$(MAKE) release ",
+		"$(MAKE) deploy ",
+	} {
+		if strings.Contains(ship, forbidden) {
+			t.Fatalf("ship-nonruntime must not invoke runtime release/deployment operation %q", forbidden)
+		}
+	}
+}
+
+func TestNonRuntimeChangeClassifier(t *testing.T) {
+	t.Run("accepts non-runtime paths", func(t *testing.T) {
+		input := strings.Join([]string{
+			"Makefile",
+			"README.md",
+			"CONTRIBUTING.md",
+			"CODE_OF_CONDUCT.md",
+			"LICENSE",
+			".github/workflows/ci.yml",
+			".golangci.yml",
+			"glance-test.yml",
+			"glance-test-auth.yml",
+			"scripts/check_docs.py",
+			"testdata/visual/run.sh",
+			"internal/glance/widget_test.go",
+			"pkg/sysinfo/sysinfo_test.go",
+		}, "\n") + "\n"
+
+		cmd := exec.Command("python3", "../../scripts/check_nonruntime_changes.py")
+		cmd.Stdin = strings.NewReader(input)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Fatalf("non-runtime classifier rejected approved paths: %v\n%s", err, output)
+		}
+	})
+
+	t.Run("rejects runtime and unknown paths", func(t *testing.T) {
+		input := strings.Join([]string{
+			"internal/glance/widget.go",
+			"internal/glance/static/js/main.js",
+			"internal/glance/templates/page.html",
+			"pkg/sysinfo/sysinfo.go",
+			"main.go",
+			"Dockerfile",
+			".dockerignore",
+			"Dockerfile.goreleaser",
+			".goreleaser.yaml",
+			"go.mod",
+			"go.sum",
+			"unknown.future.path",
+		}, "\n") + "\n"
+
+		cmd := exec.Command("python3", "../../scripts/check_nonruntime_changes.py")
+		cmd.Stdin = strings.NewReader(input)
+		output, err := cmd.CombinedOutput()
+		if err == nil {
+			t.Fatalf("non-runtime classifier accepted runtime paths:\n%s", output)
+		}
+
+		for _, path := range strings.Split(strings.TrimSpace(input), "\n") {
+			if !strings.Contains(string(output), path) {
+				t.Fatalf("classifier rejection did not report %q:\n%s", path, output)
+			}
+		}
+	})
+
+	t.Run("rejects empty input", func(t *testing.T) {
+		cmd := exec.Command("python3", "../../scripts/check_nonruntime_changes.py")
+		output, err := cmd.CombinedOutput()
+		if err == nil {
+			t.Fatalf("non-runtime classifier accepted empty input:\n%s", output)
+		}
+	})
 }
 
 func TestMakefileTestContainerUsesPublishedDevArtifact(t *testing.T) {

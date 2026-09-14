@@ -6,7 +6,7 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps build goreleaser-check frontend-audit frontend-check validate validate-all test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch park push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-docs deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final lint lighthouse
+.PHONY: help deps build goreleaser-check frontend-audit frontend-check validate validate-all test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch park push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-nonruntime deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final lint lighthouse
 
 COUNT ?= 10
 COVERAGE_FILE ?= coverage.out
@@ -54,8 +54,8 @@ STABLE_BRANCH ?= main
 PR_BASE ?= $(DEV_BRANCH)
 
 # Internal lifecycle control. Normal workflows verify development images.
-# ship-docs suppresses only the wait/verification step after its scope guard
-# proves the feature contains approved non-runtime documentation changes.
+# ship-nonruntime suppresses only the wait/verification step after its scope guard
+# proves the feature contains approved non-runtime changes.
 SKIP_IMAGE_WATCH ?= 0
 
 FORK_RELEASE_ID ?= samcro1967
@@ -86,8 +86,8 @@ help:
 	@echo "                                -> production -> main/dev sync -> final verification"
 	@echo "                                Stops development/test runtimes before and after shipping"
 	@echo "                                BODY_FILE is consumed and removed only after full success"
-	@echo "  make ship-docs TITLE='Description' [BODY_FILE=file]"
-	@echo "                                Complete guarded docs-only workflow; no release or deployment"
+	@echo "  make ship-nonruntime TITLE='Description' [BODY_FILE=file]"
+	@echo "                                Complete guarded non-runtime workflow; no release or deployment"
 	@echo "  make workflow-status          Show repository, release, CI, image, and deployment state"
 	@echo
 	@echo "NORMAL ORDER:"
@@ -95,7 +95,7 @@ help:
 	@echo "  2. edit, validate, stage, and commit"
 	@echo "  3. make park                  Optional: accumulate committed work locally on dev"
 	@echo "  4. make ship TITLE=...        Runtime/code changes: finish everything through production"
-	@echo "     make ship-docs TITLE=...   Docs-only alternative when its scope guard permits it"
+	@echo "     make ship-nonruntime TITLE=...   Non-runtime alternative when its scope guard permits it"
 	@echo
 	@echo "RECOVERY / RESUME STAGES -- USE WHEN A HIGH-LEVEL WORKFLOW STOPS:"
 	@echo "  Run make workflow-status first, then resume at the failed/incomplete stage."
@@ -114,7 +114,7 @@ help:
 	@echo
 	@echo "SAFEGUARDS:"
 	@echo "  Composite stages fail immediately when any required command fails."
-	@echo "  ship-docs refuses changes outside its explicit non-runtime documentation allowlist."
+	@echo "  ship-nonruntime refuses changes that can affect the runtime artifact."
 	@echo "  PR finish targets verify feature/dev/main direction before merging."
 	@echo "  PR CI watches match the exact PR head SHA, not merely the branch name."
 	@echo "  Dev image watches match the exact current dev SHA."
@@ -841,7 +841,7 @@ pr-finish:
 	$(MAKE) pr-merge PR="$$pr"; \
 	$(MAKE) post-merge PR="$$pr"; \
 	if [ "$(SKIP_IMAGE_WATCH)" = "1" ]; then \
-		echo "Skipping development image verification for guarded non-runtime documentation workflow."; \
+		echo "Skipping development image verification for guarded non-runtime workflow."; \
 	else \
 		$(MAKE) image-watch; \
 	fi; \
@@ -914,7 +914,7 @@ sync-finish:
 	$(MAKE) post-merge PR="$$pr"; \
 	post_merge_tree="$$(git rev-parse $(DEV_BRANCH)^{tree})"; \
 	if [ "$(SKIP_IMAGE_WATCH)" = "1" ]; then \
-		echo "Skipping development image verification for guarded non-runtime documentation workflow."; \
+		echo "Skipping development image verification for guarded non-runtime workflow."; \
 	elif [ "$$pre_merge_tree" = "$$post_merge_tree" ]; then \
 		echo "Synchronization changed history only; development tree is unchanged."; \
 		echo "Skipping development image verification because no new image is required."; \
@@ -1326,10 +1326,10 @@ ship:
 	echo "All Makefile-managed development/test runtimes are stopped."
 
 
-ship-docs:
+ship-nonruntime:
 	@set -euo pipefail; \
 	if [ -z "$(TITLE)" ]; then \
-		echo "TITLE is required. Example: make ship-docs TITLE='Update documentation'"; \
+		echo "TITLE is required. Example: make ship-nonruntime TITLE='Update documentation'"; \
 		exit 2; \
 	fi; \
 	if [ -n "$(BODY_FILE)" ] && [ ! -f "$(BODY_FILE)" ]; then \
@@ -1338,50 +1338,39 @@ ship-docs:
 	fi; \
 	feature="$$(git branch --show-current)"; \
 	if [ -z "$$feature" ] || [ "$$feature" = "$(DEV_BRANCH)" ] || [ "$$feature" = "$(STABLE_BRANCH)" ]; then \
-		echo "ship-docs must start on a feature branch; current branch is $${feature:-unknown}."; \
+		echo "ship-nonruntime must start on a feature branch; current branch is $${feature:-unknown}."; \
 		exit 1; \
 	fi; \
 	if [ -n "$$(git status --porcelain)" ]; then \
-		echo "ship-docs requires a clean working tree with the feature already committed."; \
+		echo "ship-nonruntime requires a clean working tree with the feature already committed."; \
 		git status --short; \
 		exit 1; \
 	fi; \
-	echo "=== VALIDATE NON-RUNTIME DOCUMENTATION SCOPE ==="; \
+	echo "=== VALIDATE NON-RUNTIME SCOPE ==="; \
 	git fetch origin --prune; \
 	if ! git merge-base --is-ancestor origin/$(DEV_BRANCH) HEAD; then \
-		echo "Refusing ship-docs: feature does not contain current origin/$(DEV_BRANCH)."; \
+		echo "Refusing ship-nonruntime: feature does not contain current origin/$(DEV_BRANCH)."; \
 		exit 1; \
 	fi; \
 	changed_paths="$$(mktemp)"; \
-	invalid_paths="$$(mktemp)"; \
 	generated_feature_body="$$(mktemp)"; \
 	promotion_body="$$(mktemp)"; \
 	sync_body="$$(mktemp)"; \
-	trap 'rm -f "$$changed_paths" "$$invalid_paths" "$$generated_feature_body" "$$promotion_body" "$$sync_body"' EXIT; \
+	trap 'rm -f "$$changed_paths" "$$generated_feature_body" "$$promotion_body" "$$sync_body"' EXIT; \
 	git diff --name-only origin/$(DEV_BRANCH)...HEAD > "$$changed_paths"; \
 	if [ ! -s "$$changed_paths" ]; then \
-		echo "Refusing ship-docs: feature contains no changes relative to origin/$(DEV_BRANCH)."; \
+		echo "Refusing ship-nonruntime: feature contains no changes relative to origin/$(DEV_BRANCH)."; \
 		exit 1; \
 	fi; \
-	while IFS= read -r path; do \
-		case "$$path" in \
-			docs/*|README.md|CONTRIBUTING.md|CODE_OF_CONDUCT.md|glance-test.yml|scripts/check_docs.py|testdata/visual/*) \
-				;; \
-			*) \
-				printf '%s\n' "$$path" >> "$$invalid_paths"; \
-				;; \
-		esac; \
-	done < "$$changed_paths"; \
-	if [ -s "$$invalid_paths" ]; then \
-		echo "Refusing ship-docs: runtime or unapproved paths changed:"; \
-		cat "$$invalid_paths"; \
+	if ! python3 scripts/check_nonruntime_changes.py < "$$changed_paths"; then \
+		echo "Refusing ship-nonruntime: feature contains runtime-impacting or unapproved changes."; \
 		exit 1; \
 	fi; \
 	echo "Approved changed paths:"; \
 	sed 's/^/  /' "$$changed_paths"; \
-	echo "Non-runtime documentation scope validated."; \
+	echo "Non-runtime scope validated."; \
 	echo; \
-	echo "=== END-TO-END DOCUMENTATION PIPELINE ==="; \
+	echo "=== END-TO-END NON-RUNTIME PIPELINE ==="; \
 	echo "Feature=$$feature"; \
 	echo "Title=$(TITLE)"; \
 	echo; \
@@ -1407,10 +1396,10 @@ ship-docs:
 	$(MAKE) pr-finish PR="$$feature_pr" SKIP_IMAGE_WATCH=1; \
 	echo; \
 	echo "=== $(DEV_BRANCH) -> $(STABLE_BRANCH) ==="; \
-	printf '%s\n\n%s\n' '## Summary' 'Promote validated non-runtime documentation changes to the stable branch.' > "$$promotion_body"; \
+	printf '%s\n\n%s\n' '## Summary' 'Promote validated non-runtime changes to the stable branch.' > "$$promotion_body"; \
 	promotion_pr="$$(gh pr list --repo "$(REPO)" --head "$(DEV_BRANCH)" --base "$(STABLE_BRANCH)" --state open --json number --jq '.[0].number // empty')"; \
 	if [ -z "$$promotion_pr" ]; then \
-		$(MAKE) promote-create TITLE="Promote documentation to main" BODY_FILE="$$promotion_body"; \
+		$(MAKE) promote-create TITLE="Promote non-runtime changes to main" BODY_FILE="$$promotion_body"; \
 		promotion_pr="$$(python3 scripts/resolve_pr.py --repo "$(REPO)" --head "$(DEV_BRANCH)" --base "$(STABLE_BRANCH)")"; \
 	else \
 		echo "Reusing existing promotion PR #$$promotion_pr."; \

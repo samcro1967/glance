@@ -31,7 +31,7 @@ Local `dev` may intentionally contain committed work that has not yet been pushe
 
 Feature integration, promotion from `dev` to `main`, formal release creation, production deployment, and post-release main-to-dev synchronization are distinct lifecycle stages. Completing one stage does not implicitly authorize the next.
 
-The repository also provides explicit high-level workflows that deliberately compose multiple guarded stages. In particular, `make ship` is the normal end-to-end workflow for runtime and code changes when the complete feature-to-production lifecycle has been intentionally requested. Its invocation explicitly authorizes the documented stages it composes, subject to their validation and safety checks. `make ship-docs` provides the corresponding guarded high-level workflow for qualifying non-runtime documentation changes without creating a formal release or deploying production.
+The repository also provides explicit high-level workflows that deliberately compose multiple guarded stages. In particular, `make ship` is the normal end-to-end workflow for runtime and code changes when the complete feature-to-production lifecycle has been intentionally requested. Its invocation explicitly authorizes the documented stages it composes, subject to their validation and safety checks. `make ship-nonruntime` provides the corresponding guarded high-level workflow for qualifying non-runtime changes without creating a formal release or deploying production.
 
 ## Use the Makefile first
 
@@ -319,7 +319,7 @@ For incremental work, a feature merge into `dev` completes the normal feature-in
 
 When the complete lifecycle has explicitly been requested, `make ship` is the established high-level workflow and intentionally proceeds through its documented feature integration, promotion, release, production deployment, synchronization, and final-verification stages unless a validation, safety check, or other failure stops it. Do not artificially split an explicitly requested `make ship` workflow into manual lifecycle stages.
 
-For qualifying non-runtime documentation-only changes, use the documented `make ship-docs` workflow rather than creating an unnecessary formal runtime release or production deployment.
+For qualifying non-runtime changes, use the documented `make ship-nonruntime` workflow rather than creating an unnecessary formal runtime release or production deployment.
 
 If a high-level workflow stops, do not blindly rerun it. Use:
 
