@@ -296,7 +296,7 @@ func (a *application) handleUnauthorizedResponse(w http.ResponseWriter, r *http.
 		http.Redirect(w, r, a.Config.Server.BaseURL+"/login", http.StatusSeeOther)
 	case showUnauthorizedJSON:
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"error": "Unauthorized"}`))
+		_, _ = w.Write([]byte(`{"error": "Unauthorized"}`))
 	}
 
 	return true
@@ -338,5 +338,5 @@ func (a *application) handleLoginPageRequest(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	w.Write(responseBytes.Bytes())
+	_, _ = w.Write(responseBytes.Bytes())
 }

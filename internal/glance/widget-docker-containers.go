@@ -350,7 +350,7 @@ func fetchDockerContainersFromSource(
 	if err != nil {
 		return nil, fmt.Errorf("sending Docker request: %w", safeHTTPTransportError(err))
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("Docker API request: %w", unexpectedHTTPStatusError(response))

@@ -128,7 +128,7 @@ func fetchMonitorSiteResourceUncached(ctx context.Context, request *SiteStatusRe
 			Error:        err,
 		}, nil
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	return siteStatus{
 		Code:         response.StatusCode,

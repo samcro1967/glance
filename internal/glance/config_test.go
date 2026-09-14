@@ -14,8 +14,7 @@ import (
 
 func TestParseConfigVariablesIgnoresComments(t *testing.T) {
 	// Set up an environment variable that should be resolved
-	os.Setenv("TEST_API_KEY", "my-secret-value")
-	defer os.Unsetenv("TEST_API_KEY")
+	t.Setenv("TEST_API_KEY", "my-secret-value")
 
 	tests := []struct {
 		name     string

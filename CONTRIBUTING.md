@@ -49,9 +49,11 @@ Common development targets include:
 make test
 make test-race
 make build
+make lint
 make check
 make validate
 make validate-all
+make lighthouse
 make coverage
 make vuln
 make status
@@ -103,9 +105,9 @@ The standard local pre-pull-request suite is:
 make check
 ```
 
-This includes the Go test suite, race testing, build validation, whitespace checks, documentation validation, and maintained architecture audits.
+This includes the Go test suite, race testing, build validation, whitespace checks, documentation validation, correctness-oriented Go static analysis, and maintained architecture audits.
 
-For comprehensive release-gate validation, use `make validate`. It extends `make check` with deterministic browser regression testing, visual QA contract validation, and Go vulnerability analysis. `make validate-all` additionally runs informational Go coverage, frontend execution coverage, and benchmarks for deeper engineering analysis; those measurements are not release thresholds.
+For comprehensive release-gate validation, use `make validate`. It extends `make check` with deterministic browser regression testing, visual QA contract validation, and Go vulnerability analysis. `make validate-all` additionally runs informational Go coverage, frontend execution coverage, benchmarks, and Lighthouse analysis for deeper engineering analysis; those measurements and Lighthouse scores are not release thresholds. `make lighthouse` can also be run independently against the deterministic test instance and reports category scores and accessibility findings while cleaning up its temporary report and test runtime.
 
 Use:
 

@@ -352,7 +352,7 @@ var redditHTTPClient = &http.Client{
 			}, utls.HelloFirefox_Auto)
 
 			if err := uconn.HandshakeContext(ctx); err != nil {
-				tcpConn.Close()
+				_ = tcpConn.Close()
 				return nil, err
 			}
 
@@ -458,7 +458,7 @@ func fetchRedditLoidCookie(ctx context.Context, client requestDoer) (string, err
 	if err != nil {
 		return "", safeHTTPTransportError(err)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode != http.StatusOK {
 		return "", unexpectedHTTPStatusError(response)
@@ -498,7 +498,7 @@ func fetchRedditLoidCookie(ctx context.Context, client requestDoer) (string, err
 	if err != nil {
 		return "", safeHTTPTransportError(err)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode != http.StatusOK {
 		return "", unexpectedHTTPStatusError(response)

@@ -58,7 +58,7 @@ func reserveServerTestPort(t *testing.T) (net.Listener, uint16) {
 
 	port := listener.Addr().(*net.TCPAddr).Port
 	if port < 1 || port > 65535 {
-		listener.Close()
+		_ = listener.Close()
 		t.Fatalf("reserved invalid test port %d", port)
 	}
 
@@ -133,7 +133,7 @@ func TestServerStopCancelsWidgetRefreshScheduler(t *testing.T) {
 
 func TestServerBindFailureStopsWidgetRefreshScheduler(t *testing.T) {
 	listener, port := reserveServerTestPort(t)
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	testWidget := newServerLifecycleTestWidget()
 	app := newServerLifecycleTestApplication(t, port, testWidget)

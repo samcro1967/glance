@@ -1,6 +1,7 @@
 package glance
 
 import (
+	"fmt"
 	"html/template"
 	"strings"
 
@@ -71,7 +72,7 @@ var customAPISproutAllowedFunctions = map[string]struct{}{
 func customAPISproutTemplateFuncs() template.FuncMap {
 	handler := sprout.New()
 
-	handler.AddRegistries(
+	if err := handler.AddRegistries(
 		conversion.NewRegistry(),
 		sproutstrings.NewRegistry(),
 		slices.NewRegistry(),
@@ -81,7 +82,9 @@ func customAPISproutTemplateFuncs() template.FuncMap {
 		std.NewRegistry(),
 		encoding.NewRegistry(),
 		semver.NewRegistry(),
-	)
+	); err != nil {
+		panic(fmt.Sprintf("registering custom API template functions: %v", err))
+	}
 
 	sproutFuncs := handler.Build()
 	funcs := make(template.FuncMap, len(sproutFuncs))

@@ -6,7 +6,7 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps build goreleaser-check frontend-audit frontend-check validate validate-all test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch park push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-docs deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final
+.PHONY: help deps build goreleaser-check frontend-audit frontend-check validate validate-all test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch park push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-docs deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final lint lighthouse
 
 COUNT ?= 10
 COVERAGE_FILE ?= coverage.out
@@ -61,6 +61,8 @@ SKIP_IMAGE_WATCH ?= 0
 FORK_RELEASE_ID ?= samcro1967
 FORK_RELEASE_WIDTH ?= 3
 GORELEASER_VERSION ?= v2.18.1
+GOLANGCI_LINT_VERSION ?= v2.13.2
+LIGHTHOUSE_VERSION ?= 13.4.1
 
 DEPLOY_IMAGE ?= ghcr.io/samcro1967/glance:latest
 DEPLOY_DEV_IMAGE ?= ghcr.io/samcro1967/glance:dev
@@ -155,6 +157,7 @@ help:
 	@echo
 	@echo "VISUAL QA / DOCUMENTATION:"
 	@echo "  make visual-check             Validate visual QA and documentation contracts"
+	@echo "  make lighthouse              Run informational Lighthouse analysis"
 	@echo "  make visual-screenshots       Capture canonical QA pages and widgets"
 	@echo "  make visual-docs              Stage documentation screenshots for review"
 	@echo "                                NEVER modifies docs/images"
@@ -172,9 +175,10 @@ help:
 	@echo "  make fmt-check                Verify changed Go files are formatted"
 	@echo "  make diff-check               Working-tree whitespace validation"
 	@echo "  make staged-check             Staged whitespace validation"
-	@echo "  make check                    Tests + race + build + format + whitespace + docs + frontend audit"
+	@echo "  make check                    Tests + race + build + format + whitespace + docs + lint + frontend audit"
+	@echo "  make lint                    Run correctness-oriented Go static analysis"
 	@echo "  make validate                 Full release-gate validation including browser, visual, and vulnerability checks"
-	@echo "  make validate-all             Full validation plus informational coverage and benchmarks"
+	@echo "  make validate-all             Full validation plus informational coverage, benchmarks, and Lighthouse"
 	@echo "  make goreleaser-check         Validate formal-release configuration"
 	@echo
 	@echo "REPOSITORY:"
@@ -270,15 +274,21 @@ staged-check:
 docs-check:
 	python3 scripts/check_docs.py
 
-check: test test-race build fmt-check diff-check staged-check docs-check frontend-audit
+check: test test-race build fmt-check diff-check staged-check docs-check lint frontend-audit
+
+lint:
+	docker run --rm -v "$(CURDIR):/app" -w /app golangci/golangci-lint:$(GOLANGCI_LINT_VERSION) golangci-lint run ./...
 
 validate: check frontend-check visual-check vuln
 
-validate-all: validate coverage frontend-coverage benchmark
+validate-all: validate coverage frontend-coverage benchmark lighthouse
+
+lighthouse:
+	@report=$$(mktemp /tmp/glance-lighthouse.XXXXXX.json); trap '$(MAKE) test-instance-stop >/dev/null 2>&1 || true; rm -f "$$report"' EXIT; $(MAKE) test-instance-stop >/dev/null; $(MAKE) test-instance-start; CHROME_PATH="$${GLANCE_VISUAL_CHROME:-/usr/bin/google-chrome}" npx --yes lighthouse@$(LIGHTHOUSE_VERSION) http://127.0.0.1:18080 --chrome-flags="--headless --no-sandbox" --output=json --output-path="$$report" --quiet; REPORT="$$report" node -e 'const r=require(process.env.REPORT); for (const [id,c] of Object.entries(r.categories)) console.log(id+": "+Math.round(c.score*100)); const failed=Object.values(r.audits).filter(a=>a.score!==null && a.score<1 && a.scoreDisplayMode!=="notApplicable").filter(a=>a.details || ["button-name","color-contrast","target-size"].includes(a.id)); const accessibility=failed.filter(a=>r.categories.accessibility && r.categories.accessibility.auditRefs.some(ref=>ref.id===a.id)); if (accessibility.length) console.log("accessibility findings: "+accessibility.map(a=>a.id).join(", "));'
+
 
 coverage:
-	go test ./... -coverprofile=$(COVERAGE_FILE)
-	go tool cover -func=$(COVERAGE_FILE)
+	@trap 'rm -f "$(COVERAGE_FILE)"' EXIT; go test ./... -coverprofile="$(COVERAGE_FILE)"; go tool cover -func="$(COVERAGE_FILE)"
 
 vuln:
 	govulncheck ./...
