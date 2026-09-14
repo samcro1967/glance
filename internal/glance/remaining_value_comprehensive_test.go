@@ -97,7 +97,7 @@ func TestRemainingValueConfigIncludeWrappersAndVariables(t *testing.T) {
 	}
 }
 
-func TestRemainingValueConfigWatcherWrapperInitialCallback(t *testing.T) {
+func TestRemainingValueConfigWatcherWrapperChangeCallback(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "glance.yml")
 	contents := []byte("pages: []\n")
@@ -107,6 +107,7 @@ func TestRemainingValueConfigWatcherWrapperInitialCallback(t *testing.T) {
 	}
 
 	called := make(chan []byte, 1)
+	watcherErr := make(chan error, 1)
 
 	stop, err := configFilesWatcher(
 		path,
@@ -116,7 +117,7 @@ func TestRemainingValueConfigWatcherWrapperInitialCallback(t *testing.T) {
 			called <- append([]byte(nil), b...)
 		},
 		func(err error) {
-			t.Errorf("watcher error: %v", err)
+			watcherErr <- err
 		},
 	)
 	if err != nil {
@@ -126,11 +127,26 @@ func TestRemainingValueConfigWatcherWrapperInitialCallback(t *testing.T) {
 
 	select {
 	case got := <-called:
-		if string(got) != string(contents) {
-			t.Fatalf("callback=%q", got)
+		t.Fatalf("unexpected initial callback=%q", got)
+	case err := <-watcherErr:
+		t.Fatalf("watcher error before configuration change: %v", err)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	updated := []byte("pages:\n  - name: Updated\n")
+	if err := os.WriteFile(path, updated, 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case got := <-called:
+		if string(got) != string(updated) {
+			t.Fatalf("callback=%q, want %q", got, updated)
 		}
-	case <-time.After(time.Second):
-		t.Fatal("initial callback not received")
+	case err := <-watcherErr:
+		t.Fatalf("watcher error after configuration change: %v", err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("callback not received after configuration change")
 	}
 }
 

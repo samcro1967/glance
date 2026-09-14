@@ -9,6 +9,7 @@ import (
 	"iter"
 	"log/slog"
 	"maps"
+	"net/netip"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -32,12 +33,13 @@ const (
 
 type config struct {
 	Server struct {
-		Host                string `yaml:"host"`
-		Port                uint16 `yaml:"port"`
-		Proxied             bool   `yaml:"proxied"`
-		AssetsPath          string `yaml:"assets-path"`
-		BaseURL             string `yaml:"base-url"`
-		FrontendDiagnostics bool   `yaml:"frontend-diagnostics"`
+		Host                string   `yaml:"host"`
+		Port                uint16   `yaml:"port"`
+		Proxied             bool     `yaml:"proxied"`
+		TrustedProxies      []string `yaml:"trusted-proxies"`
+		AssetsPath          string   `yaml:"assets-path"`
+		BaseURL             string   `yaml:"base-url"`
+		FrontendDiagnostics bool     `yaml:"frontend-diagnostics"`
 	} `yaml:"server"`
 
 	Auth struct {
@@ -1000,8 +1002,6 @@ func configFilesWatcherWithSources(
 		}
 	}()
 
-	onChange(lastParsed)
-
 	return func() error {
 		debounceMu.Lock()
 		watcherStopped = true
@@ -1295,6 +1295,30 @@ func isConfigStateValidWithSources(
 				}
 
 				seenPageSlugs[pageSlug] = struct{}{}
+			}
+		}
+	}
+
+	if len(config.Server.TrustedProxies) > 0 {
+		if !config.Server.Proxied {
+			return diagnostic(rootLine, fmt.Errorf("server trusted-proxies requires proxied to be enabled"))
+		}
+
+		for _, trustedProxy := range config.Server.TrustedProxies {
+			trustedProxy = strings.TrimSpace(trustedProxy)
+			if trustedProxy == "" {
+				return diagnostic(rootLine, fmt.Errorf("server trusted-proxies contains an empty address"))
+			}
+
+			if strings.Contains(trustedProxy, "/") {
+				if _, err := netip.ParsePrefix(trustedProxy); err != nil {
+					return diagnostic(rootLine, fmt.Errorf("invalid trusted proxy %q: %w", trustedProxy, err))
+				}
+				continue
+			}
+
+			if _, err := netip.ParseAddr(trustedProxy); err != nil {
+				return diagnostic(rootLine, fmt.Errorf("invalid trusted proxy %q: %w", trustedProxy, err))
 			}
 		}
 	}
