@@ -571,12 +571,12 @@ pages:
 }
 
 func TestSearchOpenDomainsBrowserContract(t *testing.T) {
-	pageJS, err := os.ReadFile(filepath.Join("static", "js", "page.js"))
+	searchJS, err := os.ReadFile(filepath.Join("static", "js", "search.js"))
 	if err != nil {
-		t.Fatalf("read page.js: %v", err)
+		t.Fatalf("read search.js: %v", err)
 	}
 
-	source := string(pageJS)
+	source := string(searchJS)
 
 	required := []string{
 		`const SEARCH_DOMAIN_PATTERN =`,
@@ -591,11 +591,26 @@ func TestSearchOpenDomainsBrowserContract(t *testing.T) {
 
 	for _, fragment := range required {
 		if !strings.Contains(source, fragment) {
-			t.Fatalf("page.js missing Search open-domains contract fragment %q", fragment)
+			t.Fatalf("search.js missing Search open-domains contract fragment %q", fragment)
 		}
 	}
 
 	if strings.Contains(source, `window.open(url, target).focus()`) {
 		t.Fatal("Search popup handling must not call focus directly on window.open result")
+	}
+
+	pageJS, err := os.ReadFile(filepath.Join("static", "js", "page.js"))
+	if err != nil {
+		t.Fatalf("read page.js: %v", err)
+	}
+
+	pageSource := string(pageJS)
+	for _, fragment := range []string{
+		`import { setupSearchBoxes } from './search.js';`,
+		`runFrontendDiagnosticStage("search_boxes", () => setupSearchBoxes());`,
+	} {
+		if !strings.Contains(pageSource, fragment) {
+			t.Fatalf("page.js missing Search composition contract fragment %q", fragment)
+		}
 	}
 }
