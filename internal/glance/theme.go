@@ -61,7 +61,7 @@ func (a *application) handleThemeChangeRequest(w http.ResponseWriter, r *http.Re
 	w.Header().Set("Content-Type", "text/css")
 	w.Header().Set("X-Scheme", ternary(resolved.Light, "light", "dark"))
 	w.Header().Set("X-Theme-Custom-CSS", themeCustomCSS)
-	w.Write([]byte(resolved.CSS))
+	_, _ = w.Write([]byte(resolved.CSS))
 }
 
 type themeConfiguredProperties struct {

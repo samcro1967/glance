@@ -195,7 +195,7 @@ func fetchSiteStatusTask(ctx context.Context, statusRequest *SiteStatusRequest) 
 		return status, nil
 	}
 
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	status.Code = response.StatusCode
 

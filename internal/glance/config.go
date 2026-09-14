@@ -873,7 +873,9 @@ func configFilesWatcherWithSources(
 	updateWatchedFiles := func(previousWatched map[string]struct{}, newWatched map[string]struct{}) {
 		for filePath := range previousWatched {
 			if _, ok := newWatched[filePath]; !ok {
-				watcher.Remove(filePath)
+				if err := watcher.Remove(filePath); err != nil {
+					slog.Warn("Could not remove configuration file from watcher", "path", filePath, "error", err)
+				}
 			}
 		}
 
@@ -1010,8 +1012,9 @@ func configFilesWatcherWithSources(
 
 		watcherErr := watcher.Close()
 
+		// Wait for any in-progress configuration callback to finish before returning.
 		callbackMu.Lock()
-		callbackMu.Unlock()
+		callbackMu.Unlock() //nolint:staticcheck // SA2001: lock/unlock is an intentional synchronization barrier.
 
 		return watcherErr
 	}, nil

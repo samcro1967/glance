@@ -43,7 +43,7 @@ func TestComprehensiveFetchExtensionHeadersParametersAndFallback(t *testing.T) {
 		rw.Header().Set(extensionHeaderTitle, "Remote")
 		rw.Header().Set(extensionHeaderTitleURL, "https://example.invalid/title")
 		rw.Header().Set(extensionHeaderContentFrameless, "true")
-		rw.Write([]byte("<em>body</em>"))
+		_, _ = rw.Write([]byte("<em>body</em>"))
 	}))
 	defer server.Close()
 
@@ -60,7 +60,7 @@ func TestComprehensiveFetchExtensionHeadersParametersAndFallback(t *testing.T) {
 }
 
 func TestComprehensiveFetchExtensionDefaultsAndTransportFailure(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) { rw.Write([]byte("<x>")) }))
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) { _, _ = rw.Write([]byte("<x>")) }))
 	got, err := fetchExtension(context.Background(), extensionRequestOptions{URL: server.URL})
 	server.Close()
 	if err != nil {
@@ -97,11 +97,11 @@ func TestComprehensiveChangeDetectionFetchesUUIDsAndWatches(t *testing.T) {
 		}
 		switch r.URL.Path {
 		case "/api/v1/watch":
-			rw.Write([]byte(`{"watch-1":{},"watch-2":{}}`))
+			_, _ = rw.Write([]byte(`{"watch-1":{},"watch-2":{}}`))
 		case "/api/v1/watch/watch-1":
-			rw.Write([]byte(`{"title":"One","url":"https://www.example.invalid/a","last_changed":20,"date_created":10,"previous_md5":"1234567890"}`))
+			_, _ = rw.Write([]byte(`{"title":"One","url":"https://www.example.invalid/a","last_changed":20,"date_created":10,"previous_md5":"1234567890"}`))
 		case "/api/v1/watch/watch-2":
-			rw.Write([]byte(`{"title":"","url":"https://www.example.invalid/b/","last_changed":0,"date_created":30,"previous_md5":"abc"}`))
+			_, _ = rw.Write([]byte(`{"title":"","url":"https://www.example.invalid/b/","last_changed":0,"date_created":30,"previous_md5":"abc"}`))
 		default:
 			http.NotFound(rw, r)
 		}
@@ -129,7 +129,7 @@ func TestComprehensiveChangeDetectionFetchesUUIDsAndWatches(t *testing.T) {
 func TestComprehensiveChangeDetectionPartialAndEmpty(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/good") {
-			rw.Write([]byte(`{"title":"Good","url":"https://example.invalid","last_changed":2}`))
+			_, _ = rw.Write([]byte(`{"title":"Good","url":"https://example.invalid","last_changed":2}`))
 			return
 		}
 		http.Error(rw, "bad", http.StatusInternalServerError)
@@ -198,7 +198,7 @@ func TestComprehensiveDockerRemoteFetchOverridesCategoryAndAll(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		rawQuery = r.URL.RawQuery
 		rw.Header().Set("Content-Type", "application/json")
-		rw.Write([]byte(`[{"Names":["/one"],"Image":"img","State":"running","Status":"Up","Labels":{"glance.category":"old"}},{"Names":["/two"],"Labels":{"glance.category":"other"}}]`))
+		_, _ = rw.Write([]byte(`[{"Names":["/one"],"Image":"img","State":"running","Status":"Up","Labels":{"glance.category":"old"}},{"Names":["/two"],"Labels":{"glance.category":"other"}}]`))
 	}))
 	defer server.Close()
 	got, err := fetchDockerContainersFromSource(context.Background(), server.URL, "new", false, map[string]map[string]string{"one": {"category": "new", "name": "One Override"}})

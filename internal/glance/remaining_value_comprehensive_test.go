@@ -122,7 +122,7 @@ func TestRemainingValueConfigWatcherWrapperInitialCallback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer stop()
+	defer func() { _ = stop() }()
 
 	select {
 	case got := <-called:

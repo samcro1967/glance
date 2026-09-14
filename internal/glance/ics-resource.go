@@ -517,7 +517,7 @@ func fetchICSSource(ctx context.Context, source icsEventSource, cache *icsSource
 	if err != nil {
 		return nil, fmt.Errorf("sending ICS request: %w", safeHTTPTransportError(err))
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusNotModified && isCached {
 		return cached.body, nil

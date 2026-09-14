@@ -341,6 +341,9 @@ func newApplication(c *config) (*application, error) {
 	}
 
 	config.Theme.Key = "default"
+	if config.Theme.Name == "" {
+		config.Theme.Name = themeDisplayName(config.Theme.Key)
+	}
 	if err := config.Theme.init(); err != nil {
 		return nil, fmt.Errorf("initializing default theme: %v", err)
 	}
@@ -665,7 +668,7 @@ func (a *application) renderPage(
 		return
 	}
 
-	w.Write(responseBytes.Bytes())
+	_, _ = w.Write(responseBytes.Bytes())
 }
 
 func (a *application) handlePageRequest(w http.ResponseWriter, r *http.Request) {
@@ -791,7 +794,7 @@ func (a *application) handlePageContentRequest(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	w.Write(responseBytes.Bytes())
+	_, _ = w.Write(responseBytes.Bytes())
 }
 
 func (a *application) addressOfRequest(r *http.Request) string {
@@ -859,7 +862,7 @@ func (a *application) handleNotFound(
 	}
 
 	w.WriteHeader(http.StatusNotFound)
-	w.Write(responseBytes.Bytes())
+	_, _ = w.Write(responseBytes.Bytes())
 }
 
 func (a *application) handleWidgetContentRequest(w http.ResponseWriter, r *http.Request) {
@@ -880,7 +883,7 @@ func (a *application) handleWidgetContentRequest(w http.ResponseWriter, r *http.
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write([]byte(renderWidget(widget)))
+	_, _ = w.Write([]byte(renderWidget(widget)))
 }
 
 func (a *application) handleWidgetRequest(w http.ResponseWriter, r *http.Request) {
@@ -974,13 +977,13 @@ func (a *application) router() http.Handler {
 	mux.HandleFunc(fmt.Sprintf("GET /static/%s/css/bundle.css", staticFSHash), func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Cache-Control", assetCacheControlValue)
 		w.Header().Add("Content-Type", "text/css; charset=utf-8")
-		w.Write(bundledCSSContents)
+		_, _ = w.Write(bundledCSSContents)
 	})
 
 	mux.HandleFunc("GET /manifest.json", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Cache-Control", assetCacheControlValue)
 		w.Header().Add("Content-Type", "application/json")
-		w.Write(a.parsedManifest)
+		_, _ = w.Write(a.parsedManifest)
 	})
 
 	if a.Config.Server.AssetsPath != "" {

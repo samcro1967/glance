@@ -1337,8 +1337,8 @@ pages:
 	if _, exists := app.Config.Theme.Presets.Get("glance-dark"); exists {
 		t.Fatal("glance-dark should not be injected when picker is disabled")
 	}
-	if app.Config.Theme.Key != "default" || app.Config.Theme.CSS == "" || app.Config.Theme.PreviewHTML == "" {
-		t.Fatal("top-level default theme should still be initialized when picker is disabled")
+	if app.Config.Theme.Key != "default" || app.Config.Theme.Name != "Default" || app.Config.Theme.CSS == "" || app.Config.Theme.PreviewHTML == "" {
+		t.Fatal("top-level default theme should still be named and initialized when picker is disabled")
 	}
 }
 

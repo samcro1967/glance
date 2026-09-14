@@ -130,10 +130,6 @@ type statusBarCustomAPIItem struct {
 	Icon2 string `json:"icon2,omitempty"`
 }
 
-type statusBarCustomAPIEnvelope struct {
-	Items []statusBarCustomAPIItem `json:"items"`
-}
-
 type customAPIWidget struct {
 	widgetBase           `yaml:",inline"`
 	*CustomAPIRequest    `yaml:",inline"`                      // the primary request
@@ -551,7 +547,9 @@ func fetchCustomAPIResponse(ctx context.Context, req *CustomAPIRequest) (*custom
 	}
 
 	if req.bodyReader != nil {
-		req.bodyReader.Seek(0, io.SeekStart)
+		if _, err := req.bodyReader.Seek(0, io.SeekStart); err != nil {
+			return nil, fmt.Errorf("resetting custom API request body: %w", err)
+		}
 	}
 
 	client := newHTTPClient(req.Timeout, req.AllowInsecure)
@@ -560,7 +558,7 @@ func fetchCustomAPIResponse(ctx context.Context, req *CustomAPIRequest) (*custom
 	if err != nil {
 		return nil, safeHTTPTransportError(err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	bodyBytes, err := readDefaultHTTPResponseBody(resp.Body)
 	if err != nil {

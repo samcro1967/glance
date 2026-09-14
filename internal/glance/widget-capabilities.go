@@ -36,7 +36,3 @@ type widgetCapabilityDefinition struct {
 	Capability widgetCapability
 	Scopes     widgetCapabilityScope
 }
-
-func (d widgetCapabilityDefinition) supports(scope widgetCapabilityScope) bool {
-	return d.Scopes&scope != 0
-}

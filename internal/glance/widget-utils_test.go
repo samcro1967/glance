@@ -364,7 +364,7 @@ func TestWorkerPoolWithContextIgnoresNilContext(t *testing.T) {
 	)
 
 	originalContext := job.ctx
-	job.withContext(nil)
+	job.withContext(nil) //nolint:staticcheck // SA1012: deliberately verifies that nil leaves the existing context unchanged.
 
 	if job.ctx != originalContext {
 		t.Fatal("withContext(nil) replaced the existing context")
