@@ -18,11 +18,30 @@
 
 ## About this fork
 
-This repository is a maintained fork of [Glance](https://github.com/glanceapp/glance) with additional functionality, reliability improvements, operational hardening, expanded regression and visual testing, and controlled development, release, and deployment tooling.
+This repository is a maintained, substantially extended distribution of [Glance](https://github.com/glanceapp/glance). It preserves the familiar Glance configuration model and user experience while adding functionality, reliability and lifecycle improvements, operational diagnostics, expanded regression and visual testing, and controlled development, release, and deployment tooling.
 
-The fork continues to track upstream Glance while intentionally minimizing unnecessary divergence. Formal fork releases retain the incorporated upstream release version and add a fork-specific revision, using the format `v<upstream-version>-samcro1967.r<revision>`.
+Existing upstream Glance configurations are intended to remain compatible with this fork. Fork-specific configuration is additive unless explicitly documented otherwise, allowing existing installations to adopt the fork without requiring a configuration migration.
 
-See **[About the samcro1967 Glance fork](docs/fork.md)** for the complete record of fork-specific functionality, architecture and reliability work, testing and CI practices, security maintenance, release and container-image lifecycle, production deployment safeguards, and upstream synchronization.
+The fork continues to track upstream Glance while intentionally minimizing **unnecessary** divergence. Its internal implementation and engineering infrastructure have evolved substantially where additional functionality, production reliability, maintainability, observability, or regression protection provide concrete benefit. Upstream changes continue to be reviewed and incorporated deliberately so those guarantees are preserved.
+
+Formal fork releases retain the incorporated upstream release version and add a fork-specific revision, using the format `v<upstream-version>-samcro1967.r<revision>`.
+
+See **[About the samcro1967 Glance fork](docs/fork.md)** for the complete record of fork-specific functionality, architectural and reliability work, testing and CI practices, security maintenance, release and container-image lifecycle, production deployment safeguards, and upstream synchronization.
+
+### What this fork adds
+
+The fork extends Glance across several areas while preserving upstream-compatible defaults and configuration where practical:
+
+* **Dashboard functionality** — additional native widgets, nested groups, stacks, medium columns, named dashboards, bottom widgets, footer micro-widgets, status bars, page navigation icons, and expanded Weather and Calendar functionality.
+* **Configuration and presentation** — hierarchical widget defaults, widget title icons, a comprehensive semantic theme system, page-level theme overrides, named theme presets, density controls, and shared native presentation primitives.
+* **Custom API capabilities** — expanded template helpers, Sprout functions, dynamic request controls, stale-content fallback, lifecycle-aware subrequests, and opt-in native metrics, cards, tables, charts, controls, and state presentation.
+* **Refresh and runtime reliability** — automatic background widget recovery, progressive retry behavior, stale and degraded-state handling, cancellation-aware refreshes, bounded concurrency, live widget updates, configuration reload hardening, and explicit lifecycle ownership.
+* **Provider and HTTP hardening** — shared request infrastructure, bounded provider responses, connection reuse controls, failure classification, partial-result handling, safer parsing, and targeted provider correctness fixes.
+* **Diagnostics and observability** — structured operational logging, authenticated runtime diagnostics, frontend diagnostics, performance telemetry, browser performance capture, Go profiling, and repeatable benchmarks.
+* **Regression protection** — extensive Go and race-detector coverage, deterministic desktop and mobile browser regression testing, visual QA contracts, managed documentation screenshots, frontend execution coverage, static analysis, vulnerability analysis, and informational Lighthouse testing.
+* **Controlled delivery** — Makefile-managed development, validation, pull requests, CI, container publication, formal releases, guarded production deployment, verification, and upstream synchronization.
+
+The detailed implementation history, provenance, compatibility contracts, and lifecycle architecture are maintained in **[About this fork](docs/fork.md)** rather than duplicated here.
 
 ## Features
 
@@ -205,9 +224,9 @@ See the [widget catalog](docs/widgets.md) for configuration details.
 <summary><strong>How closely does this fork track upstream Glance?</strong></summary>
 <br>
 
-The fork continues to track upstream Glance while minimizing unnecessary divergence. Upstream changes are reviewed and integrated deliberately so fork-specific functionality, reliability improvements, and regression protection can be preserved.
+The fork continues to track upstream Glance while minimizing unnecessary divergence. Upstream changes are reviewed and integrated deliberately so fork-specific functionality, reliability improvements, architectural contracts, and regression protection can be preserved.
 
-See [About this fork](docs/fork.md) for the current upstream-maintenance model and the detailed list of changes from upstream.
+Although the fork's internal implementation and engineering infrastructure have evolved substantially, upstream configuration compatibility remains an explicit goal. See [About this fork](docs/fork.md) for the current upstream-maintenance model and the detailed list of changes from upstream.
 
 </details>
 
@@ -223,7 +242,7 @@ See [About this fork](docs/fork.md) for the current upstream-maintenance model a
 <summary><strong>Can existing Glance configurations be used with this fork?</strong></summary>
 <br>
 
-The fork is designed to preserve compatibility with upstream Glance configuration while adding optional functionality. Fork-specific configuration features are additive unless explicitly documented otherwise.
+Yes. The fork is designed to preserve compatibility with upstream Glance configuration while adding optional functionality. Existing configurations should not require migration simply to run this fork, and fork-specific configuration features are additive unless explicitly documented otherwise.
 
 </details>
 
@@ -235,7 +254,7 @@ For requests concerning upstream Glance rather than fork-specific functionality,
 
 ## Development and contributing
 
-Contributions and fork development follow a controlled `development branch → dev → main → formal release → explicit production deployment` workflow.
+Contributions and fork development follow a controlled `development branch → dev → main → formal release → explicit production deployment → main-to-dev synchronization` workflow.
 
 The repository Makefile is the authoritative interface for normal development, testing, validation, visual QA, pull-request, release, and deployment operations. Changes should preserve existing behavior and upstream compatibility where practical, reuse established Glance architecture and semantic presentation primitives, and include appropriate regression tests and documentation updates.
 
