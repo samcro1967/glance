@@ -170,7 +170,7 @@ func testHttpRequestWithHeaders(method, url string, headers map[string]string, e
 	if err != nil {
 		return "", err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	body, err := readDefaultHTTPResponseBody(response.Body)
 	if err != nil {

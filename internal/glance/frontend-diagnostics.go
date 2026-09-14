@@ -79,7 +79,7 @@ func (a *application) handleFrontendPerformanceSnapshotRequest(
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
-	fmt.Fprintf(
+	_, _ = fmt.Fprintf(
 		w,
 		`{"id":%d,"command":"%s"}`,
 		command.ID,

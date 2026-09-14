@@ -233,7 +233,7 @@ func serveApp(configPath string) error {
 		onErr,
 	)
 	if err == nil {
-		defer stopWatching()
+		defer func() { _ = stopWatching() }()
 	} else {
 		slog.Warn(
 			"Failed to start configuration file watcher; configuration changes require a manual restart",

@@ -40,17 +40,5 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
-      - name: Validate documentation
-        run: make docs-check
-
-      - name: Run tests
-        run: go test ./...
-
-      - name: Run race tests
-        run: go test -race ./...
-
-      - name: Build
-        run: go build ./...
-
-      - name: Check whitespace errors
-        run: git diff --check "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"
+      - name: Run repository validation
+        run: make check BASE_REF="${{ github.event.pull_request.base.sha }}"

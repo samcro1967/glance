@@ -1006,7 +1006,8 @@ func TestWidgetBaseTitleIconRendering(t *testing.T) {
 		{name: "hidden header suppresses title icon", widget: widgetBase{Title: "News", HideHeader: true, Icon: newCustomIconField("https://example.com/news.svg")}, notContains: []string{`widget-header`, `widget-title-icon`, `News`}},
 	}
 
-	for _, test := range tests {
+	for i := range tests {
+		test := &tests[i]
 		t.Run(test.name, func(t *testing.T) {
 			test.widget.Type = "test-widget"
 			tpl := mustParseTemplate("widget-base.html")

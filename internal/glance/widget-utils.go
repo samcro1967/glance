@@ -262,7 +262,7 @@ func fetchHTTPResponseBody(client requestDoer, request *http.Request) ([]byte, e
 			safeHTTPTransportError(err),
 		)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	body, err := readDefaultHTTPResponseBody(response.Body)
 	if err != nil {

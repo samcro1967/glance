@@ -105,7 +105,7 @@ func fetchRSSResourceUncached(request *http.Request, options rssResourceRequestO
 	if err != nil {
 		return rssResourceResponse{}, fmt.Errorf("sending RSS request: %w", safeHTTPTransportError(err))
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	resource := rssResourceResponse{
 		Status:     response.Status,

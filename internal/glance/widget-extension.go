@@ -158,7 +158,7 @@ func fetchExtension(ctx context.Context, options extensionRequestOptions) (exten
 			safeHTTPTransportError(err),
 		)
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	body, err := readDefaultHTTPResponseBody(response.Body)
 	if err != nil {

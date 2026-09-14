@@ -694,7 +694,7 @@ func fetchPiholeSessionID(ctx context.Context, instanceURL string, client *http.
 	if err != nil {
 		return "", fmt.Errorf("sending authentication request: %w", safeHTTPTransportError(err))
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	body, err := readDefaultHTTPResponseBody(response.Body)
 	if err != nil {
@@ -733,7 +733,7 @@ func checkPiholeSessionIDIsValid(ctx context.Context, instanceURL string, client
 	if err != nil {
 		return false, fmt.Errorf("sending session ID check request: %w", safeHTTPTransportError(err))
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 
 	if response.StatusCode != http.StatusOK && response.StatusCode != http.StatusUnauthorized {
 		return false, unexpectedHTTPStatusError(response)

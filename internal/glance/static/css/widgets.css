@@ -374,6 +374,13 @@
  * Accessibility
  * ------------------------------------------------------------------------- */
 
+.list-horizontal-text a {
+    min-height: 24px;
+    display: inline-flex;
+    align-items: center;
+    margin-block: -4px;
+}
+
 .widget > .widget-header a:focus-visible,
 .widget > .widget-header button:focus-visible {
     outline: 2px solid

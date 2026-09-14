@@ -949,7 +949,7 @@ func TestICSEventsUpdateMergesSortsAndLimitsSources(t *testing.T) {
 	var firstServer, secondServer *httptest.Server
 
 	firstServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "BEGIN:VCALENDAR\r\n"+
+		_, _ = fmt.Fprint(w, "BEGIN:VCALENDAR\r\n"+
 			"VERSION:2.0\r\n"+
 			"BEGIN:VEVENT\r\n"+
 			"UID:later\r\n"+
@@ -968,7 +968,7 @@ func TestICSEventsUpdateMergesSortsAndLimitsSources(t *testing.T) {
 	defer firstServer.Close()
 
 	secondServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "BEGIN:VCALENDAR\r\n"+
+		_, _ = fmt.Fprint(w, "BEGIN:VCALENDAR\r\n"+
 			"VERSION:2.0\r\n"+
 			"BEGIN:VEVENT\r\n"+
 			"UID:earliest\r\n"+
@@ -1015,7 +1015,7 @@ func TestICSEventsUpdateMergesSortsAndLimitsSources(t *testing.T) {
 
 func TestICSEventsUpdateRetainsPartialContentNotice(t *testing.T) {
 	good := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "BEGIN:VCALENDAR\r\n"+
+		_, _ = fmt.Fprint(w, "BEGIN:VCALENDAR\r\n"+
 			"VERSION:2.0\r\n"+
 			"BEGIN:VEVENT\r\n"+
 			"UID:good\r\n"+
