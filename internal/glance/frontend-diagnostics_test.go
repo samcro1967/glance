@@ -535,3 +535,171 @@ func TestValidFrontendDiagnosticMetrics(t *testing.T) {
 		})
 	}
 }
+
+func TestFrontendRuntimeDiagnosticsRecordsValidatedBatch(t *testing.T) {
+	store := newFrontendRuntimeDiagnostics()
+
+	store.record([]frontendDiagnosticEvent{
+		{
+			Event:   "page_setup_complete",
+			Page:    "sports",
+			Session: "session-1",
+		},
+		{
+			Event:   "widget_refresh_error",
+			Page:    "sports",
+			Session: "session-1",
+			Widget:  "42",
+			Detail:  "connection refused",
+			Metrics: map[string]float64{"duration_ms": 125},
+		},
+	})
+
+	snapshot := store.snapshot()
+
+	if snapshot.TotalEvents != 2 {
+		t.Fatalf("total events = %d, want 2", snapshot.TotalEvents)
+	}
+	if snapshot.TotalProblemEvents != 1 {
+		t.Fatalf("problem events = %d, want 1", snapshot.TotalProblemEvents)
+	}
+	if snapshot.LastPage != "sports" || snapshot.LastSession != "session-1" {
+		t.Fatalf("unexpected last context: %+v", snapshot)
+	}
+	if snapshot.ProblemCounts["widget_refresh_error"] != 1 {
+		t.Fatalf("unexpected problem counts: %+v", snapshot.ProblemCounts)
+	}
+	if len(snapshot.RecentProblems) != 1 {
+		t.Fatalf("recent problems = %d, want 1", len(snapshot.RecentProblems))
+	}
+	if snapshot.RecentProblems[0].Event.Detail != "connection refused" {
+		t.Fatalf("unexpected recent problem: %+v", snapshot.RecentProblems[0])
+	}
+
+	snapshot.RecentProblems[0].Event.Metrics["duration_ms"] = 999
+
+	second := store.snapshot()
+	if second.RecentProblems[0].Event.Metrics["duration_ms"] != 125 {
+		t.Fatal("snapshot mutation changed retained metrics")
+	}
+}
+
+func TestFrontendRuntimeDiagnosticsProblemClassification(t *testing.T) {
+	problems := []string{
+		"window_error",
+		"unhandled_rejection",
+		"page_initialize_error",
+		"page_content_load_error",
+		"widget_refresh_error",
+		"widget_replacement_invalid",
+		"widget_current_missing",
+		"live_updates_error",
+		"live_update_invalid",
+		"diagnostic_command_unsupported",
+		"long_task_capture_unsupported",
+	}
+
+	for _, event := range problems {
+		if !frontendDiagnosticIsProblem(event) {
+			t.Errorf("%q should be classified as a problem", event)
+		}
+	}
+
+	normal := []string{
+		"page_setup_complete",
+		"widget_refresh_complete",
+		"live_updates_open",
+		"live_updates_close",
+		"network_offline",
+		"page_hide",
+	}
+
+	for _, event := range normal {
+		if frontendDiagnosticIsProblem(event) {
+			t.Errorf("%q should not be classified as a problem", event)
+		}
+	}
+}
+
+func TestFrontendRuntimeDiagnosticsBoundsRecentProblems(t *testing.T) {
+	store := newFrontendRuntimeDiagnostics()
+
+	for i := 0; i < frontendDiagnosticsRecentProblemLimit+5; i++ {
+		store.record([]frontendDiagnosticEvent{
+			{
+				Event:    "window_error",
+				Sequence: uint64(i + 1),
+			},
+		})
+	}
+
+	snapshot := store.snapshot()
+
+	if snapshot.TotalProblemEvents != frontendDiagnosticsRecentProblemLimit+5 {
+		t.Fatalf(
+			"problem events = %d, want %d",
+			snapshot.TotalProblemEvents,
+			frontendDiagnosticsRecentProblemLimit+5,
+		)
+	}
+	if len(snapshot.RecentProblems) != frontendDiagnosticsRecentProblemLimit {
+		t.Fatalf(
+			"recent problems = %d, want %d",
+			len(snapshot.RecentProblems),
+			frontendDiagnosticsRecentProblemLimit,
+		)
+	}
+	if snapshot.RecentProblems[0].Event.Sequence != 6 {
+		t.Fatalf(
+			"oldest retained sequence = %d, want 6",
+			snapshot.RecentProblems[0].Event.Sequence,
+		)
+	}
+}
+
+func TestFrontendDiagnosticsInvalidBatchDoesNotUpdateRuntimeDiagnostics(t *testing.T) {
+	app := newFrontendDiagnosticsTestApplication(true)
+	app.frontendDiagnostics = newFrontendRuntimeDiagnostics()
+
+	recorder := httptest.NewRecorder()
+	app.handleFrontendDiagnosticsRequest(
+		recorder,
+		frontendDiagnosticsRequest(
+			`{"events":[{"event":"window_error"},{"event":""}]}`,
+		),
+	)
+
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusBadRequest)
+	}
+
+	snapshot := app.frontendDiagnostics.snapshot()
+	if snapshot.TotalEvents != 0 || snapshot.TotalProblemEvents != 0 {
+		t.Fatalf("invalid batch updated diagnostics: %+v", snapshot)
+	}
+}
+
+func TestFrontendDiagnosticsValidBatchUpdatesRuntimeDiagnostics(t *testing.T) {
+	app := newFrontendDiagnosticsTestApplication(true)
+	app.frontendDiagnostics = newFrontendRuntimeDiagnostics()
+
+	recorder := httptest.NewRecorder()
+	app.handleFrontendDiagnosticsRequest(
+		recorder,
+		frontendDiagnosticsRequest(
+			`{"events":[`+
+				`{"event":"page_setup_complete","page":"home","session":"session-2"},`+
+				`{"event":"window_error","page":"home","session":"session-2","detail":"boom"}`+
+				`]}`,
+		),
+	)
+
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNoContent)
+	}
+
+	snapshot := app.frontendDiagnostics.snapshot()
+	if snapshot.TotalEvents != 2 || snapshot.TotalProblemEvents != 1 {
+		t.Fatalf("unexpected diagnostics snapshot: %+v", snapshot)
+	}
+}

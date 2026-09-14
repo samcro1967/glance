@@ -790,6 +790,7 @@ function setupLiveWidgetUpdates() {
     }
 
     let events = null;
+    const intentionallyClosedEvents = new WeakSet();
 
     function connect() {
         if (events !== null && events.readyState !== EventSource.CLOSED) {
@@ -825,6 +826,10 @@ function setupLiveWidgetUpdates() {
         });
 
         currentEvents.addEventListener("error", () => {
+            if (intentionallyClosedEvents.has(currentEvents)) {
+                return;
+            }
+
             frontendDiagnostic("live_updates_error", {
                 state: currentEvents.readyState,
             }, true);
@@ -891,6 +896,7 @@ function setupLiveWidgetUpdates() {
                 detail: `persisted=${event.persisted}`,
             }, true);
 
+            intentionallyClosedEvents.add(events);
             events.close();
         } else {
             frontendDiagnostic("live_updates_close", {

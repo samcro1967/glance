@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -329,5 +330,317 @@ pages:
 
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("healthz status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+}
+
+func TestRuntimeDiagnosticsReportHealthy(t *testing.T) {
+	app := newGlanceTestApplication(t, `
+pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets:
+          - type: hacker-news
+`)
+
+	app.Config.Server.FrontendDiagnostics = true
+	app.frontendDiagnostics = newFrontendRuntimeDiagnostics()
+	app.Version = "v-test"
+	app.ShortRevision = "abc1234"
+	app.CreatedAt = time.Now().Add(-90 * time.Second)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/diagnostics/report", nil)
+
+	app.router().ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf(
+			"status = %d, want %d; body=%q",
+			recorder.Code,
+			http.StatusOK,
+			recorder.Body.String(),
+		)
+	}
+	if got := recorder.Header().Get("Content-Type"); got != "text/plain; charset=utf-8" {
+		t.Fatalf("Content-Type = %q", got)
+	}
+	if got := recorder.Header().Get("Cache-Control"); got != "no-store" {
+		t.Fatalf("Cache-Control = %q, want no-store", got)
+	}
+
+	body := recorder.Body.String()
+
+	for _, want := range []string{
+		"GLANCE RUNTIME DIAGNOSTICS",
+		"Overall: HEALTHY",
+		"APPLICATION",
+		"Version:   v-test",
+		"Revision:  abc1234",
+		"Uptime:    1m",
+		"WIDGET REFRESH",
+		"CONFIGURATION",
+		"PROFILING",
+		"FRONTEND DIAGNOSTICS",
+		"Diagnostics:    enabled",
+		"no browser diagnostics received yet",
+		"CURRENT PROBLEMS",
+		"None",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("report missing %q:\n%s", want, body)
+		}
+	}
+}
+
+func TestRuntimeDiagnosticsReportShowsDegradedWidget(t *testing.T) {
+	app := newGlanceTestApplication(t, `
+pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets:
+          - type: hacker-news
+`)
+
+	for _, candidate := range app.refreshWidgets {
+		base, ok := widgetBaseOf(candidate)
+		if !ok {
+			continue
+		}
+
+		base.refreshTelemetryMu.Lock()
+		base.refreshDegraded = true
+		base.refreshFailureClass = refreshFailureTransient
+		base.lastRefreshError = "connection refused"
+		base.refreshFailureCount = 2
+		base.refreshAttempts = 3
+		base.refreshSuccesses = 1
+		base.refreshFailures = 2
+		base.refreshTelemetryMu.Unlock()
+	}
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/diagnostics/report", nil)
+	app.router().ServeHTTP(recorder, request)
+
+	body := recorder.Body.String()
+
+	for _, want := range []string{
+		"Overall: ATTENTION",
+		"State:                 DEGRADED",
+		"Failure class:",
+		"Failure cause:         connection refused",
+		"Consecutive failures:  2",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("report missing %q:\n%s", want, body)
+		}
+	}
+}
+
+func TestRuntimeDiagnosticsReportRecoveredFailureRemainsHealthy(t *testing.T) {
+	now := time.Now()
+
+	response := runtimeDiagnosticsResponse{
+		GeneratedAt:    now,
+		RefreshWidgets: 1,
+		TotalAttempts:  2,
+		TotalSuccesses: 1,
+		TotalFailures:  1,
+		Widgets: []widgetRefreshDiagnosticsResponse{
+			{
+				ID:          42,
+				Type:        "test",
+				Title:       "Recovered Widget",
+				Attempts:    2,
+				Successes:   1,
+				Failures:    1,
+				LastFailure: &now,
+			},
+		},
+	}
+
+	report := formatRuntimeDiagnosticsReport(
+		response,
+		runtimeDiagnosticsReportIdentity{},
+		false,
+		frontendRuntimeDiagnosticsSnapshot{},
+	)
+
+	if !strings.Contains(report, "Overall: HEALTHY") {
+		t.Fatalf("recovered failure marked unhealthy:\n%s", report)
+	}
+	if !strings.Contains(report, "Recovered Widget") ||
+		!strings.Contains(report, "State:         recovered") {
+		t.Fatalf("recovered failure missing from history:\n%s", report)
+	}
+}
+
+func TestRuntimeDiagnosticsReportShowsFrontendProblemHistory(t *testing.T) {
+	store := newFrontendRuntimeDiagnostics()
+	store.record([]frontendDiagnosticEvent{
+		{
+			Event:   "window_error",
+			Page:    "sports",
+			Session: "browser-1",
+			Detail:  "script failed",
+		},
+	})
+
+	response := runtimeDiagnosticsResponse{
+		GeneratedAt: time.Now(),
+	}
+
+	report := formatRuntimeDiagnosticsReport(
+		response,
+		runtimeDiagnosticsReportIdentity{},
+		true,
+		store.snapshot(),
+	)
+
+	for _, want := range []string{
+		"Overall: HEALTHY",
+		"Total events:   1",
+		"Problem events: 1",
+		"window_error",
+		"page=sports",
+		"script failed",
+	} {
+		if !strings.Contains(report, want) {
+			t.Fatalf("report missing %q:\n%s", want, report)
+		}
+	}
+}
+
+func TestRuntimeDiagnosticsReportRequiresAuthentication(t *testing.T) {
+	app := newAuthTestApplication(t)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/diagnostics/report", nil)
+
+	app.router().ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusUnauthorized {
+		t.Fatalf(
+			"status = %d, want %d",
+			recorder.Code,
+			http.StatusUnauthorized,
+		)
+	}
+}
+
+func TestHealthzReportsIdentityAndUptime(t *testing.T) {
+	app := &application{
+		Version:       "v-test",
+		ShortRevision: "abc1234",
+		CreatedAt:     time.Now().Add(-90 * time.Second),
+	}
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/api/healthz", nil)
+
+	app.handleHealthzRequest(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+	if got := recorder.Header().Get("Content-Type"); got != "text/plain; charset=utf-8" {
+		t.Fatalf("Content-Type = %q", got)
+	}
+	if got := recorder.Header().Get("Cache-Control"); got != "no-store" {
+		t.Fatalf("Cache-Control = %q, want no-store", got)
+	}
+
+	body := recorder.Body.String()
+
+	for _, want := range []string{
+		"Glance OK",
+		"Version: v-test",
+		"Revision: abc1234",
+		"Uptime: 1m",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("healthz missing %q: %q", want, body)
+		}
+	}
+}
+func TestRuntimeDiagnosticsReportShowsConfigurationRejection(t *testing.T) {
+	now := time.Now()
+	response := runtimeDiagnosticsResponse{
+		GeneratedAt: now,
+		Config: configRuntimeDiagnosticsResponse{
+			LastReloadRejection: &configReloadRejectionResponse{
+				At:      now,
+				File:    "glance.yml",
+				Line:    42,
+				Message: "invalid configuration",
+			},
+		},
+	}
+
+	report := formatRuntimeDiagnosticsReport(
+		response,
+		runtimeDiagnosticsReportIdentity{},
+		false,
+		frontendRuntimeDiagnosticsSnapshot{},
+	)
+
+	for _, want := range []string{
+		"Overall: ATTENTION",
+		"Configuration reload",
+		"State:         REJECTED",
+		"File:          glance.yml",
+		"Line:          42",
+		"Error:         invalid configuration",
+	} {
+		if !strings.Contains(report, want) {
+			t.Fatalf("report missing %q:\n%s", want, report)
+		}
+	}
+}
+
+func TestRuntimeDiagnosticsReportShowsProfilingFailure(t *testing.T) {
+	response := runtimeDiagnosticsResponse{
+		GeneratedAt: time.Now(),
+		Profiling: profilingRuntimeDiagnosticsResponse{
+			Requested:   true,
+			Running:     false,
+			LastFailure: "profiling unavailable",
+		},
+	}
+
+	report := formatRuntimeDiagnosticsReport(
+		response,
+		runtimeDiagnosticsReportIdentity{},
+		false,
+		frontendRuntimeDiagnosticsSnapshot{},
+	)
+
+	for _, want := range []string{
+		"Overall: ATTENTION",
+		"Profiling listener",
+		"State:         FAILED",
+		"Error:         profiling unavailable",
+	} {
+		if !strings.Contains(report, want) {
+			t.Fatalf("report missing %q:\n%s", want, report)
+		}
+	}
+}
+
+func TestRuntimeDiagnosticsReportFrontendDisabled(t *testing.T) {
+	report := formatRuntimeDiagnosticsReport(
+		runtimeDiagnosticsResponse{GeneratedAt: time.Now()},
+		runtimeDiagnosticsReportIdentity{},
+		false,
+		frontendRuntimeDiagnosticsSnapshot{},
+	)
+
+	if !strings.Contains(report, "Diagnostics:    disabled") {
+		t.Fatalf("disabled frontend diagnostics missing from report:\n%s", report)
+	}
+	if strings.Contains(report, "RECENT FRONTEND PROBLEMS") {
+		t.Fatalf("disabled frontend diagnostics unexpectedly include recent frontend problems:\n%s", report)
 	}
 }
