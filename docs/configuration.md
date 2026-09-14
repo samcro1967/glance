@@ -419,6 +419,8 @@ server:
 
 When set to `true`, Glance will use the `X-Forwarded-For` header to determine the original IP address of the request, so make sure that your reverse proxy is correctly configured to send that header.
 
+For additional protection against spoofed forwarding headers, configure `trusted-proxies` with the IP addresses or CIDR ranges of the reverse proxies that connect directly to Glance. When configured, forwarding headers from other peers are ignored.
+
 ## Server
 Server configuration is done through a top level `server` property. Example:
 
@@ -435,6 +437,7 @@ server:
 | host | string | no |  |
 | port | number | no | 8080 |
 | proxied | boolean | no | false |
+| trusted-proxies | list | no | |
 | base-url | string | no | |
 | assets-path | string | no |  |
 | frontend-diagnostics | boolean | no | false |
@@ -447,6 +450,11 @@ A number between 1 and 65,535, so long as that port isn't already used by anythi
 
 #### `proxied`
 Set to `true` if you're using a reverse proxy in front of Glance. This will make Glance use the `X-Forwarded-*` headers to determine the original request details.
+
+#### `trusted-proxies`
+An optional list of IP addresses or CIDR ranges for reverse proxies that connect directly to Glance. When configured, Glance only trusts `X-Forwarded-*` headers when the direct peer matches one of these addresses or ranges. This prevents an untrusted client that can connect directly to Glance from spoofing forwarded request information.
+
+Individual IPv4 and IPv6 addresses and CIDR ranges are supported. This property requires `proxied` to be `true`. If omitted, `proxied: true` retains the existing behavior for backward compatibility.
 
 #### `base-url`
 The base URL that Glance is hosted under. No need to specify this unless you're using a reverse proxy and are hosting Glance under a directory. If that's the case then you can set this value to `/glance` or whatever the directory is called. Note that the forward slash (`/`) in the beginning is required unless you specify the full domain and path.

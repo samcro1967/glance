@@ -13,6 +13,7 @@ type widgetRefreshDiagnostics struct {
 	Title               string
 	Degraded            bool
 	FailureClass        refreshFailureClass
+	FailureCause        string
 	ConsecutiveFailures int
 	LastAttempt         time.Time
 	LastSuccess         time.Time
@@ -55,6 +56,7 @@ func snapshotWidgetRefreshDiagnostics(candidate widget) (widgetRefreshDiagnostic
 		Title:               base.Title,
 		Degraded:            base.refreshDegraded,
 		FailureClass:        base.refreshFailureClass,
+		FailureCause:        base.lastRefreshError,
 		ConsecutiveFailures: base.refreshFailureCount,
 		LastAttempt:         base.lastRefreshAttempt,
 		LastSuccess:         base.lastRefreshSuccess,
@@ -103,16 +105,24 @@ func collectRuntimeDiagnostics(refreshWidgets []widget) runtimeDiagnostics {
 }
 
 type runtimeDiagnosticsResponse struct {
-	GeneratedAt       time.Time                          `json:"generated_at"`
-	RefreshWidgets    int                                `json:"refresh_widgets"`
-	RefreshingWidgets int                                `json:"refreshing_widgets"`
-	DegradedWidgets   int                                `json:"degraded_widgets"`
-	TotalAttempts     uint64                             `json:"total_attempts"`
-	TotalSuccesses    uint64                             `json:"total_successes"`
-	TotalFailures     uint64                             `json:"total_failures"`
-	TotalLockSkips    uint64                             `json:"total_lock_skips"`
-	Widgets           []widgetRefreshDiagnosticsResponse `json:"widgets"`
-	Config            configRuntimeDiagnosticsResponse   `json:"config"`
+	GeneratedAt       time.Time                           `json:"generated_at"`
+	RefreshWidgets    int                                 `json:"refresh_widgets"`
+	RefreshingWidgets int                                 `json:"refreshing_widgets"`
+	DegradedWidgets   int                                 `json:"degraded_widgets"`
+	TotalAttempts     uint64                              `json:"total_attempts"`
+	TotalSuccesses    uint64                              `json:"total_successes"`
+	TotalFailures     uint64                              `json:"total_failures"`
+	TotalLockSkips    uint64                              `json:"total_lock_skips"`
+	Widgets           []widgetRefreshDiagnosticsResponse  `json:"widgets"`
+	Config            configRuntimeDiagnosticsResponse    `json:"config"`
+	Profiling         profilingRuntimeDiagnosticsResponse `json:"profiling"`
+}
+
+type profilingRuntimeDiagnosticsResponse struct {
+	Requested     bool       `json:"requested"`
+	Running       bool       `json:"running"`
+	LastFailureAt *time.Time `json:"last_failure_at,omitempty"`
+	LastFailure   string     `json:"last_failure,omitempty"`
 }
 
 type configRuntimeDiagnosticsResponse struct {
@@ -136,6 +146,7 @@ type widgetRefreshDiagnosticsResponse struct {
 	Title               string              `json:"title,omitempty"`
 	Degraded            bool                `json:"degraded"`
 	FailureClass        refreshFailureClass `json:"failure_class,omitempty"`
+	FailureCause        string              `json:"failure_cause,omitempty"`
 	ConsecutiveFailures int                 `json:"consecutive_failures"`
 	LastAttempt         *time.Time          `json:"last_attempt,omitempty"`
 	LastSuccess         *time.Time          `json:"last_success,omitempty"`
@@ -182,6 +193,7 @@ func runtimeDiagnosticsResponseFromSnapshot(
 			Title:               widget.Title,
 			Degraded:            widget.Degraded,
 			FailureClass:        widget.FailureClass,
+			FailureCause:        widget.FailureCause,
 			ConsecutiveFailures: widget.ConsecutiveFailures,
 			LastAttempt:         optionalDiagnosticTime(widget.LastAttempt),
 			LastSuccess:         optionalDiagnosticTime(widget.LastSuccess),
@@ -228,6 +240,14 @@ func (a *application) handleRuntimeDiagnosticsRequest(
 			Line:    configSnapshot.LastReloadRejection.Line,
 			Message: configSnapshot.LastReloadRejection.Message,
 		}
+	}
+
+	profilingSnapshot := a.profilingDiagnostics.snapshot()
+	response.Profiling = profilingRuntimeDiagnosticsResponse{
+		Requested:     profilingSnapshot.Requested,
+		Running:       profilingSnapshot.Running,
+		LastFailureAt: optionalDiagnosticTime(profilingSnapshot.LastFailureAt),
+		LastFailure:   profilingSnapshot.LastFailure,
 	}
 
 	w.Header().Set("Content-Type", "application/json")

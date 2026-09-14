@@ -4,6 +4,7 @@ import (
 	"html/template"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"strings"
 	"testing"
 )
@@ -22,6 +23,267 @@ func newGlanceTestApplication(t *testing.T, yaml string) *application {
 	}
 
 	return app
+}
+
+func newProxyTrustTestApplication(
+	t *testing.T,
+	proxied bool,
+	trustedProxies []string,
+) *application {
+	t.Helper()
+
+	app := &application{}
+	app.Config.Server.Proxied = proxied
+	app.Config.Server.TrustedProxies = trustedProxies
+
+	for _, trustedProxy := range trustedProxies {
+		trustedProxy = strings.TrimSpace(trustedProxy)
+
+		if prefix, err := netip.ParsePrefix(trustedProxy); err == nil {
+			app.trustedProxyPrefixes = append(app.trustedProxyPrefixes, prefix.Masked())
+			continue
+		}
+
+		addr, err := netip.ParseAddr(trustedProxy)
+		if err != nil {
+			t.Fatalf("ParseAddr(%q) error = %v", trustedProxy, err)
+		}
+		app.trustedProxyPrefixes = append(
+			app.trustedProxyPrefixes,
+			netip.PrefixFrom(addr, addr.BitLen()),
+		)
+	}
+
+	return app
+}
+
+func TestAddressOfRequestProxyTrust(t *testing.T) {
+	tests := []struct {
+		name           string
+		proxied        bool
+		trustedProxies []string
+		remoteAddr     string
+		forwardedFor   string
+		want           string
+	}{
+		{
+			name:         "direct request ignores forwarded address",
+			remoteAddr:   "192.0.2.10:1234",
+			forwardedFor: "198.51.100.20",
+			want:         "192.0.2.10",
+		},
+		{
+			name:         "legacy proxied mode preserves rightmost forwarded address",
+			proxied:      true,
+			remoteAddr:   "192.0.2.10:1234",
+			forwardedFor: "203.0.113.10, 198.51.100.20",
+			want:         "198.51.100.20",
+		},
+		{
+			name:           "trusted IPv4 proxy accepts forwarded address",
+			proxied:        true,
+			trustedProxies: []string{"192.0.2.10"},
+			remoteAddr:     "192.0.2.10:1234",
+			forwardedFor:   "198.51.100.20",
+			want:           "198.51.100.20",
+		},
+		{
+			name:           "trusted CIDR accepts forwarded address",
+			proxied:        true,
+			trustedProxies: []string{"192.0.2.0/24"},
+			remoteAddr:     "192.0.2.10:1234",
+			forwardedFor:   "198.51.100.20",
+			want:           "198.51.100.20",
+		},
+		{
+			name:           "untrusted proxy ignores forwarded address",
+			proxied:        true,
+			trustedProxies: []string{"192.0.2.0/24"},
+			remoteAddr:     "203.0.113.10:1234",
+			forwardedFor:   "198.51.100.20",
+			want:           "203.0.113.10",
+		},
+		{
+			name:           "trusted IPv6 proxy accepts forwarded address",
+			proxied:        true,
+			trustedProxies: []string{"2001:db8::/32"},
+			remoteAddr:     "[2001:db8::10]:1234",
+			forwardedFor:   "198.51.100.20",
+			want:           "198.51.100.20",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app := newProxyTrustTestApplication(
+				t,
+				tt.proxied,
+				tt.trustedProxies,
+			)
+
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			req.RemoteAddr = tt.remoteAddr
+			req.Header.Set("X-Forwarded-For", tt.forwardedFor)
+
+			if got := app.addressOfRequest(req); got != tt.want {
+				t.Fatalf("addressOfRequest() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRequestIsSecureProxyTrust(t *testing.T) {
+	tests := []struct {
+		name           string
+		proxied        bool
+		trustedProxies []string
+		remoteAddr     string
+		forwardedProto string
+		directTLS      bool
+		want           bool
+	}{
+		{
+			name:           "forwarded https ignored without proxied mode",
+			remoteAddr:     "192.0.2.10:1234",
+			forwardedProto: "https",
+		},
+		{
+			name:           "legacy proxied mode preserves forwarded https",
+			proxied:        true,
+			remoteAddr:     "192.0.2.10:1234",
+			forwardedProto: "https",
+			want:           true,
+		},
+		{
+			name:           "trusted proxy accepts forwarded https",
+			proxied:        true,
+			trustedProxies: []string{"192.0.2.0/24"},
+			remoteAddr:     "192.0.2.10:1234",
+			forwardedProto: "https",
+			want:           true,
+		},
+		{
+			name:           "untrusted proxy ignores forwarded https",
+			proxied:        true,
+			trustedProxies: []string{"192.0.2.0/24"},
+			remoteAddr:     "203.0.113.10:1234",
+			forwardedProto: "https",
+		},
+		{
+			name:       "direct TLS is always secure",
+			remoteAddr: "192.0.2.10:1234",
+			directTLS:  true,
+			want:       true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app := newProxyTrustTestApplication(
+				t,
+				tt.proxied,
+				tt.trustedProxies,
+			)
+
+			scheme := "http"
+			if tt.directTLS {
+				scheme = "https"
+			}
+			req := httptest.NewRequest(http.MethodGet, scheme+"://example.test/", nil)
+			req.RemoteAddr = tt.remoteAddr
+			req.Header.Set("X-Forwarded-Proto", tt.forwardedProto)
+
+			if got := app.requestIsSecure(req); got != tt.want {
+				t.Fatalf("requestIsSecure() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRouterSecurityHeaders(t *testing.T) {
+	tests := []struct {
+		name                string
+		frontendDiagnostics bool
+		path                string
+	}{
+		{
+			name: "page",
+			path: "/",
+		},
+		{
+			name: "health API",
+			path: "/api/healthz",
+		},
+		{
+			name: "manifest",
+			path: "/manifest.json",
+		},
+		{
+			name: "not found",
+			path: "/missing",
+		},
+		{
+			name:                "frontend diagnostics enabled",
+			frontendDiagnostics: true,
+			path:                "/api/healthz",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app := newGlanceTestApplication(t, `
+pages:
+  - name: Home
+    columns:
+      - size: full
+`)
+			app.Config.Server.FrontendDiagnostics = tt.frontendDiagnostics
+
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+
+			app.router().ServeHTTP(rec, req)
+
+			if got := rec.Header().Get("X-Content-Type-Options"); got != "nosniff" {
+				t.Errorf(
+					"X-Content-Type-Options = %q, want %q",
+					got,
+					"nosniff",
+				)
+			}
+
+			if got := rec.Header().Get("Referrer-Policy"); got != "strict-origin-when-cross-origin" {
+				t.Errorf(
+					"Referrer-Policy = %q, want %q",
+					got,
+					"strict-origin-when-cross-origin",
+				)
+			}
+		})
+	}
+}
+
+func TestSecurityHeadersHandlerPreservesResponse(t *testing.T) {
+	next := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("X-Test", "preserved")
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte("response body"))
+	})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+
+	securityHeadersHandler(next).ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusCreated)
+	}
+	if got := rec.Header().Get("X-Test"); got != "preserved" {
+		t.Errorf("X-Test = %q, want %q", got, "preserved")
+	}
+	if got := rec.Body.String(); got != "response body" {
+		t.Errorf("body = %q, want %q", got, "response body")
+	}
 }
 
 func TestShortBuildRevision(t *testing.T) {

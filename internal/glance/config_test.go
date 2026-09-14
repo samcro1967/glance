@@ -950,6 +950,78 @@ func TestNewConfigFromParsedYAMLSemanticServerAssetsPathDiagnostic(t *testing.T)
 	}
 }
 
+func TestIsConfigStateValidTrustedProxies(t *testing.T) {
+	tests := []struct {
+		name           string
+		proxied        bool
+		trustedProxies []string
+		wantError      string
+	}{
+		{
+			name:           "requires proxied mode",
+			trustedProxies: []string{"192.0.2.10"},
+			wantError:      "server trusted-proxies requires proxied to be enabled",
+		},
+		{
+			name:           "accepts IPv4 address",
+			proxied:        true,
+			trustedProxies: []string{"192.0.2.10"},
+		},
+		{
+			name:           "accepts IPv6 address",
+			proxied:        true,
+			trustedProxies: []string{"2001:db8::10"},
+		},
+		{
+			name:           "accepts CIDR",
+			proxied:        true,
+			trustedProxies: []string{"192.0.2.0/24", "2001:db8::/32"},
+		},
+		{
+			name:           "rejects empty address",
+			proxied:        true,
+			trustedProxies: []string{" "},
+			wantError:      "server trusted-proxies contains an empty address",
+		},
+		{
+			name:           "rejects malformed address",
+			proxied:        true,
+			trustedProxies: []string{"not-an-address"},
+			wantError:      `invalid trusted proxy "not-an-address": ParseAddr("not-an-address"): unable to parse IP`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config{}
+			cfg.Pages = make([]page, 1)
+			cfg.Pages[0].Title = "Home"
+			cfg.Pages[0].Columns = make([]struct {
+				Size    string  `yaml:"size"`
+				Widgets widgets `yaml:"widgets"`
+			}, 1)
+			cfg.Pages[0].Columns[0].Size = "full"
+			cfg.Server.Proxied = tt.proxied
+			cfg.Server.TrustedProxies = tt.trustedProxies
+
+			err := isConfigStateValid(cfg)
+			if tt.wantError == "" {
+				if err != nil {
+					t.Fatalf("isConfigStateValid() error = %v, want nil", err)
+				}
+				return
+			}
+
+			if err == nil {
+				t.Fatalf("isConfigStateValid() error = nil, want %q", tt.wantError)
+			}
+			if err.Error() != tt.wantError {
+				t.Fatalf("isConfigStateValid() error = %q, want %q", err.Error(), tt.wantError)
+			}
+		})
+	}
+}
+
 func TestIsConfigStateValidCompatibilityWithoutSources(t *testing.T) {
 	cfg := &config{}
 	err := isConfigStateValid(cfg)
@@ -1584,6 +1656,54 @@ func TestIsConfigStateValidColumnLayouts(t *testing.T) {
 	}
 }
 
+func TestConfigFilesWatcherDoesNotNotifyInitialBaseline(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "glance.yml")
+
+	writeConfigTestFile(t, mainPath, "page:\\n  name: Home\\n")
+
+	parsed, err := parseYAMLIncludesWithSources(mainPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	changed := make(chan struct{}, 1)
+	watcherErr := make(chan error, 1)
+
+	stop, err := configFilesWatcherWithSources(
+		mainPath,
+		parsed,
+		func(newParsed *parsedYAMLConfig) { changed <- struct{}{} },
+		func(err error) { watcherErr <- err },
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := stop(); err != nil {
+			t.Errorf("stopping watcher: %v", err)
+		}
+	}()
+
+	select {
+	case <-changed:
+		t.Fatal("watcher notified change for already-loaded initial baseline")
+	case err := <-watcherErr:
+		t.Fatalf("watcher error before configuration change: %v", err)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	writeConfigTestFile(t, mainPath, "page:\\n  name: Updated\\n")
+
+	select {
+	case <-changed:
+	case err := <-watcherErr:
+		t.Fatalf("watcher error after configuration change: %v", err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for real configuration change")
+	}
+}
+
 func TestConfigFilesWatcherCleanupWithPendingDebounce(t *testing.T) {
 	const iterations = 20
 
@@ -1599,18 +1719,12 @@ func TestConfigFilesWatcherCleanupWithPendingDebounce(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		initialChange := make(chan struct{}, 1)
 		watcherErr := make(chan error, 1)
 
 		stop, err := configFilesWatcherWithSources(
 			mainPath,
 			parsed,
-			func(newParsed *parsedYAMLConfig) {
-				select {
-				case initialChange <- struct{}{}:
-				default:
-				}
-			},
+			func(newParsed *parsedYAMLConfig) {},
 			func(err error) {
 				select {
 				case watcherErr <- err:
@@ -1620,16 +1734,6 @@ func TestConfigFilesWatcherCleanupWithPendingDebounce(t *testing.T) {
 		)
 		if err != nil {
 			t.Fatal(err)
-		}
-
-		select {
-		case <-initialChange:
-		case err := <-watcherErr:
-			_ = stop()
-			t.Fatalf("watcher error before initial callback: %v", err)
-		case <-time.After(time.Second):
-			_ = stop()
-			t.Fatal("timed out waiting for initial callback")
 		}
 
 		writeConfigTestFile(t, mainPath, "page:\n  name: Updated\n")
@@ -1656,7 +1760,6 @@ func TestConfigFilesWatcherStopDuringActiveCallback(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	initialChange := make(chan struct{})
 	activeChange := make(chan struct{})
 	releaseActiveChange := make(chan struct{})
 	activeChangeFinished := make(chan struct{})
@@ -1675,11 +1778,6 @@ func TestConfigFilesWatcherStopDuringActiveCallback(t *testing.T) {
 			callbackMu.Unlock()
 
 			if currentCount == 1 {
-				close(initialChange)
-				return
-			}
-
-			if currentCount == 2 {
 				close(activeChange)
 				<-releaseActiveChange
 				close(activeChangeFinished)
@@ -1694,16 +1792,6 @@ func TestConfigFilesWatcherStopDuringActiveCallback(t *testing.T) {
 	)
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	select {
-	case <-initialChange:
-	case err := <-watcherErr:
-		_ = stop()
-		t.Fatalf("watcher error before initial callback: %v", err)
-	case <-time.After(time.Second):
-		_ = stop()
-		t.Fatal("timed out waiting for initial callback")
 	}
 
 	writeConfigTestFile(t, mainPath, "page:\n  name: Updated\n")

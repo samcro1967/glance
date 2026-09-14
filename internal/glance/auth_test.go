@@ -2,6 +2,7 @@ package glance
 
 import (
 	"bytes"
+	"crypto/tls"
 	"encoding/base64"
 	"net/http"
 	"net/http/httptest"
@@ -462,97 +463,102 @@ func TestHandleUnauthorizedResponse(t *testing.T) {
 }
 
 func TestSetAuthSessionCookie(t *testing.T) {
-	app := &application{}
-	app.Config.Server.BaseURL = "/glance"
-
 	tests := []struct {
-		name       string
-		proto      string
-		wantSecure bool
+		name           string
+		proxied        bool
+		trustedProxies []string
+		remoteAddr     string
+		proto          string
+		directTLS      bool
+		wantSecure     bool
 	}{
 		{
-			name:       "http",
-			proto:      "http",
+			name:       "plain HTTP",
+			remoteAddr: "192.0.2.10:1234",
+		},
+		{
+			name:       "untrusted forwarded HTTPS",
+			remoteAddr: "192.0.2.10:1234",
+			proto:      "https",
 			wantSecure: false,
 		},
 		{
-			name:       "https",
+			name:       "legacy proxied forwarded HTTPS",
+			proxied:    true,
+			remoteAddr: "192.0.2.10:1234",
 			proto:      "https",
+			wantSecure: true,
+		},
+		{
+			name:           "trusted proxy forwarded HTTPS",
+			proxied:        true,
+			trustedProxies: []string{"192.0.2.0/24"},
+			remoteAddr:     "192.0.2.10:1234",
+			proto:          "https",
+			wantSecure:     true,
+		},
+		{
+			name:           "untrusted peer forwarded HTTPS",
+			proxied:        true,
+			trustedProxies: []string{"192.0.2.0/24"},
+			remoteAddr:     "203.0.113.10:1234",
+			proto:          "https",
+			wantSecure:     false,
+		},
+		{
+			name:       "direct TLS",
+			remoteAddr: "192.0.2.10:1234",
+			directTLS:  true,
 			wantSecure: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest(
-				http.MethodGet,
-				"/",
-				nil,
+			app := newProxyTrustTestApplication(
+				t,
+				tt.proxied,
+				tt.trustedProxies,
 			)
-			req.Header.Set("X-Forwarded-Proto", tt.proto)
+			app.Config.Server.BaseURL = "/glance"
+
+			scheme := "http"
+			if tt.directTLS {
+				scheme = "https"
+			}
+			req := httptest.NewRequest(http.MethodGet, scheme+"://example.test/", nil)
+			req.RemoteAddr = tt.remoteAddr
+			if tt.proto != "" {
+				req.Header.Set("X-Forwarded-Proto", tt.proto)
+			}
 
 			rec := httptest.NewRecorder()
 			expires := time.Now().Add(time.Hour)
-
-			app.setAuthSessionCookie(
-				rec,
-				req,
-				"test-token",
-				expires,
-			)
+			app.setAuthSessionCookie(rec, req, "test-token", expires)
 
 			cookies := rec.Result().Cookies()
 			if len(cookies) != 1 {
-				t.Fatalf(
-					"expected one cookie, got %d",
-					len(cookies),
-				)
+				t.Fatalf("expected one cookie, got %d", len(cookies))
 			}
 
 			cookie := cookies[0]
-
 			if cookie.Name != AUTH_SESSION_COOKIE_NAME {
-				t.Fatalf(
-					"cookie name = %q, want %q",
-					cookie.Name,
-					AUTH_SESSION_COOKIE_NAME,
-				)
+				t.Fatalf("cookie name = %q, want %q", cookie.Name, AUTH_SESSION_COOKIE_NAME)
 			}
-
 			if cookie.Value != "test-token" {
-				t.Fatalf(
-					"cookie value = %q, want %q",
-					cookie.Value,
-					"test-token",
-				)
+				t.Fatalf("cookie value = %q, want %q", cookie.Value, "test-token")
 			}
-
 			if cookie.Path != "/glance/" {
-				t.Fatalf(
-					"cookie path = %q, want %q",
-					cookie.Path,
-					"/glance/",
-				)
+				t.Fatalf("cookie path = %q, want %q", cookie.Path, "/glance/")
 			}
-
 			if cookie.Secure != tt.wantSecure {
-				t.Fatalf(
-					"cookie Secure = %v, want %v",
-					cookie.Secure,
-					tt.wantSecure,
-				)
+				t.Fatalf("cookie Secure = %v, want %v", cookie.Secure, tt.wantSecure)
 			}
-
 			if !cookie.HttpOnly {
 				t.Fatal("expected cookie to be HttpOnly")
 			}
-
 			if cookie.SameSite != http.SameSiteLaxMode {
-				t.Fatalf(
-					"cookie SameSite = %v, want %v",
-					cookie.SameSite,
-					http.SameSiteLaxMode,
-				)
+				t.Fatalf("cookie SameSite = %v, want %v", cookie.SameSite, http.SameSiteLaxMode)
 			}
 		})
 	}
@@ -679,7 +685,7 @@ func TestHandleAuthenticationAttemptSuccess(t *testing.T) {
 		),
 	)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Forwarded-Proto", "https")
+	req.TLS = &tls.ConnectionState{}
 	req.RemoteAddr = "192.0.2.1:12345"
 
 	rec := httptest.NewRecorder()

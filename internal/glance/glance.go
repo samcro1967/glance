@@ -5,8 +5,10 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/pprof"
+	"net/netip"
 	"strconv"
 	"strings"
 	"sync"
@@ -50,14 +52,16 @@ type application struct {
 	releaseStatus  releaseStatusCache
 	parsedManifest []byte
 
-	slugToPage        map[string]*page
-	slugToDashboard   map[string]*dashboard
-	dashboards        []*dashboard
-	defaultDashboard  *dashboard
-	widgetByID        map[uint64]widget
-	refreshWidgets    []widget
-	liveUpdates       *liveUpdateBroker
-	configDiagnostics *configRuntimeDiagnostics
+	slugToPage           map[string]*page
+	slugToDashboard      map[string]*dashboard
+	dashboards           []*dashboard
+	defaultDashboard     *dashboard
+	widgetByID           map[uint64]widget
+	refreshWidgets       []widget
+	liveUpdates          *liveUpdateBroker
+	configDiagnostics    *configRuntimeDiagnostics
+	profilingDiagnostics *profilingRuntimeDiagnostics
+	trustedProxyPrefixes []netip.Prefix
 
 	RequiresAuth           bool
 	authSecretKey          []byte
@@ -125,6 +129,24 @@ func newApplication(c *config) (*application, error) {
 		liveUpdates:     newLiveUpdateBroker(),
 	}
 	config := &app.Config
+
+	for _, trustedProxy := range config.Server.TrustedProxies {
+		trustedProxy = strings.TrimSpace(trustedProxy)
+
+		if prefix, err := netip.ParsePrefix(trustedProxy); err == nil {
+			app.trustedProxyPrefixes = append(app.trustedProxyPrefixes, prefix.Masked())
+			continue
+		}
+
+		addr, err := netip.ParseAddr(trustedProxy)
+		if err != nil {
+			return nil, fmt.Errorf("parsing trusted proxy %q: %w", trustedProxy, err)
+		}
+		app.trustedProxyPrefixes = append(
+			app.trustedProxyPrefixes,
+			netip.PrefixFrom(addr, addr.BitLen()),
+		)
+	}
 
 	//
 	// Init auth
@@ -746,39 +768,63 @@ func (a *application) handlePageContentRequest(w http.ResponseWriter, r *http.Re
 	_, _ = w.Write(responseBytes.Bytes())
 }
 
-func (a *application) addressOfRequest(r *http.Request) string {
-	remoteAddrWithoutPort := func() string {
-		for i := len(r.RemoteAddr) - 1; i >= 0; i-- {
-			if r.RemoteAddr[i] == ':' {
-				return r.RemoteAddr[:i]
-			}
-		}
-
-		return r.RemoteAddr
+func remoteAddressOfRequest(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err == nil {
+		return host
 	}
 
+	return strings.Trim(r.RemoteAddr, "[]")
+}
+
+func (a *application) requestIsFromTrustedProxy(r *http.Request) bool {
 	if !a.Config.Server.Proxied {
-		return remoteAddrWithoutPort()
+		return false
 	}
 
-	// This should probably be configurable or look for multiple headers, not just this one
+	if len(a.trustedProxyPrefixes) == 0 {
+		return true
+	}
+
+	remoteAddr, err := netip.ParseAddr(remoteAddressOfRequest(r))
+	if err != nil {
+		return false
+	}
+
+	for _, prefix := range a.trustedProxyPrefixes {
+		if prefix.Contains(remoteAddr) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (a *application) requestIsSecure(r *http.Request) bool {
+	if r.TLS != nil {
+		return true
+	}
+
+	return a.requestIsFromTrustedProxy(r) &&
+		strings.EqualFold(strings.TrimSpace(r.Header.Get("X-Forwarded-Proto")), "https")
+}
+
+func (a *application) addressOfRequest(r *http.Request) string {
+	remoteAddr := remoteAddressOfRequest(r)
+
+	if !a.requestIsFromTrustedProxy(r) {
+		return remoteAddr
+	}
+
 	forwardedFor := r.Header.Get("X-Forwarded-For")
 	if forwardedFor == "" {
-		return remoteAddrWithoutPort()
+		return remoteAddr
 	}
 
 	ips := strings.Split(forwardedFor, ",")
-	if len(ips) == 0 {
-		return remoteAddrWithoutPort()
-	}
-
-	// Use the last (rightmost) IP in X-Forwarded-For, as this is the
-	// one added by the trusted reverse proxy. The leftmost values can
-	// be spoofed by the client and must not be trusted for rate limiting
-	// or other security-sensitive operations.
 	lastIP := strings.TrimSpace(ips[len(ips)-1])
 	if lastIP == "" {
-		return remoteAddrWithoutPort()
+		return remoteAddr
 	}
 
 	return lastIP
@@ -940,11 +986,20 @@ func (a *application) router() http.Handler {
 		mux.Handle("/assets/{path...}", http.StripPrefix("/assets/", assetsFS))
 	}
 
-	if !a.Config.Server.FrontendDiagnostics {
-		return mux
+	var handler http.Handler = mux
+	if a.Config.Server.FrontendDiagnostics {
+		handler = a.frontendDiagnosticHTTPPerformanceHandler(handler)
 	}
 
-	return a.frontendDiagnosticHTTPPerformanceHandler(mux)
+	return securityHeadersHandler(handler)
+}
+
+func securityHeadersHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		next.ServeHTTP(w, r)
+	})
 }
 
 func frontendDiagnosticProfileHandler() http.Handler {

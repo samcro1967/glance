@@ -169,10 +169,35 @@ func refreshWidget(ctx context.Context, widget widget, schedulerNow *time.Time) 
 }
 
 func renderWidget(widget widget) template.HTML {
-	widget.lockRefresh()
+	base, hasBase := widgetBaseOf(widget)
+
+	if hasBase && !widget.tryLockRefresh() {
+		base.renderSnapshotMu.RLock()
+		snapshot := base.renderSnapshot
+		hasSnapshot := base.renderSnapshotReady
+		base.renderSnapshotMu.RUnlock()
+
+		if hasSnapshot {
+			return snapshot
+		}
+
+		widget.lockRefresh()
+	} else if !hasBase {
+		widget.lockRefresh()
+	}
+
 	defer widget.unlockRefresh()
 
-	return widget.Render()
+	rendered := widget.Render()
+
+	if hasBase {
+		base.renderSnapshotMu.Lock()
+		base.renderSnapshot = rendered
+		base.renderSnapshotReady = true
+		base.renderSnapshotMu.Unlock()
+	}
+
+	return rendered
 }
 
 type cacheType int
@@ -207,6 +232,7 @@ type widgetBase struct {
 	refreshDegraded     bool                 `yaml:"-"`
 	refreshFailureClass refreshFailureClass  `yaml:"-"`
 	refreshFailureCount int                  `yaml:"-"`
+	lastRefreshError    string               `yaml:"-"`
 	lastRefreshAttempt  time.Time            `yaml:"-"`
 	lastRefreshSuccess  time.Time            `yaml:"-"`
 	lastRefreshFailure  time.Time            `yaml:"-"`
@@ -219,6 +245,9 @@ type widgetBase struct {
 	lastSchedulerLag    time.Duration        `yaml:"-"`
 	maxSchedulerLag     time.Duration        `yaml:"-"`
 	refreshTelemetryMu  sync.Mutex           `yaml:"-"`
+	renderSnapshotMu    sync.RWMutex         `yaml:"-"`
+	renderSnapshot      template.HTML        `yaml:"-"`
+	renderSnapshotReady bool                 `yaml:"-"`
 	refreshMu           sync.Mutex           `yaml:"-"`
 }
 
@@ -311,7 +340,7 @@ func (w *widgetBase) renderTemplate(data any, t *template.Template) template.HTM
 		w.ContentAvailable = false
 		w.Error = err
 
-		slog.Error("Failed to render template", "error", err)
+		slog.Error("Failed to render template", "widget_id", w.ID, "type", w.Type, "title", w.Title, "error", err)
 
 		// need to immediately re-render with the error,
 		// otherwise risk breaking the page since the widget
@@ -320,10 +349,10 @@ func (w *widgetBase) renderTemplate(data any, t *template.Template) template.HTM
 		err2 := t.Execute(&w.templateBuffer, data)
 
 		if err2 != nil {
-			slog.Error("Failed to render error within widget", "error", err2, "initial_error", err)
+			slog.Error("Failed to render error within widget", "widget_id", w.ID, "type", w.Type, "title", w.Title, "error", err2, "initial_error", err)
 			w.templateBuffer.Reset()
 			if fallbackErr := widgetErrorFallbackTemplate.Execute(&w.templateBuffer, data); fallbackErr != nil {
-				slog.Error("Failed to render generic widget error", "error", fallbackErr, "initial_error", err)
+				slog.Error("Failed to render generic widget error", "widget_id", w.ID, "type", w.Type, "title", w.Title, "error", fallbackErr, "initial_error", err)
 				w.templateBuffer.Reset()
 			}
 		}
@@ -403,6 +432,7 @@ func (w *widgetBase) canContinueUpdateAfterHandlingErr(err error) bool {
 		firstDegraded := !w.refreshDegraded
 		w.refreshFailureCount++
 		w.refreshFailureClass = failureClass
+		w.lastRefreshError = safeHTTPTransportError(err).Error()
 		w.refreshDegraded = true
 		w.refreshTelemetryMu.Unlock()
 
@@ -457,6 +487,7 @@ func (w *widgetBase) canContinueUpdateAfterHandlingErr(err error) bool {
 	w.refreshDegraded = false
 	w.refreshFailureClass = refreshFailureUnknown
 	w.refreshFailureCount = 0
+	w.lastRefreshError = ""
 	w.refreshTelemetryMu.Unlock()
 
 	if wasDegraded {

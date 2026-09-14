@@ -512,7 +512,68 @@ func (widget *renderSynchronizationTestWidget) Render() template.HTML {
 	return ""
 }
 
-func TestRenderWidgetWaitsForActiveRefresh(t *testing.T) {
+func TestRenderWidgetUsesCommittedSnapshotDuringActiveRefresh(t *testing.T) {
+	widget := newRenderSynchronizationTestWidget()
+
+	initialRenderDone := make(chan template.HTML, 1)
+	go func() {
+		initialRenderDone <- renderWidget(widget)
+	}()
+
+	select {
+	case <-widget.renderStart:
+	case <-time.After(time.Second):
+		t.Fatal("initial render did not start")
+	}
+
+	close(widget.renderBlock)
+
+	select {
+	case rendered := <-initialRenderDone:
+		if rendered != "" {
+			t.Fatalf("initial render = %q, want empty test content", rendered)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("initial render did not complete")
+	}
+
+	now := time.Now()
+	refreshDone := make(chan struct{})
+	go func() {
+		defer close(refreshDone)
+		refreshWidgetIfNeeded(context.Background(), widget, &now)
+	}()
+
+	select {
+	case <-widget.updateStart:
+	case <-time.After(time.Second):
+		t.Fatal("refresh did not start")
+	}
+
+	renderDone := make(chan template.HTML, 1)
+	go func() {
+		renderDone <- renderWidget(widget)
+	}()
+
+	select {
+	case rendered := <-renderDone:
+		if rendered != "" {
+			t.Fatalf("snapshot render = %q, want committed test content", rendered)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("render blocked behind active refresh instead of returning committed snapshot")
+	}
+
+	close(widget.updateBlock)
+
+	select {
+	case <-refreshDone:
+	case <-time.After(time.Second):
+		t.Fatal("refresh did not complete")
+	}
+}
+
+func TestRenderWidgetWaitsForFirstRenderDuringActiveRefresh(t *testing.T) {
 	widget := newRenderSynchronizationTestWidget()
 	now := time.Now()
 
@@ -536,7 +597,9 @@ func TestRenderWidgetWaitsForActiveRefresh(t *testing.T) {
 
 	select {
 	case <-widget.renderStart:
-		t.Fatal("render started while refresh still held the widget lock")
+		t.Fatal("first render started while refresh still held the widget lock")
+	case <-renderDone:
+		t.Fatal("first render returned without a committed snapshot")
 	case <-time.After(25 * time.Millisecond):
 	}
 
@@ -551,7 +614,7 @@ func TestRenderWidgetWaitsForActiveRefresh(t *testing.T) {
 	select {
 	case <-widget.renderStart:
 	case <-time.After(time.Second):
-		t.Fatal("render did not start after refresh completed")
+		t.Fatal("first render did not start after refresh completed")
 	}
 
 	close(widget.renderBlock)
@@ -559,7 +622,7 @@ func TestRenderWidgetWaitsForActiveRefresh(t *testing.T) {
 	select {
 	case <-renderDone:
 	case <-time.After(time.Second):
-		t.Fatal("render did not complete")
+		t.Fatal("first render did not complete")
 	}
 }
 

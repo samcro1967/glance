@@ -75,27 +75,36 @@ func fetchRSSResource(ctx context.Context, request *http.Request, options rssRes
 	rssResourceRequests.Lock()
 	if call, ok := rssResourceRequests.current[key]; ok {
 		rssResourceRequests.Unlock()
-
-		select {
-		case <-call.done:
-			return call.val, call.err
-		case <-ctx.Done():
-			return rssResourceResponse{}, ctx.Err()
-		}
+		return waitForRSSResourceCall(ctx, call)
 	}
 
 	call := &rssResourceCall{done: make(chan struct{})}
 	rssResourceRequests.current[key] = call
 	rssResourceRequests.Unlock()
 
-	call.val, call.err = fetchRSSResourceUncached(request, options)
+	sharedRequest := request.Clone(context.WithoutCancel(request.Context()))
+	go func() {
+		call.val, call.err = fetchRSSResourceUncached(sharedRequest, options)
 
-	rssResourceRequests.Lock()
-	delete(rssResourceRequests.current, key)
-	close(call.done)
-	rssResourceRequests.Unlock()
+		rssResourceRequests.Lock()
+		delete(rssResourceRequests.current, key)
+		close(call.done)
+		rssResourceRequests.Unlock()
+	}()
 
-	return call.val, call.err
+	return waitForRSSResourceCall(ctx, call)
+}
+
+func waitForRSSResourceCall(
+	ctx context.Context,
+	call *rssResourceCall,
+) (rssResourceResponse, error) {
+	select {
+	case <-call.done:
+		return call.val, call.err
+	case <-ctx.Done():
+		return rssResourceResponse{}, ctx.Err()
+	}
 }
 
 func fetchRSSResourceUncached(request *http.Request, options rssResourceRequestOptions) (rssResourceResponse, error) {
