@@ -61,6 +61,7 @@ type application struct {
 	liveUpdates          *liveUpdateBroker
 	configDiagnostics    *configRuntimeDiagnostics
 	profilingDiagnostics *profilingRuntimeDiagnostics
+	frontendDiagnostics  *frontendRuntimeDiagnostics
 	trustedProxyPrefixes []netip.Prefix
 
 	RequiresAuth           bool
@@ -119,14 +120,15 @@ func collectRefreshWidgets(source widgets) []widget {
 
 func newApplication(c *config) (*application, error) {
 	app := &application{
-		Version:         buildVersion,
-		ShortRevision:   shortBuildRevision(buildRevision),
-		CreatedAt:       time.Now(),
-		Config:          *c,
-		slugToPage:      make(map[string]*page),
-		slugToDashboard: make(map[string]*dashboard),
-		widgetByID:      make(map[uint64]widget),
-		liveUpdates:     newLiveUpdateBroker(),
+		Version:             buildVersion,
+		ShortRevision:       shortBuildRevision(buildRevision),
+		CreatedAt:           time.Now(),
+		Config:              *c,
+		slugToPage:          make(map[string]*page),
+		slugToDashboard:     make(map[string]*dashboard),
+		widgetByID:          make(map[uint64]widget),
+		liveUpdates:         newLiveUpdateBroker(),
+		frontendDiagnostics: newFrontendRuntimeDiagnostics(),
 	}
 	config := &app.Config
 
@@ -945,10 +947,9 @@ func (a *application) router() http.Handler {
 		a.handleFrontendPerformanceSnapshotRequest,
 	)
 	mux.HandleFunc("GET /api/diagnostics", a.handleRuntimeDiagnosticsRequest)
+	mux.HandleFunc("GET /api/diagnostics/report", a.handleRuntimeDiagnosticsReportRequest)
 	mux.HandleFunc("/api/widgets/{widget}/{path...}", a.handleWidgetRequest)
-	mux.HandleFunc("GET /api/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
+	mux.HandleFunc("GET /api/healthz", a.handleHealthzRequest)
 
 	if a.RequiresAuth {
 		mux.HandleFunc("GET /login", a.handleLoginPageRequest)

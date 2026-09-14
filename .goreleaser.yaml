@@ -18,7 +18,7 @@ builds:
       - amd64
       - arm64
     ldflags:
-      - -s -w -X github.com/samcro1967/glance/internal/glance.buildVersion={{ .Tag }}
+      - -s -w -X github.com/samcro1967/glance/internal/glance.buildVersion={{ .Tag }} -X github.com/samcro1967/glance/internal/glance.buildRevision={{ .FullCommit }}
 
 dockers:
   - image_templates:

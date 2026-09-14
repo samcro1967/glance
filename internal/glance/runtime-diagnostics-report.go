@@ -1,0 +1,417 @@
+package glance
+
+import (
+	"fmt"
+	"net/http"
+	"sort"
+	"strings"
+	"time"
+)
+
+func formatDiagnosticsReportTime(value *time.Time) string {
+	if value == nil {
+		return "none"
+	}
+
+	return value.Local().Format("2006-01-02 15:04:05 MST")
+}
+
+func formatDiagnosticsReportValueTime(value time.Time) string {
+	if value.IsZero() {
+		return "none"
+	}
+
+	return value.Local().Format("2006-01-02 15:04:05 MST")
+}
+
+func diagnosticsReportYesNo(value bool) string {
+	if value {
+		return "yes"
+	}
+	return "no"
+}
+
+func diagnosticsWidgetLabel(widget widgetRefreshDiagnosticsResponse) string {
+	if widget.Title != "" {
+		return fmt.Sprintf("%s [%s, id=%d]", widget.Title, widget.Type, widget.ID)
+	}
+	return fmt.Sprintf("%s [id=%d]", widget.Type, widget.ID)
+}
+
+func writeDiagnosticsWidgetProblem(
+	report *strings.Builder,
+	widget widgetRefreshDiagnosticsResponse,
+) {
+	fmt.Fprintln(report, diagnosticsWidgetLabel(widget))
+	fmt.Fprintln(report, "  State:                 DEGRADED")
+	fmt.Fprintf(report, "  Failure class:         %s\n", widget.FailureClass)
+
+	if widget.FailureCause != "" {
+		fmt.Fprintf(report, "  Failure cause:         %s\n", widget.FailureCause)
+	}
+
+	fmt.Fprintf(report, "  Consecutive failures:  %d\n", widget.ConsecutiveFailures)
+	fmt.Fprintf(report, "  Attempts:              %d\n", widget.Attempts)
+	fmt.Fprintf(report, "  Successes:             %d\n", widget.Successes)
+	fmt.Fprintf(report, "  Failures:              %d\n", widget.Failures)
+	fmt.Fprintf(report, "  Last attempt:          %s\n", formatDiagnosticsReportTime(widget.LastAttempt))
+	fmt.Fprintf(report, "  Last success:          %s\n", formatDiagnosticsReportTime(widget.LastSuccess))
+	fmt.Fprintf(report, "  Last failure:          %s\n", formatDiagnosticsReportTime(widget.LastFailure))
+	fmt.Fprintf(report, "  Refresh duration:      %.3f ms\n", widget.LastDurationMS)
+	fmt.Fprintf(report, "  Scheduler lag:         %.3f ms\n", widget.LastSchedulerLagMS)
+
+	if widget.LockSkips > 0 {
+		fmt.Fprintf(report, "  Lock skips:            %d\n", widget.LockSkips)
+	}
+
+	fmt.Fprintln(report)
+}
+
+type runtimeDiagnosticsReportIdentity struct {
+	Version  string
+	Revision string
+	Uptime   time.Duration
+}
+
+func formatRuntimeDiagnosticsReport(
+	response runtimeDiagnosticsResponse,
+	identity runtimeDiagnosticsReportIdentity,
+	frontendEnabled bool,
+	frontend frontendRuntimeDiagnosticsSnapshot,
+) string {
+	var report strings.Builder
+
+	currentProblems := response.DegradedWidgets > 0 ||
+		response.Config.LastReloadRejection != nil ||
+		(response.Profiling.Requested &&
+			!response.Profiling.Running &&
+			response.Profiling.LastFailure != "")
+
+	fmt.Fprintln(&report, "GLANCE RUNTIME DIAGNOSTICS")
+	fmt.Fprintln(&report, "==========================")
+	fmt.Fprintln(&report)
+
+	if currentProblems {
+		fmt.Fprintln(&report, "Overall: ATTENTION")
+	} else {
+		fmt.Fprintln(&report, "Overall: HEALTHY")
+	}
+
+	fmt.Fprintf(
+		&report,
+		"Generated: %s\n",
+		response.GeneratedAt.Local().Format("2006-01-02 15:04:05 MST"),
+	)
+
+	fmt.Fprintln(&report)
+	fmt.Fprintln(&report, "APPLICATION")
+	fmt.Fprintln(&report, "-----------")
+	fmt.Fprintf(&report, "Version:   %s\n", identity.Version)
+	fmt.Fprintf(&report, "Revision:  %s\n", identity.Revision)
+	fmt.Fprintf(&report, "Uptime:    %s\n", formatHealthzDuration(identity.Uptime))
+
+	fmt.Fprintln(&report)
+	fmt.Fprintln(&report, "WIDGET REFRESH")
+	fmt.Fprintln(&report, "--------------")
+	fmt.Fprintf(&report, "Refreshable:  %d\n", response.RefreshWidgets)
+	fmt.Fprintf(&report, "Refreshing:   %d\n", response.RefreshingWidgets)
+	fmt.Fprintf(&report, "Degraded:     %d\n", response.DegradedWidgets)
+	fmt.Fprintf(&report, "Attempts:     %d\n", response.TotalAttempts)
+	fmt.Fprintf(&report, "Successes:    %d\n", response.TotalSuccesses)
+	fmt.Fprintf(&report, "Failures:     %d\n", response.TotalFailures)
+	fmt.Fprintf(&report, "Lock skips:   %d\n", response.TotalLockSkips)
+
+	fmt.Fprintln(&report)
+	fmt.Fprintln(&report, "CONFIGURATION")
+	fmt.Fprintln(&report, "-------------")
+
+	if response.Config.Path == "" {
+		fmt.Fprintln(&report, "Path:          unavailable")
+	} else {
+		fmt.Fprintf(&report, "Path:          %s\n", response.Config.Path)
+	}
+
+	fmt.Fprintf(
+		&report,
+		"Loaded:        %s\n",
+		formatDiagnosticsReportTime(response.Config.LoadedAt),
+	)
+	fmt.Fprintf(
+		&report,
+		"Last attempt:  %s\n",
+		formatDiagnosticsReportTime(response.Config.LastReloadAttempt),
+	)
+
+	if response.Config.LastReloadResult == "" {
+		fmt.Fprintln(&report, "Last result:   none")
+	} else {
+		fmt.Fprintf(
+			&report,
+			"Last result:   %s\n",
+			response.Config.LastReloadResult,
+		)
+	}
+
+	if response.Config.LastReloadRejection == nil {
+		fmt.Fprintln(&report, "Status:        healthy")
+	} else {
+		fmt.Fprintln(&report, "Status:        reload rejected")
+	}
+
+	fmt.Fprintln(&report)
+	fmt.Fprintln(&report, "PROFILING")
+	fmt.Fprintln(&report, "---------")
+	fmt.Fprintf(
+		&report,
+		"Requested:     %s\n",
+		diagnosticsReportYesNo(response.Profiling.Requested),
+	)
+	fmt.Fprintf(
+		&report,
+		"Running:       %s\n",
+		diagnosticsReportYesNo(response.Profiling.Running),
+	)
+
+	if response.Profiling.LastFailure == "" {
+		fmt.Fprintln(&report, "Last failure:  none")
+	} else {
+		fmt.Fprintf(
+			&report,
+			"Last failure:  %s",
+			response.Profiling.LastFailure,
+		)
+
+		if response.Profiling.LastFailureAt != nil {
+			fmt.Fprintf(
+				&report,
+				" (%s)",
+				formatDiagnosticsReportTime(response.Profiling.LastFailureAt),
+			)
+		}
+
+		fmt.Fprintln(&report)
+	}
+
+	fmt.Fprintln(&report)
+	fmt.Fprintln(&report, "FRONTEND DIAGNOSTICS")
+	fmt.Fprintln(&report, "--------------------")
+
+	if !frontendEnabled {
+		fmt.Fprintln(&report, "Diagnostics:    disabled")
+	} else {
+		fmt.Fprintln(&report, "Diagnostics:    enabled")
+
+		if frontend.TotalEvents == 0 {
+			fmt.Fprintln(
+				&report,
+				"Activity:       no browser diagnostics received yet",
+			)
+		} else {
+			fmt.Fprintf(
+				&report,
+				"Last activity:  %s\n",
+				formatDiagnosticsReportValueTime(frontend.LastEventAt),
+			)
+			fmt.Fprintf(&report, "Total events:   %d\n", frontend.TotalEvents)
+			fmt.Fprintf(&report, "Problem events: %d\n", frontend.TotalProblemEvents)
+
+			if frontend.LastPage != "" {
+				fmt.Fprintf(&report, "Last page:      %s\n", frontend.LastPage)
+			}
+
+			if frontend.LastSession != "" {
+				fmt.Fprintf(&report, "Last session:   %s\n", frontend.LastSession)
+			}
+
+			if len(frontend.ProblemCounts) > 0 {
+				fmt.Fprintln(&report, "Problem counts:")
+
+				names := make([]string, 0, len(frontend.ProblemCounts))
+				for name := range frontend.ProblemCounts {
+					names = append(names, name)
+				}
+
+				sort.Strings(names)
+
+				for _, name := range names {
+					fmt.Fprintf(
+						&report,
+						"  %-28s %d\n",
+						name,
+						frontend.ProblemCounts[name],
+					)
+				}
+			}
+		}
+	}
+
+	fmt.Fprintln(&report)
+	fmt.Fprintln(&report, "CURRENT PROBLEMS")
+	fmt.Fprintln(&report, "----------------")
+
+	problemsWritten := false
+
+	for _, widget := range response.Widgets {
+		if !widget.Degraded {
+			continue
+		}
+
+		problemsWritten = true
+		writeDiagnosticsWidgetProblem(&report, widget)
+	}
+
+	if response.Config.LastReloadRejection != nil {
+		problemsWritten = true
+		rejection := response.Config.LastReloadRejection
+
+		fmt.Fprintln(&report, "Configuration reload")
+		fmt.Fprintln(&report, "  State:         REJECTED")
+		fmt.Fprintf(
+			&report,
+			"  At:            %s\n",
+			formatDiagnosticsReportValueTime(rejection.At),
+		)
+
+		if rejection.File != "" {
+			fmt.Fprintf(&report, "  File:          %s\n", rejection.File)
+		}
+
+		if rejection.Line != 0 {
+			fmt.Fprintf(&report, "  Line:          %d\n", rejection.Line)
+		}
+
+		fmt.Fprintf(&report, "  Error:         %s\n", rejection.Message)
+		fmt.Fprintln(&report)
+	}
+
+	if response.Profiling.Requested &&
+		!response.Profiling.Running &&
+		response.Profiling.LastFailure != "" {
+		problemsWritten = true
+		fmt.Fprintln(&report, "Profiling listener")
+		fmt.Fprintln(&report, "  State:         FAILED")
+		fmt.Fprintf(
+			&report,
+			"  Error:         %s\n",
+			response.Profiling.LastFailure,
+		)
+		fmt.Fprintln(&report)
+	}
+
+	if !problemsWritten {
+		fmt.Fprintln(&report, "None")
+	}
+
+	fmt.Fprintln(&report)
+	fmt.Fprintln(&report, "RECOVERED / HISTORICAL")
+	fmt.Fprintln(&report, "----------------------")
+
+	historyWritten := false
+
+	for _, widget := range response.Widgets {
+		if widget.Degraded ||
+			(widget.Failures == 0 && widget.LockSkips == 0) {
+			continue
+		}
+
+		historyWritten = true
+		fmt.Fprintln(&report, diagnosticsWidgetLabel(widget))
+		fmt.Fprintln(&report, "  State:         recovered")
+
+		if widget.Failures > 0 {
+			fmt.Fprintf(&report, "  Failures:      %d\n", widget.Failures)
+			fmt.Fprintf(
+				&report,
+				"  Last failure:  %s\n",
+				formatDiagnosticsReportTime(widget.LastFailure),
+			)
+		}
+
+		if widget.LockSkips > 0 {
+			fmt.Fprintf(&report, "  Lock skips:    %d\n", widget.LockSkips)
+		}
+
+		fmt.Fprintln(&report)
+	}
+
+	if !historyWritten {
+		fmt.Fprintln(&report, "None")
+	}
+
+	if frontendEnabled {
+		fmt.Fprintln(&report)
+		fmt.Fprintln(&report, "RECENT FRONTEND PROBLEMS")
+		fmt.Fprintln(&report, "------------------------")
+
+		if len(frontend.RecentProblems) == 0 {
+			fmt.Fprintln(&report, "None")
+		} else {
+			for _, problem := range frontend.RecentProblems {
+				fmt.Fprintf(
+					&report,
+					"%s  %s",
+					formatDiagnosticsReportValueTime(problem.RecordedAt),
+					problem.Event.Event,
+				)
+
+				if problem.Event.Page != "" {
+					fmt.Fprintf(&report, "  page=%s", problem.Event.Page)
+				}
+
+				if problem.Event.Widget != "" {
+					fmt.Fprintf(&report, "  widget=%s", problem.Event.Widget)
+				}
+
+				if problem.Event.Status != 0 {
+					fmt.Fprintf(&report, "  status=%d", problem.Event.Status)
+				}
+
+				fmt.Fprintln(&report)
+
+				if problem.Event.Detail != "" {
+					fmt.Fprintf(&report, "  %s\n", problem.Event.Detail)
+				}
+			}
+		}
+	}
+
+	return report.String()
+}
+
+func (a *application) handleRuntimeDiagnosticsReportRequest(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	if a.handleUnauthorizedResponse(w, r, showUnauthorizedJSON) {
+		return
+	}
+
+	response := a.runtimeDiagnosticsResponse()
+
+	uptime := time.Since(a.CreatedAt)
+	if a.CreatedAt.IsZero() || uptime < 0 {
+		uptime = 0
+	}
+
+	var frontend frontendRuntimeDiagnosticsSnapshot
+	if a.frontendDiagnostics != nil {
+		frontend = a.frontendDiagnostics.snapshot()
+	}
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+
+	_, _ = fmt.Fprint(
+		w,
+		formatRuntimeDiagnosticsReport(
+			response,
+			runtimeDiagnosticsReportIdentity{
+				Version:  a.Version,
+				Revision: a.ShortRevision,
+				Uptime:   uptime,
+			},
+			a.Config.Server.FrontendDiagnostics,
+			frontend,
+		),
+	)
+}

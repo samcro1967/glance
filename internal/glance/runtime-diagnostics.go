@@ -213,6 +213,43 @@ func runtimeDiagnosticsResponseFromSnapshot(
 	return response
 }
 
+func (a *application) runtimeDiagnosticsResponse() runtimeDiagnosticsResponse {
+	response := runtimeDiagnosticsResponseFromSnapshot(
+		collectRuntimeDiagnostics(a.refreshWidgets),
+	)
+
+	if a.configDiagnostics != nil {
+		configSnapshot := a.configDiagnostics.snapshot()
+		response.Config = configRuntimeDiagnosticsResponse{
+			Path:              configSnapshot.ConfigPath,
+			LoadedAt:          optionalDiagnosticTime(configSnapshot.LoadedAt),
+			LastReloadAttempt: optionalDiagnosticTime(configSnapshot.LastReloadAttempt),
+			LastReloadResult:  configSnapshot.LastReloadResult,
+		}
+
+		if configSnapshot.LastReloadRejection != nil {
+			response.Config.LastReloadRejection = &configReloadRejectionResponse{
+				At:      configSnapshot.LastReloadRejection.At,
+				File:    configSnapshot.LastReloadRejection.File,
+				Line:    configSnapshot.LastReloadRejection.Line,
+				Message: configSnapshot.LastReloadRejection.Message,
+			}
+		}
+	}
+
+	if a.profilingDiagnostics != nil {
+		profilingSnapshot := a.profilingDiagnostics.snapshot()
+		response.Profiling = profilingRuntimeDiagnosticsResponse{
+			Requested:     profilingSnapshot.Requested,
+			Running:       profilingSnapshot.Running,
+			LastFailureAt: optionalDiagnosticTime(profilingSnapshot.LastFailureAt),
+			LastFailure:   profilingSnapshot.LastFailure,
+		}
+	}
+
+	return response
+}
+
 func (a *application) handleRuntimeDiagnosticsRequest(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -221,34 +258,7 @@ func (a *application) handleRuntimeDiagnosticsRequest(
 		return
 	}
 
-	response := runtimeDiagnosticsResponseFromSnapshot(
-		collectRuntimeDiagnostics(a.refreshWidgets),
-	)
-
-	configSnapshot := a.configDiagnostics.snapshot()
-	response.Config = configRuntimeDiagnosticsResponse{
-		Path:              configSnapshot.ConfigPath,
-		LoadedAt:          optionalDiagnosticTime(configSnapshot.LoadedAt),
-		LastReloadAttempt: optionalDiagnosticTime(configSnapshot.LastReloadAttempt),
-		LastReloadResult:  configSnapshot.LastReloadResult,
-	}
-
-	if configSnapshot.LastReloadRejection != nil {
-		response.Config.LastReloadRejection = &configReloadRejectionResponse{
-			At:      configSnapshot.LastReloadRejection.At,
-			File:    configSnapshot.LastReloadRejection.File,
-			Line:    configSnapshot.LastReloadRejection.Line,
-			Message: configSnapshot.LastReloadRejection.Message,
-		}
-	}
-
-	profilingSnapshot := a.profilingDiagnostics.snapshot()
-	response.Profiling = profilingRuntimeDiagnosticsResponse{
-		Requested:     profilingSnapshot.Requested,
-		Running:       profilingSnapshot.Running,
-		LastFailureAt: optionalDiagnosticTime(profilingSnapshot.LastFailureAt),
-		LastFailure:   profilingSnapshot.LastFailure,
-	}
+	response := a.runtimeDiagnosticsResponse()
 
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "no-store")
