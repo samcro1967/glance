@@ -1,20 +1,551 @@
 package glance
 
 import (
-	"errors"
+	"context"
+	"io"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
-func TestStartServerAndReportReturnsStartupError(t *testing.T) {
-	startErr := errors.New("address already in use")
-	exitChannel := make(chan error, 1)
+func TestSwappableHandlerRoutesNewRequestsToNewGeneration(t *testing.T) {
+	oldHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, "old")
+	})
+	newHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, "new")
+	})
 
-	startServerAndReport(func() error {
-		return startErr
-	}, exitChannel)
+	handler := newSwappableHandler(oldHandler)
 
-	err := <-exitChannel
-	if !errors.Is(err, startErr) {
-		t.Fatalf("expected startup error to be reported, got %v", err)
+	before := httptest.NewRecorder()
+	handler.ServeHTTP(before, httptest.NewRequest(http.MethodGet, "/", nil))
+	if before.Body.String() != "old" {
+		t.Fatalf("response before swap = %q, want old", before.Body.String())
+	}
+
+	handler.swap(newHandler)
+
+	after := httptest.NewRecorder()
+	handler.ServeHTTP(after, httptest.NewRequest(http.MethodGet, "/", nil))
+	if after.Body.String() != "new" {
+		t.Fatalf("response after swap = %q, want new", after.Body.String())
+	}
+}
+
+func TestSwappableHandlerAllowsInflightOldRequestToFinish(t *testing.T) {
+	started := make(chan struct{})
+	release := make(chan struct{})
+	finished := make(chan string, 1)
+
+	oldHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		close(started)
+		<-release
+		_, _ = io.WriteString(w, "old")
+	})
+	newHandler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, "new")
+	})
+
+	handler := newSwappableHandler(oldHandler)
+	go func() {
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/", nil))
+		finished <- recorder.Body.String()
+	}()
+
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("old request did not start")
+	}
+
+	handler.swap(newHandler)
+
+	newRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(newRecorder, httptest.NewRequest(http.MethodGet, "/", nil))
+	if newRecorder.Body.String() != "new" {
+		t.Fatalf("new request response = %q, want new", newRecorder.Body.String())
+	}
+
+	close(release)
+
+	select {
+	case response := <-finished:
+		if response != "old" {
+			t.Fatalf("in-flight old response = %q, want old", response)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("in-flight old request did not finish")
+	}
+}
+
+func TestProcessServerBindFailureDoesNotCreateServer(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("reserve port: %v", err)
+	}
+	defer func() { _ = listener.Close() }()
+
+	port := uint16(listener.Addr().(*net.TCPAddr).Port)
+	_, err = newProcessServer("127.0.0.1", port, http.NotFoundHandler())
+	if err == nil {
+		t.Fatal("expected bind failure")
+	}
+	if !strings.Contains(err.Error(), "address already in use") {
+		t.Fatalf("bind failure = %q, want address already in use", err)
+	}
+}
+
+func TestProcessServerSwapDoesNotRebindListener(t *testing.T) {
+	server, err := newProcessServer(
+		"127.0.0.1",
+		0,
+		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = io.WriteString(w, "old")
+		}),
+	)
+	if err != nil {
+		t.Fatalf("create process server: %v", err)
+	}
+
+	serveDone := make(chan error, 1)
+	go func() {
+		serveDone <- server.serve()
+	}()
+
+	client := &http.Client{Timeout: time.Second}
+	url := "http://" + server.listener.Addr().String()
+
+	response, err := client.Get(url)
+	if err != nil {
+		t.Fatalf("request old generation: %v", err)
+	}
+	body, err := io.ReadAll(response.Body)
+	_ = response.Body.Close()
+	if err != nil {
+		t.Fatalf("read old generation: %v", err)
+	}
+	if string(body) != "old" {
+		t.Fatalf("old generation response = %q, want old", body)
+	}
+
+	addressBefore := server.listener.Addr().String()
+	server.swap(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, "new")
+	}))
+	if server.listener.Addr().String() != addressBefore {
+		t.Fatal("handler swap changed listener address")
+	}
+
+	response, err = client.Get(url)
+	if err != nil {
+		t.Fatalf("request new generation: %v", err)
+	}
+	body, err = io.ReadAll(response.Body)
+	_ = response.Body.Close()
+	if err != nil {
+		t.Fatalf("read new generation: %v", err)
+	}
+	if string(body) != "new" {
+		t.Fatalf("new generation response = %q, want new", body)
+	}
+
+	if err := server.shutdown(); err != nil {
+		t.Fatalf("shutdown process server: %v", err)
+	}
+
+	select {
+	case err := <-serveDone:
+		if err != nil {
+			t.Fatalf("serve returned after shutdown: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("serve did not return after shutdown")
+	}
+}
+
+func TestApplicationRuntimeStopCancelsScheduler(t *testing.T) {
+	widget := newServerLifecycleTestWidget()
+	app := newServerLifecycleTestApplication(t, 0, widget)
+
+	runtime := app.startRuntime()
+
+	select {
+	case <-widget.started:
+	case <-time.After(time.Second):
+		t.Fatal("widget refresh scheduler did not start")
+	}
+
+	runtime.stop()
+
+	select {
+	case <-widget.cancelled:
+	case <-time.After(time.Second):
+		t.Fatal("runtime stop did not cancel widget refresh scheduler")
+	}
+}
+
+func TestProcessServerGracefulShutdownAllowsInflightRequest(t *testing.T) {
+	started := make(chan struct{})
+	release := make(chan struct{})
+	var completed atomic.Bool
+
+	server, err := newProcessServer(
+		"127.0.0.1",
+		0,
+		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			close(started)
+			<-release
+			completed.Store(true)
+			_, _ = io.WriteString(w, "done")
+		}),
+	)
+	if err != nil {
+		t.Fatalf("create process server: %v", err)
+	}
+
+	serveDone := make(chan error, 1)
+	go func() {
+		serveDone <- server.serve()
+	}()
+
+	requestDone := make(chan error, 1)
+	go func() {
+		request, err := http.NewRequestWithContext(
+			context.Background(),
+			http.MethodGet,
+			"http://"+server.listener.Addr().String(),
+			nil,
+		)
+		if err != nil {
+			requestDone <- err
+			return
+		}
+		response, err := http.DefaultClient.Do(request)
+		if err == nil {
+			_, _ = io.Copy(io.Discard, response.Body)
+			_ = response.Body.Close()
+		}
+		requestDone <- err
+	}()
+
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("request did not start")
+	}
+
+	shutdownDone := make(chan error, 1)
+	go func() {
+		shutdownDone <- server.shutdown()
+	}()
+
+	select {
+	case err := <-shutdownDone:
+		t.Fatalf("shutdown returned before request completed: %v", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	close(release)
+
+	select {
+	case err := <-requestDone:
+		if err != nil {
+			t.Fatalf("request failed during graceful shutdown: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("request did not finish")
+	}
+
+	if !completed.Load() {
+		t.Fatal("in-flight request did not complete")
+	}
+
+	select {
+	case err := <-shutdownDone:
+		if err != nil {
+			t.Fatalf("graceful shutdown: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("graceful shutdown did not finish")
+	}
+
+	select {
+	case err := <-serveDone:
+		if err != nil {
+			t.Fatalf("serve returned after shutdown: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("serve did not return")
+	}
+}
+
+func TestRuntimeGenerationRejectsListenerChangeWithoutDisturbingCurrentGeneration(t *testing.T) {
+	oldWidget := newServerLifecycleTestWidget()
+	oldApp := newServerLifecycleTestApplication(t, 0, oldWidget)
+	diagnostics := newConfigRuntimeDiagnostics("glance.yml")
+	oldApp.configDiagnostics = diagnostics
+
+	server, err := newProcessServer(
+		"127.0.0.1",
+		0,
+		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = io.WriteString(w, "old")
+		}),
+	)
+	if err != nil {
+		t.Fatalf("create process server: %v", err)
+	}
+	defer func() { _ = server.shutdown() }()
+
+	oldRuntime := oldApp.startRuntime()
+	defer oldRuntime.stop()
+
+	select {
+	case <-oldWidget.started:
+	case <-time.After(time.Second):
+		t.Fatal("old scheduler did not start")
+	}
+
+	generation := &runtimeGeneration{
+		runtime: oldRuntime,
+		config:  &oldApp.Config,
+	}
+
+	candidate := oldApp.Config
+	candidate.Server.Port = 65534
+
+	_, err = generation.reload(server, &candidate, diagnostics)
+	if err == nil {
+		t.Fatal("expected listener change to be rejected")
+	}
+	if !strings.Contains(err.Error(), "require an application restart") {
+		t.Fatalf("listener rejection = %q, want restart-required message", err)
+	}
+	if generation.runtime != oldRuntime {
+		t.Fatal("rejected reload replaced current runtime")
+	}
+
+	select {
+	case <-oldWidget.cancelled:
+		t.Fatal("rejected reload cancelled current scheduler")
+	default:
+	}
+}
+
+func TestRuntimeGenerationSuccessfulReloadCommitsNewGenerationAndRetiresOld(t *testing.T) {
+	oldWidget := newServerLifecycleTestWidget()
+	oldApp := newServerLifecycleTestApplication(t, 0, oldWidget)
+	diagnostics := newConfigRuntimeDiagnostics("glance.yml")
+	oldApp.configDiagnostics = diagnostics
+
+	server, err := newProcessServer(
+		"127.0.0.1",
+		0,
+		oldApp.router(),
+	)
+	if err != nil {
+		t.Fatalf("create process server: %v", err)
+	}
+	defer func() { _ = server.shutdown() }()
+
+	oldRuntime := oldApp.startRuntime()
+
+	select {
+	case <-oldWidget.started:
+	case <-time.After(time.Second):
+		t.Fatal("old scheduler did not start")
+	}
+
+	generation := &runtimeGeneration{
+		runtime: oldRuntime,
+		config:  &oldApp.Config,
+	}
+
+	candidateApp := newGlanceTestApplication(t, `
+server:
+  host: 127.0.0.1
+  port: 0
+
+branding:
+  app-name: Reloaded Glance
+
+pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets: []
+`)
+	candidate := candidateApp.Config
+
+	previousRuntime, err := generation.reload(server, &candidate, diagnostics)
+	if err != nil {
+		t.Fatalf("reload generation: %v", err)
+	}
+	defer generation.runtime.stop()
+
+	if previousRuntime != oldRuntime {
+		t.Fatal("successful reload did not return previous runtime for retirement")
+	}
+	if generation.runtime == oldRuntime {
+		t.Fatal("successful reload retained old runtime")
+	}
+	if generation.config.Branding.AppName != "Reloaded Glance" {
+		t.Fatalf(
+			"new generation app name = %q, want Reloaded Glance",
+			generation.config.Branding.AppName,
+		)
+	}
+
+	select {
+	case <-oldWidget.cancelled:
+		t.Fatal("successful reload retired old scheduler before caller committed acceptance")
+	default:
+	}
+
+	previousRuntime.stop()
+
+	select {
+	case <-oldWidget.cancelled:
+	case <-time.After(time.Second):
+		t.Fatal("old scheduler was not retired after accepted reload")
+	}
+}
+
+func TestRuntimeGenerationApplicationFailurePreservesCurrentGeneration(t *testing.T) {
+	oldWidget := newServerLifecycleTestWidget()
+	oldApp := newServerLifecycleTestApplication(t, 0, oldWidget)
+	diagnostics := newConfigRuntimeDiagnostics("glance.yml")
+	oldApp.configDiagnostics = diagnostics
+
+	server, err := newProcessServer("127.0.0.1", 0, oldApp.router())
+	if err != nil {
+		t.Fatalf("create process server: %v", err)
+	}
+	defer func() { _ = server.shutdown() }()
+
+	oldRuntime := oldApp.startRuntime()
+	defer oldRuntime.stop()
+
+	select {
+	case <-oldWidget.started:
+	case <-time.After(time.Second):
+		t.Fatal("old scheduler did not start")
+	}
+
+	generation := &runtimeGeneration{
+		runtime: oldRuntime,
+		config:  &oldApp.Config,
+	}
+
+	candidate := oldApp.Config
+	candidate.Auth.Users = map[string]*user{
+		"broken": {
+			Password: "password",
+		},
+	}
+	candidate.Auth.SecretKey = "not-valid-base64"
+
+	_, err = generation.reload(server, &candidate, diagnostics)
+	if err == nil {
+		t.Fatal("expected candidate application construction to fail")
+	}
+	if generation.runtime != oldRuntime {
+		t.Fatal("failed candidate replaced current runtime")
+	}
+
+	select {
+	case <-oldWidget.cancelled:
+		t.Fatal("failed candidate cancelled current scheduler")
+	default:
+	}
+}
+
+func TestProcessServerProfilingCanBeReconciledWithoutMainServerImpact(t *testing.T) {
+	server, err := newProcessServer("127.0.0.1", 0, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	if err != nil {
+		t.Fatalf("create process server: %v", err)
+	}
+	defer func() { _ = server.shutdown() }()
+
+	server.reconcileProfiling(false)
+	server.profileMu.Lock()
+	profileServer := server.profileServer
+	server.profileMu.Unlock()
+	if profileServer != nil {
+		t.Fatal("profiling server started while disabled")
+	}
+
+	server.reconcileProfiling(true)
+	server.profileMu.Lock()
+	profileServer = server.profileServer
+	server.profileMu.Unlock()
+	if profileServer == nil {
+		t.Fatal("profiling server did not start when enabled")
+	}
+
+	server.reconcileProfiling(false)
+	server.profileMu.Lock()
+	profileServer = server.profileServer
+	server.profileMu.Unlock()
+	if profileServer != nil {
+		t.Fatal("profiling server remained configured after disable")
+	}
+}
+
+func TestProcessServerProfilingBindFailureIsNonfatal(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:6060")
+	if err != nil {
+		t.Skipf("cannot reserve profiling port: %v", err)
+	}
+
+	server, err := newProcessServer("127.0.0.1", 0, http.NotFoundHandler())
+	if err != nil {
+		_ = listener.Close()
+		t.Fatalf("create process server: %v", err)
+	}
+	defer func() { _ = server.shutdown() }()
+
+	server.reconcileProfiling(true)
+
+	deadline := time.Now().Add(time.Second)
+	for {
+		server.profileMu.Lock()
+		profileServer := server.profileServer
+		server.profileMu.Unlock()
+		if profileServer == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			_ = listener.Close()
+			t.Fatal("profiling server did not clear failed bind state")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	recorder := httptest.NewRecorder()
+	server.handler.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/missing", nil))
+	if recorder.Code != http.StatusNotFound {
+		_ = listener.Close()
+		t.Fatalf("main handler status after profiling bind failure = %d, want %d", recorder.Code, http.StatusNotFound)
+	}
+
+	if err := listener.Close(); err != nil {
+		t.Fatalf("release profiling port: %v", err)
+	}
+
+	server.reconcileProfiling(true)
+	server.profileMu.Lock()
+	profileServer := server.profileServer
+	server.profileMu.Unlock()
+	if profileServer == nil {
+		t.Fatal("profiling server did not retry after failed bind was cleared")
 	}
 }
