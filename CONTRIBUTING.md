@@ -50,6 +50,8 @@ make test
 make test-race
 make build
 make check
+make validate
+make validate-all
 make coverage
 make vuln
 make status
@@ -102,6 +104,8 @@ make check
 ```
 
 This includes the Go test suite, race testing, build validation, whitespace checks, documentation validation, and maintained architecture audits.
+
+For comprehensive release-gate validation, use `make validate`. It extends `make check` with deterministic browser regression testing, visual QA contract validation, and Go vulnerability analysis. `make validate-all` additionally runs informational Go coverage, frontend execution coverage, and benchmarks for deeper engineering analysis; those measurements are not release thresholds.
 
 Use:
 

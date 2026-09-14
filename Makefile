@@ -6,7 +6,7 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps build goreleaser-check frontend-audit frontend-check test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch park push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-docs deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final
+.PHONY: help deps build goreleaser-check frontend-audit frontend-check validate validate-all test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln status staged-diff upstream-status upstream-dev-status branch park push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-docs deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final
 
 COUNT ?= 10
 COVERAGE_FILE ?= coverage.out
@@ -120,7 +120,7 @@ help:
 	@echo "  Branch creation permits parked local dev commits only when origin/dev is an ancestor."
 	@echo "  Feature post-merge reconciles parked dev history only after verifying it reached origin/dev."
 	@echo "  Release requires clean/current main containing origin/dev and upstream/main."
-	@echo "  Release refuses an existing release tag and runs full make check."
+	@echo "  Release refuses an existing release tag and runs full make validate."
 	@echo "  Deploy requires current main to have a formal release tag."
 	@echo "  Deploy pulls latest and verifies its embedded version matches that tag."
 	@echo "  Deploy verifies running container version, image ID, and HTTP readiness."
@@ -172,7 +172,9 @@ help:
 	@echo "  make fmt-check                Verify changed Go files are formatted"
 	@echo "  make diff-check               Working-tree whitespace validation"
 	@echo "  make staged-check             Staged whitespace validation"
-	@echo "  make check                    Tests + race + build + format + whitespace + docs"
+	@echo "  make check                    Tests + race + build + format + whitespace + docs + frontend audit"
+	@echo "  make validate                 Full release-gate validation including browser, visual, and vulnerability checks"
+	@echo "  make validate-all             Full validation plus informational coverage and benchmarks"
 	@echo "  make goreleaser-check         Validate formal-release configuration"
 	@echo
 	@echo "REPOSITORY:"
@@ -269,6 +271,10 @@ docs-check:
 	python3 scripts/check_docs.py
 
 check: test test-race build fmt-check diff-check staged-check docs-check frontend-audit
+
+validate: check frontend-check visual-check vuln
+
+validate-all: validate coverage frontend-coverage benchmark
 
 coverage:
 	go test ./... -coverprofile=$(COVERAGE_FILE)
@@ -1181,7 +1187,7 @@ release-check:
 	echo "Next fork release: $$next_release"; \
 	echo; \
 	echo "Running standard validation..."; \
-	$(MAKE) check BASE_REF=origin/$(STABLE_BRANCH); \
+	$(MAKE) validate BASE_REF=origin/$(STABLE_BRANCH); \
 	echo; \
 	echo "Validating GoReleaser configuration..."; \
 	$(MAKE) goreleaser-check; \
