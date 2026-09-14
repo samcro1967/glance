@@ -2,7 +2,6 @@ package glance
 
 import (
 	"bytes"
-	"context"
 	"encoding/base64"
 	"fmt"
 	"log/slog"
@@ -508,52 +507,6 @@ func newApplication(c *config) (*application, error) {
 	return app, nil
 }
 
-func (p *page) updateOutdatedWidgets(ctx context.Context) {
-	now := time.Now()
-
-	var wg sync.WaitGroup
-
-	refreshWidget := func(widget widget) {
-		defer wg.Done()
-		refreshWidgetIfNeeded(ctx, widget, &now)
-	}
-
-	for w := range p.HeadWidgets {
-		wg.Add(1)
-		go refreshWidget(p.HeadWidgets[w])
-	}
-
-	for c := range p.Columns {
-		for w := range p.Columns[c].Widgets {
-			wg.Add(1)
-			go refreshWidget(p.Columns[c].Widgets[w])
-		}
-	}
-
-	for w := range p.BottomWidgets {
-		wg.Add(1)
-		go refreshWidget(p.BottomWidgets[w])
-	}
-
-	wg.Wait()
-}
-
-func (footer *footerMicroWidgets) updateOutdatedWidgets(ctx context.Context) {
-	now := time.Now()
-	widgets := footer.dynamicWidgets()
-
-	var wg sync.WaitGroup
-	for _, candidate := range widgets {
-		wg.Add(1)
-		go func(candidate widget) {
-			defer wg.Done()
-			refreshWidgetIfNeeded(ctx, candidate, &now)
-		}(candidate)
-	}
-
-	wg.Wait()
-}
-
 func (a *application) resolveUserDefinedAssetPath(path string) string {
 	if strings.HasPrefix(path, "/assets/") {
 		return a.Config.Server.BaseURL + path
@@ -777,9 +730,6 @@ func (a *application) handlePageContentRequest(w http.ResponseWriter, r *http.Re
 
 	var err error
 	var responseBytes bytes.Buffer
-
-	page.updateOutdatedWidgets(r.Context())
-	a.Config.FooterMicroWidgets.updateOutdatedWidgets(r.Context())
 
 	func() {
 		page.mu.Lock()
