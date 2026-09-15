@@ -513,6 +513,47 @@ func TestRuntimeDiagnosticsReportShowsFrontendProblemHistory(t *testing.T) {
 	}
 }
 
+func TestRuntimeDiagnosticsReportShowsActiveDiagnosticResults(t *testing.T) {
+	store := newFrontendRuntimeDiagnostics()
+	state := 1
+
+	store.record([]frontendDiagnosticEvent{
+		{
+			Event:     "runtime_state",
+			Page:      "sports",
+			Session:   "browser-active",
+			Detail:    "visibility=visible event_source=open",
+			CommandID: 42,
+			State:     &state,
+			Metrics: map[string]float64{
+				"pending":   1,
+				"in_flight": 2,
+			},
+		},
+	})
+
+	report := formatRuntimeDiagnosticsReport(
+		runtimeDiagnosticsResponse{GeneratedAt: time.Now()},
+		runtimeDiagnosticsReportIdentity{},
+		true,
+		store.snapshot(),
+	)
+
+	for _, want := range []string{
+		"RECENT ACTIVE DIAGNOSTIC RESULTS",
+		"command=42  runtime_state",
+		"page=sports",
+		"session=browser-active",
+		"state=1",
+		"visibility=visible event_source=open",
+		"metrics: in_flight=2 pending=1",
+	} {
+		if !strings.Contains(report, want) {
+			t.Fatalf("report missing %q:\n%s", want, report)
+		}
+	}
+}
+
 func TestRuntimeDiagnosticsReportRequiresAuthentication(t *testing.T) {
 	app := newAuthTestApplication(t)
 

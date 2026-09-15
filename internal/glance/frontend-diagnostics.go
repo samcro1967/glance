@@ -34,6 +34,7 @@ type frontendDiagnosticEvent struct {
 	Widget    string             `json:"widget,omitempty"`
 	Detail    string             `json:"detail,omitempty"`
 	Sequence  uint64             `json:"sequence,omitempty"`
+	CommandID uint64             `json:"command_id,omitempty"`
 	ElapsedMS float64            `json:"elapsed_ms,omitempty"`
 	Status    int                `json:"status,omitempty"`
 	Length    *int               `json:"length,omitempty"`
@@ -41,32 +42,42 @@ type frontendDiagnosticEvent struct {
 	Metrics   map[string]float64 `json:"metrics,omitempty"`
 }
 
-const frontendDiagnosticsRecentProblemLimit = 20
+const (
+	frontendDiagnosticsRecentProblemLimit      = 20
+	frontendDiagnosticsRecentActiveResultLimit = 20
+)
 
 type frontendRuntimeDiagnosticProblem struct {
 	RecordedAt time.Time
 	Event      frontendDiagnosticEvent
 }
 
+type frontendRuntimeDiagnosticActiveResult struct {
+	RecordedAt time.Time
+	Event      frontendDiagnosticEvent
+}
+
 type frontendRuntimeDiagnosticsSnapshot struct {
-	TotalEvents        uint64
-	TotalProblemEvents uint64
-	LastEventAt        time.Time
-	LastPage           string
-	LastSession        string
-	ProblemCounts      map[string]uint64
-	RecentProblems     []frontendRuntimeDiagnosticProblem
+	TotalEvents         uint64
+	TotalProblemEvents  uint64
+	LastEventAt         time.Time
+	LastPage            string
+	LastSession         string
+	ProblemCounts       map[string]uint64
+	RecentProblems      []frontendRuntimeDiagnosticProblem
+	RecentActiveResults []frontendRuntimeDiagnosticActiveResult
 }
 
 type frontendRuntimeDiagnostics struct {
-	mu                 sync.RWMutex
-	totalEvents        uint64
-	totalProblemEvents uint64
-	lastEventAt        time.Time
-	lastPage           string
-	lastSession        string
-	problemCounts      map[string]uint64
-	recentProblems     []frontendRuntimeDiagnosticProblem
+	mu                  sync.RWMutex
+	totalEvents         uint64
+	totalProblemEvents  uint64
+	lastEventAt         time.Time
+	lastPage            string
+	lastSession         string
+	problemCounts       map[string]uint64
+	recentProblems      []frontendRuntimeDiagnosticProblem
+	recentActiveResults []frontendRuntimeDiagnosticActiveResult
 }
 
 func newFrontendRuntimeDiagnostics() *frontendRuntimeDiagnostics {
@@ -89,6 +100,27 @@ func frontendDiagnosticIsProblem(event string) bool {
 	}
 
 	return strings.HasSuffix(event, "_error")
+}
+
+func frontendDiagnosticIsActiveResult(event frontendDiagnosticEvent) bool {
+	if event.CommandID == 0 {
+		return false
+	}
+
+	switch event.Event {
+	case "performance_snapshot",
+		"navigation_snapshot",
+		"resource_snapshot",
+		"memory_snapshot",
+		"long_task_capture_start",
+		"long_task_capture_complete",
+		"long_task_capture_unsupported",
+		"long_task_capture_error",
+		"runtime_state":
+		return true
+	}
+
+	return false
 }
 
 func cloneFrontendDiagnosticEvent(event frontendDiagnosticEvent) frontendDiagnosticEvent {
@@ -129,6 +161,23 @@ func (d *frontendRuntimeDiagnostics) record(events []frontendDiagnosticEvent) {
 			d.lastSession = event.Session
 		}
 
+		if frontendDiagnosticIsActiveResult(event) {
+			d.recentActiveResults = append(
+				d.recentActiveResults,
+				frontendRuntimeDiagnosticActiveResult{
+					RecordedAt: now,
+					Event:      cloneFrontendDiagnosticEvent(event),
+				},
+			)
+
+			if len(d.recentActiveResults) > frontendDiagnosticsRecentActiveResultLimit {
+				d.recentActiveResults = append(
+					[]frontendRuntimeDiagnosticActiveResult(nil),
+					d.recentActiveResults[len(d.recentActiveResults)-frontendDiagnosticsRecentActiveResultLimit:]...,
+				)
+			}
+		}
+
 		if !frontendDiagnosticIsProblem(event.Event) {
 			continue
 		}
@@ -162,13 +211,14 @@ func (d *frontendRuntimeDiagnostics) snapshot() frontendRuntimeDiagnosticsSnapsh
 	defer d.mu.RUnlock()
 
 	snapshot := frontendRuntimeDiagnosticsSnapshot{
-		TotalEvents:        d.totalEvents,
-		TotalProblemEvents: d.totalProblemEvents,
-		LastEventAt:        d.lastEventAt,
-		LastPage:           d.lastPage,
-		LastSession:        d.lastSession,
-		ProblemCounts:      make(map[string]uint64, len(d.problemCounts)),
-		RecentProblems:     make([]frontendRuntimeDiagnosticProblem, len(d.recentProblems)),
+		TotalEvents:         d.totalEvents,
+		TotalProblemEvents:  d.totalProblemEvents,
+		LastEventAt:         d.lastEventAt,
+		LastPage:            d.lastPage,
+		LastSession:         d.lastSession,
+		ProblemCounts:       make(map[string]uint64, len(d.problemCounts)),
+		RecentProblems:      make([]frontendRuntimeDiagnosticProblem, len(d.recentProblems)),
+		RecentActiveResults: make([]frontendRuntimeDiagnosticActiveResult, len(d.recentActiveResults)),
 	}
 
 	for name, count := range d.problemCounts {
@@ -182,12 +232,32 @@ func (d *frontendRuntimeDiagnostics) snapshot() frontendRuntimeDiagnosticsSnapsh
 		}
 	}
 
+	for i, result := range d.recentActiveResults {
+		snapshot.RecentActiveResults[i] = frontendRuntimeDiagnosticActiveResult{
+			RecordedAt: result.RecordedAt,
+			Event:      cloneFrontendDiagnosticEvent(result.Event),
+		}
+	}
+
 	return snapshot
 }
 
-func (a *application) handleFrontendPerformanceSnapshotRequest(
+func (a *application) handleFrontendPerformanceSnapshotRequest(w http.ResponseWriter, r *http.Request) {
+	a.handleFrontendDiagnosticCommandRequest(w, r, "performance_snapshot")
+}
+
+func (a *application) handleFrontendLongTaskCaptureRequest(w http.ResponseWriter, r *http.Request) {
+	a.handleFrontendDiagnosticCommandRequest(w, r, "long_task_capture")
+}
+
+func (a *application) handleFrontendRuntimeStateRequest(w http.ResponseWriter, r *http.Request) {
+	a.handleFrontendDiagnosticCommandRequest(w, r, "runtime_state")
+}
+
+func (a *application) handleFrontendDiagnosticCommandRequest(
 	w http.ResponseWriter,
 	r *http.Request,
+	commandName string,
 ) {
 	if !a.Config.Server.FrontendDiagnostics {
 		http.NotFound(w, r)
@@ -209,7 +279,7 @@ func (a *application) handleFrontendPerformanceSnapshotRequest(
 
 	command := frontendDiagnosticCommand{
 		ID:      frontendDiagnosticCommandID.Add(1),
-		Command: "performance_snapshot",
+		Command: commandName,
 	}
 
 	a.liveUpdates.publishDiagnosticCommand(command)
@@ -321,6 +391,9 @@ func (a *application) handleFrontendDiagnosticsRequest(w http.ResponseWriter, r 
 		}
 		if event.Sequence != 0 {
 			attrs = append(attrs, "sequence", event.Sequence)
+		}
+		if event.CommandID != 0 {
+			attrs = append(attrs, "command_id", event.CommandID)
 		}
 		if event.Widget != "" {
 			attrs = append(attrs, "widget", event.Widget)

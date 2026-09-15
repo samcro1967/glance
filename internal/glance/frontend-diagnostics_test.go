@@ -103,55 +103,67 @@ func TestFrontendPerformanceSnapshotDisabled(t *testing.T) {
 	}
 }
 
-func TestFrontendPerformanceSnapshotPublishesCommand(t *testing.T) {
-	app := newFrontendDiagnosticsTestApplication(true)
-	app.liveUpdates = newLiveUpdateBroker()
-
-	subscription, unsubscribe := app.liveUpdates.subscribe(nil)
-	defer unsubscribe()
-
-	recorder := httptest.NewRecorder()
-	app.handleFrontendPerformanceSnapshotRequest(
-		recorder,
-		frontendPerformanceSnapshotRequest(),
-	)
-
-	if recorder.Code != http.StatusAccepted {
-		t.Fatalf(
-			"status = %d, want %d; body = %q",
-			recorder.Code,
-			http.StatusAccepted,
-			recorder.Body.String(),
-		)
+func TestFrontendDiagnosticCommandsPublishExpectedCommand(t *testing.T) {
+	tests := []struct {
+		name    string
+		path    string
+		command string
+	}{
+		{
+			name:    "performance snapshot",
+			path:    "/api/frontend-diagnostics/performance-snapshot",
+			command: "performance_snapshot",
+		},
+		{
+			name:    "long task capture",
+			path:    "/api/frontend-diagnostics/long-task-capture",
+			command: "long_task_capture",
+		},
+		{
+			name:    "runtime state",
+			path:    "/api/frontend-diagnostics/runtime-state",
+			command: "runtime_state",
+		},
 	}
 
-	commands := subscription.takeDiagnosticCommands()
-	if len(commands) != 1 {
-		t.Fatalf("got %d commands, want 1", len(commands))
-	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			app := newFrontendDiagnosticsTestApplication(true)
+			app.liveUpdates = newLiveUpdateBroker()
 
-	if commands[0].ID == 0 {
-		t.Fatal("command ID must be nonzero")
-	}
+			subscription, unsubscribe := app.liveUpdates.subscribe(nil)
+			defer unsubscribe()
 
-	if commands[0].Command != "performance_snapshot" {
-		t.Fatalf(
-			"command = %q, want %q",
-			commands[0].Command,
-			"performance_snapshot",
-		)
-	}
+			recorder := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodPost, test.path, nil)
+			app.router().ServeHTTP(recorder, request)
 
-	wantBody := fmt.Sprintf(
-		`{"id":%d,"command":"performance_snapshot"}`,
-		commands[0].ID,
-	)
-	if recorder.Body.String() != wantBody {
-		t.Fatalf(
-			"body = %q, want %q",
-			recorder.Body.String(),
-			wantBody,
-		)
+			if recorder.Code != http.StatusAccepted {
+				t.Fatalf("status = %d, want %d; body = %q", recorder.Code, http.StatusAccepted, recorder.Body.String())
+			}
+
+			commands := subscription.takeDiagnosticCommands()
+			if len(commands) != 1 {
+				t.Fatalf("got %d commands, want 1", len(commands))
+			}
+
+			if commands[0].ID == 0 {
+				t.Fatal("command ID must be nonzero")
+			}
+
+			if commands[0].Command != test.command {
+				t.Fatalf("command = %q, want %q", commands[0].Command, test.command)
+			}
+
+			wantBody := fmt.Sprintf(
+				`{"id":%d,"command":"%s"}`,
+				commands[0].ID,
+				test.command,
+			)
+			if recorder.Body.String() != wantBody {
+				t.Fatalf("body = %q, want %q", recorder.Body.String(), wantBody)
+			}
+		})
 	}
 }
 
@@ -654,6 +666,148 @@ func TestFrontendRuntimeDiagnosticsBoundsRecentProblems(t *testing.T) {
 			"oldest retained sequence = %d, want 6",
 			snapshot.RecentProblems[0].Event.Sequence,
 		)
+	}
+}
+
+func TestFrontendRuntimeDiagnosticsRetainsActiveResults(t *testing.T) {
+	store := newFrontendRuntimeDiagnostics()
+
+	store.record([]frontendDiagnosticEvent{
+		{
+			Event:     "runtime_state",
+			Page:      "sports",
+			Session:   "session-active",
+			CommandID: 42,
+			Metrics:   map[string]float64{"in_flight": 2},
+		},
+		{
+			Event:     "diagnostic_command_received",
+			CommandID: 42,
+		},
+		{
+			Event:   "runtime_state",
+			Metrics: map[string]float64{"in_flight": 99},
+		},
+	})
+
+	snapshot := store.snapshot()
+
+	if len(snapshot.RecentActiveResults) != 1 {
+		t.Fatalf("recent active results = %d, want 1", len(snapshot.RecentActiveResults))
+	}
+
+	result := snapshot.RecentActiveResults[0]
+	if result.Event.CommandID != 42 {
+		t.Fatalf("command ID = %d, want 42", result.Event.CommandID)
+	}
+	if result.Event.Event != "runtime_state" {
+		t.Fatalf("event = %q, want runtime_state", result.Event.Event)
+	}
+	if result.Event.Page != "sports" || result.Event.Session != "session-active" {
+		t.Fatalf("unexpected active result context: %+v", result.Event)
+	}
+	if result.Event.Metrics["in_flight"] != 2 {
+		t.Fatalf("unexpected active result metrics: %+v", result.Event.Metrics)
+	}
+
+	snapshot.RecentActiveResults[0].Event.Metrics["in_flight"] = 999
+
+	second := store.snapshot()
+	if second.RecentActiveResults[0].Event.Metrics["in_flight"] != 2 {
+		t.Fatal("snapshot mutation changed retained active result metrics")
+	}
+}
+
+func TestFrontendRuntimeDiagnosticsActiveResultClassification(t *testing.T) {
+	active := []string{
+		"performance_snapshot",
+		"navigation_snapshot",
+		"resource_snapshot",
+		"memory_snapshot",
+		"long_task_capture_start",
+		"long_task_capture_complete",
+		"long_task_capture_unsupported",
+		"long_task_capture_error",
+		"runtime_state",
+	}
+
+	for _, event := range active {
+		if !frontendDiagnosticIsActiveResult(frontendDiagnosticEvent{
+			Event:     event,
+			CommandID: 1,
+		}) {
+			t.Errorf("%q should be classified as an active result", event)
+		}
+	}
+
+	if frontendDiagnosticIsActiveResult(frontendDiagnosticEvent{
+		Event: "runtime_state",
+	}) {
+		t.Error("passive runtime_state should not be classified as an active result")
+	}
+
+	if frontendDiagnosticIsActiveResult(frontendDiagnosticEvent{
+		Event:     "diagnostic_command_received",
+		CommandID: 1,
+	}) {
+		t.Error("diagnostic command receipt should not be classified as an active result")
+	}
+}
+
+func TestFrontendRuntimeDiagnosticsBoundsRecentActiveResults(t *testing.T) {
+	store := newFrontendRuntimeDiagnostics()
+
+	for i := 0; i < frontendDiagnosticsRecentActiveResultLimit+5; i++ {
+		store.record([]frontendDiagnosticEvent{
+			{
+				Event:     "runtime_state",
+				CommandID: uint64(i + 1),
+			},
+		})
+	}
+
+	snapshot := store.snapshot()
+
+	if len(snapshot.RecentActiveResults) != frontendDiagnosticsRecentActiveResultLimit {
+		t.Fatalf(
+			"recent active results = %d, want %d",
+			len(snapshot.RecentActiveResults),
+			frontendDiagnosticsRecentActiveResultLimit,
+		)
+	}
+
+	if snapshot.RecentActiveResults[0].Event.CommandID != 6 {
+		t.Fatalf(
+			"oldest retained command ID = %d, want 6",
+			snapshot.RecentActiveResults[0].Event.CommandID,
+		)
+	}
+}
+
+func TestFrontendDiagnosticsValidBatchRetainsActiveResult(t *testing.T) {
+	app := newFrontendDiagnosticsTestApplication(true)
+	app.frontendDiagnostics = newFrontendRuntimeDiagnostics()
+
+	recorder := httptest.NewRecorder()
+	app.handleFrontendDiagnosticsRequest(
+		recorder,
+		frontendDiagnosticsRequest(
+			`{"events":[{"event":"runtime_state","page":"home","session":"session-3","command_id":77,"metrics":{"in_flight":0,"pending":0}}]}`,
+		),
+	)
+
+	if recorder.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNoContent)
+	}
+
+	snapshot := app.frontendDiagnostics.snapshot()
+	if len(snapshot.RecentActiveResults) != 1 {
+		t.Fatalf("recent active results = %d, want 1", len(snapshot.RecentActiveResults))
+	}
+
+	result := snapshot.RecentActiveResults[0].Event
+	if result.CommandID != 77 || result.Page != "home" || result.Session != "session-3" {
+		t.Fatalf("unexpected retained active result: %+v", result)
 	}
 }
 
