@@ -105,7 +105,12 @@ func (g *runtimeGeneration) reload(
 		)
 	}
 
-	candidateApp, err := newApplication(candidateConfig)
+	var reusableOIDC *oidcRuntime
+	if g.runtime != nil && g.runtime.app != nil {
+		reusableOIDC = g.runtime.app.oidc
+	}
+
+	candidateApp, err := newApplicationWithOIDCRuntime(candidateConfig, reusableOIDC)
 	if err != nil {
 		return nil, err
 	}

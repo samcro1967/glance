@@ -69,6 +69,18 @@ type application struct {
 	usernameHashToUsername map[string]string
 	authAttemptsMu         sync.Mutex
 	failedAuthAttempts     map[string]*failedAuthAttempt
+	oidc                   *oidcRuntime
+}
+
+func (a *application) OIDCEnabled() bool {
+	return a.oidc != nil
+}
+
+func (a *application) OIDCProviderName() string {
+	if a.oidc == nil {
+		return ""
+	}
+	return a.Config.Auth.OIDC.providerDisplayName()
 }
 
 func shortBuildRevision(revision string) string {
@@ -119,6 +131,10 @@ func collectRefreshWidgets(source widgets) []widget {
 }
 
 func newApplication(c *config) (*application, error) {
+	return newApplicationWithOIDCRuntime(c, nil)
+}
+
+func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime) (*application, error) {
 	app := &application{
 		Version:             buildVersion,
 		ShortRevision:       shortBuildRevision(buildRevision),
@@ -154,19 +170,24 @@ func newApplication(c *config) (*application, error) {
 	// Init auth
 	//
 
-	if len(config.Auth.Users) > 0 {
+	authConfigured := len(config.Auth.Users) > 0 || config.Auth.OIDC.configured()
+	if authConfigured {
 		secretBytes, err := base64.StdEncoding.DecodeString(config.Auth.SecretKey)
 		if err != nil {
 			return nil, fmt.Errorf("decoding secret-key: %v", err)
 		}
 
+		app.RequiresAuth = true
+		app.authSecretKey = secretBytes
+	}
+
+	if len(config.Auth.Users) > 0 {
 		app.usernameHashToUsername = make(map[string]string)
 		app.failedAuthAttempts = make(map[string]*failedAuthAttempt)
-		app.RequiresAuth = true
 
 		for username := range config.Auth.Users {
 			user := config.Auth.Users[username]
-			usernameHash, err := computeUsernameHash(username, secretBytes)
+			usernameHash, err := computeUsernameHash(username, app.authSecretKey)
 			if err != nil {
 				return nil, fmt.Errorf("computing username hash for user %s: %v", username, err)
 			}
@@ -185,8 +206,14 @@ func newApplication(c *config) (*application, error) {
 				user.PasswordHash = hashedPassword
 			}
 		}
+	}
 
-		app.authSecretKey = secretBytes
+	if config.Auth.OIDC.configured() {
+		var err error
+		app.oidc, err = newOIDCRuntime(config.Auth.OIDC, reusableOIDC)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	//
@@ -545,6 +572,9 @@ type templateRequestData struct {
 	GlobalCustomCSSFile string
 	ThemeCustomCSSFile  string
 	PageCustomCSSFile   string
+	AuthDisplayName     string
+	AuthDescription     string
+	LoginMessage        string
 }
 
 type templateData struct {
@@ -623,7 +653,9 @@ func (a *application) renderPage(
 	dashboard *dashboard,
 	dashboardPath string,
 ) {
-	if a.handleUnauthorizedResponse(w, r, redirectToLogin) {
+	session, authorized := a.authorizeSession(w, r)
+	if !authorized {
+		http.Redirect(w, r, a.Config.Server.BaseURL+"/login", http.StatusSeeOther)
 		return
 	}
 
@@ -636,6 +668,16 @@ func (a *application) renderPage(
 		DashboardPath:   dashboardPath,
 	}
 	a.populateTemplateRequestData(&data.Request, r, page)
+
+	if a.RequiresAuth && session.DisplayName != "" {
+		data.Request.AuthDisplayName = session.DisplayName
+		switch session.Method {
+		case authMethodLocal:
+			data.Request.AuthDescription = "Signed in locally"
+		case authMethodOIDC:
+			data.Request.AuthDescription = "Signed in with " + a.OIDCProviderName()
+		}
+	}
 
 	var responseBytes bytes.Buffer
 	err := pageTemplate.Execute(&responseBytes, data)
@@ -803,7 +845,7 @@ func (a *application) requestIsFromTrustedProxy(r *http.Request) bool {
 }
 
 func (a *application) requestIsSecure(r *http.Request) bool {
-	if r.TLS != nil {
+	if r.TLS != nil || a.Config.Server.HTTPS {
 		return true
 	}
 
@@ -962,7 +1004,15 @@ func (a *application) router() http.Handler {
 	if a.RequiresAuth {
 		mux.HandleFunc("GET /login", a.handleLoginPageRequest)
 		mux.HandleFunc("GET /logout", a.handleLogoutRequest)
-		mux.HandleFunc("POST /api/authenticate", a.handleAuthenticationAttempt)
+
+		if len(a.Config.Auth.Users) > 0 {
+			mux.HandleFunc("POST /api/authenticate", a.handleAuthenticationAttempt)
+		}
+
+		if a.oidc != nil {
+			mux.HandleFunc("GET /auth/oidc/login", a.handleOIDCLoginRequest)
+			mux.HandleFunc("GET /auth/oidc/callback", a.handleOIDCCallbackRequest)
+		}
 	}
 
 	mux.Handle(

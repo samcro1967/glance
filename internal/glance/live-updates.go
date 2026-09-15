@@ -3,17 +3,21 @@ package glance
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 var frontendDiagnosticsLiveUpdateConnectionID atomic.Uint64
 var frontendDiagnosticCommandID atomic.Uint64
 
 const frontendDiagnosticCommandQueueLimit = 8
+
+const liveUpdateHeartbeatInterval = 30 * time.Second
 
 type frontendDiagnosticCommand struct {
 	ID      uint64 `json:"id"`
@@ -278,6 +282,9 @@ func (a *application) handleLiveUpdatesRequest(w http.ResponseWriter, r *http.Re
 	w.WriteHeader(http.StatusOK)
 	flusher.Flush()
 
+	heartbeat := time.NewTicker(liveUpdateHeartbeatInterval)
+	defer heartbeat.Stop()
+
 	if a.Config.Server.FrontendDiagnostics {
 		slog.Info(
 			"Frontend diagnostic",
@@ -300,6 +307,21 @@ func (a *application) handleLiveUpdatesRequest(w http.ResponseWriter, r *http.Re
 				)
 			}
 			return
+
+		case <-heartbeat.C:
+			if _, err := io.WriteString(w, ": keepalive\n\n"); err != nil {
+				if a.Config.Server.FrontendDiagnostics {
+					slog.Info(
+						"Frontend diagnostic",
+						"source", "server",
+						"event", "live_updates_heartbeat_write_failed",
+						"connection", connectionID,
+						"error", err,
+					)
+				}
+				return
+			}
+			flusher.Flush()
 
 		case _, ok := <-subscription.ready:
 			if !ok {

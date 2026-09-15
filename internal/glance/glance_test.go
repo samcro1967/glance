@@ -137,6 +137,7 @@ func TestRequestIsSecureProxyTrust(t *testing.T) {
 		name           string
 		proxied        bool
 		trustedProxies []string
+		https          bool
 		remoteAddr     string
 		forwardedProto string
 		directTLS      bool
@@ -175,6 +176,12 @@ func TestRequestIsSecureProxyTrust(t *testing.T) {
 			directTLS:  true,
 			want:       true,
 		},
+		{
+			name:       "configured HTTPS is always secure",
+			https:      true,
+			remoteAddr: "192.0.2.10:1234",
+			want:       true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -184,6 +191,7 @@ func TestRequestIsSecureProxyTrust(t *testing.T) {
 				tt.proxied,
 				tt.trustedProxies,
 			)
+			app.Config.Server.HTTPS = tt.https
 
 			scheme := "http"
 			if tt.directTLS {
