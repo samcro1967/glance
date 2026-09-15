@@ -34,6 +34,10 @@ TEST_RUNTIME_CONTAINER ?=
 TEST_PROD_IMAGE ?= glance-prod-test:local
 TEST_PROD_CONTAINER ?= glance-prod-test
 TEST_FRONTEND_DIAGNOSTICS ?= false
+TEST_PROD_CONFIG_OVERRIDE ?= false
+TEST_PROD_HTTPS ?= false
+TEST_PROD_EXTRA_ENV ?=
+TEST_PROD_CONFIG_APPEND_FILE ?=
 TEST_PROD_CONFIG_DIR ?= .glance-prod-test-config
 PPROF_DIR ?= .pprof
 PROFILE ?= heap
@@ -144,6 +148,10 @@ help:
 	@echo "                                the named production container as its runtime reference"
 	@echo "                                Production is not modified or replaced"
 	@echo "                                Set TEST_FRONTEND_DIAGNOSTICS=true to enable browser diagnostics"
+	@echo "                                Set TEST_PROD_CONFIG_OVERRIDE=true to use an isolated config copy"
+	@echo "                                Set TEST_PROD_EXTRA_ENV='VAR1 VAR2' to forward named test env variables"
+	@echo "  make test-prod-config-refresh TEST_RUNTIME_CONTAINER=name"
+	@echo "                                Rebuild the mounted isolated config and exercise live reload"
 	@echo "  make test-prod-status         Show isolated production-runtime test container status"
 	@echo "  make test-prod-stop           Remove isolated production-runtime test container and local image"
 	@echo "  make benchmark                Run Go benchmarks with allocation statistics"
@@ -169,6 +177,8 @@ help:
 	@echo
 	@echo "TESTING / VALIDATION:"
 	@echo "  make test                     Go tests"
+	@echo "  make test-focused TEST_RUN=pattern [TEST_PACKAGE=package]"
+	@echo "                                Run focused Go tests; TEST_PACKAGE defaults to ./..."
 	@echo "  make test-race                Go tests with race detector"
 	@echo "  make test-count COUNT=10      Repeated Go tests"
 	@echo "  make test-race-count COUNT=10 Repeated race tests"
@@ -178,8 +188,12 @@ help:
 	@echo "  make fmt-check                Verify changed Go files are formatted"
 	@echo "  make diff-check               Working-tree whitespace validation"
 	@echo "  make staged-check             Staged whitespace validation"
+	@echo "  make docs-check               Validate documentation contracts"
+	@echo "  make frontend-audit           Audit frontend architecture contracts"
+	@echo "  make frontend-check           Run frontend regression checks"
+	@echo "  make frontend-coverage        Run frontend JavaScript execution coverage"
 	@echo "  make check                    Tests + race + build + format + whitespace + docs + lint + frontend audit"
-	@echo "  make lint                    Run correctness-oriented Go static analysis"
+	@echo "  make lint                     Run correctness-oriented Go static analysis"
 	@echo "  make validate                 Full release-gate validation including browser, visual, and vulnerability checks"
 	@echo "  make validate-all             Full validation plus informational coverage, benchmarks, and Lighthouse"
 	@echo "  make goreleaser-check         Validate formal-release configuration"
@@ -194,6 +208,8 @@ help:
 	@echo "  make branch NEW_BRANCH=name   Create feature branch; clean dev may include parked commits"
 	@echo "  make park                     Park committed feature work on local dev; NEVER pushes"
 	@echo "  make push                     Push clean feature branch; refuses dev/main"
+	@echo "  make patch PATCH=file         Validate and apply a patch to the working tree"
+	@echo "                                Runs git apply --check and deletes the patch afterward"
 	@echo
 	@echo "PULL REQUESTS:"
 	@echo "  make pr-create TITLE=... BODY_FILE=file"
@@ -247,6 +263,14 @@ benchmark:
 
 test-count:
 	go test ./... -count=$(COUNT)
+
+.PHONY: test-focused
+test-focused:
+	@if [ -z "$(TEST_RUN)" ]; then \
+		echo "TEST_RUN is required. Example: make test-focused TEST_RUN=TestAuthTokenGenerationAndVerification"; \
+		exit 2; \
+	fi
+	go test $(if $(TEST_PACKAGE),$(TEST_PACKAGE),./...) -run '$(TEST_RUN)' -count=1
 
 test-race-count:
 	go test -race ./... -count=$(COUNT)
@@ -315,6 +339,22 @@ staged-diff:
 	@echo
 	@echo "=== STAGED DIFF ==="
 	@git diff --cached
+
+.PHONY: patch
+patch:
+	@if [ -z "$(PATCH)" ]; then \
+		echo "PATCH is required. Example: make patch PATCH=/tmp/glance.patch"; \
+		exit 2; \
+	fi
+	@test -f "$(PATCH)" || { echo "Patch file not found: $(PATCH)"; exit 2; }
+	@trap 'rm -f -- "$(PATCH)"' EXIT; \
+		echo "=== VALIDATE PATCH ==="; \
+		git apply --check "$(PATCH)" && \
+		echo && \
+		echo "=== APPLY PATCH ===" && \
+		git apply "$(PATCH)" && \
+		echo && \
+		echo "Patch applied successfully."
 
 upstream-status:
 	@echo "=== REFRESH ORIGIN ==="
@@ -2084,12 +2124,80 @@ test-instance-stop:
 	echo "Test instance stopped and runtime artifacts removed."; \
 	echo "Preserved $(TEST_CONFIG)."
 
-.PHONY: test-prod-start test-prod-status test-prod-stop
+.PHONY: test-prod-start test-prod-config-refresh test-prod-status test-prod-stop
+
+test-prod-config-refresh:
+	@set -euo pipefail; \
+	if ! docker inspect "$(TEST_PROD_CONTAINER)" >/dev/null 2>&1; then \
+		echo "Production-runtime test container is not running: $(TEST_PROD_CONTAINER)"; \
+		exit 1; \
+	fi; \
+	if [ "$(TEST_PROD_CONFIG_OVERRIDE)" != "true" ]; then \
+		echo "TEST_PROD_CONFIG_OVERRIDE=true is required."; \
+		exit 1; \
+	fi; \
+	config_override="$(TEST_PROD_CONFIG_DIR)"; \
+	config_file="$$config_override/glance.yml"; \
+	if [ ! -d "$$config_override" ] || [ ! -f "$$config_file" ]; then \
+		echo "Production-runtime test config override is unavailable: $$config_override"; \
+		exit 1; \
+	fi; \
+	config_source="$$(docker inspect "$(TEST_RUNTIME_CONTAINER)" --format '{{range .Mounts}}{{if eq .Destination "/app/config"}}{{println .Source}}{{end}}{{end}}')"; \
+	if [ -z "$$config_source" ] || [ ! -d "$$config_source" ]; then \
+		echo "Runtime reference does not have a usable /app/config bind mount."; \
+		exit 1; \
+	fi; \
+	tmp_config="$$(mktemp "$$config_override/.glance.yml.refresh.XXXXXX")"; \
+	trap 'rm -f "$$tmp_config"' EXIT; \
+	cp "$$config_source/glance.yml" "$$tmp_config"; \
+	if [ "$(TEST_PROD_HTTPS)" = "true" ]; then \
+		if [ "$$(grep -Ec "^server:[[:space:]]*$$" "$$tmp_config")" -ne 1 ]; then \
+			echo "Expected exactly one top-level server mapping in $$tmp_config."; \
+			exit 1; \
+		fi; \
+		sed -i "/^server:[[:space:]]*$$/a\\  https: true" "$$tmp_config"; \
+	fi; \
+	if [ -n "$(TEST_PROD_CONFIG_APPEND_FILE)" ]; then \
+		if [ ! -f "$(TEST_PROD_CONFIG_APPEND_FILE)" ]; then \
+			echo "Test config append file not found: $(TEST_PROD_CONFIG_APPEND_FILE)"; \
+			exit 1; \
+		fi; \
+		printf "\\n" >> "$$tmp_config"; \
+		cat "$(TEST_PROD_CONFIG_APPEND_FILE)" >> "$$tmp_config"; \
+	fi; \
+	if [ "$(TEST_FRONTEND_DIAGNOSTICS)" = "true" ]; then \
+		diagnostics_count="$$(grep -Ec '^[[:space:]]*frontend-diagnostics:' "$$tmp_config" || true)"; \
+		if [ "$$diagnostics_count" -eq 0 ]; then \
+			if [ "$$(grep -Ec "^server:[[:space:]]*$$" "$$tmp_config")" -ne 1 ]; then \
+				echo "Expected exactly one top-level server mapping in $$tmp_config."; \
+				exit 1; \
+			fi; \
+			sed -i "/^server:[[:space:]]*$$/a\\  frontend-diagnostics: true" "$$tmp_config"; \
+		elif [ "$$diagnostics_count" -eq 1 ] && grep -Eq '^[[:space:]]*frontend-diagnostics:[[:space:]]*false([[:space:]]*(#.*)?)?$$' "$$tmp_config"; then \
+			sed -i -E 's/^([[:space:]]*frontend-diagnostics:[[:space:]]*)false([[:space:]]*(#.*)?)$$/\1true\2/' "$$tmp_config"; \
+		elif [ "$$diagnostics_count" -eq 1 ] && grep -Eq '^[[:space:]]*frontend-diagnostics:[[:space:]]*true([[:space:]]*(#.*)?)?$$' "$$tmp_config"; then \
+			:; \
+		else \
+			echo "Expected frontend-diagnostics to be absent, disabled, or already enabled in $$tmp_config."; \
+			exit 1; \
+		fi; \
+	fi; \
+	mv "$$tmp_config" "$$config_file"; \
+	trap - EXIT; \
+	echo "Refreshed $$config_file; running test instance will process the filesystem change."
 
 test-prod-start:
 	@set -euo pipefail; \
 	if [ "$(TEST_FRONTEND_DIAGNOSTICS)" != "false" ] && [ "$(TEST_FRONTEND_DIAGNOSTICS)" != "true" ]; then \
 		echo "TEST_FRONTEND_DIAGNOSTICS must be true or false."; \
+		exit 1; \
+	fi; \
+	if [ "$(TEST_PROD_CONFIG_OVERRIDE)" != "false" ] && [ "$(TEST_PROD_CONFIG_OVERRIDE)" != "true" ]; then \
+		echo "TEST_PROD_CONFIG_OVERRIDE must be true or false."; \
+		exit 1; \
+	fi; \
+	if [ "$(TEST_PROD_HTTPS)" != "false" ] && [ "$(TEST_PROD_HTTPS)" != "true" ]; then \
+		echo "TEST_PROD_HTTPS must be true or false."; \
 		exit 1; \
 	fi; \
 	if [ -z "$(TEST_RUNTIME_CONTAINER)" ]; then \
@@ -2132,7 +2240,7 @@ test-prod-start:
 		fi; \
 	}; \
 	trap cleanup_config_override EXIT; \
-	if [ "$(TEST_FRONTEND_DIAGNOSTICS)" = "true" ]; then \
+	if [ "$(TEST_FRONTEND_DIAGNOSTICS)" = "true" ] || [ "$(TEST_PROD_CONFIG_OVERRIDE)" = "true" ]; then \
 		config_source="$$(docker inspect "$(TEST_RUNTIME_CONTAINER)" --format '{{range .Mounts}}{{if eq .Destination "/app/config"}}{{println .Source}}{{end}}{{end}}')"; \
 		if [ -z "$$config_source" ] || [ ! -d "$$config_source" ]; then \
 			echo "Runtime reference does not have a usable /app/config bind mount."; \
@@ -2143,12 +2251,41 @@ test-prod-start:
 		mkdir -p "$$config_override"; \
 		cp -a "$$config_source"/. "$$config_override"/; \
 		config_file="$$config_override/glance.yml"; \
-		if [ "$$(grep -Ec '^[[:space:]]*frontend-diagnostics:[[:space:]]*false([[:space:]]*(#.*)?)?$$' "$$config_file")" -ne 1 ]; then \
-			echo "Expected exactly one disabled frontend-diagnostics setting in $$config_file."; \
-			rm -rf "$$config_override"; \
-			exit 1; \
+		if [ "$(TEST_PROD_HTTPS)" = "true" ]; then \
+			if [ "$$(grep -Ec "^server:[[:space:]]*$$" "$$config_file")" -ne 1 ]; then \
+				echo "Expected exactly one top-level server mapping in $$config_file."; \
+				rm -rf "$$config_override"; \
+				exit 1; \
+			fi; \
+			sed -i "/^server:[[:space:]]*$$/a\\  https: true" "$$config_file"; \
 		fi; \
-		sed -i -E 's/^([[:space:]]*frontend-diagnostics:[[:space:]]*)false([[:space:]]*(#.*)?)$$/\1true\2/' "$$config_file"; \
+		if [ -n "$(TEST_PROD_CONFIG_APPEND_FILE)" ]; then \
+			if [ ! -f "$(TEST_PROD_CONFIG_APPEND_FILE)" ]; then \
+				echo "Test config append file not found: $(TEST_PROD_CONFIG_APPEND_FILE)"; \
+				exit 1; \
+			fi; \
+			printf "\\n" >> "$$config_file"; \
+			cat "$(TEST_PROD_CONFIG_APPEND_FILE)" >> "$$config_file"; \
+		fi; \
+		if [ "$(TEST_FRONTEND_DIAGNOSTICS)" = "true" ]; then \
+			diagnostics_count="$$(grep -Ec '^[[:space:]]*frontend-diagnostics:' "$$config_file" || true)"; \
+			if [ "$$diagnostics_count" -eq 0 ]; then \
+				if [ "$$(grep -Ec "^server:[[:space:]]*$$" "$$config_file")" -ne 1 ]; then \
+					echo "Expected exactly one top-level server mapping in $$config_file."; \
+					rm -rf "$$config_override"; \
+					exit 1; \
+				fi; \
+				sed -i "/^server:[[:space:]]*$$/a\\  frontend-diagnostics: true" "$$config_file"; \
+			elif [ "$$diagnostics_count" -eq 1 ] && grep -Eq '^[[:space:]]*frontend-diagnostics:[[:space:]]*false([[:space:]]*(#.*)?)?$$' "$$config_file"; then \
+				sed -i -E 's/^([[:space:]]*frontend-diagnostics:[[:space:]]*)false([[:space:]]*(#.*)?)$$/\1true\2/' "$$config_file"; \
+			elif [ "$$diagnostics_count" -eq 1 ] && grep -Eq '^[[:space:]]*frontend-diagnostics:[[:space:]]*true([[:space:]]*(#.*)?)?$$' "$$config_file"; then \
+				:; \
+			else \
+				echo "Expected frontend-diagnostics to be absent, disabled, or already enabled in $$config_file."; \
+				rm -rf "$$config_override"; \
+				exit 1; \
+			fi; \
+		fi; \
 	fi; \
 	declare -a env_args mount_args network_args sysctl_args; \
 	while IFS= read -r entry; do \
@@ -2159,6 +2296,13 @@ test-prod-start:
 		export "$$key"; \
 		env_args+=(-e "$$key"); \
 	done < <(docker inspect "$(TEST_RUNTIME_CONTAINER)" --format "{{range .Config.Env}}{{println .}}{{end}}"); \
+	for key in $(TEST_PROD_EXTRA_ENV); do \
+		if [ -z "$${!key+x}" ]; then \
+			echo "Requested test environment variable is not set: $$key"; \
+			exit 1; \
+		fi; \
+		env_args+=(-e "$$key"); \
+	done; \
 	while IFS=$$'\t' read -r type source destination rw; do \
 		[ -n "$$destination" ] || continue; \
 		case "$$type" in \
@@ -2195,7 +2339,7 @@ test-prod-start:
 	ready=0; \
 	for attempt in $$(seq 1 20); do \
 		code="$$(curl -sS -o /dev/null -w "%{http_code}" "$(TEST_CONTAINER_URL)/" 2>/dev/null || true)"; \
-		if [ "$$code" = "200" ] || [ "$$code" = "302" ]; then \
+		if [ "$$code" = "200" ] || [ "$$code" = "302" ] || [ "$$code" = "303" ]; then \
 			ready=1; \
 			break; \
 		fi; \
@@ -2222,6 +2366,7 @@ test-prod-start:
 	echo "Production-runtime test started."; \
 	echo "Mode=current source + production runtime"; \
 	echo "Frontend diagnostics=$(TEST_FRONTEND_DIAGNOSTICS)"; \
+	echo "Config override=$(TEST_PROD_CONFIG_OVERRIDE)"; \
 	echo "Runtime reference=$(TEST_RUNTIME_CONTAINER)"; \
 	echo "Container=$(TEST_PROD_CONTAINER)"; \
 	echo "Image=$(TEST_PROD_IMAGE)"; \
