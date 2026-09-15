@@ -11,6 +11,7 @@ import { initThemePicker } from './theme.js';
 
 import {
     captureFrontendPerformanceSnapshot,
+    frontendDiagnosticLongTaskCapture,
     frontendDiagnostic,
     frontendDiagnosticError,
     runFrontendDiagnosticAsyncStage,
@@ -849,11 +850,18 @@ function setupLiveWidgetUpdates() {
                 return;
             }
 
-            if (
-                !Number.isSafeInteger(command.id) ||
-                command.id <= 0 ||
-                command.command !== "performance_snapshot"
-            ) {
+            if (!Number.isSafeInteger(command.id) || command.id <= 0) {
+                frontendDiagnostic("diagnostic_command_unsupported", {
+                    detail: `invalid_id command=${String(command.command ?? "").slice(0, 128)}`,
+                }, true);
+                return;
+            }
+
+            if (![
+                "performance_snapshot",
+                "long_task_capture",
+                "runtime_state",
+            ].includes(command.command)) {
                 frontendDiagnostic("diagnostic_command_unsupported", {
                     detail: String(command.command ?? "").slice(0, 128),
                 }, true);
@@ -861,14 +869,52 @@ function setupLiveWidgetUpdates() {
             }
 
             frontendDiagnostic("diagnostic_command_received", {
+                commandID: command.id,
                 detail: `id=${command.id} command=${command.command}`,
             }, true);
 
-            captureFrontendPerformanceSnapshot(
-                `command_${command.id}`
-            );
-        });
+            switch (command.command) {
+            case "performance_snapshot":
+                captureFrontendPerformanceSnapshot(
+                    `command_${command.id}`,
+                    command.id
+                );
+                break;
 
+            case "long_task_capture":
+                frontendDiagnosticLongTaskCapture(30000, command.id);
+                break;
+
+            case "runtime_state": {
+                const inFlight = [...liveWidgetUpdatesInFlight].sort();
+                const pending = [...liveWidgetUpdatesPending].sort();
+                const eventSourceState = currentEvents.readyState;
+                const eventSourceStateName =
+                    eventSourceState === EventSource.CONNECTING ? "connecting" :
+                    eventSourceState === EventSource.OPEN ? "open" :
+                    eventSourceState === EventSource.CLOSED ? "closed" : "unknown";
+
+                frontendDiagnostic("runtime_state", {
+                    commandID: command.id,
+                    state: eventSourceState,
+                    detail: [
+                        `command=${command.id}`,
+                        `visibility=${document.visibilityState}`,
+                        `online=${navigator.onLine}`,
+                        `event_source=${eventSourceStateName}`,
+                        `in_flight=${inFlight.join(",") || "none"}`,
+                        `pending=${pending.join(",") || "none"}`,
+                    ].join(" ").slice(0, 256),
+                    metrics: {
+                        in_flight: inFlight.length,
+                        pending: pending.length,
+                    },
+                }, true);
+                break;
+            }
+            }
+
+        });
         currentEvents.addEventListener("widget", (event) => {
             if (!/^\d+$/.test(event.data)) {
                 frontendDiagnostic("live_update_invalid", {

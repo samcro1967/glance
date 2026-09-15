@@ -299,6 +299,18 @@ async function main() {
 
         source.dispatch('error', { type: 'error' });
       };
+
+      window.__glanceTestDiagnosticCommand = command => {
+        const source = instances.at(-1);
+        if (!source || source.readyState !== ControlledEventSource.OPEN) {
+          throw new Error('No open EventSource is available for the diagnostic command regression');
+        }
+
+        source.dispatch('diagnostic', {
+          type: 'diagnostic',
+          data: JSON.stringify(command)
+        });
+      };
     });
 
     await openPage(page, '/layout-composition', coveragePath);
@@ -364,6 +376,68 @@ async function main() {
 
     console.log('PASS Status Bar repeated live replacement lifecycle');
 
+    let runtimeStateDiagnostic;
+
+    const runtimeStateResponse = page.waitForResponse(response => {
+      if (
+        response.request().method() !== 'POST' ||
+        new URL(response.url()).pathname !== '/api/frontend-diagnostics' ||
+        response.status() !== 204
+      ) {
+        return false;
+      }
+
+      const body = response.request().postData();
+      if (body === null || body === '') return false;
+
+      try {
+        runtimeStateDiagnostic = JSON.parse(body).events?.find(
+          event => event.event === 'runtime_state' &&
+            event.detail?.includes('command=1001')
+        );
+        return runtimeStateDiagnostic !== undefined;
+      } catch {
+        return false;
+      }
+    });
+
+    await page.evaluate(() => {
+      window.__glanceTestDiagnosticCommand({
+        id: 1001,
+        command: 'runtime_state'
+      });
+    });
+
+    await runtimeStateResponse;
+
+    if (runtimeStateDiagnostic.state !== 1) {
+      throw new Error('Runtime-state diagnostic did not report an open EventSource');
+    }
+
+    if (runtimeStateDiagnostic.command_id !== 1001) {
+      throw new Error('Runtime-state diagnostic did not preserve command ID');
+    }
+    for (const expected of [
+      'command=1001',
+      'visibility=visible',
+      'online=true',
+      'event_source=open',
+      'in_flight=none',
+      'pending=none'
+    ]) {
+      if (runtimeStateDiagnostic.detail?.includes(expected) === false) {
+        throw new Error('Runtime-state diagnostic missing expected detail: ' + expected);
+      }
+    }
+
+    if (
+      runtimeStateDiagnostic.metrics?.in_flight !== 0 ||
+      runtimeStateDiagnostic.metrics?.pending !== 0
+    ) {
+      throw new Error('Runtime-state diagnostic reported unexpected live-widget activity');
+    }
+
+    console.log('PASS active runtime-state diagnostic command');
     let liveUpdateErrorCount = 0;
 
     const captureLiveUpdateErrors = async route => {
