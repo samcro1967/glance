@@ -746,6 +746,277 @@ func TestNewConfigFromParsedYAMLSemanticDiagnostics(t *testing.T) {
 	}
 }
 
+func TestOIDCConfigValidation(t *testing.T) {
+	validSecret, err := makeAuthSecretKey(AUTH_SECRET_KEY_LENGTH)
+	if err != nil {
+		t.Fatalf("generating auth secret: %v", err)
+	}
+
+	tests := []struct {
+		name    string
+		oidc    oidcConfig
+		secret  string
+		wantErr string
+	}{
+		{
+			name:   "complete configuration",
+			secret: validSecret,
+			oidc: oidcConfig{
+				Issuer:       "https://accounts.example.test",
+				ClientID:     "glance",
+				ClientSecret: "client-secret",
+			},
+		},
+		{
+			name:   "complete configuration with redirect URL",
+			secret: validSecret,
+			oidc: oidcConfig{
+				Issuer:       "https://accounts.example.test",
+				ClientID:     "glance",
+				ClientSecret: "client-secret",
+				RedirectURL:  "https://glance.example.test/auth/oidc/callback",
+			},
+		},
+		{
+			name:   "complete configuration with allowed users",
+			secret: validSecret,
+			oidc: oidcConfig{
+				Issuer:       "https://accounts.example.test",
+				ClientID:     "glance",
+				ClientSecret: "client-secret",
+				AllowedUsers: []string{"user@example.test", "other@example.test"},
+			},
+		},
+		{
+			name:   "allowed users alone configures OIDC",
+			secret: validSecret,
+			oidc: oidcConfig{
+				AllowedUsers: []string{"user@example.test"},
+			},
+			wantErr: "OIDC issuer must be set",
+		},
+		{
+			name:   "rejects blank allowed user",
+			secret: validSecret,
+			oidc: oidcConfig{
+				Issuer:       "https://accounts.example.test",
+				ClientID:     "glance",
+				ClientSecret: "client-secret",
+				AllowedUsers: []string{" "},
+			},
+			wantErr: "OIDC allowed-users entries must not be empty",
+		},
+		{
+			name:   "rejects case insensitive duplicate allowed user",
+			secret: validSecret,
+			oidc: oidcConfig{
+				Issuer:       "https://accounts.example.test",
+				ClientID:     "glance",
+				ClientSecret: "client-secret",
+				AllowedUsers: []string{"User@example.test", " user@EXAMPLE.test "},
+			},
+			wantErr: "OIDC allowed-users contains duplicate user \" user@EXAMPLE.test \"",
+		},
+		{
+			name: "requires auth secret",
+			oidc: oidcConfig{
+				Issuer:       "https://accounts.example.test",
+				ClientID:     "glance",
+				ClientSecret: "client-secret",
+			},
+			wantErr: "secret-key must be set when authentication is configured",
+		},
+		{
+			name:   "requires issuer",
+			secret: validSecret,
+			oidc: oidcConfig{
+				ClientID:     "glance",
+				ClientSecret: "client-secret",
+			},
+			wantErr: "OIDC issuer must be set",
+		},
+		{
+			name:   "requires client ID",
+			secret: validSecret,
+			oidc: oidcConfig{
+				Issuer:       "https://accounts.example.test",
+				ClientSecret: "client-secret",
+			},
+			wantErr: "OIDC client-id must be set",
+		},
+		{
+			name:   "requires client secret",
+			secret: validSecret,
+			oidc: oidcConfig{
+				Issuer:   "https://accounts.example.test",
+				ClientID: "glance",
+			},
+			wantErr: "OIDC client-secret must be set",
+		},
+		{
+			name:   "rejects HTTP issuer",
+			secret: validSecret,
+			oidc: oidcConfig{
+				Issuer:       "http://accounts.example.test",
+				ClientID:     "glance",
+				ClientSecret: "client-secret",
+			},
+			wantErr: "OIDC issuer must be an absolute HTTPS URL",
+		},
+		{
+			name:   "rejects relative issuer",
+			secret: validSecret,
+			oidc: oidcConfig{
+				Issuer:       "/oidc",
+				ClientID:     "glance",
+				ClientSecret: "client-secret",
+			},
+			wantErr: "OIDC issuer must be an absolute HTTPS URL",
+		},
+		{
+			name:   "rejects HTTP redirect URL",
+			secret: validSecret,
+			oidc: oidcConfig{
+				Issuer:       "https://accounts.example.test",
+				ClientID:     "glance",
+				ClientSecret: "client-secret",
+				RedirectURL:  "http://glance.example.test/auth/oidc/callback",
+			},
+			wantErr: "OIDC redirect-url must be an absolute HTTPS URL",
+		},
+		{
+			name:   "rejects relative redirect URL",
+			secret: validSecret,
+			oidc: oidcConfig{
+				Issuer:       "https://accounts.example.test",
+				ClientID:     "glance",
+				ClientSecret: "client-secret",
+				RedirectURL:  "/auth/oidc/callback",
+			},
+			wantErr: "OIDC redirect-url must be an absolute HTTPS URL",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config{}
+			cfg.Pages = make([]page, 1)
+			cfg.Pages[0].Title = "Home"
+			cfg.Pages[0].Columns = make([]struct {
+				Size    string  `yaml:"size"`
+				Widgets widgets `yaml:"widgets"`
+			}, 1)
+			cfg.Pages[0].Columns[0].Size = "full"
+			cfg.Auth.SecretKey = tt.secret
+			cfg.Auth.OIDC = tt.oidc
+
+			err := isConfigStateValid(cfg)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("isConfigStateValid() error = %v, want nil", err)
+				}
+				return
+			}
+
+			if err == nil {
+				t.Fatalf("isConfigStateValid() error = nil, want %q", tt.wantErr)
+			}
+			if err.Error() != tt.wantErr {
+				t.Fatalf("isConfigStateValid() error = %q, want %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestOIDCConfigDiagnosticsReportSemanticSource(t *testing.T) {
+	tests := []struct {
+		name        string
+		oidc        string
+		wantLine    int
+		wantMessage string
+	}{
+		{
+			name:        "missing issuer reports OIDC block",
+			oidc:        "    client-id: glance\n    client-secret: secret\n",
+			wantLine:    3,
+			wantMessage: "OIDC issuer must be set",
+		},
+		{
+			name:        "missing client ID reports OIDC block",
+			oidc:        "    issuer: https://accounts.example.test\n    client-secret: secret\n",
+			wantLine:    3,
+			wantMessage: "OIDC client-id must be set",
+		},
+		{
+			name:        "missing client secret reports OIDC block",
+			oidc:        "    issuer: https://accounts.example.test\n    client-id: glance\n",
+			wantLine:    3,
+			wantMessage: "OIDC client-secret must be set",
+		},
+		{
+			name:        "invalid issuer reports issuer field",
+			oidc:        "    issuer: http://accounts.example.test\n    client-id: glance\n    client-secret: secret\n",
+			wantLine:    4,
+			wantMessage: "OIDC issuer must be an absolute HTTPS URL",
+		},
+		{
+			name:        "invalid redirect reports redirect field",
+			oidc:        "    issuer: https://accounts.example.test\n    client-id: glance\n    client-secret: secret\n    redirect-url: /auth/oidc/callback\n",
+			wantLine:    7,
+			wantMessage: "OIDC redirect-url must be an absolute HTTPS URL",
+		},
+	}
+
+	validSecret, err := makeAuthSecretKey(AUTH_SECRET_KEY_LENGTH)
+	if err != nil {
+		t.Fatalf("generating auth secret: %v", err)
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "glance.yml")
+			contents := "auth:\n  secret-key: " + validSecret + "\n  oidc:\n" +
+				tt.oidc +
+				"pages:\n  - name: Home\n    columns:\n      - size: full\n"
+
+			writeConfigTestFile(t, path, contents)
+
+			parsed, err := parseYAMLIncludesWithSources(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			_, err = newConfigFromParsedYAML(parsed)
+			if err == nil {
+				t.Fatal("expected OIDC configuration error")
+			}
+
+			var diagnostic *configDiagnostic
+			if !errors.As(err, &diagnostic) {
+				t.Fatalf("error type = %T, want *configDiagnostic: %v", err, err)
+			}
+
+			wantFile := absConfigTestPath(t, path)
+			if diagnostic.File != wantFile {
+				t.Errorf("diagnostic file = %q, want %q", diagnostic.File, wantFile)
+			}
+			if diagnostic.Line != tt.wantLine {
+				t.Errorf("diagnostic line = %d, want %d", diagnostic.Line, tt.wantLine)
+			}
+			if diagnostic.Message != tt.wantMessage {
+				t.Errorf("diagnostic message = %q, want %q", diagnostic.Message, tt.wantMessage)
+			}
+			if diagnostic.cause == nil {
+				t.Fatal("diagnostic cause is nil")
+			}
+			if !errors.Is(err, diagnostic.cause) {
+				t.Error("diagnostic does not unwrap to its semantic cause")
+			}
+		})
+	}
+}
+
 func TestConfigCompilationRejectsApplicationConfigurationErrors(t *testing.T) {
 	tests := []struct {
 		name    string

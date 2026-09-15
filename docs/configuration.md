@@ -360,7 +360,9 @@ For property descriptions, validation and autocompletion of the config within yo
 
 ## Authentication
 
-To make sure that only you and the people you want to share your dashboard with have access to it, you can set up authentication via username and password. This is done through a top level `auth` property. Example:
+To make sure that only you and the people you want to share your dashboard with have access to it, Glance supports local username/password authentication and OpenID Connect (OIDC). Both methods are configured through the top-level `auth` property and can be enabled independently or together.
+
+For local username/password authentication:
 
 ```yaml
 auth:
@@ -383,6 +385,43 @@ Or with Docker:
 ```sh
 docker run --rm ghcr.io/samcro1967/glance:latest secret:make
 ```
+
+### OpenID Connect (OIDC)
+
+Glance can authenticate users through an OpenID Connect identity provider. OIDC can be used by itself or alongside local username/password authentication.
+
+```yaml
+auth:
+  secret-key: ${GLANCE_AUTH_SECRET_KEY}
+  oidc:
+    issuer: https://accounts.google.com
+    client-id: ${GLANCE_OIDC_CLIENT_ID}
+    client-secret: ${GLANCE_OIDC_CLIENT_SECRET}
+    provider-name: Google
+    allowed-users:
+      - user@example.com
+      - another-user@example.com
+```
+
+`issuer`, `client-id`, and `client-secret` are required when OIDC is configured. `provider-name` is optional and controls the provider name displayed on the login page and for the signed-in user. When omitted, Glance uses a generic SSO label rather than inferring a provider name from the issuer.
+
+Glance requests the `openid` and `email` scopes. The authorization flow uses state, nonce, and PKCE protection. Logging out ends the Glance session and returns to the Glance login page; it does not log the user out of the external identity provider.
+
+`allowed-users` is optional. When omitted or empty, any identity that successfully authenticates with the configured OIDC provider can access Glance. When entries are configured, the provider must supply a verified `email` claim and the email address must exactly match an allowed entry, ignoring letter case and surrounding whitespace. Other identity claims are not used as authorization fallbacks.
+
+Register the externally accessible Glance callback URL with the identity provider. For example:
+
+```text
+https://glance.example.com/auth/oidc/callback
+```
+
+If Glance is hosted beneath a configured `server.base-url`, include that base path in the externally registered callback URL.
+
+OIDC should be exposed through HTTPS so authentication cookies can be handled securely. When TLS terminates at a reverse proxy, configure `server.proxied` appropriately and use `server.trusted-proxies` where possible so forwarded HTTPS state is accepted only from trusted proxy peers.
+
+Client secrets and the Glance authentication secret should not be committed directly to configuration files. Glance configuration variable substitution can be used, as shown above, to provide them through the environment or another supported secret mechanism.
+
+OIDC configuration participates in normal Glance configuration reloads. Changes such as updating `allowed-users` apply to new authentication attempts without restarting Glance. Removing an identity from `allowed-users` does not revoke a Glance session that was already established; existing sessions remain valid until their normal expiration or invalidation. Rotating `secret-key` invalidates existing Glance sessions globally.
 
 ### Using hashed passwords
 

@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"maps"
 	"net/netip"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -35,6 +36,7 @@ type config struct {
 	Server struct {
 		Host                string   `yaml:"host"`
 		Port                uint16   `yaml:"port"`
+		HTTPS               bool     `yaml:"https"`
 		Proxied             bool     `yaml:"proxied"`
 		TrustedProxies      []string `yaml:"trusted-proxies"`
 		AssetsPath          string   `yaml:"assets-path"`
@@ -45,6 +47,7 @@ type config struct {
 	Auth struct {
 		SecretKey string           `yaml:"secret-key"`
 		Users     map[string]*user `yaml:"users"`
+		OIDC      oidcConfig       `yaml:"oidc"`
 	} `yaml:"auth"`
 
 	Document struct {
@@ -80,6 +83,30 @@ type user struct {
 	Password           string `yaml:"password"`
 	PasswordHashString string `yaml:"password-hash"`
 	PasswordHash       []byte `yaml:"-"`
+}
+
+type oidcConfig struct {
+	Issuer       string   `yaml:"issuer"`
+	ClientID     string   `yaml:"client-id"`
+	ClientSecret string   `yaml:"client-secret"`
+	RedirectURL  string   `yaml:"redirect-url"`
+	ProviderName string   `yaml:"provider-name"`
+	AllowedUsers []string `yaml:"allowed-users"`
+}
+
+func (c oidcConfig) configured() bool {
+	return c.Issuer != "" ||
+		c.ClientID != "" ||
+		c.ClientSecret != "" ||
+		c.RedirectURL != "" ||
+		len(c.AllowedUsers) > 0
+}
+
+func (c oidcConfig) providerDisplayName() string {
+	if c.ProviderName != "" {
+		return c.ProviderName
+	}
+	return "SSO"
 }
 
 type page struct {
@@ -121,16 +148,21 @@ type configDiagnostic struct {
 }
 
 type configSemanticSources struct {
-	root       int
-	server     int
-	assetsPath int
-	auth       int
-	authUsers  int
-	users      map[string]int
-	dashboards int
-	dashboard  map[string]int
-	pages      int
-	page       []configPageSemanticSources
+	root             int
+	server           int
+	assetsPath       int
+	auth             int
+	authUsers        int
+	users            map[string]int
+	authOIDC         int
+	authOIDCIssuer   int
+	authOIDCClientID int
+	authOIDCSecret   int
+	authOIDCRedirect int
+	dashboards       int
+	dashboard        map[string]int
+	pages            int
+	page             []configPageSemanticSources
 }
 
 type configPageSemanticSources struct {
@@ -270,7 +302,7 @@ func newConfigFromYAML(contents []byte) (*config, error) {
 }
 
 func normalizeAndValidateCompiledConfig(config *config) error {
-	if len(config.Auth.Users) > 0 {
+	if len(config.Auth.Users) > 0 || config.Auth.OIDC.configured() {
 		secretBytes, err := base64.StdEncoding.DecodeString(config.Auth.SecretKey)
 		if err != nil {
 			return fmt.Errorf("decoding secret-key: %v", err)
@@ -1116,6 +1148,21 @@ func parseConfigSemanticSources(contents []byte) (*configSemanticSources, error)
 				}
 			}
 		}
+		if oidcKey, oidc := yamlMappingValue(auth, "oidc"); oidc != nil {
+			sources.authOIDC = oidcKey.Line
+			if key, value := yamlMappingValue(oidc, "issuer"); value != nil {
+				sources.authOIDCIssuer = key.Line
+			}
+			if key, value := yamlMappingValue(oidc, "client-id"); value != nil {
+				sources.authOIDCClientID = key.Line
+			}
+			if key, value := yamlMappingValue(oidc, "client-secret"); value != nil {
+				sources.authOIDCSecret = key.Line
+			}
+			if key, value := yamlMappingValue(oidc, "redirect-url"); value != nil {
+				sources.authOIDCRedirect = key.Line
+			}
+		}
 	}
 
 	if key, dashboards := yamlMappingValue(root, "dashboards"); dashboards != nil {
@@ -1323,12 +1370,70 @@ func isConfigStateValidWithSources(
 		}
 	}
 
-	if len(config.Auth.Users) > 0 && config.Auth.SecretKey == "" {
+	authConfigured := len(config.Auth.Users) > 0 || config.Auth.OIDC.configured()
+	if authConfigured && config.Auth.SecretKey == "" {
 		line := rootLine
 		if sources != nil {
-			line = semanticSourceLine(sources.authUsers, sources.auth, rootLine)
+			line = semanticSourceLine(sources.auth, rootLine)
 		}
-		return diagnostic(line, fmt.Errorf("secret-key must be set when users are configured"))
+		return diagnostic(line, fmt.Errorf("secret-key must be set when authentication is configured"))
+	}
+
+	if config.Auth.OIDC.configured() {
+		oidcLine := rootLine
+		if sources != nil {
+			oidcLine = semanticSourceLine(sources.authOIDC, sources.auth, rootLine)
+		}
+
+		if config.Auth.OIDC.Issuer == "" {
+			return diagnostic(oidcLine, fmt.Errorf("OIDC issuer must be set"))
+		}
+		if config.Auth.OIDC.ClientID == "" {
+			line := oidcLine
+			if sources != nil {
+				line = semanticSourceLine(sources.authOIDCClientID, sources.authOIDC, sources.auth, rootLine)
+			}
+			return diagnostic(line, fmt.Errorf("OIDC client-id must be set"))
+		}
+		if config.Auth.OIDC.ClientSecret == "" {
+			line := oidcLine
+			if sources != nil {
+				line = semanticSourceLine(sources.authOIDCSecret, sources.authOIDC, sources.auth, rootLine)
+			}
+			return diagnostic(line, fmt.Errorf("OIDC client-secret must be set"))
+		}
+
+		issuerURL, err := url.Parse(config.Auth.OIDC.Issuer)
+		if err != nil || issuerURL.Scheme != "https" || issuerURL.Host == "" {
+			line := oidcLine
+			if sources != nil {
+				line = semanticSourceLine(sources.authOIDCIssuer, sources.authOIDC, sources.auth, rootLine)
+			}
+			return diagnostic(line, fmt.Errorf("OIDC issuer must be an absolute HTTPS URL"))
+		}
+
+		if config.Auth.OIDC.RedirectURL != "" {
+			redirectURL, err := url.Parse(config.Auth.OIDC.RedirectURL)
+			if err != nil || redirectURL.Scheme != "https" || redirectURL.Host == "" {
+				line := oidcLine
+				if sources != nil {
+					line = semanticSourceLine(sources.authOIDCRedirect, sources.authOIDC, sources.auth, rootLine)
+				}
+				return diagnostic(line, fmt.Errorf("OIDC redirect-url must be an absolute HTTPS URL"))
+			}
+		}
+
+		allowedUsers := make(map[string]struct{}, len(config.Auth.OIDC.AllowedUsers))
+		for _, allowedUser := range config.Auth.OIDC.AllowedUsers {
+			normalized := strings.ToLower(strings.TrimSpace(allowedUser))
+			if normalized == "" {
+				return diagnostic(oidcLine, fmt.Errorf("OIDC allowed-users entries must not be empty"))
+			}
+			if _, exists := allowedUsers[normalized]; exists {
+				return diagnostic(oidcLine, fmt.Errorf("OIDC allowed-users contains duplicate user %q", allowedUser))
+			}
+			allowedUsers[normalized] = struct{}{}
+		}
 	}
 
 	for username := range config.Auth.Users {

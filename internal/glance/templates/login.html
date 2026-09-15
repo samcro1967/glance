@@ -13,10 +13,20 @@
 {{- end }}
 
 {{- define "document-body" }}
+{{- if .Request.LoginMessage }}
+<script>
+const loginURL = new URL(window.location.href);
+if (loginURL.searchParams.get("reason") === "oidc_not_authorized") {
+    loginURL.searchParams.delete("reason");
+    window.history.replaceState(null, "", loginURL.pathname + loginURL.search + loginURL.hash);
+}
+</script>
+{{- end }}
 <div class="flex flex-column body-content">
     <div class="flex grow items-center justify-center" style="padding-bottom: 5rem">
         <h1 class="visually-hidden">Login</h1>
         <main id="login-container" class="grow login-bounds" style="display: none;">
+            {{- if .App.Config.Auth.Users }}
             <div class="animate-entrance">
                 <label class="form-label widget-header" for="username">Username</label>
                 <div class="form-input widget-content-frame padding-inline-widget flex gap-10 items-center">
@@ -46,6 +56,19 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
                 </svg>
             </button>
+            {{- end }}
+
+            {{- if .App.OIDCEnabled }}
+            {{- if .Request.LoginMessage }}
+            <div class="login-error-message">{{ .Request.LoginMessage }}</div>
+            {{- end }}
+            <a class="login-button animate-entrance" href="{{ .App.Config.Server.BaseURL }}/auth/oidc/login">
+                <div>SIGN IN WITH {{ .App.OIDCProviderName }}</div>
+                <svg stroke="currentColor" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+                </svg>
+            </a>
+            {{- end }}
         </main>
     </div>
     {{ template "footer.html" . }}

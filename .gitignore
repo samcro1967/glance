@@ -9,8 +9,10 @@
 /.glance-test.pid
 /.glance-test.log
 
-# Local test-instance environment
-.env.test__pycache__/
+# Local test-instance environment and authentication fixtures
+.env.test
+/.oidc-test.yml
+/.glance-prod-test-config/
 *.pyc
 
 # Generated visual QA and documentation review output
