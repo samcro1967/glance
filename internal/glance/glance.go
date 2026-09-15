@@ -946,6 +946,14 @@ func (a *application) router() http.Handler {
 		"POST /api/frontend-diagnostics/performance-snapshot",
 		a.handleFrontendPerformanceSnapshotRequest,
 	)
+	mux.HandleFunc(
+		"POST /api/frontend-diagnostics/long-task-capture",
+		a.handleFrontendLongTaskCaptureRequest,
+	)
+	mux.HandleFunc(
+		"POST /api/frontend-diagnostics/runtime-state",
+		a.handleFrontendRuntimeStateRequest,
+	)
 	mux.HandleFunc("GET /api/diagnostics", a.handleRuntimeDiagnosticsRequest)
 	mux.HandleFunc("GET /api/diagnostics/report", a.handleRuntimeDiagnosticsReportRequest)
 	mux.HandleFunc("/api/widgets/{widget}/{path...}", a.handleWidgetRequest)

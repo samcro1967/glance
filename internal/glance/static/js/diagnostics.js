@@ -29,6 +29,10 @@ export function frontendDiagnostic(event, fields = {}, flush = false) {
         diagnostic.widget = String(fields.widget);
     }
 
+    if (fields.commandID !== undefined) {
+        diagnostic.command_id = fields.commandID;
+    }
+
     if (fields.detail !== undefined && fields.detail !== "") {
         diagnostic.detail = String(fields.detail).slice(0, 256);
     }
@@ -136,7 +140,7 @@ export function frontendDiagnosticError(event, error, fields = {}, flush = true)
     }, flush);
 }
 
-function frontendDiagnosticLongTaskCapture(durationMS = 30000) {
+export function frontendDiagnosticLongTaskCapture(durationMS = 30000, commandID) {
     if (!frontendDiagnosticsEnabled) {
         return;
     }
@@ -145,7 +149,9 @@ function frontendDiagnosticLongTaskCapture(durationMS = 30000) {
         typeof PerformanceObserver === "undefined" ||
         !PerformanceObserver.supportedEntryTypes?.includes("longtask")
     ) {
-        frontendDiagnostic("long_task_capture_unsupported");
+        frontendDiagnostic("long_task_capture_unsupported", {
+            commandID,
+        }, commandID !== undefined);
         return;
     }
 
@@ -167,12 +173,14 @@ function frontendDiagnosticLongTaskCapture(durationMS = 30000) {
     } catch (error) {
         frontendDiagnosticError(
             "long_task_capture_error",
-            error
+            error,
+            { commandID }
         );
         return;
     }
 
     frontendDiagnostic("long_task_capture_start", {
+        commandID,
         metrics: {
             duration_ms: durationMS,
         },
@@ -182,6 +190,7 @@ function frontendDiagnosticLongTaskCapture(durationMS = 30000) {
         observer.disconnect();
 
         frontendDiagnostic("long_task_capture_complete", {
+            commandID,
             elapsedMS: performance.now() - startedAt,
             metrics: {
                 count,
@@ -192,7 +201,7 @@ function frontendDiagnosticLongTaskCapture(durationMS = 30000) {
     }, durationMS);
 }
 
-function frontendDiagnosticPerformanceSnapshot(reason) {
+function frontendDiagnosticPerformanceSnapshot(reason, commandID) {
     if (!frontendDiagnosticsEnabled) {
         return;
     }
@@ -201,6 +210,7 @@ function frontendDiagnosticPerformanceSnapshot(reason) {
     const navigation = performance.getEntriesByType("navigation")[0];
 
     frontendDiagnostic("performance_snapshot", {
+        commandID,
         detail: `reason=${reason}`,
         metrics: {
             elements: document.getElementsByTagName("*").length,
@@ -213,6 +223,7 @@ function frontendDiagnosticPerformanceSnapshot(reason) {
 
     if (navigation) {
         frontendDiagnostic("navigation_snapshot", {
+            commandID,
             detail: `type=${navigation.type}`,
             elapsedMS: navigation.duration,
             metrics: {
@@ -245,6 +256,7 @@ function frontendDiagnosticPerformanceSnapshot(reason) {
         }
 
         frontendDiagnostic("resource_snapshot", {
+            commandID,
             detail: `slowest=${slowest?.name?.slice(0, 240) ?? ""}`,
             metrics: {
                 count: resources.length,
@@ -262,6 +274,7 @@ function frontendDiagnosticPerformanceSnapshot(reason) {
         Number.isFinite(performance.memory.usedJSHeapSize)
     ) {
         frontendDiagnostic("memory_snapshot", {
+            commandID,
             metrics: {
                 used_js_heap_bytes: performance.memory.usedJSHeapSize,
                 total_js_heap_bytes: performance.memory.totalJSHeapSize,
@@ -270,8 +283,8 @@ function frontendDiagnosticPerformanceSnapshot(reason) {
         });
     }
 }
-export function captureFrontendPerformanceSnapshot(reason = "manual") {
-    frontendDiagnosticPerformanceSnapshot(reason);
+export function captureFrontendPerformanceSnapshot(reason = "manual", commandID) {
+    frontendDiagnosticPerformanceSnapshot(reason, commandID);
 }
 
 function setupFrontendDiagnosticsLifecycle() {

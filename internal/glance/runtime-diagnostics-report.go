@@ -373,6 +373,64 @@ func formatRuntimeDiagnosticsReport(
 				}
 			}
 		}
+
+		fmt.Fprintln(&report)
+		fmt.Fprintln(&report, "RECENT ACTIVE DIAGNOSTIC RESULTS")
+		fmt.Fprintln(&report, "--------------------------------")
+
+		if len(frontend.RecentActiveResults) == 0 {
+			fmt.Fprintln(&report, "None")
+		} else {
+			for _, result := range frontend.RecentActiveResults {
+				fmt.Fprintf(
+					&report,
+					"%s  command=%d  %s",
+					formatDiagnosticsReportValueTime(result.RecordedAt),
+					result.Event.CommandID,
+					result.Event.Event,
+				)
+
+				if result.Event.Page != "" {
+					fmt.Fprintf(&report, "  page=%s", result.Event.Page)
+				}
+
+				if result.Event.Session != "" {
+					fmt.Fprintf(&report, "  session=%s", result.Event.Session)
+				}
+
+				if result.Event.Widget != "" {
+					fmt.Fprintf(&report, "  widget=%s", result.Event.Widget)
+				}
+
+				if result.Event.Status != 0 {
+					fmt.Fprintf(&report, "  status=%d", result.Event.Status)
+				}
+
+				if result.Event.State != nil {
+					fmt.Fprintf(&report, "  state=%d", *result.Event.State)
+				}
+
+				fmt.Fprintln(&report)
+
+				if result.Event.Detail != "" {
+					fmt.Fprintf(&report, "  %s\n", result.Event.Detail)
+				}
+
+				if len(result.Event.Metrics) > 0 {
+					names := make([]string, 0, len(result.Event.Metrics))
+					for name := range result.Event.Metrics {
+						names = append(names, name)
+					}
+					sort.Strings(names)
+
+					fmt.Fprint(&report, "  metrics:")
+					for _, name := range names {
+						fmt.Fprintf(&report, " %s=%g", name, result.Event.Metrics[name])
+					}
+					fmt.Fprintln(&report)
+				}
+			}
+		}
 	}
 
 	return report.String()
