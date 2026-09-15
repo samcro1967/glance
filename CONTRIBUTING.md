@@ -4,7 +4,7 @@ Thank you for contributing to this Glance fork.
 
 This repository is a maintained, substantially extended distribution of upstream Glance. It preserves upstream configuration compatibility and the familiar Glance user experience while maintaining additional functionality, architectural extensions, reliability improvements, operational hardening, diagnostics, regression protection, and controlled development, release, and deployment tooling.
 
-Contributions should preserve upstream compatibility where practical, reuse the existing architecture and shared contracts, and avoid unnecessary divergence. Internal implementation does not need to remain identical to upstream when a change provides concrete functional, reliability, maintainability, observability, or regression-protection value.
+Contributions should preserve upstream compatibility where practical, reuse the existing architecture and shared contracts, and avoid unnecessary divergence. Internal implementation does not need to remain identical to upstream when a change provides concrete functional, reliability, maintainability, observability, security, or regression-protection value.
 
 For the complete record of fork-specific functionality, architecture, compatibility, and lifecycle design, see [About this fork](docs/fork.md).
 
@@ -54,6 +54,7 @@ Common development targets include:
 ```text
 make test
 make test-race
+make test-focused
 make build
 make lint
 make check
@@ -70,6 +71,11 @@ make test-instance-start
 make test-instance-status
 make test-instance-stop
 
+make test-prod-start
+make test-prod-status
+make test-prod-stop
+make test-prod-config-refresh
+
 make frontend-audit
 make frontend-check
 make frontend-coverage
@@ -79,13 +85,15 @@ make visual-screenshots
 make visual-final
 ```
 
+Some test and runtime targets support Makefile variables or aliases for focused validation and isolated runtime configuration. Prefer those supported interfaces over manually reproducing the underlying Go, Docker, or configuration operations.
+
 Branch, pull-request, CI, release, deployment, synchronization, and recovery operations are also guarded by Makefile targets. See [Development and CI validation](docs/fork.md#development-and-ci-validation) for the complete lifecycle.
 
 ## Implementation expectations
 
 Investigate the existing implementation before changing it.
 
-Prefer the smallest clean change that fits the existing Glance architecture. Reuse existing primitives, helpers, lifecycle contracts, presentation components, CSS, JavaScript infrastructure, configuration patterns, HTTP infrastructure, and provider/resource abstractions before creating new ones.
+Prefer the smallest clean change that fits the existing Glance architecture. Reuse existing primitives, helpers, lifecycle contracts, presentation components, CSS, JavaScript infrastructure, configuration patterns, HTTP infrastructure, authentication/session infrastructure, and provider/resource abstractions before creating new ones.
 
 Changes should:
 
@@ -95,6 +103,7 @@ Changes should:
 - avoid parallel implementations when an existing shared abstraction can be extended cleanly;
 - keep errors and degraded states visible rather than silently swallowing failures;
 - consider refresh behavior, cancellation, reloads, stale data, recovery, concurrency, live replacement, and lifecycle ownership where relevant;
+- preserve established authentication, authorization, session, proxy-trust, and security boundaries when relevant;
 - avoid unrelated cleanup unless it is necessary for the implementation;
 - avoid new dependencies unless they provide a clear benefit that cannot reasonably be achieved with the existing stack.
 
@@ -148,9 +157,47 @@ make test-race
 
 when concurrency-sensitive behavior is involved.
 
+For a focused Go test selection, use the maintained focused-test interface rather than manually reconstructing the package invocation when it fits the task:
+
+```text
+make test-focused TEST_RUN='<test expression>'
+```
+
+Focused testing is useful while developing or diagnosing a specific subsystem, including authentication and OIDC behavior, but it does not replace the broader validation required before integration.
+
 Repeated test targets are available where a single execution is insufficient evidence for concurrency-sensitive or intermittent behavior.
 
 A successful compile, static-analysis run, or one passing test is not sufficient evidence for a runtime behavior change. Validate the behavior that actually changed.
+
+## Authentication and authorization changes
+
+Authentication is a security boundary and requires validation beyond successful login.
+
+Glance supports its local username/password authentication mechanism and fork-specific OpenID Connect (OIDC) authentication. These mechanisms can coexist and share the established Glance session model.
+
+Changes affecting authentication, authorization, sessions, OIDC, login/logout behavior, trusted proxies, secure-cookie decisions, or authenticated presentation should preserve the existing shared authentication architecture rather than creating independent session or authorization mechanisms.
+
+When changing authentication behavior, validate the relevant contract end to end, including where applicable:
+
+- local authentication compatibility;
+- OIDC provider discovery and initialization;
+- authorization callback validation;
+- state, nonce, and PKCE protections;
+- ID-token verification;
+- configured identity restrictions such as `allowed-users`;
+- session creation, validation, expiration, and invalidation;
+- login and logout behavior;
+- coexistence of local and OIDC authentication;
+- current-user presentation;
+- trusted-proxy and HTTPS behavior;
+- configuration reload behavior;
+- behavior of existing sessions across configuration changes;
+- denied and malformed authentication attempts;
+- logging and diagnostic behavior on authentication failures.
+
+Authentication tests and diagnostics must use synthetic or intentionally non-sensitive fixtures. Do not commit real client secrets, authorization codes, tokens, cookies, session material, personal identities, or generated local authentication configuration.
+
+OIDC diagnostics should identify the stage and bounded reason for a failure without logging authorization codes, tokens, session material, OIDC subjects, email addresses, claims payloads, PKCE verifiers, client secrets, or other sensitive provider data.
 
 ## Frontend changes
 
@@ -175,6 +222,8 @@ to validate frontend architecture contracts, including semantic theme ownership 
 `make frontend-coverage` runs the maintained browser scenarios with Chromium/V8 execution coverage for Glance-owned JavaScript. This coverage is informational and is intended to identify meaningful unexercised frontend code; it is not a percentage threshold for accepting changes.
 
 When changing live or dynamically initialized frontend behavior, consider initial rendering, navigation, refreshes, repeated live replacements, reconnects, cleanup, cancellation, resource ownership, and browser errors where relevant.
+
+Live-update and Server-Sent Events behavior must also account for idle connections and intermediary timeouts. Long-lived streams should retain explicit liveness behavior, and client recovery must remain bounded so that a silently dead connection cannot leave the page indefinitely disconnected from live updates. Validate initial connection, idle periods, reconnects, page navigation, repeated updates, cleanup, and recovery where relevant.
 
 Do not introduce a JavaScript package-management or build pipeline such as `package.json` unless the project architecture is deliberately changed to require one.
 
@@ -268,6 +317,20 @@ make test-prod-stop
 
 This builds the current source into an isolated test image and uses the named production container as its runtime reference. It does not replace the running production container.
 
+The production-runtime workflow also supports maintained configuration and environment overrides for cases where a feature must be exercised without modifying the real production configuration. Use the Makefile-supported override interfaces rather than manually constructing an alternate Docker runtime.
+
+Relevant interfaces include the production-test configuration refresh target and supported test-runtime configuration/environment variables. These allow features such as OIDC authentication to be exercised against the isolated production-like runtime while keeping test-only credentials and configuration outside the committed repository.
+
+When changing an override file while the isolated runtime is active, use:
+
+```text
+make test-prod-config-refresh
+```
+
+where appropriate so the generated test configuration is refreshed through the maintained workflow rather than manually editing generated runtime files.
+
+Authentication runtime fixtures, environment files, generated test configuration, provider credentials, and other local test secrets must remain untracked and must not be committed.
+
 The canonical source test instance and production-runtime test use the same isolated test port and therefore must be used mutually exclusively.
 
 After a change has integrated into `dev`, the published `dev` image can be validated against the real runtime through the corresponding `test-container-*` Makefile workflow.
@@ -279,9 +342,10 @@ Keep documentation synchronized with user-visible configuration, behavior, archi
 When applicable:
 
 - update widget documentation for widget configuration or behavior changes;
-- update [Configuration](docs/configuration.md) for shared or top-level configuration changes;
+- update [Configuration](docs/configuration.md) for shared or top-level configuration changes, including authentication and OIDC configuration;
 - update [Themes](docs/themes.md) for public theme behavior;
-- update [About this fork](docs/fork.md) when fork-specific capabilities, architecture, compatibility contracts, or lifecycle behavior materially change;
+- update [About this fork](docs/fork.md) when fork-specific capabilities, architecture, compatibility contracts, authentication behavior, or lifecycle behavior materially change;
+- update this contributing guide when supported development, testing, security, or Makefile workflow contracts materially change;
 - update the main [README](README.md) when the high-level identity, supported capabilities, installation model, or user-facing project overview materially changes;
 - update generated documentation screenshots through the visual workflow when presentation changes affect them.
 
@@ -304,6 +368,8 @@ make staged-diff
 ```
 
 Do not treat generated files, screenshots, formatting changes, or broad mechanical edits as correct solely because they were produced automatically. Review them as part of the change.
+
+Before committing authentication, security, or runtime-fixture changes, also verify that local environment files, credentials, generated configuration, tokens, cookies, provider identities, and other sensitive or machine-specific artifacts have not entered the staged change.
 
 Keep commits and pull requests focused on the agreed problem.
 
@@ -333,9 +399,13 @@ See [Development and CI validation](docs/fork.md#development-and-ci-validation) 
 
 ## Security and dependencies
 
-Avoid exposing credentials, authentication headers, cookies, tokens, configured sensitive URLs, response bodies, or other secrets through logs, diagnostics, errors, tests, or fixtures.
+Avoid exposing credentials, authentication headers, cookies, tokens, authorization codes, OIDC claims or identities, configured sensitive URLs, response bodies, or other secrets through logs, diagnostics, errors, tests, fixtures, generated configuration, or committed environment files.
 
-Reuse the repository's existing sanitization and error-boundary behavior when adding diagnostics or provider integrations.
+Reuse the repository's existing sanitization, bounded diagnostic classification, authentication/session infrastructure, and error-boundary behavior when adding diagnostics or provider integrations.
+
+Security-sensitive failures should remain diagnosable without exposing sensitive values. Prefer bounded stage, reason, provider, operation, or failure classifications over raw errors when a raw error may contain credentials, tokens, identities, claims, request parameters, or other sensitive material.
+
+Authentication changes should preserve the established encrypted session model, authorization boundaries, trusted-proxy handling, and secure-cookie behavior unless changing one of those contracts is explicitly part of the work.
 
 New dependencies should be justified by a clear architectural or functional need and should not duplicate functionality already available through the existing stack.
 
@@ -345,7 +415,7 @@ Security and dependency validation available through the repository Makefile sho
 
 This fork intentionally continues to track upstream Glance while preserving upstream configuration compatibility as an explicit project goal.
 
-Avoid unnecessary divergence. Where practical, changes should preserve existing configuration and user-facing behavior and fit established Glance concepts so future upstream synchronization remains manageable. Internal architecture may evolve beyond upstream where doing so provides concrete functional, reliability, maintainability, observability, or regression-protection value.
+Avoid unnecessary divergence. Where practical, changes should preserve existing configuration and user-facing behavior and fit established Glance concepts so future upstream synchronization remains manageable. Internal architecture may evolve beyond upstream where doing so provides concrete functional, reliability, maintainability, observability, security, or regression-protection value.
 
 When functionality is derived from an upstream pull request, issue, or another Glance-derived project, preserve appropriate provenance in the fork documentation.
 

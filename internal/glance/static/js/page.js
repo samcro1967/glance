@@ -791,7 +791,58 @@ function setupLiveWidgetUpdates() {
     }
 
     let events = null;
+    let recoveryTimer = null;
     const intentionallyClosedEvents = new WeakSet();
+    const recoveryDelay = 10000;
+
+    function cancelRecovery(currentEvents, reason) {
+        if (recoveryTimer === null) {
+            return;
+        }
+
+        clearTimeout(recoveryTimer);
+        recoveryTimer = null;
+
+        frontendDiagnostic("live_updates_recovery_cancelled", {
+            state: currentEvents.readyState,
+            detail: reason,
+        });
+    }
+
+    function scheduleRecovery(currentEvents) {
+        if (recoveryTimer !== null) {
+            return;
+        }
+
+        frontendDiagnostic("live_updates_recovery_scheduled", {
+            state: currentEvents.readyState,
+            detail: `delay_ms=${recoveryDelay}`,
+        }, true);
+
+        recoveryTimer = setTimeout(() => {
+            recoveryTimer = null;
+
+            if (events !== currentEvents ||
+                intentionallyClosedEvents.has(currentEvents) ||
+                currentEvents.readyState === EventSource.OPEN) {
+                return;
+            }
+
+            frontendDiagnostic("live_updates_recovery_forced", {
+                state: currentEvents.readyState,
+                detail: `delay_ms=${recoveryDelay}`,
+            }, true);
+
+            intentionallyClosedEvents.add(currentEvents);
+            currentEvents.close();
+
+            if (events === currentEvents) {
+                events = null;
+            }
+
+            connect();
+        }, recoveryDelay);
+    }
 
     function connect() {
         if (events !== null && events.readyState !== EventSource.CLOSED) {
@@ -821,6 +872,8 @@ function setupLiveWidgetUpdates() {
         const currentEvents = events;
 
         currentEvents.addEventListener("open", () => {
+            cancelRecovery(currentEvents, "native_reopen");
+
             frontendDiagnostic("live_updates_open", {
                 state: currentEvents.readyState,
             });
@@ -834,6 +887,8 @@ function setupLiveWidgetUpdates() {
             frontendDiagnostic("live_updates_error", {
                 state: currentEvents.readyState,
             }, true);
+
+            scheduleRecovery(currentEvents);
         });
 
         currentEvents.addEventListener("diagnostic", (event) => {
@@ -932,6 +987,10 @@ function setupLiveWidgetUpdates() {
     }
 
     function close(event) {
+        if (events !== null) {
+            cancelRecovery(events, "page_hide");
+        }
+
         frontendDiagnostic("page_hide", {
             detail: `persisted=${event.persisted} visibility=${document.visibilityState}`,
         });

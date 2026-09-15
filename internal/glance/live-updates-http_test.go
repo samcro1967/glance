@@ -223,6 +223,71 @@ pages:
 	}
 }
 
+func TestLiveUpdatesSendsHeartbeatWhileIdle(t *testing.T) {
+	app := newGlanceTestApplication(t, `
+pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets: []
+`)
+
+	server := httptest.NewServer(app.router())
+	defer server.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	request, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodGet,
+		server.URL+"/api/live-updates",
+		nil,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = response.Body.Close() }()
+
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want %d", response.StatusCode, http.StatusOK)
+	}
+
+	readDone := make(chan string, 1)
+	go func() {
+		reader := bufio.NewReader(response.Body)
+		var event strings.Builder
+
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil {
+				readDone <- ""
+				return
+			}
+
+			event.WriteString(line)
+			if line == "\n" {
+				readDone <- event.String()
+				return
+			}
+		}
+	}()
+
+	select {
+	case event := <-readDone:
+		if event != ": keepalive\n\n" {
+			t.Fatalf("SSE heartbeat = %q, want %q", event, ": keepalive\n\n")
+		}
+	case <-time.After(liveUpdateHeartbeatInterval + time.Second):
+		t.Fatal("timed out waiting for SSE heartbeat")
+	}
+}
+
 func TestLiveUpdatesFiltersWidgetNotifications(t *testing.T) {
 	app := newGlanceTestApplication(t, `
 pages:
