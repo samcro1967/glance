@@ -155,7 +155,7 @@ async function runAuthChecks(browser, coveragePath = "") {
       throw new Error("Login button did not enable for valid fixture credentials");
     }
 
-    await loginButton.click();
+    await password.press("Enter");
 
     await errorMessage.waitFor({
       state: "visible",
