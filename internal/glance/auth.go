@@ -54,6 +54,18 @@ const AUTH_TOKEN_V3_FIXED_DATA_LENGTH = AUTH_TOKEN_V2_MAGIC_LENGTH +
 	AUTH_TOKEN_V3_DISPLAY_LENGTH_LENGTH +
 	AUTH_TIMESTAMP_LENGTH
 
+const AUTH_TOKEN_V4_SIGNING_DOMAIN = "glance-session-v4"
+const AUTH_TOKEN_V4_VERSION byte = 4
+const AUTH_TOKEN_V4_AUTHORIZATION_IDENTITY_LENGTH_LENGTH = 2 // uint16
+const AUTH_TOKEN_V4_MAX_AUTHORIZATION_IDENTITY_LENGTH = 256
+const AUTH_TOKEN_V4_FIXED_DATA_LENGTH = AUTH_TOKEN_V2_MAGIC_LENGTH +
+	AUTH_TOKEN_V2_VERSION_LENGTH +
+	AUTH_TOKEN_V2_METHOD_LENGTH +
+	AUTH_TOKEN_V2_PRINCIPAL_LENGTH_LENGTH +
+	AUTH_TOKEN_V3_DISPLAY_LENGTH_LENGTH +
+	AUTH_TOKEN_V4_AUTHORIZATION_IDENTITY_LENGTH_LENGTH +
+	AUTH_TIMESTAMP_LENGTH
+
 type authMethod byte
 
 const (
@@ -72,6 +84,14 @@ type verifiedSessionTokenV3 struct {
 	Principal   string
 	DisplayName string
 	ShouldRegen bool
+}
+
+type verifiedSessionTokenV4 struct {
+	Method                authMethod
+	Principal             string
+	DisplayName           string
+	AuthorizationIdentity string
+	ShouldRegen           bool
 }
 
 type oidcPrincipal struct {
@@ -255,6 +275,239 @@ func generateSessionTokenV2(method authMethod, principal string, secret []byte, 
 	h.Write(data)
 
 	return base64.StdEncoding.EncodeToString(append(data, h.Sum(nil)...)), nil
+}
+
+func authTokenV4SigningKey(secret []byte) ([]byte, error) {
+	if len(secret) != AUTH_SECRET_KEY_LENGTH {
+		return nil, fmt.Errorf("secret key length is not %d bytes", AUTH_SECRET_KEY_LENGTH)
+	}
+
+	h := hmac.New(sha256.New, secret[:AUTH_TOKEN_SECRET_LENGTH])
+	h.Write([]byte(AUTH_TOKEN_V4_SIGNING_DOMAIN))
+
+	return h.Sum(nil), nil
+}
+
+func generateSessionTokenV4(
+	method authMethod,
+	principal string,
+	displayName string,
+	authorizationIdentity string,
+	secret []byte,
+	now time.Time,
+) (string, error) {
+	if len(secret) != AUTH_SECRET_KEY_LENGTH {
+		return "", fmt.Errorf("secret key length is not %d bytes", AUTH_SECRET_KEY_LENGTH)
+	}
+	if method != authMethodLocal && method != authMethodOIDC {
+		return "", fmt.Errorf("authentication method is invalid")
+	}
+
+	principalBytes := []byte(principal)
+	displayNameBytes := []byte(displayName)
+	authorizationIdentityBytes := []byte(authorizationIdentity)
+
+	if len(principalBytes) == 0 {
+		return "", fmt.Errorf("principal is empty")
+	}
+	if len(principalBytes) > AUTH_TOKEN_V2_MAX_PRINCIPAL_LENGTH {
+		return "", fmt.Errorf(
+			"principal length exceeds %d bytes",
+			AUTH_TOKEN_V2_MAX_PRINCIPAL_LENGTH,
+		)
+	}
+	if len(displayNameBytes) > AUTH_TOKEN_V3_MAX_DISPLAY_LENGTH {
+		return "", fmt.Errorf(
+			"display name length exceeds %d bytes",
+			AUTH_TOKEN_V3_MAX_DISPLAY_LENGTH,
+		)
+	}
+	if len(authorizationIdentityBytes) == 0 {
+		return "", fmt.Errorf("authorization identity is empty")
+	}
+	if len(authorizationIdentityBytes) > AUTH_TOKEN_V4_MAX_AUTHORIZATION_IDENTITY_LENGTH {
+		return "", fmt.Errorf(
+			"authorization identity length exceeds %d bytes",
+			AUTH_TOKEN_V4_MAX_AUTHORIZATION_IDENTITY_LENGTH,
+		)
+	}
+
+	dataLength := AUTH_TOKEN_V4_FIXED_DATA_LENGTH +
+		len(principalBytes) +
+		len(displayNameBytes) +
+		len(authorizationIdentityBytes)
+	data := make([]byte, dataLength)
+
+	offset := 0
+	copy(data[offset:], AUTH_TOKEN_V2_MAGIC)
+	offset += AUTH_TOKEN_V2_MAGIC_LENGTH
+
+	data[offset] = AUTH_TOKEN_V4_VERSION
+	offset += AUTH_TOKEN_V2_VERSION_LENGTH
+
+	data[offset] = byte(method)
+	offset += AUTH_TOKEN_V2_METHOD_LENGTH
+
+	binary.LittleEndian.PutUint16(
+		data[offset:offset+AUTH_TOKEN_V2_PRINCIPAL_LENGTH_LENGTH],
+		uint16(len(principalBytes)),
+	)
+	offset += AUTH_TOKEN_V2_PRINCIPAL_LENGTH_LENGTH
+
+	binary.LittleEndian.PutUint16(
+		data[offset:offset+AUTH_TOKEN_V3_DISPLAY_LENGTH_LENGTH],
+		uint16(len(displayNameBytes)),
+	)
+	offset += AUTH_TOKEN_V3_DISPLAY_LENGTH_LENGTH
+
+	binary.LittleEndian.PutUint16(
+		data[offset:offset+AUTH_TOKEN_V4_AUTHORIZATION_IDENTITY_LENGTH_LENGTH],
+		uint16(len(authorizationIdentityBytes)),
+	)
+	offset += AUTH_TOKEN_V4_AUTHORIZATION_IDENTITY_LENGTH_LENGTH
+
+	copy(data[offset:], principalBytes)
+	offset += len(principalBytes)
+
+	copy(data[offset:], displayNameBytes)
+	offset += len(displayNameBytes)
+
+	copy(data[offset:], authorizationIdentityBytes)
+	offset += len(authorizationIdentityBytes)
+
+	binary.LittleEndian.PutUint32(
+		data[offset:offset+AUTH_TIMESTAMP_LENGTH],
+		uint32(now.Add(AUTH_TOKEN_VALID_PERIOD).Unix()),
+	)
+
+	signingKey, err := authTokenV4SigningKey(secret)
+	if err != nil {
+		return "", err
+	}
+
+	h := hmac.New(sha256.New, signingKey)
+	h.Write(data)
+
+	return base64.StdEncoding.EncodeToString(
+		append(data, h.Sum(nil)...),
+	), nil
+}
+
+func verifySessionTokenV4(
+	token string,
+	secret []byte,
+	now time.Time,
+) (verifiedSessionTokenV4, error) {
+	var verified verifiedSessionTokenV4
+
+	tokenBytes, err := base64.StdEncoding.DecodeString(token)
+	if err != nil {
+		return verified, err
+	}
+	if len(secret) != AUTH_SECRET_KEY_LENGTH {
+		return verified, fmt.Errorf(
+			"secret key length is not %d bytes",
+			AUTH_SECRET_KEY_LENGTH,
+		)
+	}
+
+	minimumTokenLength := AUTH_TOKEN_V4_FIXED_DATA_LENGTH + 2 + sha256.Size
+	if len(tokenBytes) < minimumTokenLength {
+		return verified, fmt.Errorf("token length is invalid")
+	}
+
+	offset := 0
+
+	if string(tokenBytes[offset:offset+AUTH_TOKEN_V2_MAGIC_LENGTH]) != AUTH_TOKEN_V2_MAGIC {
+		return verified, fmt.Errorf("token magic is invalid")
+	}
+	offset += AUTH_TOKEN_V2_MAGIC_LENGTH
+
+	if tokenBytes[offset] != AUTH_TOKEN_V4_VERSION {
+		return verified, fmt.Errorf("token version is invalid")
+	}
+	offset += AUTH_TOKEN_V2_VERSION_LENGTH
+
+	method := authMethod(tokenBytes[offset])
+	if method != authMethodLocal && method != authMethodOIDC {
+		return verified, fmt.Errorf("authentication method is invalid")
+	}
+	offset += AUTH_TOKEN_V2_METHOD_LENGTH
+
+	principalLength := int(binary.LittleEndian.Uint16(
+		tokenBytes[offset : offset+AUTH_TOKEN_V2_PRINCIPAL_LENGTH_LENGTH],
+	))
+	offset += AUTH_TOKEN_V2_PRINCIPAL_LENGTH_LENGTH
+
+	displayNameLength := int(binary.LittleEndian.Uint16(
+		tokenBytes[offset : offset+AUTH_TOKEN_V3_DISPLAY_LENGTH_LENGTH],
+	))
+	offset += AUTH_TOKEN_V3_DISPLAY_LENGTH_LENGTH
+
+	authorizationIdentityLength := int(binary.LittleEndian.Uint16(
+		tokenBytes[offset : offset+AUTH_TOKEN_V4_AUTHORIZATION_IDENTITY_LENGTH_LENGTH],
+	))
+	offset += AUTH_TOKEN_V4_AUTHORIZATION_IDENTITY_LENGTH_LENGTH
+
+	if principalLength == 0 ||
+		principalLength > AUTH_TOKEN_V2_MAX_PRINCIPAL_LENGTH {
+		return verified, fmt.Errorf("principal length is invalid")
+	}
+	if displayNameLength > AUTH_TOKEN_V3_MAX_DISPLAY_LENGTH {
+		return verified, fmt.Errorf("display name length is invalid")
+	}
+	if authorizationIdentityLength == 0 ||
+		authorizationIdentityLength > AUTH_TOKEN_V4_MAX_AUTHORIZATION_IDENTITY_LENGTH {
+		return verified, fmt.Errorf("authorization identity length is invalid")
+	}
+
+	dataLength := AUTH_TOKEN_V4_FIXED_DATA_LENGTH +
+		principalLength +
+		displayNameLength +
+		authorizationIdentityLength
+
+	if len(tokenBytes) != dataLength+sha256.Size {
+		return verified, fmt.Errorf("token length is invalid")
+	}
+
+	data := tokenBytes[:dataLength]
+	providedSignature := tokenBytes[dataLength:]
+
+	signingKey, err := authTokenV4SigningKey(secret)
+	if err != nil {
+		return verified, err
+	}
+
+	h := hmac.New(sha256.New, signingKey)
+	h.Write(data)
+
+	if !hmac.Equal(h.Sum(nil), providedSignature) {
+		return verified, fmt.Errorf("signature does not match")
+	}
+
+	principalOffset := offset
+	displayNameOffset := principalOffset + principalLength
+	authorizationIdentityOffset := displayNameOffset + displayNameLength
+	timestampOffset := authorizationIdentityOffset + authorizationIdentityLength
+
+	expiresTimestamp := int64(binary.LittleEndian.Uint32(
+		data[timestampOffset : timestampOffset+AUTH_TIMESTAMP_LENGTH],
+	))
+	if now.Unix() > expiresTimestamp {
+		return verified, fmt.Errorf("token has expired")
+	}
+
+	verified.Method = method
+	verified.Principal = string(data[principalOffset:displayNameOffset])
+	verified.DisplayName = string(data[displayNameOffset:authorizationIdentityOffset])
+	verified.AuthorizationIdentity = string(
+		data[authorizationIdentityOffset:timestampOffset],
+	)
+	verified.ShouldRegen = time.Unix(expiresTimestamp, 0).
+		Add(-AUTH_TOKEN_REGEN_BEFORE).
+		Before(now)
+
+	return verified, nil
 }
 
 func authTokenV3SigningKey(secret []byte) ([]byte, error) {
@@ -681,8 +934,9 @@ func (a *application) handleAuthenticationAttempt(w http.ResponseWriter, r *http
 		return
 	}
 
-	token, err := generateSessionTokenV3(
+	token, err := generateSessionTokenV4(
 		authMethodLocal,
+		creds.Username,
 		creds.Username,
 		creds.Username,
 		a.authSecretKey,
@@ -705,11 +959,12 @@ func (a *application) handleAuthenticationAttempt(w http.ResponseWriter, r *http
 }
 
 type authenticatedSession struct {
-	Method           authMethod
-	Principal        string
-	DisplayName      string
-	ShouldRegenerate bool
-	Version          byte
+	Method                authMethod
+	Principal             string
+	DisplayName           string
+	AuthorizationIdentity string
+	ShouldRegenerate      bool
+	Version               byte
 }
 
 func (a *application) resolveAuthenticatedSession(
@@ -725,6 +980,41 @@ func (a *application) resolveAuthenticatedSession(
 	token, err := r.Cookie(AUTH_SESSION_COOKIE_NAME)
 	if err != nil || token.Value == "" {
 		return session, false
+	}
+
+	if verified, err := verifySessionTokenV4(
+		token.Value,
+		a.authSecretKey,
+		now,
+	); err == nil {
+		switch verified.Method {
+		case authMethodLocal:
+			if _, exists := a.Config.Auth.Users[verified.Principal]; !exists {
+				return session, false
+			}
+
+		case authMethodOIDC:
+			if a.oidc == nil {
+				return session, false
+			}
+
+			principal, err := decodeOIDCPrincipal(verified.Principal)
+			if err != nil || principal.Issuer != a.oidc.issuer {
+				return session, false
+			}
+
+		default:
+			return session, false
+		}
+
+		return authenticatedSession{
+			Method:                verified.Method,
+			Principal:             verified.Principal,
+			DisplayName:           verified.DisplayName,
+			AuthorizationIdentity: verified.AuthorizationIdentity,
+			ShouldRegenerate:      verified.ShouldRegen,
+			Version:               AUTH_TOKEN_V4_VERSION,
+		}, true
 	}
 
 	if verified, err := verifySessionTokenV3(
@@ -752,12 +1042,18 @@ func (a *application) resolveAuthenticatedSession(
 			return session, false
 		}
 
+		authorizationIdentity := ""
+		if verified.Method == authMethodLocal {
+			authorizationIdentity = verified.Principal
+		}
+
 		return authenticatedSession{
-			Method:           verified.Method,
-			Principal:        verified.Principal,
-			DisplayName:      verified.DisplayName,
-			ShouldRegenerate: verified.ShouldRegen,
-			Version:          AUTH_TOKEN_V3_VERSION,
+			Method:                verified.Method,
+			Principal:             verified.Principal,
+			DisplayName:           verified.DisplayName,
+			AuthorizationIdentity: authorizationIdentity,
+			ShouldRegenerate:      verified.ShouldRegen,
+			Version:               AUTH_TOKEN_V3_VERSION,
 		}, true
 	}
 
@@ -791,12 +1087,18 @@ func (a *application) resolveAuthenticatedSession(
 			displayName = verified.Principal
 		}
 
+		authorizationIdentity := ""
+		if verified.Method == authMethodLocal {
+			authorizationIdentity = verified.Principal
+		}
+
 		return authenticatedSession{
-			Method:           verified.Method,
-			Principal:        verified.Principal,
-			DisplayName:      displayName,
-			ShouldRegenerate: verified.ShouldRegen,
-			Version:          AUTH_TOKEN_V2_VERSION,
+			Method:                verified.Method,
+			Principal:             verified.Principal,
+			DisplayName:           displayName,
+			AuthorizationIdentity: authorizationIdentity,
+			ShouldRegenerate:      verified.ShouldRegen,
+			Version:               AUTH_TOKEN_V2_VERSION,
 		}, true
 	}
 
@@ -819,11 +1121,12 @@ func (a *application) resolveAuthenticatedSession(
 	}
 
 	return authenticatedSession{
-		Method:           authMethodLocal,
-		Principal:        username,
-		DisplayName:      username,
-		ShouldRegenerate: shouldRegenerate,
-		Version:          1,
+		Method:                authMethodLocal,
+		Principal:             username,
+		DisplayName:           username,
+		AuthorizationIdentity: username,
+		ShouldRegenerate:      shouldRegenerate,
+		Version:               1,
 	}, true
 }
 
@@ -839,6 +1142,12 @@ func (a *application) authorizeSession(w http.ResponseWriter, r *http.Request) (
 		return authenticatedSession{}, false
 	}
 
+	if a.authorization.Enabled() &&
+		session.Method == authMethodOIDC &&
+		session.AuthorizationIdentity == "" {
+		return authenticatedSession{}, false
+	}
+
 	if !session.ShouldRegenerate {
 		return session, true
 	}
@@ -847,6 +1156,16 @@ func (a *application) authorizeSession(w http.ResponseWriter, r *http.Request) (
 	var err error
 
 	switch session.Version {
+	case AUTH_TOKEN_V4_VERSION:
+		newToken, err = generateSessionTokenV4(
+			session.Method,
+			session.Principal,
+			session.DisplayName,
+			session.AuthorizationIdentity,
+			a.authSecretKey,
+			now,
+		)
+
 	case AUTH_TOKEN_V3_VERSION:
 		newToken, err = generateSessionTokenV3(
 			session.Method,

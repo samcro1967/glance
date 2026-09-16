@@ -413,6 +413,7 @@ func (a *application) handleOIDCCallbackRequest(w http.ResponseWriter, r *http.R
 	}
 
 	displayName := ""
+	normalizedEmail := ""
 	claimsValid := idToken.Claims(&identityClaims) == nil
 	if claimsValid {
 		displayName = strings.TrimSpace(identityClaims.Email)
@@ -426,6 +427,35 @@ func (a *application) handleOIDCCallbackRequest(w http.ResponseWriter, r *http.R
 		if len([]byte(displayName)) > AUTH_TOKEN_V3_MAX_DISPLAY_LENGTH {
 			displayName = ""
 		}
+
+		if identityClaims.EmailVerified {
+			normalizedEmail = strings.ToLower(
+				strings.TrimSpace(identityClaims.Email),
+			)
+		}
+	}
+
+	dashboardAuthorizationEnabled := len(a.Config.Auth.Access.Dashboards) > 0
+	if dashboardAuthorizationEnabled && normalizedEmail == "" {
+		reason := "email_claim_missing"
+		if claimsValid &&
+			strings.TrimSpace(identityClaims.Email) != "" &&
+			!identityClaims.EmailVerified {
+			reason = "email_not_verified"
+		}
+
+		slog.Warn(
+			"OIDC callback rejected",
+			"stage", "authorization",
+			"reason", reason,
+		)
+		http.Redirect(
+			w,
+			r,
+			a.Config.Server.BaseURL+"/login?reason=oidc_not_authorized",
+			http.StatusSeeOther,
+		)
+		return
 	}
 
 	if len(a.Config.Auth.OIDC.AllowedUsers) > 0 {
@@ -440,10 +470,9 @@ func (a *application) handleOIDCCallbackRequest(w http.ResponseWriter, r *http.R
 			return
 		}
 
-		email := strings.ToLower(strings.TrimSpace(identityClaims.Email))
 		allowed := false
 		for _, allowedUser := range a.Config.Auth.OIDC.AllowedUsers {
-			if email == strings.ToLower(strings.TrimSpace(allowedUser)) {
+			if normalizedEmail == strings.ToLower(strings.TrimSpace(allowedUser)) {
 				allowed = true
 				break
 			}
@@ -462,13 +491,26 @@ func (a *application) handleOIDCCallbackRequest(w http.ResponseWriter, r *http.R
 	}
 
 	now := time.Now()
-	sessionToken, err := generateSessionTokenV3(
-		authMethodOIDC,
-		principal,
-		displayName,
-		a.authSecretKey,
-		now,
-	)
+
+	var sessionToken string
+	if normalizedEmail != "" {
+		sessionToken, err = generateSessionTokenV4(
+			authMethodOIDC,
+			principal,
+			displayName,
+			normalizedEmail,
+			a.authSecretKey,
+			now,
+		)
+	} else {
+		sessionToken, err = generateSessionTokenV3(
+			authMethodOIDC,
+			principal,
+			displayName,
+			a.authSecretKey,
+			now,
+		)
+	}
 	if err != nil {
 		writeInternalServerError(w, "Failed to create OIDC session", err)
 		return

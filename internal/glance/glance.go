@@ -70,6 +70,7 @@ type application struct {
 	authAttemptsMu         sync.Mutex
 	failedAuthAttempts     map[string]*failedAuthAttempt
 	oidc                   *oidcRuntime
+	authorization          *authorizationPolicy
 }
 
 func (a *application) OIDCEnabled() bool {
@@ -494,6 +495,12 @@ func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime) (*appli
 		}
 	}
 
+	app.authorization = newAuthorizationPolicy(
+		app.Config.Auth.Groups,
+		app.Config.Auth.Access,
+		app.dashboards,
+	)
+
 	refreshSources := make(widgets, 0)
 	refreshSources = append(refreshSources, footerDynamicWidgets...)
 
@@ -648,24 +655,22 @@ func (a *application) populateTemplateRequestData(data *templateRequestData, r *
 func (a *application) renderPage(
 	w http.ResponseWriter,
 	r *http.Request,
+	session authenticatedSession,
 	page *page,
 	navigationPages []*page,
 	dashboard *dashboard,
 	dashboardPath string,
 ) {
-	session, authorized := a.authorizeSession(w, r)
-	if !authorized {
-		http.Redirect(w, r, a.Config.Server.BaseURL+"/login", http.StatusSeeOther)
-		return
-	}
-
 	data := templateData{
 		App:             a,
 		Page:            page,
 		NavigationPages: navigationPages,
-		Dashboards:      a.dashboards,
-		Dashboard:       dashboard,
-		DashboardPath:   dashboardPath,
+		Dashboards: a.authorization.authorizedDashboards(
+			session.AuthorizationIdentity,
+			a.dashboards,
+		),
+		Dashboard:     dashboard,
+		DashboardPath: dashboardPath,
 	}
 	a.populateTemplateRequestData(&data.Request, r, page)
 
@@ -690,16 +695,30 @@ func (a *application) renderPage(
 }
 
 func (a *application) handlePageRequest(w http.ResponseWriter, r *http.Request) {
+	session, authenticated := a.authorizeSession(w, r)
+	if !authenticated {
+		http.Redirect(w, r, a.Config.Server.BaseURL+"/login", http.StatusSeeOther)
+		return
+	}
+
 	if a.defaultDashboard == nil {
 		page, exists := a.slugToPage[r.PathValue("page")]
 		if !exists {
-			a.handleNotFound(w, r, pagePointers(a.Config.Pages), nil, "")
+			a.renderNotFound(
+				w,
+				r,
+				session,
+				pagePointers(a.Config.Pages),
+				nil,
+				"",
+			)
 			return
 		}
 
 		a.renderPage(
 			w,
 			r,
+			session,
 			page,
 			pagePointers(a.Config.Pages),
 			nil,
@@ -708,9 +727,31 @@ func (a *application) handlePageRequest(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	identity := session.AuthorizationIdentity
 	pageSlug := r.PathValue("page")
-	var page *page
 
+	if !a.authorization.canAccessDashboard(identity, a.defaultDashboard) {
+		if pageSlug == "" {
+			authorizedDashboards := a.authorization.authorizedDashboards(
+				identity,
+				a.dashboards,
+			)
+			if len(authorizedDashboards) > 0 {
+				http.Redirect(
+					w,
+					r,
+					a.Config.Server.BaseURL+"/"+authorizedDashboards[0].Slug+"/",
+					http.StatusSeeOther,
+				)
+				return
+			}
+		}
+
+		a.renderNotFound(w, r, session, nil, nil, "")
+		return
+	}
+
+	var page *page
 	if pageSlug == "" {
 		page = a.defaultDashboard.Pages[0]
 	} else {
@@ -723,13 +764,21 @@ func (a *application) handlePageRequest(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if page == nil {
-		a.handleNotFound(w, r, a.defaultDashboard.Pages, a.defaultDashboard, "")
+		a.renderNotFound(
+			w,
+			r,
+			session,
+			a.defaultDashboard.Pages,
+			a.defaultDashboard,
+			"",
+		)
 		return
 	}
 
 	a.renderPage(
 		w,
 		r,
+		session,
 		page,
 		a.defaultDashboard.Pages,
 		a.defaultDashboard,
@@ -742,6 +791,20 @@ func (a *application) handleDashboardPageRequest(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
+	session, authenticated := a.authorizeSession(w, r)
+	if !authenticated {
+		http.Redirect(w, r, a.Config.Server.BaseURL+"/login", http.StatusSeeOther)
+		return
+	}
+
+	if !a.authorization.canAccessDashboard(
+		session.AuthorizationIdentity,
+		dashboard,
+	) {
+		a.renderNotFound(w, r, session, nil, nil, "")
+		return
+	}
+
 	pageSlug := r.PathValue("page")
 	var page *page
 
@@ -757,13 +820,21 @@ func (a *application) handleDashboardPageRequest(
 	}
 
 	if page == nil {
-		a.handleNotFound(w, r, dashboard.Pages, dashboard, "/"+dashboard.Slug)
+		a.renderNotFound(
+			w,
+			r,
+			session,
+			dashboard.Pages,
+			dashboard,
+			"/"+dashboard.Slug,
+		)
 		return
 	}
 
 	a.renderPage(
 		w,
 		r,
+		session,
 		page,
 		dashboard.Pages,
 		dashboard,
@@ -786,7 +857,15 @@ func (a *application) handlePageContentRequest(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if a.handleUnauthorizedResponse(w, r, showUnauthorizedJSON) {
+	session, authenticated := a.authorizeSession(w, r)
+	if !authenticated {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"error": "Unauthorized"}`))
+		return
+	}
+
+	if !a.authorization.canAccessPage(session.AuthorizationIdentity, page) {
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
@@ -874,25 +953,35 @@ func (a *application) addressOfRequest(r *http.Request) string {
 	return lastIP
 }
 
-func (a *application) handleNotFound(
+func (a *application) renderNotFound(
 	w http.ResponseWriter,
 	r *http.Request,
+	session authenticatedSession,
 	navigationPages []*page,
 	dashboard *dashboard,
 	dashboardPath string,
 ) {
-	if a.handleUnauthorizedResponse(w, r, redirectToLogin) {
-		return
-	}
-
 	data := templateData{
 		App:             a,
 		NavigationPages: navigationPages,
-		Dashboards:      a.dashboards,
-		Dashboard:       dashboard,
-		DashboardPath:   dashboardPath,
+		Dashboards: a.authorization.authorizedDashboards(
+			session.AuthorizationIdentity,
+			a.dashboards,
+		),
+		Dashboard:     dashboard,
+		DashboardPath: dashboardPath,
 	}
 	a.populateTemplateRequestData(&data.Request, r, nil)
+
+	if a.RequiresAuth && session.DisplayName != "" {
+		data.Request.AuthDisplayName = session.DisplayName
+		switch session.Method {
+		case authMethodLocal:
+			data.Request.AuthDescription = "Signed in locally"
+		case authMethodOIDC:
+			data.Request.AuthDescription = "Signed in with " + a.OIDCProviderName()
+		}
+	}
 
 	var responseBytes bytes.Buffer
 	if err := notFoundTemplate.Execute(&responseBytes, data); err != nil {
@@ -950,6 +1039,25 @@ func (a *application) router() http.Handler {
 			mux.HandleFunc(
 				fmt.Sprintf("GET /%s", dashboardSlug),
 				func(w http.ResponseWriter, r *http.Request) {
+					session, authenticated := a.authorizeSession(w, r)
+					if !authenticated {
+						http.Redirect(
+							w,
+							r,
+							a.Config.Server.BaseURL+"/login",
+							http.StatusSeeOther,
+						)
+						return
+					}
+
+					if !a.authorization.canAccessDashboard(
+						session.AuthorizationIdentity,
+						dashboard,
+					) {
+						a.renderNotFound(w, r, session, nil, nil, "")
+						return
+					}
+
 					http.Redirect(
 						w,
 						r,

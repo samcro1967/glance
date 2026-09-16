@@ -45,9 +45,11 @@ type config struct {
 	} `yaml:"server"`
 
 	Auth struct {
-		SecretKey string           `yaml:"secret-key"`
-		Users     map[string]*user `yaml:"users"`
-		OIDC      oidcConfig       `yaml:"oidc"`
+		SecretKey string                     `yaml:"secret-key"`
+		Users     map[string]*user           `yaml:"users"`
+		OIDC      oidcConfig                 `yaml:"oidc"`
+		Groups    map[string]authGroupConfig `yaml:"groups"`
+		Access    authAccessConfig           `yaml:"access"`
 	} `yaml:"auth"`
 
 	Document struct {
@@ -83,6 +85,19 @@ type user struct {
 	Password           string `yaml:"password"`
 	PasswordHashString string `yaml:"password-hash"`
 	PasswordHash       []byte `yaml:"-"`
+}
+
+type authGroupConfig struct {
+	Users []string `yaml:"users"`
+}
+
+type authDashboardAccessConfig struct {
+	Users  []string `yaml:"users"`
+	Groups []string `yaml:"groups"`
+}
+
+type authAccessConfig struct {
+	Dashboards map[string]authDashboardAccessConfig `yaml:"dashboards"`
 }
 
 type oidcConfig struct {
@@ -148,21 +163,26 @@ type configDiagnostic struct {
 }
 
 type configSemanticSources struct {
-	root             int
-	server           int
-	assetsPath       int
-	auth             int
-	authUsers        int
-	users            map[string]int
-	authOIDC         int
-	authOIDCIssuer   int
-	authOIDCClientID int
-	authOIDCSecret   int
-	authOIDCRedirect int
-	dashboards       int
-	dashboard        map[string]int
-	pages            int
-	page             []configPageSemanticSources
+	root                 int
+	server               int
+	assetsPath           int
+	auth                 int
+	authUsers            int
+	users                map[string]int
+	authGroups           int
+	authGroup            map[string]int
+	authAccess           int
+	authAccessDashboards int
+	authAccessDashboard  map[string]int
+	authOIDC             int
+	authOIDCIssuer       int
+	authOIDCClientID     int
+	authOIDCSecret       int
+	authOIDCRedirect     int
+	dashboards           int
+	dashboard            map[string]int
+	pages                int
+	page                 []configPageSemanticSources
 }
 
 type configPageSemanticSources struct {
@@ -1119,8 +1139,10 @@ func parseConfigSemanticSources(contents []byte) (*configSemanticSources, error)
 	}
 
 	sources := &configSemanticSources{
-		users:     make(map[string]int),
-		dashboard: make(map[string]int),
+		users:               make(map[string]int),
+		authGroup:           make(map[string]int),
+		authAccessDashboard: make(map[string]int),
+		dashboard:           make(map[string]int),
 	}
 
 	if len(document.Content) == 0 {
@@ -1145,6 +1167,27 @@ func parseConfigSemanticSources(contents []byte) (*configSemanticSources, error)
 				for i := 0; i+1 < len(users.Content); i += 2 {
 					keyNode := users.Content[i]
 					sources.users[keyNode.Value] = keyNode.Line
+				}
+			}
+		}
+		if groupsKey, groups := yamlMappingValue(auth, "groups"); groups != nil {
+			sources.authGroups = groupsKey.Line
+			if groups.Kind == yaml.MappingNode {
+				for i := 0; i+1 < len(groups.Content); i += 2 {
+					keyNode := groups.Content[i]
+					sources.authGroup[keyNode.Value] = keyNode.Line
+				}
+			}
+		}
+		if accessKey, access := yamlMappingValue(auth, "access"); access != nil {
+			sources.authAccess = accessKey.Line
+			if dashboardsKey, dashboards := yamlMappingValue(access, "dashboards"); dashboards != nil {
+				sources.authAccessDashboards = dashboardsKey.Line
+				if dashboards.Kind == yaml.MappingNode {
+					for i := 0; i+1 < len(dashboards.Content); i += 2 {
+						keyNode := dashboards.Content[i]
+						sources.authAccessDashboard[keyNode.Value] = keyNode.Line
+					}
 				}
 			}
 		}
@@ -1280,6 +1323,155 @@ func configPageDescription(page *page, index int) string {
 		return fmt.Sprintf("page %q", page.Title)
 	}
 	return fmt.Sprintf("page %d", index+1)
+}
+
+func validateAuthorizationConfig(
+	config *config,
+	parsed *parsedYAMLConfig,
+	sources *configSemanticSources,
+) error {
+	if len(config.Auth.Access.Dashboards) == 0 {
+		return nil
+	}
+
+	diagnostic := func(line int, err error) error {
+		return semanticConfigDiagnostic(parsed, line, err)
+	}
+
+	rootLine := 0
+	authLine := 0
+	accessLine := 0
+	accessDashboardsLine := 0
+	if sources != nil {
+		rootLine = sources.root
+		authLine = semanticSourceLine(sources.auth, rootLine)
+		accessLine = semanticSourceLine(sources.authAccess, authLine)
+		accessDashboardsLine = semanticSourceLine(sources.authAccessDashboards, accessLine)
+	}
+
+	authConfigured := len(config.Auth.Users) > 0 || config.Auth.OIDC.configured()
+	if !authConfigured {
+		return diagnostic(
+			accessLine,
+			errors.New("auth access requires local users or OIDC authentication to be configured"),
+		)
+	}
+
+	if len(config.Dashboards.keys) == 0 {
+		return diagnostic(
+			accessDashboardsLine,
+			errors.New("auth access dashboards requires dashboards configuration"),
+		)
+	}
+
+	for groupName, group := range config.Auth.Groups {
+		line := authLine
+		if sources != nil {
+			line = semanticSourceLine(sources.authGroup[groupName], sources.authGroups, authLine)
+		}
+
+		if strings.TrimSpace(groupName) == "" {
+			return diagnostic(line, errors.New("auth group has no name"))
+		}
+		if len(group.Users) == 0 {
+			return diagnostic(line, fmt.Errorf("auth group %q has no users", groupName))
+		}
+
+		seenUsers := make(map[string]struct{}, len(group.Users))
+		for _, identity := range group.Users {
+			if strings.TrimSpace(identity) == "" {
+				return diagnostic(line, fmt.Errorf("auth group %q contains an empty user", groupName))
+			}
+			if _, exists := seenUsers[identity]; exists {
+				return diagnostic(
+					line,
+					fmt.Errorf("auth group %q contains duplicate user %q", groupName, identity),
+				)
+			}
+			seenUsers[identity] = struct{}{}
+		}
+	}
+
+	for dashboardName, rule := range config.Auth.Access.Dashboards {
+		line := accessDashboardsLine
+		if sources != nil {
+			line = semanticSourceLine(
+				sources.authAccessDashboard[dashboardName],
+				sources.authAccessDashboards,
+				sources.authAccess,
+				sources.auth,
+				rootLine,
+			)
+		}
+
+		if _, exists := config.Dashboards.Get(dashboardName); !exists {
+			return diagnostic(
+				line,
+				fmt.Errorf("auth access references unknown dashboard %q", dashboardName),
+			)
+		}
+
+		if len(rule.Users) == 0 && len(rule.Groups) == 0 {
+			return diagnostic(
+				line,
+				fmt.Errorf("auth access dashboard %q has no users or groups", dashboardName),
+			)
+		}
+
+		seenUsers := make(map[string]struct{}, len(rule.Users))
+		for _, identity := range rule.Users {
+			if strings.TrimSpace(identity) == "" {
+				return diagnostic(
+					line,
+					fmt.Errorf("auth access dashboard %q contains an empty user", dashboardName),
+				)
+			}
+			if _, exists := seenUsers[identity]; exists {
+				return diagnostic(
+					line,
+					fmt.Errorf(
+						"auth access dashboard %q contains duplicate user %q",
+						dashboardName,
+						identity,
+					),
+				)
+			}
+			seenUsers[identity] = struct{}{}
+		}
+
+		seenGroups := make(map[string]struct{}, len(rule.Groups))
+		for _, groupName := range rule.Groups {
+			if strings.TrimSpace(groupName) == "" {
+				return diagnostic(
+					line,
+					fmt.Errorf("auth access dashboard %q contains an empty group", dashboardName),
+				)
+			}
+			if _, exists := seenGroups[groupName]; exists {
+				return diagnostic(
+					line,
+					fmt.Errorf(
+						"auth access dashboard %q contains duplicate group %q",
+						dashboardName,
+						groupName,
+					),
+				)
+			}
+			if _, exists := config.Auth.Groups[groupName]; !exists {
+				return diagnostic(
+					line,
+					fmt.Errorf(
+						"auth access dashboard %q references unknown group %q",
+						dashboardName,
+						groupName,
+					),
+				)
+			}
+			seenGroups[groupName] = struct{}{}
+		}
+	}
+
+	return nil
 }
 
 func isConfigStateValid(config *config) error {
@@ -1459,6 +1651,10 @@ func isConfigStateValidWithSources(
 		} else if len(user.Password) < 6 {
 			return diagnostic(line, fmt.Errorf("the password for %s must be at least 6 characters", username))
 		}
+	}
+
+	if err := validateAuthorizationConfig(config, parsed, sources); err != nil {
+		return err
 	}
 
 	if config.Server.AssetsPath != "" {
