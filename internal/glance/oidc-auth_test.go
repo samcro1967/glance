@@ -588,13 +588,13 @@ func TestOIDCCallbackCreatesAuthorizedSession(t *testing.T) {
 		t.Fatal("OIDC callback session is not accepted by session gate")
 	}
 
-	verified, err := verifySessionTokenV3(
+	verified, err := verifySessionTokenV4(
 		sessionCookie.Value,
 		app.authSecretKey,
 		time.Now(),
 	)
 	if err != nil {
-		t.Fatalf("verifying callback V3 session: %v", err)
+		t.Fatalf("verifying callback V4 session: %v", err)
 	}
 	if verified.Method != authMethodOIDC {
 		t.Fatalf("session method = %v, want OIDC", verified.Method)
@@ -603,6 +603,13 @@ func TestOIDCCallbackCreatesAuthorizedSession(t *testing.T) {
 		t.Fatalf(
 			"session display name = %q, want %q",
 			verified.DisplayName,
+			"user@example.test",
+		)
+	}
+	if verified.AuthorizationIdentity != "user@example.test" {
+		t.Fatalf(
+			"session authorization identity = %q, want %q",
+			verified.AuthorizationIdentity,
 			"user@example.test",
 		)
 	}
@@ -616,6 +623,213 @@ func TestOIDCCallbackCreatesAuthorizedSession(t *testing.T) {
 	}
 	if principal.Subject != "test-subject" {
 		t.Errorf("principal subject = %q, want %q", principal.Subject, "test-subject")
+	}
+}
+
+func TestOIDCCallbackNormalizesV4AuthorizationIdentity(t *testing.T) {
+	app, _, cleanup := newOIDCCallbackTestApplicationWithEmail(
+		t,
+		"test-nonce",
+		" User@Example.Test ",
+	)
+	defer cleanup()
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"https://glance.example.test/glance/auth/oidc/callback?state=test-state&code=test-code",
+		nil,
+	)
+	req.AddCookie(
+		oidcCallbackTestFlowCookie(t, app, "test-state", "test-nonce"),
+	)
+
+	rec := httptest.NewRecorder()
+	app.handleOIDCCallbackRequest(rec, req)
+
+	var sessionCookie *http.Cookie
+	for _, cookie := range rec.Result().Cookies() {
+		if cookie.Name == AUTH_SESSION_COOKIE_NAME {
+			sessionCookie = cookie
+			break
+		}
+	}
+	if sessionCookie == nil {
+		t.Fatal("OIDC callback did not create session cookie")
+	}
+
+	verified, err := verifySessionTokenV4(
+		sessionCookie.Value,
+		app.authSecretKey,
+		time.Now(),
+	)
+	if err != nil {
+		t.Fatalf("verifying callback V4 session: %v", err)
+	}
+	if verified.AuthorizationIdentity != "user@example.test" {
+		t.Fatalf(
+			"authorization identity = %q, want %q",
+			verified.AuthorizationIdentity,
+			"user@example.test",
+		)
+	}
+}
+
+func TestOIDCCallbackWithoutVerifiedEmailPreservesLegacyBehaviorWhenAuthorizationDisabled(
+	t *testing.T,
+) {
+	tests := []struct {
+		name          string
+		email         string
+		emailVerified bool
+	}{
+		{
+			name:          "missing email",
+			emailVerified: false,
+		},
+		{
+			name:          "unverified email",
+			email:         "user@example.test",
+			emailVerified: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app, _, cleanup := newOIDCCallbackTestApplicationWithIdentity(
+				t,
+				"test-nonce",
+				tt.email,
+				tt.emailVerified,
+			)
+			defer cleanup()
+
+			req := httptest.NewRequest(
+				http.MethodGet,
+				"https://glance.example.test/glance/auth/oidc/callback?state=test-state&code=test-code",
+				nil,
+			)
+			req.AddCookie(
+				oidcCallbackTestFlowCookie(
+					t,
+					app,
+					"test-state",
+					"test-nonce",
+				),
+			)
+
+			rec := httptest.NewRecorder()
+			app.handleOIDCCallbackRequest(rec, req)
+
+			if rec.Code != http.StatusSeeOther {
+				t.Fatalf(
+					"status = %d, want %d; body=%q",
+					rec.Code,
+					http.StatusSeeOther,
+					rec.Body.String(),
+				)
+			}
+
+			var sessionCookie *http.Cookie
+			for _, cookie := range rec.Result().Cookies() {
+				if cookie.Name == AUTH_SESSION_COOKIE_NAME {
+					sessionCookie = cookie
+					break
+				}
+			}
+			if sessionCookie == nil {
+				t.Fatal("legacy-compatible OIDC callback did not create session")
+			}
+
+			if _, err := verifySessionTokenV3(
+				sessionCookie.Value,
+				app.authSecretKey,
+				time.Now(),
+			); err != nil {
+				t.Fatalf(
+					"legacy-compatible OIDC callback did not issue V3 session: %v",
+					err,
+				)
+			}
+		})
+	}
+}
+
+func TestOIDCCallbackAuthorizationRequiresVerifiedEmail(t *testing.T) {
+	tests := []struct {
+		name          string
+		email         string
+		emailVerified bool
+	}{
+		{
+			name:          "missing email",
+			emailVerified: false,
+		},
+		{
+			name:          "unverified email",
+			email:         "user@example.test",
+			emailVerified: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app, _, cleanup := newOIDCCallbackTestApplicationWithIdentity(
+				t,
+				"test-nonce",
+				tt.email,
+				tt.emailVerified,
+			)
+			defer cleanup()
+
+			app.Config.Auth.Access.Dashboards = map[string]authDashboardAccessConfig{
+				"Default": {
+					Users: []string{"user@example.test"},
+				},
+			}
+
+			req := httptest.NewRequest(
+				http.MethodGet,
+				"https://glance.example.test/glance/auth/oidc/callback?state=test-state&code=test-code",
+				nil,
+			)
+			req.AddCookie(
+				oidcCallbackTestFlowCookie(
+					t,
+					app,
+					"test-state",
+					"test-nonce",
+				),
+			)
+
+			rec := httptest.NewRecorder()
+			app.handleOIDCCallbackRequest(rec, req)
+
+			if rec.Code != http.StatusSeeOther {
+				t.Fatalf(
+					"status = %d, want %d; body=%q",
+					rec.Code,
+					http.StatusSeeOther,
+					rec.Body.String(),
+				)
+			}
+
+			wantLocation := "/glance/login?reason=oidc_not_authorized"
+			if got := rec.Header().Get("Location"); got != wantLocation {
+				t.Fatalf(
+					"redirect location = %q, want %q",
+					got,
+					wantLocation,
+				)
+			}
+
+			for _, cookie := range rec.Result().Cookies() {
+				if cookie.Name == AUTH_SESSION_COOKIE_NAME {
+					t.Fatal(
+						"OIDC callback without verified email created session while authorization enabled",
+					)
+				}
+			}
+		})
 	}
 }
 

@@ -423,6 +423,59 @@ Client secrets and the Glance authentication secret should not be committed dire
 
 OIDC configuration participates in normal Glance configuration reloads. Changes such as updating `allowed-users` apply to new authentication attempts without restarting Glance. Removing an identity from `allowed-users` does not revoke a Glance session that was already established; existing sessions remain valid until their normal expiration or invalidation. Rotating `secret-key` invalidates existing Glance sessions globally.
 
+### Dashboard authorization
+
+When named dashboards are configured, Glance can restrict each dashboard to specific authenticated users or reusable groups. Dashboard authorization works with both local username/password authentication and OIDC.
+
+```yaml
+auth:
+  secret-key: ${GLANCE_AUTH_SECRET_KEY}
+
+  users:
+    mark:
+      password-hash: ${MARK_PASSWORD_HASH}
+    kellie:
+      password-hash: ${KELLIE_PASSWORD_HASH}
+
+  groups:
+    family:
+      users:
+        - mark
+        - kellie
+    admins:
+      users:
+        - mark
+
+  access:
+    dashboards:
+      Default:
+        groups:
+          - family
+      Admin:
+        groups:
+          - admins
+        users:
+          - admin@example.com
+```
+
+`groups` defines reusable sets of authorization identities. Groups contain users directly and cannot contain other groups. Defining groups by itself does not enable dashboard authorization.
+
+`access.dashboards` defines the dashboard access policy. A dashboard is accessible when the authenticated identity is listed directly under `users` or belongs to any group listed under `groups`. Direct users and groups can be combined in the same rule.
+
+For local authentication, the authorization identity is the configured username and matching is case-sensitive. For OIDC, dashboard authorization uses the provider's verified `email` claim, normalized for letter case and surrounding whitespace. An OIDC identity without a verified email cannot use dashboard authorization. `oidc.allowed-users` remains a separate global OIDC authentication admission control: an identity must first be admitted by `allowed-users`, when configured, before dashboard authorization is evaluated.
+
+Dashboard authorization is optional. When `auth.access.dashboards` is omitted or empty, existing authentication and dashboard behavior is unchanged. Once at least one dashboard access rule is configured, authorization is enabled and dashboards are deny-by-default: every accessible dashboard must have an explicit rule granting the authenticated identity access. Dashboard access rules require named dashboards and do not apply to legacy configurations that use standalone pages without dashboards.
+
+Pages do not have independent access rules. A page is accessible when it belongs to at least one dashboard the authenticated identity can access. This means a page shared by multiple dashboards remains accessible through any authorized containing dashboard, while a page that belongs only to unauthorized dashboards is inaccessible. Dashboard navigation is filtered to dashboards available to the current identity.
+
+Authorization preserves the existing dashboard routing topology. Granting access to a page through one dashboard does not create a new route for that page through another dashboard. For example, a page assigned only to an `Admin` dashboard does not become available at the Default dashboard's page route merely because the current user can access `Admin`.
+
+After authentication, requests for unauthorized dashboards and pages return HTTP 404 so their existence is not advertised through normal dashboard routing. Unauthenticated requests continue to use the normal authentication flow.
+
+Dashboard authorization participates in normal Glance configuration reloads. A successfully reloaded policy is used for subsequent requests from existing authenticated sessions; changing dashboard grants therefore does not require those users to sign in again. This differs from `oidc.allowed-users`, which controls admission when an OIDC authentication is established rather than continuously revoking existing sessions.
+
+These rules protect dashboard and page access through the Glance UI and normal page routes. They are not a general resource-level or multi-tenant security boundary: widgets do not have independent ACLs, and widget-content APIs, live-update/SSE endpoints, static assets, and other underlying resources are not individually isolated by dashboard authorization. Do not rely on dashboard authorization to protect secrets that those resources themselves expose.
+
 ### Using hashed passwords
 
 If you do not want to store plain passwords in your config file or in environment variables, you can hash your password and provide its hash instead:

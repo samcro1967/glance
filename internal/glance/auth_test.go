@@ -266,6 +266,285 @@ func TestOIDCPrincipalRejectsInvalidInputs(t *testing.T) {
 	}
 }
 
+func TestAuthTokenV4GenerationAndVerification(t *testing.T) {
+	secretString, err := makeAuthSecretKey(AUTH_SECRET_KEY_LENGTH)
+	if err != nil {
+		t.Fatalf("generating auth secret: %v", err)
+	}
+
+	secret, err := base64.StdEncoding.DecodeString(secretString)
+	if err != nil {
+		t.Fatalf("decoding auth secret: %v", err)
+	}
+
+	now := time.Now()
+
+	tests := []struct {
+		name                  string
+		method                authMethod
+		principal             string
+		displayName           string
+		authorizationIdentity string
+	}{
+		{
+			name:                  "local",
+			method:                authMethodLocal,
+			principal:             "test-user",
+			displayName:           "test-user",
+			authorizationIdentity: "test-user",
+		},
+		{
+			name:                  "oidc",
+			method:                authMethodOIDC,
+			principal:             "canonical-oidc-principal",
+			displayName:           "Test User",
+			authorizationIdentity: "user@example.test",
+		},
+		{
+			name:                  "oidc without display name",
+			method:                authMethodOIDC,
+			principal:             "canonical-oidc-principal",
+			displayName:           "",
+			authorizationIdentity: "user@example.test",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			token, err := generateSessionTokenV4(
+				tt.method,
+				tt.principal,
+				tt.displayName,
+				tt.authorizationIdentity,
+				secret,
+				now,
+			)
+			if err != nil {
+				t.Fatalf("generating V4 session token: %v", err)
+			}
+
+			verified, err := verifySessionTokenV4(token, secret, now)
+			if err != nil {
+				t.Fatalf("verifying V4 session token: %v", err)
+			}
+
+			if verified.Method != tt.method {
+				t.Fatalf("method = %d, want %d", verified.Method, tt.method)
+			}
+			if verified.Principal != tt.principal {
+				t.Fatalf("principal = %q, want %q", verified.Principal, tt.principal)
+			}
+			if verified.DisplayName != tt.displayName {
+				t.Fatalf("display name = %q, want %q", verified.DisplayName, tt.displayName)
+			}
+			if verified.AuthorizationIdentity != tt.authorizationIdentity {
+				t.Fatalf(
+					"authorization identity = %q, want %q",
+					verified.AuthorizationIdentity,
+					tt.authorizationIdentity,
+				)
+			}
+			if verified.ShouldRegen {
+				t.Fatal("new V4 token should not require regeneration")
+			}
+		})
+	}
+}
+
+func TestAuthTokenV4RegenerationAndExpiration(t *testing.T) {
+	secret := make([]byte, AUTH_SECRET_KEY_LENGTH)
+	now := time.Now()
+
+	token, err := generateSessionTokenV4(
+		authMethodOIDC,
+		"test-principal",
+		"Test User",
+		"user@example.test",
+		secret,
+		now,
+	)
+	if err != nil {
+		t.Fatalf("generating V4 token: %v", err)
+	}
+
+	regenTime := now.Add(
+		AUTH_TOKEN_VALID_PERIOD - AUTH_TOKEN_REGEN_BEFORE + 2*time.Second,
+	)
+
+	verified, err := verifySessionTokenV4(token, secret, regenTime)
+	if err != nil {
+		t.Fatalf("verifying V4 token during regeneration period: %v", err)
+	}
+	if !verified.ShouldRegen {
+		t.Fatal("V4 token should require regeneration")
+	}
+	if verified.AuthorizationIdentity != "user@example.test" {
+		t.Fatalf(
+			"authorization identity = %q, want %q",
+			verified.AuthorizationIdentity,
+			"user@example.test",
+		)
+	}
+
+	_, err = verifySessionTokenV4(
+		token,
+		secret,
+		now.Add(AUTH_TOKEN_VALID_PERIOD+2*time.Second),
+	)
+	if err == nil {
+		t.Fatal("expected expired V4 token to be rejected")
+	}
+}
+
+func TestAuthTokenV4RejectsTampering(t *testing.T) {
+	secret := make([]byte, AUTH_SECRET_KEY_LENGTH)
+	now := time.Now()
+
+	token, err := generateSessionTokenV4(
+		authMethodOIDC,
+		"test-principal",
+		"Test User",
+		"user@example.test",
+		secret,
+		now,
+	)
+	if err != nil {
+		t.Fatalf("generating V4 token: %v", err)
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(token)
+	if err != nil {
+		t.Fatalf("decoding V4 token: %v", err)
+	}
+
+	for i := range len(decoded) {
+		tampered := append([]byte(nil), decoded...)
+		tampered[i]++
+
+		_, err := verifySessionTokenV4(
+			base64.StdEncoding.EncodeToString(tampered),
+			secret,
+			now,
+		)
+		if err == nil {
+			t.Fatalf(
+				"expected tampered V4 token at index %d to be rejected",
+				i,
+			)
+		}
+	}
+}
+
+func TestAuthTokenV4RejectsInvalidInputs(t *testing.T) {
+	secret := make([]byte, AUTH_SECRET_KEY_LENGTH)
+	now := time.Now()
+
+	tests := []struct {
+		name                  string
+		method                authMethod
+		principal             string
+		displayName           string
+		authorizationIdentity string
+		secret                []byte
+	}{
+		{
+			name:                  "invalid method",
+			method:                authMethod(99),
+			principal:             "test-principal",
+			displayName:           "Test User",
+			authorizationIdentity: "user@example.test",
+			secret:                secret,
+		},
+		{
+			name:                  "empty principal",
+			method:                authMethodOIDC,
+			principal:             "",
+			displayName:           "Test User",
+			authorizationIdentity: "user@example.test",
+			secret:                secret,
+		},
+		{
+			name:                  "principal too long",
+			method:                authMethodOIDC,
+			principal:             strings.Repeat("p", AUTH_TOKEN_V2_MAX_PRINCIPAL_LENGTH+1),
+			displayName:           "Test User",
+			authorizationIdentity: "user@example.test",
+			secret:                secret,
+		},
+		{
+			name:                  "display name too long",
+			method:                authMethodOIDC,
+			principal:             "test-principal",
+			displayName:           strings.Repeat("d", AUTH_TOKEN_V3_MAX_DISPLAY_LENGTH+1),
+			authorizationIdentity: "user@example.test",
+			secret:                secret,
+		},
+		{
+			name:                  "empty authorization identity",
+			method:                authMethodOIDC,
+			principal:             "test-principal",
+			displayName:           "Test User",
+			authorizationIdentity: "",
+			secret:                secret,
+		},
+		{
+			name:        "authorization identity too long",
+			method:      authMethodOIDC,
+			principal:   "test-principal",
+			displayName: "Test User",
+			authorizationIdentity: strings.Repeat(
+				"a",
+				AUTH_TOKEN_V4_MAX_AUTHORIZATION_IDENTITY_LENGTH+1,
+			),
+			secret: secret,
+		},
+		{
+			name:                  "invalid secret",
+			method:                authMethodOIDC,
+			principal:             "test-principal",
+			displayName:           "Test User",
+			authorizationIdentity: "user@example.test",
+			secret:                []byte("short"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := generateSessionTokenV4(
+				tt.method,
+				tt.principal,
+				tt.displayName,
+				tt.authorizationIdentity,
+				tt.secret,
+				now,
+			); err == nil {
+				t.Fatal("expected invalid V4 token input to be rejected")
+			}
+		})
+	}
+}
+
+func TestAuthTokenV4CannotVerifyAsV3(t *testing.T) {
+	secret := make([]byte, AUTH_SECRET_KEY_LENGTH)
+	now := time.Now()
+
+	token, err := generateSessionTokenV4(
+		authMethodOIDC,
+		"test-principal",
+		"Test User",
+		"user@example.test",
+		secret,
+		now,
+	)
+	if err != nil {
+		t.Fatalf("generating V4 token: %v", err)
+	}
+
+	if _, err := verifySessionTokenV3(token, secret, now); err == nil {
+		t.Fatal("expected V4 token to be rejected by V3 verifier")
+	}
+}
+
 func TestAuthTokenV3GenerationAndVerification(t *testing.T) {
 	secretString, err := makeAuthSecretKey(AUTH_SECRET_KEY_LENGTH)
 	if err != nil {
@@ -1030,6 +1309,338 @@ func TestIsAuthorizedAcceptsValidSession(t *testing.T) {
 	}
 }
 
+func TestResolveAuthenticatedSessionV4LocalIdentity(t *testing.T) {
+	app := newAuthTestApplication(t)
+
+	token, err := generateSessionTokenV4(
+		authMethodLocal,
+		"test-user",
+		"test-user",
+		"test-user",
+		app.authSecretKey,
+		time.Now(),
+	)
+	if err != nil {
+		t.Fatalf("generating V4 local session: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.AddCookie(&http.Cookie{
+		Name:  AUTH_SESSION_COOKIE_NAME,
+		Value: token,
+	})
+
+	session, authorized := app.resolveAuthenticatedSession(req, time.Now())
+	if !authorized {
+		t.Fatal("expected V4 local session to resolve")
+	}
+	if session.Method != authMethodLocal {
+		t.Fatalf("method = %d, want local", session.Method)
+	}
+	if session.Principal != "test-user" {
+		t.Fatalf("principal = %q, want test-user", session.Principal)
+	}
+	if session.DisplayName != "test-user" {
+		t.Fatalf("display name = %q, want test-user", session.DisplayName)
+	}
+	if session.AuthorizationIdentity != "test-user" {
+		t.Fatalf(
+			"authorization identity = %q, want test-user",
+			session.AuthorizationIdentity,
+		)
+	}
+	if session.Version != AUTH_TOKEN_V4_VERSION {
+		t.Fatalf(
+			"version = %d, want %d",
+			session.Version,
+			AUTH_TOKEN_V4_VERSION,
+		)
+	}
+}
+
+func TestResolveAuthenticatedSessionLegacyOIDCHasNoAuthorizationIdentity(t *testing.T) {
+	app := newAuthTestApplication(t)
+	app.oidc = &oidcRuntime{issuer: "https://issuer.example.test"}
+
+	principal, err := encodeOIDCPrincipal(
+		"https://issuer.example.test",
+		"subject-123",
+	)
+	if err != nil {
+		t.Fatalf("encoding OIDC principal: %v", err)
+	}
+
+	tests := []struct {
+		name  string
+		token func() (string, error)
+	}{
+		{
+			name: "V3",
+			token: func() (string, error) {
+				return generateSessionTokenV3(
+					authMethodOIDC,
+					principal,
+					"User Name",
+					app.authSecretKey,
+					time.Now(),
+				)
+			},
+		},
+		{
+			name: "V2",
+			token: func() (string, error) {
+				return generateSessionTokenV2(
+					authMethodOIDC,
+					principal,
+					app.authSecretKey,
+					time.Now(),
+				)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			token, err := tt.token()
+			if err != nil {
+				t.Fatalf("generating legacy OIDC session: %v", err)
+			}
+
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			req.AddCookie(&http.Cookie{
+				Name:  AUTH_SESSION_COOKIE_NAME,
+				Value: token,
+			})
+
+			session, authorized := app.resolveAuthenticatedSession(req, time.Now())
+			if !authorized {
+				t.Fatal("expected legacy OIDC session to remain authenticated")
+			}
+			if session.AuthorizationIdentity != "" {
+				t.Fatalf(
+					"legacy OIDC authorization identity = %q, want empty",
+					session.AuthorizationIdentity,
+				)
+			}
+		})
+	}
+}
+
+func TestAuthorizeSessionLegacyOIDCRequiresReloginWhenAuthorizationEnabled(
+	t *testing.T,
+) {
+	app := newAuthTestApplication(t)
+	app.oidc = &oidcRuntime{issuer: "https://issuer.example.test"}
+
+	defaultDashboard := &dashboard{Name: "Default"}
+	app.authorization = newAuthorizationPolicy(
+		nil,
+		authAccessConfig{
+			Dashboards: map[string]authDashboardAccessConfig{
+				"Default": {
+					Users: []string{"user@example.test"},
+				},
+			},
+		},
+		[]*dashboard{defaultDashboard},
+	)
+
+	principal, err := encodeOIDCPrincipal(
+		"https://issuer.example.test",
+		"subject-123",
+	)
+	if err != nil {
+		t.Fatalf("encoding OIDC principal: %v", err)
+	}
+
+	tests := []struct {
+		name  string
+		token func() (string, error)
+	}{
+		{
+			name: "V3",
+			token: func() (string, error) {
+				return generateSessionTokenV3(
+					authMethodOIDC,
+					principal,
+					"User Name",
+					app.authSecretKey,
+					time.Now(),
+				)
+			},
+		},
+		{
+			name: "V2",
+			token: func() (string, error) {
+				return generateSessionTokenV2(
+					authMethodOIDC,
+					principal,
+					app.authSecretKey,
+					time.Now(),
+				)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			token, err := tt.token()
+			if err != nil {
+				t.Fatalf("generating legacy OIDC session: %v", err)
+			}
+
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			req.AddCookie(&http.Cookie{
+				Name:  AUTH_SESSION_COOKIE_NAME,
+				Value: token,
+			})
+
+			rec := httptest.NewRecorder()
+			if _, authorized := app.authorizeSession(rec, req); authorized {
+				t.Fatal(
+					"legacy OIDC session remained authorized while dashboard authorization enabled",
+				)
+			}
+		})
+	}
+}
+
+func TestAuthorizeSessionV4OIDCWithIdentityAcceptedWhenAuthorizationEnabled(
+	t *testing.T,
+) {
+	app := newAuthTestApplication(t)
+	app.oidc = &oidcRuntime{issuer: "https://issuer.example.test"}
+
+	defaultDashboard := &dashboard{Name: "Default"}
+	app.authorization = newAuthorizationPolicy(
+		nil,
+		authAccessConfig{
+			Dashboards: map[string]authDashboardAccessConfig{
+				"Default": {
+					Users: []string{"user@example.test"},
+				},
+			},
+		},
+		[]*dashboard{defaultDashboard},
+	)
+
+	principal, err := encodeOIDCPrincipal(
+		"https://issuer.example.test",
+		"subject-123",
+	)
+	if err != nil {
+		t.Fatalf("encoding OIDC principal: %v", err)
+	}
+
+	token, err := generateSessionTokenV4(
+		authMethodOIDC,
+		principal,
+		"User Name",
+		"user@example.test",
+		app.authSecretKey,
+		time.Now(),
+	)
+	if err != nil {
+		t.Fatalf("generating V4 OIDC session: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.AddCookie(&http.Cookie{
+		Name:  AUTH_SESSION_COOKIE_NAME,
+		Value: token,
+	})
+
+	rec := httptest.NewRecorder()
+	session, authorized := app.authorizeSession(rec, req)
+	if !authorized {
+		t.Fatal("V4 OIDC session with authorization identity was rejected")
+	}
+	if session.AuthorizationIdentity != "user@example.test" {
+		t.Fatalf(
+			"authorization identity = %q, want %q",
+			session.AuthorizationIdentity,
+			"user@example.test",
+		)
+	}
+}
+
+func TestIsAuthorizedRegeneratesAgingV4LocalSession(t *testing.T) {
+	app := newAuthTestApplication(t)
+
+	tokenCreatedAt := time.Now().Add(
+		-(AUTH_TOKEN_VALID_PERIOD - AUTH_TOKEN_REGEN_BEFORE + time.Hour),
+	)
+
+	token, err := generateSessionTokenV4(
+		authMethodLocal,
+		"test-user",
+		"test-user",
+		"test-user",
+		app.authSecretKey,
+		tokenCreatedAt,
+	)
+	if err != nil {
+		t.Fatalf("generating aging V4 local session: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.AddCookie(&http.Cookie{
+		Name:  AUTH_SESSION_COOKIE_NAME,
+		Value: token,
+	})
+
+	rec := httptest.NewRecorder()
+
+	if !app.isAuthorized(rec, req) {
+		t.Fatal("expected aging V4 local session to remain authorized")
+	}
+
+	cookies := rec.Result().Cookies()
+	if len(cookies) != 1 {
+		t.Fatalf(
+			"expected one regenerated V4 session cookie, got %d",
+			len(cookies),
+		)
+	}
+
+	verified, err := verifySessionTokenV4(
+		cookies[0].Value,
+		app.authSecretKey,
+		time.Now(),
+	)
+	if err != nil {
+		t.Fatalf("verifying regenerated V4 session: %v", err)
+	}
+	if verified.Method != authMethodLocal {
+		t.Fatalf(
+			"regenerated method = %d, want %d",
+			verified.Method,
+			authMethodLocal,
+		)
+	}
+	if verified.Principal != "test-user" {
+		t.Fatalf(
+			"regenerated principal = %q, want test-user",
+			verified.Principal,
+		)
+	}
+	if verified.DisplayName != "test-user" {
+		t.Fatalf(
+			"regenerated display name = %q, want test-user",
+			verified.DisplayName,
+		)
+	}
+	if verified.AuthorizationIdentity != "test-user" {
+		t.Fatalf(
+			"regenerated authorization identity = %q, want test-user",
+			verified.AuthorizationIdentity,
+		)
+	}
+	if verified.ShouldRegen {
+		t.Fatal("expected regenerated V4 session to be fresh")
+	}
+}
+
 func TestResolveAuthenticatedSessionV3LocalIdentity(t *testing.T) {
 	app := newAuthTestApplication(t)
 
@@ -1062,6 +1673,12 @@ func TestResolveAuthenticatedSessionV3LocalIdentity(t *testing.T) {
 	}
 	if session.DisplayName != "test-user" {
 		t.Fatalf("display name = %q, want test-user", session.DisplayName)
+	}
+	if session.AuthorizationIdentity != "test-user" {
+		t.Fatalf(
+			"authorization identity = %q, want test-user",
+			session.AuthorizationIdentity,
+		)
 	}
 	if session.Version != AUTH_TOKEN_V3_VERSION {
 		t.Fatalf(
@@ -1097,6 +1714,12 @@ func TestResolveAuthenticatedSessionV2LocalIdentity(t *testing.T) {
 	}
 	if session.DisplayName != "test-user" {
 		t.Fatalf("display name = %q, want test-user", session.DisplayName)
+	}
+	if session.AuthorizationIdentity != "test-user" {
+		t.Fatalf(
+			"authorization identity = %q, want test-user",
+			session.AuthorizationIdentity,
+		)
 	}
 	if session.Version != AUTH_TOKEN_V2_VERSION {
 		t.Fatalf(
@@ -1753,13 +2376,13 @@ func TestHandleAuthenticationAttemptSuccess(t *testing.T) {
 		t.Fatal("expected session cookie to contain a token")
 	}
 
-	verifiedSession, err := verifySessionTokenV3(
+	verifiedSession, err := verifySessionTokenV4(
 		cookie.Value,
 		app.authSecretKey,
 		time.Now(),
 	)
 	if err != nil {
-		t.Fatalf("successful local login did not issue a valid V3 session: %v", err)
+		t.Fatalf("successful local login did not issue a valid V4 session: %v", err)
 	}
 	if verifiedSession.Method != authMethodLocal {
 		t.Fatalf(
@@ -1779,6 +2402,13 @@ func TestHandleAuthenticationAttemptSuccess(t *testing.T) {
 		t.Fatalf(
 			"session display name = %q, want %q",
 			verifiedSession.DisplayName,
+			"test-user",
+		)
+	}
+	if verifiedSession.AuthorizationIdentity != "test-user" {
+		t.Fatalf(
+			"session authorization identity = %q, want %q",
+			verifiedSession.AuthorizationIdentity,
 			"test-user",
 		)
 	}

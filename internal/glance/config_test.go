@@ -928,6 +928,396 @@ func TestOIDCConfigValidation(t *testing.T) {
 	}
 }
 
+func TestAuthorizationConfigValidation(t *testing.T) {
+	validSecret, err := makeAuthSecretKey(AUTH_SECRET_KEY_LENGTH)
+	if err != nil {
+		t.Fatalf("generating auth secret: %v", err)
+	}
+
+	validOIDC := oidcConfig{
+		Issuer:       "https://accounts.example.test",
+		ClientID:     "glance",
+		ClientSecret: "client-secret",
+	}
+
+	tests := []struct {
+		name      string
+		configure func(*config)
+		wantErr   string
+	}{
+		{
+			name: "groups alone do not enable authorization",
+			configure: func(cfg *config) {
+				cfg.Auth.Groups = map[string]authGroupConfig{
+					"family": {Users: []string{"kellie"}},
+				}
+			},
+		},
+		{
+			name: "direct local user grant",
+			configure: func(cfg *config) {
+				cfg.Auth.SecretKey = validSecret
+				cfg.Auth.Users = map[string]*user{
+					"mark": {Password: "password"},
+				}
+				cfg.Auth.Access.Dashboards = map[string]authDashboardAccessConfig{
+					"Default": {Users: []string{"mark"}},
+				}
+			},
+		},
+		{
+			name: "group grant",
+			configure: func(cfg *config) {
+				cfg.Auth.SecretKey = validSecret
+				cfg.Auth.Users = map[string]*user{
+					"mark": {Password: "password"},
+				}
+				cfg.Auth.Groups = map[string]authGroupConfig{
+					"family": {Users: []string{"mark", "kellie"}},
+				}
+				cfg.Auth.Access.Dashboards = map[string]authDashboardAccessConfig{
+					"Default": {Groups: []string{"family"}},
+				}
+			},
+		},
+		{
+			name: "OIDC identity need not be local user",
+			configure: func(cfg *config) {
+				cfg.Auth.SecretKey = validSecret
+				cfg.Auth.OIDC = validOIDC
+				cfg.Auth.Access.Dashboards = map[string]authDashboardAccessConfig{
+					"Default": {Users: []string{"user@example.test"}},
+				}
+			},
+		},
+		{
+			name: "access requires authentication",
+			configure: func(cfg *config) {
+				cfg.Auth.Access.Dashboards = map[string]authDashboardAccessConfig{
+					"Default": {Users: []string{"mark"}},
+				}
+			},
+			wantErr: "auth access requires local users or OIDC authentication to be configured",
+		},
+		{
+			name: "access requires dashboards",
+			configure: func(cfg *config) {
+				cfg.Dashboards = orderedYAMLMap[string, []string]{}
+				cfg.Auth.SecretKey = validSecret
+				cfg.Auth.Users = map[string]*user{
+					"mark": {Password: "password"},
+				}
+				cfg.Auth.Access.Dashboards = map[string]authDashboardAccessConfig{
+					"Default": {Users: []string{"mark"}},
+				}
+			},
+			wantErr: "auth access dashboards requires dashboards configuration",
+		},
+		{
+			name: "group requires users",
+			configure: func(cfg *config) {
+				cfg.Auth.SecretKey = validSecret
+				cfg.Auth.Users = map[string]*user{
+					"mark": {Password: "password"},
+				}
+				cfg.Auth.Groups = map[string]authGroupConfig{
+					"family": {},
+				}
+				cfg.Auth.Access.Dashboards = map[string]authDashboardAccessConfig{
+					"Default": {Groups: []string{"family"}},
+				}
+			},
+			wantErr: `auth group "family" has no users`,
+		},
+		{
+			name: "group rejects empty user",
+			configure: func(cfg *config) {
+				cfg.Auth.SecretKey = validSecret
+				cfg.Auth.Users = map[string]*user{
+					"mark": {Password: "password"},
+				}
+				cfg.Auth.Groups = map[string]authGroupConfig{
+					"family": {Users: []string{"mark", " "}},
+				}
+				cfg.Auth.Access.Dashboards = map[string]authDashboardAccessConfig{
+					"Default": {Groups: []string{"family"}},
+				}
+			},
+			wantErr: `auth group "family" contains an empty user`,
+		},
+		{
+			name: "group rejects exact duplicate user",
+			configure: func(cfg *config) {
+				cfg.Auth.SecretKey = validSecret
+				cfg.Auth.Users = map[string]*user{
+					"mark": {Password: "password"},
+				}
+				cfg.Auth.Groups = map[string]authGroupConfig{
+					"family": {Users: []string{"mark", "mark"}},
+				}
+				cfg.Auth.Access.Dashboards = map[string]authDashboardAccessConfig{
+					"Default": {Groups: []string{"family"}},
+				}
+			},
+			wantErr: `auth group "family" contains duplicate user "mark"`,
+		},
+		{
+			name: "access rejects unknown dashboard",
+			configure: func(cfg *config) {
+				cfg.Auth.SecretKey = validSecret
+				cfg.Auth.Users = map[string]*user{
+					"mark": {Password: "password"},
+				}
+				cfg.Auth.Access.Dashboards = map[string]authDashboardAccessConfig{
+					"Missing": {Users: []string{"mark"}},
+				}
+			},
+			wantErr: `auth access references unknown dashboard "Missing"`,
+		},
+		{
+			name: "dashboard rule requires grant",
+			configure: func(cfg *config) {
+				cfg.Auth.SecretKey = validSecret
+				cfg.Auth.Users = map[string]*user{
+					"mark": {Password: "password"},
+				}
+				cfg.Auth.Access.Dashboards = map[string]authDashboardAccessConfig{
+					"Default": {},
+				}
+			},
+			wantErr: `auth access dashboard "Default" has no users or groups`,
+		},
+		{
+			name: "dashboard rejects empty direct user",
+			configure: func(cfg *config) {
+				cfg.Auth.SecretKey = validSecret
+				cfg.Auth.Users = map[string]*user{
+					"mark": {Password: "password"},
+				}
+				cfg.Auth.Access.Dashboards = map[string]authDashboardAccessConfig{
+					"Default": {Users: []string{" "}},
+				}
+			},
+			wantErr: `auth access dashboard "Default" contains an empty user`,
+		},
+		{
+			name: "dashboard rejects duplicate direct user",
+			configure: func(cfg *config) {
+				cfg.Auth.SecretKey = validSecret
+				cfg.Auth.Users = map[string]*user{
+					"mark": {Password: "password"},
+				}
+				cfg.Auth.Access.Dashboards = map[string]authDashboardAccessConfig{
+					"Default": {Users: []string{"mark", "mark"}},
+				}
+			},
+			wantErr: `auth access dashboard "Default" contains duplicate user "mark"`,
+		},
+		{
+			name: "dashboard rejects empty group",
+			configure: func(cfg *config) {
+				cfg.Auth.SecretKey = validSecret
+				cfg.Auth.Users = map[string]*user{
+					"mark": {Password: "password"},
+				}
+				cfg.Auth.Access.Dashboards = map[string]authDashboardAccessConfig{
+					"Default": {Groups: []string{" "}},
+				}
+			},
+			wantErr: `auth access dashboard "Default" contains an empty group`,
+		},
+		{
+			name: "dashboard rejects duplicate group",
+			configure: func(cfg *config) {
+				cfg.Auth.SecretKey = validSecret
+				cfg.Auth.Users = map[string]*user{
+					"mark": {Password: "password"},
+				}
+				cfg.Auth.Groups = map[string]authGroupConfig{
+					"family": {Users: []string{"mark"}},
+				}
+				cfg.Auth.Access.Dashboards = map[string]authDashboardAccessConfig{
+					"Default": {Groups: []string{"family", "family"}},
+				}
+			},
+			wantErr: `auth access dashboard "Default" contains duplicate group "family"`,
+		},
+		{
+			name: "dashboard rejects unknown group",
+			configure: func(cfg *config) {
+				cfg.Auth.SecretKey = validSecret
+				cfg.Auth.Users = map[string]*user{
+					"mark": {Password: "password"},
+				}
+				cfg.Auth.Access.Dashboards = map[string]authDashboardAccessConfig{
+					"Default": {Groups: []string{"missing"}},
+				}
+			},
+			wantErr: `auth access dashboard "Default" references unknown group "missing"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config{}
+			cfg.Pages = make([]page, 1)
+			cfg.Pages[0].Title = "Home"
+			cfg.Pages[0].Slug = "home"
+			cfg.Pages[0].Columns = make([]struct {
+				Size    string  `yaml:"size"`
+				Widgets widgets `yaml:"widgets"`
+			}, 1)
+			cfg.Pages[0].Columns[0].Size = "full"
+
+			dashboards, err := newOrderedYAMLMap(
+				[]string{"Default"},
+				[][]string{{"home"}},
+			)
+			if err != nil {
+				t.Fatalf("creating dashboard test configuration: %v", err)
+			}
+			cfg.Dashboards = *dashboards
+
+			tt.configure(cfg)
+
+			err = isConfigStateValid(cfg)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("isConfigStateValid() error = %v, want nil", err)
+				}
+				return
+			}
+
+			if err == nil {
+				t.Fatalf("isConfigStateValid() error = nil, want %q", tt.wantErr)
+			}
+			if err.Error() != tt.wantErr {
+				t.Fatalf("isConfigStateValid() error = %q, want %q", err.Error(), tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestAuthorizationConfigDiagnosticsReportSemanticSource(t *testing.T) {
+	validSecret, err := makeAuthSecretKey(AUTH_SECRET_KEY_LENGTH)
+	if err != nil {
+		t.Fatalf("generating auth secret: %v", err)
+	}
+
+	tests := []struct {
+		name        string
+		auth        string
+		wantLine    int
+		wantMessage string
+	}{
+		{
+			name: "group error reports group key",
+			auth: "  secret-key: " + validSecret + "\n" +
+				"  users:\n" +
+				"    mark:\n" +
+				"      password: password\n" +
+				"  groups:\n" +
+				"    family:\n" +
+				"      users: []\n" +
+				"  access:\n" +
+				"    dashboards:\n" +
+				"      Default:\n" +
+				"        groups:\n" +
+				"          - family\n",
+			wantLine:    7,
+			wantMessage: `auth group "family" has no users`,
+		},
+		{
+			name: "unknown group reports dashboard access key",
+			auth: "  secret-key: " + validSecret + "\n" +
+				"  users:\n" +
+				"    mark:\n" +
+				"      password: password\n" +
+				"  access:\n" +
+				"    dashboards:\n" +
+				"      Default:\n" +
+				"        groups:\n" +
+				"          - missing\n",
+			wantLine:    8,
+			wantMessage: `auth access dashboard "Default" references unknown group "missing"`,
+		},
+		{
+			name: "unknown dashboard reports dashboard access key",
+			auth: "  secret-key: " + validSecret + "\n" +
+				"  users:\n" +
+				"    mark:\n" +
+				"      password: password\n" +
+				"  access:\n" +
+				"    dashboards:\n" +
+				"      Missing:\n" +
+				"        users:\n" +
+				"          - mark\n",
+			wantLine:    8,
+			wantMessage: `auth access references unknown dashboard "Missing"`,
+		},
+		{
+			name: "missing authentication reports access key",
+			auth: "  access:\n" +
+				"    dashboards:\n" +
+				"      Default:\n" +
+				"        users:\n" +
+				"          - mark\n",
+			wantLine:    2,
+			wantMessage: "auth access requires local users or OIDC authentication to be configured",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			path := filepath.Join(dir, "glance.yml")
+			contents := "auth:\n" + tt.auth +
+				"dashboards:\n" +
+				"  Default:\n" +
+				"    - home\n" +
+				"pages:\n" +
+				"  - name: Home\n" +
+				"    slug: home\n" +
+				"    columns:\n" +
+				"      - size: full\n"
+
+			writeConfigTestFile(t, path, contents)
+
+			parsed, err := parseYAMLIncludesWithSources(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			_, err = newConfigFromParsedYAML(parsed)
+			if err == nil {
+				t.Fatal("expected authorization configuration error")
+			}
+
+			var diagnostic *configDiagnostic
+			if !errors.As(err, &diagnostic) {
+				t.Fatalf("error type = %T, want *configDiagnostic: %v", err, err)
+			}
+
+			wantFile := absConfigTestPath(t, path)
+			if diagnostic.File != wantFile {
+				t.Errorf("diagnostic file = %q, want %q", diagnostic.File, wantFile)
+			}
+			if diagnostic.Line != tt.wantLine {
+				t.Errorf("diagnostic line = %d, want %d", diagnostic.Line, tt.wantLine)
+			}
+			if diagnostic.Message != tt.wantMessage {
+				t.Errorf("diagnostic message = %q, want %q", diagnostic.Message, tt.wantMessage)
+			}
+			if diagnostic.cause == nil {
+				t.Fatal("diagnostic cause is nil")
+			}
+			if !errors.Is(err, diagnostic.cause) {
+				t.Error("diagnostic does not unwrap to its semantic cause")
+			}
+		})
+	}
+}
+
 func TestOIDCConfigDiagnosticsReportSemanticSource(t *testing.T) {
 	tests := []struct {
 		name        string
