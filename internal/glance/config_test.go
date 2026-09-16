@@ -1611,6 +1611,117 @@ func TestNewConfigFromParsedYAMLSemanticServerAssetsPathDiagnostic(t *testing.T)
 	}
 }
 
+func TestIsConfigStateValidResourceProxyAllowedOrigins(t *testing.T) {
+	tests := []struct {
+		name           string
+		allowedOrigins []string
+		wantError      string
+	}{
+		{
+			name:           "accepts hostname with port",
+			allowedOrigins: []string{"http://osu.plex:32400"},
+		},
+		{
+			name:           "accepts IPv4 with port",
+			allowedOrigins: []string{"http://192.0.2.10:8080"},
+		},
+		{
+			name:           "accepts bracketed IPv6 with port",
+			allowedOrigins: []string{"http://[2001:db8::10]:8080"},
+		},
+		{
+			name:           "accepts default HTTP port",
+			allowedOrigins: []string{"http://example.test"},
+		},
+		{
+			name:           "accepts root path",
+			allowedOrigins: []string{"http://example.test/"},
+		},
+		{
+			name:           "rejects empty origin",
+			allowedOrigins: []string{" "},
+			wantError:      "server resource-proxy allowed-origins contains an empty origin",
+		},
+		{
+			name:           "rejects HTTPS",
+			allowedOrigins: []string{"https://example.test"},
+			wantError:      "must be an absolute HTTP origin without userinfo, path, query, or fragment",
+		},
+		{
+			name:           "rejects relative URL",
+			allowedOrigins: []string{"example.test:8080"},
+			wantError:      "must be an absolute HTTP origin without userinfo, path, query, or fragment",
+		},
+		{
+			name:           "rejects userinfo",
+			allowedOrigins: []string{"http://user:password@example.test"},
+			wantError:      "must be an absolute HTTP origin without userinfo, path, query, or fragment",
+		},
+		{
+			name:           "rejects path",
+			allowedOrigins: []string{"http://example.test/images"},
+			wantError:      "must be an absolute HTTP origin without userinfo, path, query, or fragment",
+		},
+		{
+			name:           "rejects query",
+			allowedOrigins: []string{"http://example.test?token=secret"},
+			wantError:      "must be an absolute HTTP origin without userinfo, path, query, or fragment",
+		},
+		{
+			name:           "rejects fragment",
+			allowedOrigins: []string{"http://example.test#fragment"},
+			wantError:      "must be an absolute HTTP origin without userinfo, path, query, or fragment",
+		},
+		{
+			name:           "rejects malformed port",
+			allowedOrigins: []string{"http://example.test:not-a-port"},
+			wantError:      "must be an absolute HTTP origin without userinfo, path, query, or fragment",
+		},
+		{
+			name:           "rejects duplicate exact origin",
+			allowedOrigins: []string{"http://example.test:8080", "http://example.test:8080"},
+			wantError:      "server resource-proxy allowed-origins contains duplicate origin",
+		},
+		{
+			name:           "rejects duplicate normalized hostname",
+			allowedOrigins: []string{"http://EXAMPLE.test", "http://example.test:80/"},
+			wantError:      "server resource-proxy allowed-origins contains duplicate origin",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config{}
+			cfg.Pages = make([]page, 1)
+			cfg.Pages[0].Title = "Home"
+			cfg.Pages[0].Columns = make([]struct {
+				Size    string  `yaml:"size"`
+				Widgets widgets `yaml:"widgets"`
+			}, 1)
+			cfg.Pages[0].Columns[0].Size = "full"
+			cfg.Server.ResourceProxy.AllowedOrigins = tt.allowedOrigins
+
+			err := isConfigStateValid(cfg)
+			if tt.wantError == "" {
+				if err != nil {
+					t.Fatalf("isConfigStateValid() error = %v, want nil", err)
+				}
+				return
+			}
+
+			if err == nil {
+				t.Fatalf("isConfigStateValid() error = nil, want error containing %q", tt.wantError)
+			}
+			if !strings.Contains(err.Error(), tt.wantError) {
+				t.Fatalf("isConfigStateValid() error = %q, want error containing %q", err.Error(), tt.wantError)
+			}
+			if strings.Contains(err.Error(), "token=secret") {
+				t.Fatalf("isConfigStateValid() error exposed credential-bearing configuration: %q", err.Error())
+			}
+		})
+	}
+}
+
 func TestIsConfigStateValidTrustedProxies(t *testing.T) {
 	tests := []struct {
 		name           string

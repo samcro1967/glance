@@ -63,6 +63,7 @@ type application struct {
 	profilingDiagnostics *profilingRuntimeDiagnostics
 	frontendDiagnostics  *frontendRuntimeDiagnostics
 	trustedProxyPrefixes []netip.Prefix
+	resourceProxy        *resourceProxy
 
 	RequiresAuth           bool
 	authSecretKey          []byte
@@ -148,6 +149,12 @@ func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime) (*appli
 		frontendDiagnostics: newFrontendRuntimeDiagnostics(),
 	}
 	config := &app.Config
+
+	var err error
+	app.resourceProxy, err = newResourceProxy(config.Server.ResourceProxy.AllowedOrigins)
+	if err != nil {
+		return nil, fmt.Errorf("initializing resource proxy policy: %w", err)
+	}
 
 	for _, trustedProxy := range config.Server.TrustedProxies {
 		trustedProxy = strings.TrimSpace(trustedProxy)
@@ -405,7 +412,8 @@ func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime) (*appli
 	app.slugToPage[""] = &config.Pages[0]
 
 	providers := &widgetProviders{
-		assetResolver: app.StaticAssetPath,
+		assetResolver:    app.StaticAssetPath,
+		resourceProxyURL: app.resolveResourceProxyURL,
 	}
 
 	footerDynamicWidgets := config.FooterMicroWidgets.dynamicWidgets()
@@ -1090,6 +1098,7 @@ func (a *application) router() http.Handler {
 	}
 
 	mux.HandleFunc("GET /api/widgets/{widget}/content/{$}", a.handleWidgetContentRequest)
+	mux.HandleFunc("GET /api/resource-proxy/{resource}", a.handleResourceProxyRequest)
 	mux.HandleFunc("GET /api/live-updates", a.handleLiveUpdatesRequest)
 	mux.HandleFunc("POST /api/frontend-diagnostics", a.handleFrontendDiagnosticsRequest)
 	mux.HandleFunc(

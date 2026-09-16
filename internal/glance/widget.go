@@ -252,7 +252,8 @@ type widgetBase struct {
 }
 
 type widgetProviders struct {
-	assetResolver func(string) string
+	assetResolver    func(string) string
+	resourceProxyURL func(string) (string, error)
 }
 
 func (w *widgetBase) requiresUpdate(now *time.Time) bool {

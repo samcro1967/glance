@@ -135,6 +135,10 @@ img[loading=lazy]:not(.loaded, .cached, .error) {
     opacity: 0;
 }
 
+img[loading=lazy].error {
+    visibility: hidden;
+}
+
 html {
     scrollbar-color: var(--color-text-subdue) transparent;
     scroll-behavior: smooth;

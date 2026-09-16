@@ -42,6 +42,9 @@ type config struct {
 		AssetsPath          string   `yaml:"assets-path"`
 		BaseURL             string   `yaml:"base-url"`
 		FrontendDiagnostics bool     `yaml:"frontend-diagnostics"`
+		ResourceProxy       struct {
+			AllowedOrigins []string `yaml:"allowed-origins"`
+		} `yaml:"resource-proxy"`
 	} `yaml:"server"`
 
 	Auth struct {
@@ -1535,6 +1538,23 @@ func isConfigStateValidWithSources(
 
 				seenPageSlugs[pageSlug] = struct{}{}
 			}
+		}
+	}
+
+	if len(config.Server.ResourceProxy.AllowedOrigins) > 0 {
+		seenOrigins := make(map[string]struct{}, len(config.Server.ResourceProxy.AllowedOrigins))
+		for _, configuredOrigin := range config.Server.ResourceProxy.AllowedOrigins {
+			normalized, err := normalizeResourceProxyOrigin(configuredOrigin)
+			if err != nil {
+				if strings.TrimSpace(configuredOrigin) == "" {
+					return diagnostic(rootLine, fmt.Errorf("server resource-proxy allowed-origins contains an empty origin"))
+				}
+				return diagnostic(rootLine, fmt.Errorf("server resource-proxy origin %w", err))
+			}
+			if _, exists := seenOrigins[normalized]; exists {
+				return diagnostic(rootLine, fmt.Errorf("server resource-proxy allowed-origins contains duplicate origin %q", configuredOrigin))
+			}
+			seenOrigins[normalized] = struct{}{}
 		}
 	}
 

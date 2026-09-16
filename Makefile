@@ -88,7 +88,7 @@ help:
 	@echo "                                Start feature work from local dev; parked commits are included"
 	@echo "  make park                     Return committed feature work to local dev without pushing"
 	@echo "  make ship TITLE='Description' [BODY_FILE=file]"
-	@echo "                                Complete runtime workflow: feature -> dev -> main -> release"
+	@echo "                                Ship all parked local dev commits through PR -> main -> release"
 	@echo "                                -> production -> main/dev sync -> final verification"
 	@echo "                                Stops development/test runtimes before and after shipping"
 	@echo "                                BODY_FILE is consumed and removed only after full success"
@@ -99,8 +99,9 @@ help:
 	@echo "NORMAL ORDER:"
 	@echo "  1. make branch NEW_BRANCH=feature/name"
 	@echo "  2. edit, validate, stage, and commit"
-	@echo "  3. make park                  Optional: accumulate committed work locally on dev"
-	@echo "  4. make ship TITLE=...        Runtime/code changes: finish everything through production"
+	@echo "  3. make park                  Accumulate committed work locally on dev without pushing"
+	@echo "  4. repeat 1-3 as needed"
+	@echo "  5. make ship TITLE=...        From dev, ship all parked runtime/code changes through production"
 	@echo "     make ship-nonruntime TITLE=...   Non-runtime alternative when its scope guard permits it"
 	@echo
 	@echo "RECOVERY / RESUME STAGES -- USE WHEN A HIGH-LEVEL WORKFLOW STOPS:"
@@ -1299,24 +1300,49 @@ ship:
 		echo "BODY_FILE does not exist: $(BODY_FILE)"; \
 		exit 1; \
 	fi; \
-	feature="$$(git branch --show-current)"; \
-	if [ -z "$$feature" ] || [ "$$feature" = "$(DEV_BRANCH)" ] || [ "$$feature" = "$(STABLE_BRANCH)" ]; then \
-		echo "ship must start on a feature branch; current branch is $${feature:-unknown}."; \
+	current="$$(git branch --show-current)"; \
+	if [ "$$current" != "$(DEV_BRANCH)" ]; then \
+		echo "ship must start on $(DEV_BRANCH); current branch is $${current:-unknown}."; \
 		exit 1; \
 	fi; \
 	if [ -n "$$(git status --porcelain)" ]; then \
-		echo "ship requires a clean working tree with the feature already committed."; \
+		echo "ship requires a clean working tree with all release work parked on $(DEV_BRANCH)."; \
 		git status --short; \
 		exit 1; \
 	fi; \
+	git fetch origin --prune; \
+	dev_revision="$$(git rev-parse $(DEV_BRANCH))"; \
+	origin_revision="$$(git rev-parse origin/$(DEV_BRANCH))"; \
+	if ! git merge-base --is-ancestor "$$origin_revision" "$$dev_revision"; then \
+		echo "Refusing ship: local $(DEV_BRANCH) is behind or has diverged from origin/$(DEV_BRANCH)."; \
+		echo "Dev:    $$dev_revision"; \
+		echo "Origin: $$origin_revision"; \
+		exit 1; \
+	fi; \
+	parked="$$(git rev-list --count "$$origin_revision..$$dev_revision")"; \
+	if [ "$$parked" -eq 0 ]; then \
+		echo "Refusing ship: $(DEV_BRANCH) contains no parked commits beyond origin/$(DEV_BRANCH)."; \
+		exit 1; \
+	fi; \
+	feature="ship/$$(git rev-parse --short=12 "$$dev_revision")"; \
+	if git show-ref --verify --quiet "refs/heads/$$feature"; then \
+		if [ "$$(git rev-parse "$$feature")" != "$$dev_revision" ]; then \
+			echo "Refusing ship: existing local $$feature does not match the release candidate."; \
+			exit 1; \
+		fi; \
+		git switch "$$feature"; \
+	else \
+		git switch -c "$$feature" "$$dev_revision"; \
+	fi; \
 	echo "=== END-TO-END RELEASE + DEPLOYMENT PIPELINE ==="; \
-	echo "Feature=$$feature"; \
+	echo "Parked commits=$$parked"; \
+	echo "Ship branch=$$feature"; \
 	echo "Title=$(TITLE)"; \
 	echo; \
 	echo "=== PRE-SHIP DEVELOPMENT RUNTIME CLEANUP ==="; \
 	$(MAKE) --no-print-directory test-all-stop; \
 	echo; \
-	echo "=== PUSH FEATURE ==="; \
+	echo "=== PUSH SHIP BRANCH ==="; \
 	$(MAKE) push; \
 	generated_feature_body="$$(mktemp)"; \
 	promotion_body="$$(mktemp)"; \
@@ -1332,7 +1358,7 @@ ship:
 		echo "Feature PR body: generated summary"; \
 	fi; \
 	echo; \
-	echo "=== FEATURE -> $(DEV_BRANCH) ==="; \
+	echo "=== SHIP BRANCH -> $(DEV_BRANCH) ==="; \
 	feature_pr="$$(gh pr list --repo "$(REPO)" --head "$$feature" --base "$(DEV_BRANCH)" --state open --json number --jq '.[0].number // empty')"; \
 	if [ -z "$$feature_pr" ]; then \
 		$(MAKE) pr-create TITLE="$(TITLE)" BODY_FILE="$$feature_body"; \
@@ -1383,20 +1409,27 @@ ship-nonruntime:
 		echo "BODY_FILE does not exist: $(BODY_FILE)"; \
 		exit 1; \
 	fi; \
-	feature="$$(git branch --show-current)"; \
-	if [ -z "$$feature" ] || [ "$$feature" = "$(DEV_BRANCH)" ] || [ "$$feature" = "$(STABLE_BRANCH)" ]; then \
-		echo "ship-nonruntime must start on a feature branch; current branch is $${feature:-unknown}."; \
+	current="$$(git branch --show-current)"; \
+	if [ "$$current" != "$(DEV_BRANCH)" ]; then \
+		echo "ship-nonruntime must start on $(DEV_BRANCH); current branch is $${current:-unknown}."; \
 		exit 1; \
 	fi; \
 	if [ -n "$$(git status --porcelain)" ]; then \
-		echo "ship-nonruntime requires a clean working tree with the feature already committed."; \
+		echo "ship-nonruntime requires a clean working tree with all release work parked on $(DEV_BRANCH)."; \
 		git status --short; \
 		exit 1; \
 	fi; \
 	echo "=== VALIDATE NON-RUNTIME SCOPE ==="; \
 	git fetch origin --prune; \
-	if ! git merge-base --is-ancestor origin/$(DEV_BRANCH) HEAD; then \
-		echo "Refusing ship-nonruntime: feature does not contain current origin/$(DEV_BRANCH)."; \
+	dev_revision="$$(git rev-parse $(DEV_BRANCH))"; \
+	origin_revision="$$(git rev-parse origin/$(DEV_BRANCH))"; \
+	if ! git merge-base --is-ancestor "$$origin_revision" "$$dev_revision"; then \
+		echo "Refusing ship-nonruntime: local $(DEV_BRANCH) is behind or has diverged from origin/$(DEV_BRANCH)."; \
+		exit 1; \
+	fi; \
+	parked="$$(git rev-list --count "$$origin_revision..$$dev_revision")"; \
+	if [ "$$parked" -eq 0 ]; then \
+		echo "Refusing ship-nonruntime: $(DEV_BRANCH) contains no parked commits beyond origin/$(DEV_BRANCH)."; \
 		exit 1; \
 	fi; \
 	changed_paths="$$(mktemp)"; \
@@ -1404,9 +1437,9 @@ ship-nonruntime:
 	promotion_body="$$(mktemp)"; \
 	sync_body="$$(mktemp)"; \
 	trap 'rm -f "$$changed_paths" "$$generated_feature_body" "$$promotion_body" "$$sync_body"' EXIT; \
-	git diff --name-only origin/$(DEV_BRANCH)...HEAD > "$$changed_paths"; \
+	git diff --name-only "$$origin_revision...$$dev_revision" > "$$changed_paths"; \
 	if [ ! -s "$$changed_paths" ]; then \
-		echo "Refusing ship-nonruntime: feature contains no changes relative to origin/$(DEV_BRANCH)."; \
+		echo "Refusing ship-nonruntime: $(DEV_BRANCH) contains no parked changes relative to origin/$(DEV_BRANCH)."; \
 		exit 1; \
 	fi; \
 	if ! python3 scripts/check_nonruntime_changes.py < "$$changed_paths"; then \
@@ -1416,12 +1449,23 @@ ship-nonruntime:
 	echo "Approved changed paths:"; \
 	sed 's/^/  /' "$$changed_paths"; \
 	echo "Non-runtime scope validated."; \
+	feature="ship/$$(git rev-parse --short=12 "$$dev_revision")"; \
+	if git show-ref --verify --quiet "refs/heads/$$feature"; then \
+		if [ "$$(git rev-parse "$$feature")" != "$$dev_revision" ]; then \
+			echo "Refusing ship-nonruntime: existing local $$feature does not match the release candidate."; \
+			exit 1; \
+		fi; \
+		git switch "$$feature"; \
+	else \
+		git switch -c "$$feature" "$$dev_revision"; \
+	fi; \
 	echo; \
 	echo "=== END-TO-END NON-RUNTIME PIPELINE ==="; \
-	echo "Feature=$$feature"; \
+	echo "Parked commits=$$parked"; \
+	echo "Ship branch=$$feature"; \
 	echo "Title=$(TITLE)"; \
 	echo; \
-	echo "=== PUSH FEATURE ==="; \
+	echo "=== PUSH SHIP BRANCH ==="; \
 	$(MAKE) push; \
 	if [ -n "$(BODY_FILE)" ]; then \
 		feature_body="$(BODY_FILE)"; \
@@ -1432,7 +1476,7 @@ ship-nonruntime:
 		echo "Feature PR body: generated summary"; \
 	fi; \
 	echo; \
-	echo "=== FEATURE -> $(DEV_BRANCH) ==="; \
+	echo "=== SHIP BRANCH -> $(DEV_BRANCH) ==="; \
 	feature_pr="$$(gh pr list --repo "$(REPO)" --head "$$feature" --base "$(DEV_BRANCH)" --state open --json number --jq '.[0].number // empty')"; \
 	if [ -z "$$feature_pr" ]; then \
 		$(MAKE) pr-create TITLE="$(TITLE)" BODY_FILE="$$feature_body"; \

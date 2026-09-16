@@ -1191,3 +1191,65 @@ func TestStatusBarCustomAPICompactInitialization(t *testing.T) {
 		})
 	}
 }
+
+func TestFetchAndRenderCustomAPIRequestProxyURL(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"value":"ok"}`))
+	}))
+	defer server.Close()
+
+	primaryReq := newTestCustomAPIRequest(t, server.URL)
+	const rawURL = "http://media.internal:8080/image.jpg?token=fake-secret"
+
+	compiledTemplate, err := template.New("").Funcs(customAPITemplateFuncs).Parse(
+		`{{ proxyURL "` + rawURL + `" }}`,
+	)
+	if err != nil {
+		t.Fatalf("compile template with proxyURL: %v", err)
+	}
+
+	t.Run("provider replaces URL at runtime", func(t *testing.T) {
+		var received string
+		providers := &widgetProviders{
+			resourceProxyURL: func(value string) (string, error) {
+				received = value
+				return "/glance/api/resource-proxy/opaque-id", nil
+			},
+		}
+
+		rendered, err := fetchAndRenderCustomAPIRequest(
+			context.Background(),
+			primaryReq,
+			nil,
+			nil,
+			compiledTemplate,
+			providers,
+		)
+		if err != nil {
+			t.Fatalf("fetchAndRenderCustomAPIRequest() error = %v", err)
+		}
+		if received != rawURL {
+			t.Fatalf("resource proxy resolver received %q, want %q", received, rawURL)
+		}
+		if got := string(rendered); got != "/glance/api/resource-proxy/opaque-id" {
+			t.Fatalf("rendered proxy URL = %q", got)
+		}
+	})
+
+	t.Run("missing provider preserves URL", func(t *testing.T) {
+		rendered, err := fetchAndRenderCustomAPIRequest(
+			context.Background(),
+			primaryReq,
+			nil,
+			nil,
+			compiledTemplate,
+		)
+		if err != nil {
+			t.Fatalf("fetchAndRenderCustomAPIRequest() error = %v", err)
+		}
+		if got := string(rendered); got != rawURL {
+			t.Fatalf("rendered URL = %q, want unchanged %q", got, rawURL)
+		}
+	})
+}

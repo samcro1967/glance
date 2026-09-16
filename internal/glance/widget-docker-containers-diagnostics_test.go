@@ -19,7 +19,6 @@ func TestFetchDockerContainersFromSourceHTTPStatusIsSafe(t *testing.T) {
 	_, err := fetchDockerContainersFromSource(
 		context.Background(),
 		server.URL,
-		"",
 		false,
 		nil,
 	)
@@ -56,7 +55,6 @@ func TestFetchDockerContainersFromSourceDecodeErrorHasContext(t *testing.T) {
 	_, err := fetchDockerContainersFromSource(
 		context.Background(),
 		server.URL,
-		"",
 		false,
 		nil,
 	)
@@ -73,7 +71,6 @@ func TestFetchDockerContainersFromSourceTransportErrorDoesNotExposeRequestURL(t 
 	_, err := fetchDockerContainersFromSource(
 		context.Background(),
 		"http://127.0.0.1:1",
-		"",
 		false,
 		nil,
 	)

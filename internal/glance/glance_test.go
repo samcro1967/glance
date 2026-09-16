@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"net/url"
 	"strings"
 	"testing"
 )
@@ -23,6 +24,54 @@ func newGlanceTestApplication(t *testing.T, yaml string) *application {
 	}
 
 	return app
+}
+
+func TestNewApplicationResourceProxyPolicy(t *testing.T) {
+	app := newGlanceTestApplication(t, `
+server:
+  resource-proxy:
+    allowed-origins:
+      - http://osu.plex:32400
+pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets: []
+`)
+
+	resourceURL, err := url.Parse("http://osu.plex:32400/library/metadata/1/thumb?X-Plex-Token=secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !app.resourceProxy.allowsURL(resourceURL) {
+		t.Fatal("application resource proxy policy did not allow configured origin")
+	}
+
+	otherURL, err := url.Parse("http://other.internal:32400/image.jpg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if app.resourceProxy.allowsURL(otherURL) {
+		t.Fatal("application resource proxy policy allowed unconfigured origin")
+	}
+}
+
+func TestNewApplicationResourceProxyPolicyDisabledByDefault(t *testing.T) {
+	app := newGlanceTestApplication(t, `
+pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets: []
+`)
+
+	resourceURL, err := url.Parse("http://example.test/image.jpg")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if app.resourceProxy.allowsURL(resourceURL) {
+		t.Fatal("application resource proxy policy unexpectedly enabled by default")
+	}
 }
 
 func newProxyTrustTestApplication(
@@ -2411,5 +2460,95 @@ pages:
 		if registered != candidate {
 			t.Fatalf("widgetByID[%d] = %T, want exact %T", id, registered, candidate)
 		}
+	}
+}
+
+func TestResolveResourceProxyURL(t *testing.T) {
+	app := newGlanceTestApplication(t, `
+server:
+  base-url: /glance
+  resource-proxy:
+    allowed-origins:
+      - http://osu.plex:32400
+pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets: []
+`)
+
+	const (
+		rawURL = "http://osu.plex:32400/library/metadata/1/thumb?X-Plex-Token=fake-secret"
+		secret = "fake-secret"
+	)
+
+	got, err := app.resolveResourceProxyURL(rawURL)
+	if err != nil {
+		t.Fatalf("resolveResourceProxyURL() error = %v", err)
+	}
+	if !strings.HasPrefix(got, "/glance/api/resource-proxy/") {
+		t.Fatalf("resolved URL = %q, want BaseURL-aware proxy path", got)
+	}
+	if strings.Contains(got, "osu.plex") || strings.Contains(got, secret) || strings.Contains(got, "library/metadata") {
+		t.Fatalf("resolved URL exposed upstream destination or credential: %q", got)
+	}
+
+	id := strings.TrimPrefix(got, "/glance/api/resource-proxy/")
+	stored, exists := app.resourceProxy.lookup(id)
+	if !exists {
+		t.Fatal("resolved resource was not registered")
+	}
+	if stored != rawURL {
+		t.Fatalf("registered URL = %q, want original upstream URL", stored)
+	}
+}
+
+func TestResolveResourceProxyURLPreservesNonProxiedURLs(t *testing.T) {
+	app := newGlanceTestApplication(t, `
+server:
+  resource-proxy:
+    allowed-origins:
+      - http://osu.plex:32400
+pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets: []
+`)
+
+	tests := []string{
+		"https://osu.plex:32400/image.jpg",
+		"http://other.internal:32400/image.jpg",
+		"/assets/image.jpg",
+		"not a URL",
+	}
+
+	for _, rawURL := range tests {
+		got, err := app.resolveResourceProxyURL(rawURL)
+		if err != nil {
+			t.Fatalf("resolveResourceProxyURL(%q) error = %v", rawURL, err)
+		}
+		if got != rawURL {
+			t.Fatalf("resolveResourceProxyURL(%q) = %q, want unchanged", rawURL, got)
+		}
+	}
+}
+
+func TestResolveResourceProxyURLDisabledByDefault(t *testing.T) {
+	app := newGlanceTestApplication(t, `
+pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets: []
+`)
+
+	const rawURL = "http://example.test/image.jpg?token=fake-secret"
+	got, err := app.resolveResourceProxyURL(rawURL)
+	if err != nil {
+		t.Fatalf("resolveResourceProxyURL() error = %v", err)
+	}
+	if got != rawURL {
+		t.Fatalf("resolveResourceProxyURL() = %q, want unchanged %q", got, rawURL)
 	}
 }
