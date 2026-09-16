@@ -179,7 +179,7 @@ func TestComprehensiveDockerGroupingVisibilityAndSorting(t *testing.T) {
 		{Names: []string{"/child"}, Labels: dockerContainerLabels{dockerContainerLabelParent: "p"}},
 		{Names: []string{"/hidden"}, Labels: dockerContainerLabels{dockerContainerLabelHide: "true"}},
 	}
-	parents, children := groupDockerContainerChildren(containers, false)
+	parents, children := groupDockerContainerChildren(containers, false, "")
 	if len(parents) != 1 || len(children["p"]) != 1 {
 		t.Fatalf("parents=%#v children=%#v", parents, children)
 	}
@@ -193,7 +193,7 @@ func TestComprehensiveDockerGroupingVisibilityAndSorting(t *testing.T) {
 	}
 }
 
-func TestComprehensiveDockerRemoteFetchOverridesCategoryAndAll(t *testing.T) {
+func TestComprehensiveDockerRemoteFetchOverridesAndAll(t *testing.T) {
 	var rawQuery string
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		rawQuery = r.URL.RawQuery
@@ -201,14 +201,14 @@ func TestComprehensiveDockerRemoteFetchOverridesCategoryAndAll(t *testing.T) {
 		_, _ = rw.Write([]byte(`[{"Names":["/one"],"Image":"img","State":"running","Status":"Up","Labels":{"glance.category":"old"}},{"Names":["/two"],"Labels":{"glance.category":"other"}}]`))
 	}))
 	defer server.Close()
-	got, err := fetchDockerContainersFromSource(context.Background(), server.URL, "new", false, map[string]map[string]string{"one": {"category": "new", "name": "One Override"}})
+	got, err := fetchDockerContainersFromSource(context.Background(), server.URL, false, map[string]map[string]string{"one": {"category": "new", "name": "One Override"}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if rawQuery != "all=true" {
 		t.Fatalf("query=%q", rawQuery)
 	}
-	if len(got) != 1 || got[0].Labels[dockerContainerLabelName] != "One Override" {
+	if len(got) != 2 || got[0].Labels[dockerContainerLabelName] != "One Override" {
 		t.Fatalf("containers=%#v", got)
 	}
 }
@@ -222,7 +222,7 @@ func TestComprehensiveDockerRemoteFetchErrorsAndURL(t *testing.T) {
 		}
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) { http.Error(rw, "no", http.StatusBadGateway) }))
-	_, err := fetchDockerContainersFromSource(context.Background(), server.URL, "", false, nil)
+	_, err := fetchDockerContainersFromSource(context.Background(), server.URL, false, nil)
 	server.Close()
 	if err == nil || !strings.Contains(err.Error(), "Docker API request") {
 		t.Fatalf("err=%v", err)

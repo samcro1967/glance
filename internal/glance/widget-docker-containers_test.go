@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -331,7 +332,7 @@ func TestGroupDockerContainerChildren(t *testing.T) {
 		},
 	}
 
-	parents, children := groupDockerContainerChildren(containers, false)
+	parents, children := groupDockerContainerChildren(containers, false, "")
 
 	if len(parents) != 2 {
 		t.Fatalf("parent count = %d, want 2", len(parents))
@@ -360,6 +361,103 @@ func TestGroupDockerContainerChildren(t *testing.T) {
 			groupChildren[0].Names[0],
 			"/child",
 		)
+	}
+}
+
+func TestGroupDockerContainerChildrenCategoryFilter(t *testing.T) {
+	containers := []dockerContainerJsonResponse{
+		{
+			Names: []string{"/parent"},
+			Labels: dockerContainerLabels{
+				dockerContainerLabelID:       "group",
+				dockerContainerLabelCategory: "external",
+			},
+		},
+		{
+			Names: []string{"/child-uncategorized"},
+			Labels: dockerContainerLabels{
+				dockerContainerLabelParent: "group",
+			},
+		},
+		{
+			Names: []string{"/child-different-category"},
+			Labels: dockerContainerLabels{
+				dockerContainerLabelParent:   "group",
+				dockerContainerLabelCategory: "internal",
+			},
+		},
+		{
+			Names: []string{"/child-hidden"},
+			Labels: dockerContainerLabels{
+				dockerContainerLabelParent: "group",
+				dockerContainerLabelHide:   "true",
+			},
+		},
+		{
+			Names: []string{"/internal"},
+			Labels: dockerContainerLabels{
+				dockerContainerLabelCategory: "internal",
+			},
+		},
+		{
+			Names: []string{"/uncategorized"},
+		},
+	}
+
+	tests := []struct {
+		name              string
+		category          string
+		wantParents       []string
+		wantGroupChildren []string
+	}{
+		{
+			name:              "no category filter",
+			wantParents:       []string{"/parent", "/internal", "/uncategorized"},
+			wantGroupChildren: []string{"/child-uncategorized", "/child-different-category"},
+		},
+		{
+			name:              "matching parent includes all visible children",
+			category:          "external",
+			wantParents:       []string{"/parent"},
+			wantGroupChildren: []string{"/child-uncategorized", "/child-different-category"},
+		},
+		{
+			name:              "nonmatching parent excludes its children",
+			category:          "internal",
+			wantParents:       []string{"/internal"},
+			wantGroupChildren: []string{"/child-uncategorized", "/child-different-category"},
+		},
+		{
+			name:              "no matches",
+			category:          "nonexistent",
+			wantParents:       []string{},
+			wantGroupChildren: []string{"/child-uncategorized", "/child-different-category"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parents, children := groupDockerContainerChildren(containers, false, tt.category)
+
+			gotParents := make([]string, 0, len(parents))
+			for i := range parents {
+				gotParents = append(gotParents, parents[i].Names[0])
+			}
+
+			if !reflect.DeepEqual(gotParents, tt.wantParents) {
+				t.Fatalf("parents = %v, want %v", gotParents, tt.wantParents)
+			}
+
+			groupChildren := children["group"]
+			gotGroupChildren := make([]string, 0, len(groupChildren))
+			for i := range groupChildren {
+				gotGroupChildren = append(gotGroupChildren, groupChildren[i].Names[0])
+			}
+
+			if !reflect.DeepEqual(gotGroupChildren, tt.wantGroupChildren) {
+				t.Fatalf("group children = %v, want %v", gotGroupChildren, tt.wantGroupChildren)
+			}
+		})
 	}
 }
 
@@ -431,7 +529,6 @@ func TestFetchDockerContainersFromSourceRunningOnlyQuery(t *testing.T) {
 			containers, err := fetchDockerContainersFromSource(
 				context.Background(),
 				server.URL,
-				"",
 				tt.runningOnly,
 				nil,
 			)
@@ -446,7 +543,7 @@ func TestFetchDockerContainersFromSourceRunningOnlyQuery(t *testing.T) {
 	}
 }
 
-func TestFetchDockerContainersFromSourceAppliesLabelOverridesBeforeCategoryFilter(t *testing.T) {
+func TestFetchDockerContainersFromSourceAppliesLabelOverrides(t *testing.T) {
 	response := []dockerContainerJsonResponse{
 		{
 			Names: []string{"/included"},
@@ -477,7 +574,6 @@ func TestFetchDockerContainersFromSourceAppliesLabelOverridesBeforeCategoryFilte
 	containers, err := fetchDockerContainersFromSource(
 		context.Background(),
 		server.URL,
-		"configured",
 		false,
 		map[string]map[string]string{
 			"included": {
@@ -491,8 +587,8 @@ func TestFetchDockerContainersFromSourceAppliesLabelOverridesBeforeCategoryFilte
 		t.Fatalf("fetching containers: %v", err)
 	}
 
-	if len(containers) != 1 {
-		t.Fatalf("container count = %d, want 1", len(containers))
+	if len(containers) != 2 {
+		t.Fatalf("container count = %d, want 2", len(containers))
 	}
 
 	container := containers[0]
@@ -524,7 +620,6 @@ func TestFetchDockerContainersFromSourceRejectsOversizedResponse(t *testing.T) {
 	_, err := fetchDockerContainersFromSource(
 		context.Background(),
 		server.URL,
-		"",
 		false,
 		nil,
 	)
@@ -556,7 +651,6 @@ func TestFetchDockerContainersFromSourceCancellation(t *testing.T) {
 		_, err := fetchDockerContainersFromSource(
 			ctx,
 			server.URL,
-			"",
 			false,
 			nil,
 		)

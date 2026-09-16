@@ -285,6 +285,34 @@ func TestMakefilePRWatchRefreshesHeadDuringPolling(t *testing.T) {
 	}
 }
 
+func TestMakefileParkFirstShippingWorkflow(t *testing.T) {
+	makefile := readRepositoryMakefile(t)
+
+	for _, target := range []string{"ship", "ship-nonruntime"} {
+		t.Run(target, func(t *testing.T) {
+			recipe := makeTargetRecipe(t, makefile, target)
+
+			requireRecipeFragmentsInOrder(
+				t,
+				recipe,
+				`current="$$(git branch --show-current)"`,
+				`if [ "$$current" != "$(DEV_BRANCH)" ]; then`,
+				`git status --porcelain`,
+				`git fetch origin --prune`,
+				`dev_revision="$$(git rev-parse $(DEV_BRANCH))"`,
+				`origin_revision="$$(git rev-parse origin/$(DEV_BRANCH))"`,
+				`git merge-base --is-ancestor "$$origin_revision" "$$dev_revision"`,
+				`parked="$$(git rev-list --count "$$origin_revision..$$dev_revision")"`,
+				`if [ "$$parked" -eq 0 ]; then`,
+				`feature="ship/$$(git rev-parse --short=12 "$$dev_revision")"`,
+				`git switch -c "$$feature" "$$dev_revision"`,
+				`$(MAKE) push`,
+				`$(MAKE) pr-finish PR="$$feature_pr"`,
+			)
+		})
+	}
+}
+
 func TestMakefileNonRuntimeShippingWorkflow(t *testing.T) {
 	makefile := readRepositoryMakefile(t)
 	ship := makeTargetRecipe(t, makefile, "ship-nonruntime")
@@ -296,8 +324,9 @@ func TestMakefileNonRuntimeShippingWorkflow(t *testing.T) {
 	requireRecipeFragmentsInOrder(
 		t,
 		ship,
-		`git diff --name-only origin/$(DEV_BRANCH)...HEAD`,
+		`git diff --name-only "$$origin_revision...$$dev_revision"`,
 		`python3 scripts/check_nonruntime_changes.py`,
+		`feature="ship/$$(git rev-parse --short=12 "$$dev_revision")"`,
 		`$(MAKE) push`,
 		`$(MAKE) pr-finish PR="$$feature_pr" SKIP_IMAGE_WATCH=1`,
 		`$(MAKE) promote-finish PR="$$promotion_pr"`,

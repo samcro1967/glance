@@ -371,6 +371,7 @@ func (widget *customAPIWidget) update(ctx context.Context) {
 		widget.Subrequests,
 		widget.Options,
 		widget.compiledTemplate,
+		widget.Providers,
 	)
 
 	if err != nil {
@@ -596,6 +597,7 @@ func fetchAndRenderCustomAPIRequest(
 	subReqs map[string]*CustomAPIRequest,
 	options customAPIOptions,
 	tmpl *template.Template,
+	providers ...*widgetProviders,
 ) (template.HTML, error) {
 	var primaryData *customAPIResponseData
 	subData := make(map[string]*customAPIResponseData, len(subReqs))
@@ -670,7 +672,11 @@ func fetchAndRenderCustomAPIRequest(
 		return emptyBody, fmt.Errorf("cloning custom API template: %w", err)
 	}
 
-	runtimeTemplate = runtimeTemplate.Funcs(customAPIRuntimeTemplateFuncs(ctx))
+	var providersForRefresh *widgetProviders
+	if len(providers) > 0 {
+		providersForRefresh = providers[0]
+	}
+	runtimeTemplate = runtimeTemplate.Funcs(customAPIRuntimeTemplateFuncs(ctx, providersForRefresh))
 
 	var templateBuffer bytes.Buffer
 	err = runtimeTemplate.Execute(&templateBuffer, &data)
@@ -694,8 +700,17 @@ func fetchAndRenderCustomAPIRequest(
 	return template.HTML(rendered), nil
 }
 
-func customAPIRuntimeTemplateFuncs(ctx context.Context) template.FuncMap {
+func customAPIRuntimeTemplateFuncs(ctx context.Context, providers *widgetProviders) template.FuncMap {
+	proxyURL := func(rawURL string) (string, error) {
+		if providers == nil || providers.resourceProxyURL == nil {
+			return rawURL, nil
+		}
+
+		return providers.resourceProxyURL(rawURL)
+	}
+
 	return template.FuncMap{
+		"proxyURL": proxyURL,
 		"getResponse": func(req *CustomAPIRequest) (*customAPIResponseData, error) {
 			if err := req.initialize(); err != nil {
 				return nil, fmt.Errorf("initializing custom API template request: %w", err)
@@ -1084,6 +1099,9 @@ var customAPITemplateFuncs = func() template.FuncMap {
 		},
 		"getResponse": func(req *CustomAPIRequest) (*customAPIResponseData, error) {
 			return nil, errors.New("getResponse requires an active custom API refresh context")
+		},
+		"proxyURL": func(rawURL string) (string, error) {
+			return rawURL, nil
 		},
 	}
 

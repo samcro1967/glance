@@ -170,7 +170,6 @@ func fetchDockerContainers(
 	containers, err := fetchDockerContainersFromSource(
 		ctx,
 		socketPath,
-		category,
 		runningOnly,
 		labelOverrides,
 	)
@@ -178,7 +177,7 @@ func fetchDockerContainers(
 		return nil, fmt.Errorf("fetching containers: %w", err)
 	}
 
-	containers, children := groupDockerContainerChildren(containers, hideByDefault)
+	containers, children := groupDockerContainerChildren(containers, hideByDefault, category)
 	dockerContainers := make(dockerContainerList, 0, len(containers))
 
 	for i := range containers {
@@ -266,6 +265,7 @@ func deriveDockerContainerName(container *dockerContainerJsonResponse, formatNam
 func groupDockerContainerChildren(
 	containers []dockerContainerJsonResponse,
 	hideByDefault bool,
+	category string,
 ) (
 	[]dockerContainerJsonResponse,
 	map[string][]dockerContainerJsonResponse,
@@ -285,9 +285,16 @@ func groupDockerContainerChildren(
 
 		if !isParent && parent != "" {
 			children[parent] = append(children[parent], *container)
-		} else {
-			parents = append(parents, *container)
+			continue
 		}
+
+		// Category filtering applies to top-level containers. Children remain
+		// associated with their parent regardless of their own category label.
+		if category != "" && container.Labels.getOrDefault(dockerContainerLabelCategory, "") != category {
+			continue
+		}
+
+		parents = append(parents, *container)
 	}
 
 	return parents, children
@@ -304,7 +311,6 @@ func isDockerContainerHidden(container *dockerContainerJsonResponse, hideByDefau
 func fetchDockerContainersFromSource(
 	ctx context.Context,
 	source string,
-	category string,
 	runningOnly bool,
 	labelOverrides map[string]map[string]string,
 ) ([]dockerContainerJsonResponse, error) {
@@ -386,22 +392,6 @@ func fetchDockerContainersFromSource(
 		for label, value := range overrides {
 			container.Labels["glance."+label] = value
 		}
-	}
-
-	// We have to filter here instead of using the `filters` parameter of Docker's API
-	// because the user may define a category override within their config
-	if category != "" {
-		filtered := make([]dockerContainerJsonResponse, 0, len(containers))
-
-		for i := range containers {
-			container := &containers[i]
-
-			if container.Labels.getOrDefault(dockerContainerLabelCategory, "") == category {
-				filtered = append(filtered, *container)
-			}
-		}
-
-		containers = filtered
 	}
 
 	return containers, nil
