@@ -4,7 +4,7 @@ The visual QA configuration mirrors the eight widget categories in `docs/widgets
 
 ## Contracts
 
-- `glance-test.yml` is the complete local visual QA dashboard.
+- `test-instance.yml` is the complete local visual QA dashboard.
 - `testdata/expanded-theme.yml` owns the expanded global theme fixture.
 - `testdata/screenshot-calendar.ics` provides deterministic calendar content.
 - `widget-gallery.json` classifies every registered widget exactly once.

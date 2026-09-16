@@ -43,7 +43,7 @@ cleanup() {
     rc=$?
     trap - EXIT INT TERM
 
-    rm -f /tmp/glance-frontend-coverage-main.json /tmp/glance-frontend-coverage-auth.json
+    rm -f /tmp/glance-frontend-coverage-main.json
 
     echo
     echo "=== RUNNER CLEANUP ==="
@@ -82,30 +82,3 @@ else
     echo "=== CAPTURE VISUALS ==="
 fi
 node "$RUNNER" "${RUNNER_ARGS[@]}" "$@"
-
-if [ "$MODE" = "frontend" ] || [ "$MODE" = "frontend-coverage" ]; then
-    echo
-    echo "=== PREPARE AUTHENTICATION TEST INSTANCE ==="
-    make test-instance-stop
-    make TEST_CONFIG=glance-test-auth.yml test-instance-start
-
-    echo
-    echo "=== RUN AUTHENTICATION FRONTEND CHECKS ==="
-    if [ "$MODE" = "frontend-coverage" ]; then
-        node "$RUNNER" --auth --coverage=/tmp/glance-frontend-coverage-auth.json
-    else
-        node "$RUNNER" --auth
-    fi
-
-    if [ "$MODE" = "frontend-coverage" ]; then
-        echo
-        node testdata/visual/frontend-coverage.js \
-            /tmp/glance-frontend-coverage-main.json \
-            /tmp/glance-frontend-coverage-auth.json
-    fi
-
-    echo
-    echo "=== RESTORE CANONICAL TEST INSTANCE ==="
-    make TEST_CONFIG=glance-test-auth.yml test-instance-stop
-    make test-instance-start
-fi

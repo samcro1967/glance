@@ -55,6 +55,8 @@ type config struct {
 		Access    authAccessConfig           `yaml:"access"`
 	} `yaml:"auth"`
 
+	Analytics analyticsConfig `yaml:"analytics"`
+
 	Document struct {
 		Head template.HTML `yaml:"head"`
 	} `yaml:"document"`
@@ -166,6 +168,9 @@ type configDiagnostic struct {
 }
 
 type configSemanticSources struct {
+	analytics            int
+	analyticsProvider    int
+	analyticsEndpoint    int
 	root                 int
 	server               int
 	assetsPath           int
@@ -1162,6 +1167,16 @@ func parseConfigSemanticSources(contents []byte) (*configSemanticSources, error)
 		}
 	}
 
+	if key, analytics := yamlMappingValue(root, "analytics"); analytics != nil {
+		sources.analytics = key.Line
+		if key, value := yamlMappingValue(analytics, "provider"); value != nil {
+			sources.analyticsProvider = key.Line
+		}
+		if key, value := yamlMappingValue(analytics, "endpoint"); value != nil {
+			sources.analyticsEndpoint = key.Line
+		}
+	}
+
 	if key, auth := yamlMappingValue(root, "auth"); auth != nil {
 		sources.auth = key.Line
 		if usersKey, users := yamlMappingValue(auth, "users"); users != nil {
@@ -1539,6 +1554,42 @@ func isConfigStateValidWithSources(
 				seenPageSlugs[pageSlug] = struct{}{}
 			}
 		}
+	}
+
+	if config.Analytics.configured() {
+		analyticsLine := rootLine
+		if sources != nil {
+			analyticsLine = semanticSourceLine(sources.analytics, rootLine)
+		}
+
+		providerLine := analyticsLine
+		if sources != nil {
+			providerLine = semanticSourceLine(sources.analyticsProvider, sources.analytics, rootLine)
+		}
+
+		provider := strings.ToLower(strings.TrimSpace(config.Analytics.Provider))
+		if provider == "" {
+			return diagnostic(providerLine, fmt.Errorf("analytics provider must be set"))
+		}
+		if provider != analyticsProviderGoatCounter {
+			return diagnostic(providerLine, fmt.Errorf("unsupported analytics provider %q", config.Analytics.Provider))
+		}
+
+		endpointLine := analyticsLine
+		if sources != nil {
+			endpointLine = semanticSourceLine(sources.analyticsEndpoint, sources.analytics, rootLine)
+		}
+		if strings.TrimSpace(config.Analytics.Endpoint) == "" {
+			return diagnostic(endpointLine, fmt.Errorf("analytics endpoint must be set"))
+		}
+
+		normalizedEndpoint, err := normalizeAnalyticsEndpoint(config.Analytics.Endpoint)
+		if err != nil {
+			return diagnostic(endpointLine, fmt.Errorf("analytics endpoint %w", err))
+		}
+
+		config.Analytics.Provider = provider
+		config.Analytics.Endpoint = normalizedEndpoint
 	}
 
 	if len(config.Server.ResourceProxy.AllowedOrigins) > 0 {

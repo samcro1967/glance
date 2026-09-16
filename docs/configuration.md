@@ -16,6 +16,7 @@
   - [Config schema](#config-schema)
 - [Authentication](#authentication)
 - [Server](#server)
+- [Analytics](#analytics)
 - [Document](#document)
 - [Branding](#branding)
 - [Theme](#theme)
@@ -630,6 +631,28 @@ To be able to point to an asset from your assets path, use the `/assets/` path l
 ```yaml
 icon: /assets/gitea-icon.png
 ```
+
+## Analytics
+
+Glance can optionally load a web analytics provider on dashboard pages. Analytics is disabled when the top-level `analytics` property is omitted.
+
+GoatCounter is currently supported:
+
+```yaml
+analytics:
+  provider: goatcounter
+  endpoint: https://analytics.example.com
+```
+
+The `endpoint` is the origin of the GoatCounter site and may use HTTP or HTTPS, including an explicit port. Do not include `/count`, `/count.js`, another path, credentials, a query string, or a fragment; Glance derives the GoatCounter collection and script URLs from the configured origin.
+
+Analytics is loaded only on normal dashboard page documents. Dashboard navigation uses normal document loads, so GoatCounter's standard page-load tracking is sufficient; widget refreshes, live widget updates, page-content requests, and SSE activity do not create analytics pageviews.
+
+Analytics is strictly noncritical to Glance operation. The provider script is loaded asynchronously in the browser, so an unavailable analytics service, blocked request, browser extension, or deployment policy does not prevent the dashboard from rendering or operating. Glance does not proxy analytics requests, send them through its widget lifecycle, or require an analytics API key.
+
+If your deployment applies a Content Security Policy, allow the configured analytics origin in the directives required for its script and collection requests, typically `script-src` and `connect-src`. Glance does not weaken or generate deployment-specific CSP rules for analytics, and enabling analytics does not require `unsafe-inline`.
+
+Privacy, retention, session tracking, referrer collection, user-agent collection, location-derived reporting, and other analytics behavior remain controlled by the analytics provider and its configuration.
 
 ## Document
 If you want to insert custom HTML into the `<head>` of the document for all pages, you can do so by using the `document` property. Example:

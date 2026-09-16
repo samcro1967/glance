@@ -299,7 +299,7 @@ make test-instance-status
 make test-instance-stop
 ```
 
-The maintained `glance-test.yml` fixture exercises all registered widget types, hierarchical defaults and overrides, themes, semantic presentation components, layout composition, and deterministic content used by browser and visual regression testing.
+The maintained `test-instance.yml` fixture exercises all registered widget types, hierarchical defaults and overrides, themes, semantic presentation components, layout composition, and deterministic content used by browser and visual regression testing.
 
 The Makefile owns the fixture server and test-instance lifecycle. Do not manually reproduce that environment when the maintained targets provide the required test.
 
@@ -310,12 +310,12 @@ Some changes benefit from validation against the real production configuration, 
 For those cases, use the isolated production-runtime workflow:
 
 ```text
-make test-prod-start TEST_RUNTIME_CONTAINER=<container>
+make test-prod-start
 make test-prod-status
 make test-prod-stop
 ```
 
-This builds the current source into an isolated test image and uses the named production container as its runtime reference. It does not replace the running production container.
+This builds the current source into an isolated test image and uses the production container as its runtime reference. It does not replace the running production container.
 
 The production-runtime workflow also supports maintained configuration and environment overrides for cases where a feature must be exercised without modifying the real production configuration. Use the Makefile-supported override interfaces rather than manually constructing an alternate Docker runtime.
 

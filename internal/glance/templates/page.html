@@ -4,6 +4,9 @@
 
 {{ define "document-head-after" }}
 <script type="module" src='{{ .App.StaticAssetPath "js/page.js" }}'></script>
+{{ if eq .App.Config.Analytics.Provider "goatcounter" }}
+<script data-goatcounter="{{ .App.Config.Analytics.CountURL }}" async src="{{ .App.Config.Analytics.ScriptURL }}"></script>
+{{ end }}
 {{ end }}
 
 {{ define "navigation-links" }}
