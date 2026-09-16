@@ -8,7 +8,7 @@ Ownership: development-only visual QA infrastructure.
 Responsibilities:
 - prove every registered widget is classified exactly once;
 - prove every registered widget has one canonical QA screenshot mapping;
-- prove every configured visual page exists in glance-test.yml;
+- prove every configured visual page exists in test-instance.yml;
 - validate browser and static documentation-image ownership;
 - prove every local Markdown image is managed exactly once;
 - report obsolete docs/images files during the screenshot migration.
@@ -47,7 +47,7 @@ PAGES_MANIFEST = ROOT / "testdata/visual/visual-pages.json"
 DOCS_MANIFEST = ROOT / "testdata/visual/docs-images.json"
 WIDGET_SCREENSHOTS = ROOT / "testdata/visual/widget-screenshots.json"
 
-TEST_CONFIG = ROOT / "glance-test.yml"
+TEST_CONFIG = ROOT / "test-instance.yml"
 README = ROOT / "README.md"
 DOCS_ROOT = ROOT / "docs"
 DOCS_IMAGE_DIR = DOCS_ROOT / "images"
@@ -152,7 +152,7 @@ missing_pages = sorted(expected_slugs - configured_slugs)
 
 if missing_pages:
     fail(
-        "visual pages missing from glance-test.yml: "
+        "visual pages missing from test-instance.yml: "
         + ", ".join(missing_pages)
     )
 

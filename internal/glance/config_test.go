@@ -172,6 +172,78 @@ func TestParseConfigVariablesWithSourcesReportsSource(t *testing.T) {
 	}
 }
 
+func TestAnalyticsSemanticDiagnosticSource(t *testing.T) {
+	tests := []struct {
+		name        string
+		analytics   string
+		wantLine    int
+		wantMessage string
+	}{
+		{
+			name: "unsupported provider",
+			analytics: `analytics:
+  provider: unsupported
+  endpoint: https://analytics.example.com
+`,
+			wantLine:    2,
+			wantMessage: `unsupported analytics provider "unsupported"`,
+		},
+		{
+			name: "invalid endpoint",
+			analytics: `analytics:
+  provider: goatcounter
+  endpoint: https://analytics.example.com/private
+`,
+			wantLine:    3,
+			wantMessage: "analytics endpoint must not contain a path",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			mainPath := filepath.Join(dir, "glance.yml")
+			writeConfigTestFile(t, mainPath, tt.analytics+`pages:
+  - name: Home
+    columns:
+      - size: full
+`)
+
+			parsed, err := parseYAMLIncludesWithSources(mainPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			_, err = newConfigFromParsedYAML(parsed)
+			if err == nil {
+				t.Fatal("expected analytics configuration error")
+			}
+
+			var diagnostic *configDiagnostic
+			if !errors.As(err, &diagnostic) {
+				t.Fatalf("error type = %T, want *configDiagnostic: %v", err, err)
+			}
+
+			wantFile := absConfigTestPath(t, mainPath)
+			if diagnostic.File != wantFile {
+				t.Errorf("diagnostic file = %q, want %q", diagnostic.File, wantFile)
+			}
+			if diagnostic.Line != tt.wantLine {
+				t.Errorf("diagnostic line = %d, want %d", diagnostic.Line, tt.wantLine)
+			}
+			if diagnostic.Message != tt.wantMessage {
+				t.Errorf("diagnostic message = %q, want %q", diagnostic.Message, tt.wantMessage)
+			}
+			if diagnostic.cause == nil {
+				t.Fatal("diagnostic cause is nil")
+			}
+			if !errors.Is(err, diagnostic.cause) {
+				t.Error("diagnostic does not unwrap to its analytics cause")
+			}
+		})
+	}
+}
+
 func TestParseConfigVariablesCompatibilityErrorWithoutSources(t *testing.T) {
 	const variableName = "PR35_MISSING_COMPAT_ENV"
 	t.Setenv(variableName, "temporary")
