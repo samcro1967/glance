@@ -2,6 +2,7 @@ package glance
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func newDashboardTestConfig(t *testing.T, yaml string) *config {
@@ -968,5 +970,372 @@ func TestLegacyRouterWithoutDashboards(t *testing.T) {
 				)
 			}
 		})
+	}
+}
+
+func dashboardAuthorizationTestYAML(t *testing.T) string {
+	t.Helper()
+
+	secret, err := makeAuthSecretKey(AUTH_SECRET_KEY_LENGTH)
+	if err != nil {
+		t.Fatalf("generating auth secret: %v", err)
+	}
+
+	return dashboardTestYAML(fmt.Sprintf(`
+auth:
+  secret-key: %s
+  users:
+    mark:
+      password-hash: unused
+    kellie:
+      password-hash: unused
+
+  groups:
+    family:
+      users:
+        - mark
+        - kellie
+
+    admins:
+      users:
+        - mark
+
+  access:
+    dashboards:
+      Default:
+        groups:
+          - family
+
+      Personal:
+        groups:
+          - admins
+
+dashboards:
+  Default:
+    - home
+    - page2
+    - shared
+
+  Personal:
+    - page3
+    - shared
+`, secret))
+}
+
+func addDashboardAuthorizationSession(
+	t *testing.T,
+	app *application,
+	req *http.Request,
+	username string,
+) {
+	t.Helper()
+
+	token, err := generateSessionTokenV4(
+		authMethodLocal,
+		username,
+		username,
+		username,
+		app.authSecretKey,
+		time.Now(),
+	)
+	if err != nil {
+		t.Fatalf("generateSessionTokenV4() error = %v", err)
+	}
+
+	req.AddCookie(&http.Cookie{
+		Name:  AUTH_SESSION_COOKIE_NAME,
+		Value: token,
+	})
+}
+
+func TestDashboardAuthorizationRoutes(t *testing.T) {
+	app := newDashboardTestApplication(t, dashboardAuthorizationTestYAML(t))
+	router := app.router()
+
+	tests := []struct {
+		name         string
+		username     string
+		path         string
+		wantStatus   int
+		wantLocation string
+	}{
+		{
+			name:       "family user accesses default page",
+			username:   "kellie",
+			path:       "/page2",
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "family user denied personal dashboard",
+			username:   "kellie",
+			path:       "/personal/page3",
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name:       "admin accesses personal dashboard",
+			username:   "mark",
+			path:       "/personal/page3",
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:         "authorized no slash dashboard redirects",
+			username:     "mark",
+			path:         "/personal",
+			wantStatus:   http.StatusMovedPermanently,
+			wantLocation: "/personal/",
+		},
+		{
+			name:       "unauthorized no slash dashboard does not redirect",
+			username:   "kellie",
+			path:       "/personal",
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name:       "named dashboard page does not become default alias",
+			username:   "mark",
+			path:       "/page3",
+			wantStatus: http.StatusNotFound,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+			addDashboardAuthorizationSession(t, app, req, tt.username)
+
+			router.ServeHTTP(rec, req)
+
+			if rec.Code != tt.wantStatus {
+				t.Fatalf(
+					"status = %d, want %d; body=%q",
+					rec.Code,
+					tt.wantStatus,
+					rec.Body.String(),
+				)
+			}
+			if tt.wantLocation != "" &&
+				rec.Header().Get("Location") != tt.wantLocation {
+				t.Fatalf(
+					"Location = %q, want %q",
+					rec.Header().Get("Location"),
+					tt.wantLocation,
+				)
+			}
+		})
+	}
+}
+
+func TestDashboardAuthorizationFiltersDashboardNavigation(t *testing.T) {
+	app := newDashboardTestApplication(t, dashboardAuthorizationTestYAML(t))
+	router := app.router()
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	addDashboardAuthorizationSession(t, app, req, "kellie")
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf(
+			"status = %d, want %d; body=%q",
+			rec.Code,
+			http.StatusOK,
+			rec.Body.String(),
+		)
+	}
+
+	body := rec.Body.String()
+	if !strings.Contains(body, ">Default<") {
+		t.Fatal("authorized Default dashboard missing from navigation")
+	}
+	if strings.Contains(body, ">Personal<") ||
+		strings.Contains(body, `href="/personal/"`) {
+		t.Fatal("unauthorized Personal dashboard exposed in navigation")
+	}
+}
+
+func TestDashboardAuthorizationPageContentUsesAnyContainingDashboard(t *testing.T) {
+	app := newDashboardTestApplication(t, dashboardAuthorizationTestYAML(t))
+	router := app.router()
+
+	tests := []struct {
+		name       string
+		username   string
+		page       string
+		wantStatus int
+	}{
+		{
+			name:       "shared page granted through default",
+			username:   "kellie",
+			page:       "shared",
+			wantStatus: http.StatusOK,
+		},
+		{
+			name:       "personal only page denied",
+			username:   "kellie",
+			page:       "page3",
+			wantStatus: http.StatusNotFound,
+		},
+		{
+			name:       "personal only page granted to admin",
+			username:   "mark",
+			page:       "page3",
+			wantStatus: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(
+				http.MethodGet,
+				"/api/pages/"+tt.page+"/content/",
+				nil,
+			)
+			addDashboardAuthorizationSession(t, app, req, tt.username)
+			router.ServeHTTP(rec, req)
+
+			if rec.Code != tt.wantStatus {
+				t.Fatalf(
+					"status = %d, want %d; body=%q",
+					rec.Code,
+					tt.wantStatus,
+					rec.Body.String(),
+				)
+			}
+		})
+	}
+}
+
+func TestDashboardAuthorizationUnauthenticatedBehavior(t *testing.T) {
+	app := newDashboardTestApplication(t, dashboardAuthorizationTestYAML(t))
+	router := app.router()
+
+	t.Run("HTML redirects to login", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/personal/page3", nil)
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("status = %d, want %d", rec.Code, http.StatusSeeOther)
+		}
+		if got := rec.Header().Get("Location"); got != "/login" {
+			t.Fatalf("Location = %q, want %q", got, "/login")
+		}
+	})
+
+	t.Run("page content returns unauthorized", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(
+			http.MethodGet,
+			"/api/pages/page3/content/",
+			nil,
+		)
+		router.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusUnauthorized {
+			t.Fatalf(
+				"status = %d, want %d",
+				rec.Code,
+				http.StatusUnauthorized,
+			)
+		}
+		if body := rec.Body.String(); body != `{"error": "Unauthorized"}` {
+			t.Fatalf(
+				"body = %q, want unauthorized JSON response",
+				body,
+			)
+		}
+	})
+}
+
+func TestDashboardAuthorizationRootFallsBackToFirstAuthorizedDashboard(
+	t *testing.T,
+) {
+	secret, err := makeAuthSecretKey(AUTH_SECRET_KEY_LENGTH)
+	if err != nil {
+		t.Fatalf("generating auth secret: %v", err)
+	}
+
+	yaml := dashboardTestYAML(fmt.Sprintf(`
+auth:
+  secret-key: %s
+  users:
+    mark:
+      password-hash: unused
+
+  access:
+    dashboards:
+      Personal:
+        users:
+          - mark
+
+dashboards:
+  Default:
+    - home
+
+  Personal:
+    - page3
+`, secret))
+	app := newDashboardTestApplication(t, yaml)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	addDashboardAuthorizationSession(t, app, req, "mark")
+	app.router().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusSeeOther)
+	}
+	if got := rec.Header().Get("Location"); got != "/personal/" {
+		t.Fatalf("Location = %q, want %q", got, "/personal/")
+	}
+}
+
+func TestDashboardAuthorizationRootNotFoundWhenNoDashboardAuthorized(
+	t *testing.T,
+) {
+	secret, err := makeAuthSecretKey(AUTH_SECRET_KEY_LENGTH)
+	if err != nil {
+		t.Fatalf("generating auth secret: %v", err)
+	}
+
+	yaml := dashboardTestYAML(fmt.Sprintf(`
+auth:
+  secret-key: %s
+  users:
+    kellie:
+      password-hash: unused
+
+  access:
+    dashboards:
+      Personal:
+        users:
+          - mark
+
+dashboards:
+  Default:
+    - home
+
+  Personal:
+    - page3
+`, secret))
+	app := newDashboardTestApplication(t, yaml)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	addDashboardAuthorizationSession(t, app, req, "kellie")
+	app.router().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf(
+			"status = %d, want %d; body=%q",
+			rec.Code,
+			http.StatusNotFound,
+			rec.Body.String(),
+		)
+	}
+	if strings.Contains(rec.Body.String(), "Personal") {
+		t.Fatal("unauthorized dashboard exposed in not-found response")
 	}
 }
