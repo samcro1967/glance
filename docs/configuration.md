@@ -370,7 +370,7 @@ auth:
   users:
     admin:
       password: 123456
-    svilen:
+    user:
       password: 123456
 ```
 
