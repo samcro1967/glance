@@ -1869,6 +1869,74 @@ pages:
 	}
 }
 
+func TestAnalyticsPageRender(t *testing.T) {
+	tests := []struct {
+		name          string
+		analyticsYAML string
+		wantCount     int
+	}{
+		{
+			name:      "disabled",
+			wantCount: 0,
+		},
+		{
+			name: "goatcounter",
+			analyticsYAML: `analytics:
+  provider: goatcounter
+  endpoint: https://analytics.example.com
+`,
+			wantCount: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app := newGlanceTestApplication(t, tt.analyticsYAML+`pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets: []
+`)
+
+			page := &app.Config.Pages[0]
+			request, err := http.NewRequest(http.MethodGet, "/", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			data := templateData{
+				App:             app,
+				Page:            page,
+				NavigationPages: pagePointers(app.Config.Pages),
+			}
+			app.populateTemplateRequestData(&data.Request, request, page)
+
+			var rendered strings.Builder
+			if err := pageTemplate.Execute(&rendered, data); err != nil {
+				t.Fatalf("render page: %v", err)
+			}
+
+			html := rendered.String()
+			marker := `data-goatcounter="https://analytics.example.com/count"`
+			if count := strings.Count(html, marker); count != tt.wantCount {
+				t.Fatalf("rendered page contains GoatCounter marker %d times, want %d", count, tt.wantCount)
+			}
+
+			script := `<script data-goatcounter="https://analytics.example.com/count" async src="https://analytics.example.com/count.js"></script>`
+			if tt.wantCount == 0 {
+				if strings.Contains(html, "data-goatcounter=") || strings.Contains(html, "/count.js") {
+					t.Fatal("analytics-disabled page unexpectedly contains GoatCounter markup")
+				}
+				return
+			}
+
+			if count := strings.Count(html, script); count != 1 {
+				t.Fatalf("rendered page contains exact GoatCounter script %d times, want exactly once", count)
+			}
+		})
+	}
+}
+
 func TestCustomCSSCascadeRenderOrder(t *testing.T) {
 	app := newGlanceTestApplication(t, `
 theme:

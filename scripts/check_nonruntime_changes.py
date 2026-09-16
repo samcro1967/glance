@@ -24,8 +24,7 @@ EXACT_NONRUNTIME_PATHS = frozenset(
         "LICENSE",
         "Makefile",
         "README.md",
-        "glance-test-auth.yml",
-        "glance-test.yml",
+        "test-instance.yml",
     }
 )
 

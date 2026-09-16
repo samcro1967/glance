@@ -22,7 +22,7 @@ include $(TEST_ENV_FILE)
 export
 endif
 
-TEST_CONFIG ?= glance-test.yml
+TEST_CONFIG ?= test-instance.yml
 TEST_PID_FILE ?= .glance-test.pid
 TEST_LOG ?= .glance-test.log
 TEST_URL ?= http://127.0.0.1:$(TEST_PORT)
@@ -30,14 +30,14 @@ TEST_CONTAINER ?= glance-test
 TEST_CONTAINER_IMAGE ?= $(DEPLOY_DEV_IMAGE)
 TEST_CONTAINER_PORT ?= 18080
 TEST_CONTAINER_URL ?= http://127.0.0.1:$(TEST_CONTAINER_PORT)
-TEST_RUNTIME_CONTAINER ?=
+TEST_RUNTIME_CONTAINER ?= $(DEPLOY_CONTAINER)
 TEST_PROD_IMAGE ?= glance-prod-test:local
 TEST_PROD_CONTAINER ?= glance-prod-test
-TEST_FRONTEND_DIAGNOSTICS ?= false
-TEST_PROD_CONFIG_OVERRIDE ?= false
+TEST_FRONTEND_DIAGNOSTICS ?= true
+TEST_PROD_CONFIG_OVERRIDE ?= true
 TEST_PROD_HTTPS ?= false
-TEST_PROD_EXTRA_ENV ?=
-TEST_PROD_CONFIG_APPEND_FILE ?=
+TEST_PROD_EXTRA_ENV ?= GLANCE_OIDC_CLIENT_ID GLANCE_OIDC_CLIENT_SECRET
+TEST_PROD_CONFIG_APPEND_FILE ?= test-prod.yml
 TEST_PROD_CONFIG_DIR ?= .glance-prod-test-config
 PPROF_DIR ?= .pprof
 PROFILE ?= heap
@@ -138,33 +138,53 @@ help:
 	@echo "  Lower-level PR/release stages never deploy production on their own."
 	@echo "  Supplied ship BODY_FILE is retained on failure and removed only after full success."
 	@echo
-	@echo "DEVELOPMENT:"
-	@echo "  make deps                     Download Go module dependencies"
-	@echo "  make build                    Build all Go packages"
-	@echo "  make test-instance-start      Build current source and run local binary with deterministic test config"
-	@echo "  make test-instance-status     Show local deterministic test instance status"
-	@echo "  make test-instance-stop       Stop local deterministic test instance and remove runtime artifacts"
-	@echo "  make test-prod-start TEST_RUNTIME_CONTAINER=name"
-	@echo "                                Build current source into an isolated test container using"
-	@echo "                                the named production container as its runtime reference"
-	@echo "                                Production is not modified or replaced"
-	@echo "                                Set TEST_FRONTEND_DIAGNOSTICS=true to enable browser diagnostics"
-	@echo "                                Set TEST_PROD_CONFIG_OVERRIDE=true to use an isolated config copy"
-	@echo "                                Set TEST_PROD_EXTRA_ENV='VAR1 VAR2' to forward named test env variables"
-	@echo "  make test-prod-config-refresh TEST_RUNTIME_CONTAINER=name"
-	@echo "                                Rebuild the mounted isolated config and exercise live reload"
-	@echo "  make test-prod-status         Show isolated production-runtime test container status"
-	@echo "  make test-prod-stop           Remove isolated production-runtime test container and local image"
-	@echo "  make benchmark                Run Go benchmarks with allocation statistics"
-	@echo "  make pprof-capture PROFILE=heap [PPROF_SECONDS=30]"
-	@echo "                                Capture a Go runtime profile from diagnostics-enabled production test"
-	@echo "  make pprof-summary PROFILE=heap"
-	@echo "                                Show top entries from the newest captured profile"
-	@echo "  make test-container-start TEST_RUNTIME_CONTAINER=name"
-	@echo "                                Pull and start isolated published dev container"
-	@echo "  make test-container-status    Show isolated container status"
-	@echo "  make test-container-stop      Remove isolated container"
-	@echo "  make test-all-stop            Stop/clean every Makefile-managed development/test runtime"
+	@echo "DEVELOPMENT / TEST ENVIRONMENTS:"
+	@echo "  DETERMINISTIC CURRENT-SOURCE TEST:"
+	@echo "    make test-instance-start      Build current source as a local binary"
+	@echo "                                  Config: test-instance.yml (tracked/public/deterministic)"
+	@echo "                                  Use for normal development, frontend regression,"
+	@echo "                                  visual QA, widgets, layouts, themes, and screenshots"
+	@echo "    make test-instance-status     Show deterministic test instance + fixture status"
+	@echo "    make test-instance-stop       Stop it and remove generated runtime artifacts"
+	@echo
+	@echo "  PRODUCTION-RUNTIME CURRENT-SOURCE TEST:"
+	@echo "    make test-prod-start          Build current source into an isolated local container"
+	@echo "                                  Runtime reference: production container $(DEPLOY_CONTAINER)"
+	@echo "                                  Config: isolated production copy + local test-prod.yml"
+	@echo "                                  test-prod.yml is ignored/private and MUST NOT be committed"
+	@echo "                                  Production container/config are NEVER modified or replaced"
+	@echo "                                  Use for production-representative browser behavior,"
+	@echo "                                  OIDC, analytics, resource proxy, production assets/env,"
+	@echo "                                  networks/mounts, live reload, diagnostics, and profiling"
+	@echo "                                  OIDC test credentials are loaded from .env.test;"
+	@echo "                                  Resource-proxy test origins are loaded from .env.test"
+	@echo "                                  Browser frontend diagnostics are enabled by default"
+	@echo "                                  TEST_PROD_EXTRA_ENV='VAR1 VAR2' forwards additional env"
+	@echo "    make test-prod-config-refresh Re-copy production config + reapply test-prod.yml"
+	@echo "                                  Use after changing the local overlay while running"
+	@echo "    make test-prod-status         Show isolated production-runtime container status"
+	@echo "    make test-prod-stop           Remove isolated container, image, and generated config"
+	@echo
+	@echo "  PUBLISHED DEV-IMAGE TEST:"
+	@echo "    make test-container-start     Pull and run the published $(DEPLOY_DEV_IMAGE) artifact"
+	@echo "                                  NOT current local source; use to validate published dev"
+	@echo "    make test-container-status    Show published-image test container status"
+	@echo "    make test-container-stop      Remove published-image test container"
+	@echo
+	@echo "  TESTING RULES:"
+	@echo "    test-instance = deterministic current source"
+	@echo "    test-prod     = current source + production runtime/integrations"
+	@echo "    test-container= published dev artifact"
+	@echo "    Use these Makefile runtimes instead of manually recreating them with Go/Docker"
+	@echo "    test-prod.yml is local/ignored and must never be committed"
+	@echo "    make test-all-stop            Stop/clean every Makefile-managed test runtime"
+	@echo
+	@echo "  ENGINEERING DIAGNOSTICS:"
+	@echo "    make benchmark                Run Go benchmarks with allocation statistics"
+	@echo "    make pprof-capture PROFILE=heap [PPROF_SECONDS=30]"
+	@echo "                                  Capture a profile from diagnostics-enabled test-prod"
+	@echo "    make pprof-summary PROFILE=heap"
+	@echo "                                  Show top entries from the newest captured profile"
 	@echo
 	@echo "VISUAL QA / DOCUMENTATION:"
 	@echo "  make visual-check             Validate visual QA and documentation contracts"
@@ -2191,43 +2211,17 @@ test-prod-config-refresh:
 		echo "Runtime reference does not have a usable /app/config bind mount."; \
 		exit 1; \
 	fi; \
-	tmp_config="$$(mktemp "$$config_override/.glance.yml.refresh.XXXXXX")"; \
-	trap 'rm -f "$$tmp_config"' EXIT; \
-	cp "$$config_source/glance.yml" "$$tmp_config"; \
-	if [ "$(TEST_PROD_HTTPS)" = "true" ]; then \
-		if [ "$$(grep -Ec "^server:[[:space:]]*$$" "$$tmp_config")" -ne 1 ]; then \
-			echo "Expected exactly one top-level server mapping in $$tmp_config."; \
-			exit 1; \
-		fi; \
-		sed -i "/^server:[[:space:]]*$$/a\\  https: true" "$$tmp_config"; \
-	fi; \
+	overlay_args=(); \
 	if [ -n "$(TEST_PROD_CONFIG_APPEND_FILE)" ]; then \
-		if [ ! -f "$(TEST_PROD_CONFIG_APPEND_FILE)" ]; then \
-			echo "Test config append file not found: $(TEST_PROD_CONFIG_APPEND_FILE)"; \
-			exit 1; \
-		fi; \
-		printf "\\n" >> "$$tmp_config"; \
-		cat "$(TEST_PROD_CONFIG_APPEND_FILE)" >> "$$tmp_config"; \
+		overlay_args+=(--overlay "$(TEST_PROD_CONFIG_APPEND_FILE)"); \
 	fi; \
-	if [ "$(TEST_FRONTEND_DIAGNOSTICS)" = "true" ]; then \
-		diagnostics_count="$$(grep -Ec '^[[:space:]]*frontend-diagnostics:' "$$tmp_config" || true)"; \
-		if [ "$$diagnostics_count" -eq 0 ]; then \
-			if [ "$$(grep -Ec "^server:[[:space:]]*$$" "$$tmp_config")" -ne 1 ]; then \
-				echo "Expected exactly one top-level server mapping in $$tmp_config."; \
-				exit 1; \
-			fi; \
-			sed -i "/^server:[[:space:]]*$$/a\\  frontend-diagnostics: true" "$$tmp_config"; \
-		elif [ "$$diagnostics_count" -eq 1 ] && grep -Eq '^[[:space:]]*frontend-diagnostics:[[:space:]]*false([[:space:]]*(#.*)?)?$$' "$$tmp_config"; then \
-			sed -i -E 's/^([[:space:]]*frontend-diagnostics:[[:space:]]*)false([[:space:]]*(#.*)?)$$/\1true\2/' "$$tmp_config"; \
-		elif [ "$$diagnostics_count" -eq 1 ] && grep -Eq '^[[:space:]]*frontend-diagnostics:[[:space:]]*true([[:space:]]*(#.*)?)?$$' "$$tmp_config"; then \
-			:; \
-		else \
-			echo "Expected frontend-diagnostics to be absent, disabled, or already enabled in $$tmp_config."; \
-			exit 1; \
-		fi; \
-	fi; \
-	mv "$$tmp_config" "$$config_file"; \
-	trap - EXIT; \
+	python3 scripts/prepare_test_prod_config.py \
+		--source "$$config_source/glance.yml" \
+		--destination "$$config_file" \
+		--frontend-diagnostics "$(TEST_FRONTEND_DIAGNOSTICS)" \
+		--https "$(TEST_PROD_HTTPS)" \
+		--resource-proxy-origins "$${TEST_PROD_RESOURCE_PROXY_ORIGINS:-}" \
+		"$${overlay_args[@]}"; \
 	echo "Refreshed $$config_file; running test instance will process the filesystem change."
 
 test-prod-start:
@@ -2295,41 +2289,17 @@ test-prod-start:
 		mkdir -p "$$config_override"; \
 		cp -a "$$config_source"/. "$$config_override"/; \
 		config_file="$$config_override/glance.yml"; \
-		if [ "$(TEST_PROD_HTTPS)" = "true" ]; then \
-			if [ "$$(grep -Ec "^server:[[:space:]]*$$" "$$config_file")" -ne 1 ]; then \
-				echo "Expected exactly one top-level server mapping in $$config_file."; \
-				rm -rf "$$config_override"; \
-				exit 1; \
-			fi; \
-			sed -i "/^server:[[:space:]]*$$/a\\  https: true" "$$config_file"; \
-		fi; \
+		overlay_args=(); \
 		if [ -n "$(TEST_PROD_CONFIG_APPEND_FILE)" ]; then \
-			if [ ! -f "$(TEST_PROD_CONFIG_APPEND_FILE)" ]; then \
-				echo "Test config append file not found: $(TEST_PROD_CONFIG_APPEND_FILE)"; \
-				exit 1; \
-			fi; \
-			printf "\\n" >> "$$config_file"; \
-			cat "$(TEST_PROD_CONFIG_APPEND_FILE)" >> "$$config_file"; \
+			overlay_args+=(--overlay "$(TEST_PROD_CONFIG_APPEND_FILE)"); \
 		fi; \
-		if [ "$(TEST_FRONTEND_DIAGNOSTICS)" = "true" ]; then \
-			diagnostics_count="$$(grep -Ec '^[[:space:]]*frontend-diagnostics:' "$$config_file" || true)"; \
-			if [ "$$diagnostics_count" -eq 0 ]; then \
-				if [ "$$(grep -Ec "^server:[[:space:]]*$$" "$$config_file")" -ne 1 ]; then \
-					echo "Expected exactly one top-level server mapping in $$config_file."; \
-					rm -rf "$$config_override"; \
-					exit 1; \
-				fi; \
-				sed -i "/^server:[[:space:]]*$$/a\\  frontend-diagnostics: true" "$$config_file"; \
-			elif [ "$$diagnostics_count" -eq 1 ] && grep -Eq '^[[:space:]]*frontend-diagnostics:[[:space:]]*false([[:space:]]*(#.*)?)?$$' "$$config_file"; then \
-				sed -i -E 's/^([[:space:]]*frontend-diagnostics:[[:space:]]*)false([[:space:]]*(#.*)?)$$/\1true\2/' "$$config_file"; \
-			elif [ "$$diagnostics_count" -eq 1 ] && grep -Eq '^[[:space:]]*frontend-diagnostics:[[:space:]]*true([[:space:]]*(#.*)?)?$$' "$$config_file"; then \
-				:; \
-			else \
-				echo "Expected frontend-diagnostics to be absent, disabled, or already enabled in $$config_file."; \
-				rm -rf "$$config_override"; \
-				exit 1; \
-			fi; \
-		fi; \
+		python3 scripts/prepare_test_prod_config.py \
+			--source "$$config_source/glance.yml" \
+			--destination "$$config_file" \
+			--frontend-diagnostics "$(TEST_FRONTEND_DIAGNOSTICS)" \
+			--https "$(TEST_PROD_HTTPS)" \
+			--resource-proxy-origins "$${TEST_PROD_RESOURCE_PROXY_ORIGINS:-}" \
+			"$${overlay_args[@]}"; \
 	fi; \
 	declare -a env_args mount_args network_args sysctl_args; \
 	while IFS= read -r entry; do \
@@ -2341,6 +2311,7 @@ test-prod-start:
 		env_args+=(-e "$$key"); \
 	done < <(docker inspect "$(TEST_RUNTIME_CONTAINER)" --format "{{range .Config.Env}}{{println .}}{{end}}"); \
 	for key in $(TEST_PROD_EXTRA_ENV); do \
+		[ -n "$$key" ] || continue; \
 		if [ -z "$${!key+x}" ]; then \
 			echo "Requested test environment variable is not set: $$key"; \
 			exit 1; \

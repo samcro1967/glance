@@ -3,15 +3,14 @@
 /playground
 /.idea
 /glance*.yml
-!/glance-test.yml
-!/glance-test-auth.yml
+!/test-instance.yml
 /.glance-test
 /.glance-test.pid
 /.glance-test.log
 
 # Local test-instance environment and authentication fixtures
 .env.test
-/.oidc-test.yml
+/test-prod.yml
 /.glance-prod-test-config/
 *.pyc
 

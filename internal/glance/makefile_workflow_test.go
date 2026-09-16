@@ -355,8 +355,7 @@ func TestNonRuntimeChangeClassifier(t *testing.T) {
 			"LICENSE",
 			".github/workflows/ci.yml",
 			".golangci.yml",
-			"glance-test.yml",
-			"glance-test-auth.yml",
+			"test-instance.yml",
 			"scripts/check_docs.py",
 			"testdata/visual/run.sh",
 			"internal/glance/widget_test.go",
@@ -406,6 +405,223 @@ func TestNonRuntimeChangeClassifier(t *testing.T) {
 		output, err := cmd.CombinedOutput()
 		if err == nil {
 			t.Fatalf("non-runtime classifier accepted empty input:\n%s", output)
+		}
+	})
+}
+
+func TestMakefileCanonicalTestEnvironments(t *testing.T) {
+	makefile := readRepositoryMakefile(t)
+
+	for _, contract := range []string{
+		"TEST_CONFIG ?= test-instance.yml",
+		"TEST_RUNTIME_CONTAINER ?= $(DEPLOY_CONTAINER)",
+		"TEST_PROD_CONFIG_OVERRIDE ?= true",
+		"TEST_PROD_CONFIG_APPEND_FILE ?= test-prod.yml",
+		"test-instance = deterministic current source",
+		"test-prod     = current source + production runtime/integrations",
+		"test-container= published dev artifact",
+		"test-prod.yml is local/ignored and must never be committed",
+		"TEST_PROD_EXTRA_ENV ?= GLANCE_OIDC_CLIENT_ID GLANCE_OIDC_CLIENT_SECRET",
+		"OIDC test credentials are loaded from .env.test;",
+		"for key in $(TEST_PROD_EXTRA_ENV)",
+	} {
+		if !strings.Contains(makefile, contract) {
+			t.Fatalf("Makefile missing canonical test-environment contract %q", contract)
+		}
+	}
+
+	for _, obsolete := range []string{
+		"test-external-start",
+		"test-external-status",
+		"test-external-stop",
+		"TEST_EXTERNAL_URL",
+		"TEST_EXTERNAL_ANALYTICS_ENDPOINT",
+	} {
+		if strings.Contains(makefile, obsolete) {
+			t.Fatalf("obsolete test workflow must not remain: %s", obsolete)
+		}
+	}
+
+	start := makeTargetRecipe(t, makefile, "test-prod-start")
+	refresh := makeTargetRecipe(t, makefile, "test-prod-config-refresh")
+
+	for _, recipe := range []struct {
+		name string
+		body string
+	}{
+		{name: "test-prod-start", body: start},
+		{name: "test-prod-config-refresh", body: refresh},
+	} {
+		for _, contract := range []string{
+			"python3 scripts/prepare_test_prod_config.py",
+			"--frontend-diagnostics \"$(TEST_FRONTEND_DIAGNOSTICS)\"",
+			"--https \"$(TEST_PROD_HTTPS)\"",
+			"--resource-proxy-origins \"$${TEST_PROD_RESOURCE_PROXY_ORIGINS:-}\"",
+		} {
+			if !strings.Contains(recipe.body, contract) {
+				t.Errorf("%s missing centralized config-preparation contract %q", recipe.name, contract)
+			}
+		}
+	}
+
+	for _, obsolete := range []string{
+		"diagnostics_count=",
+		"sed -i \"/^server:",
+		"cat \"$(TEST_PROD_CONFIG_APPEND_FILE)\"",
+	} {
+		if strings.Contains(start, obsolete) || strings.Contains(refresh, obsolete) {
+			t.Errorf("test-prod config preparation must not restore inline mutation logic %q", obsolete)
+		}
+	}
+}
+
+func TestCanonicalTestConfigurationPrivacy(t *testing.T) {
+	root := filepath.Join("..", "..")
+
+	instancePath := filepath.Join(root, "test-instance.yml")
+	if _, err := os.Stat(instancePath); err != nil {
+		t.Fatalf("canonical deterministic fixture missing: %v", err)
+	}
+
+	cmd := exec.Command("git", "check-ignore", "-q", "test-prod.yml")
+	cmd.Dir = root
+	if err := cmd.Run(); err != nil {
+		t.Fatal("test-prod.yml must remain explicitly ignored")
+	}
+
+	cmd = exec.Command("git", "ls-files", "--error-unmatch", "test-prod.yml")
+	cmd.Dir = root
+	if err := cmd.Run(); err == nil {
+		t.Fatal("test-prod.yml must never be tracked")
+	}
+}
+
+func TestPrepareTestProdConfig(t *testing.T) {
+	root := filepath.Join("..", "..")
+	temp := t.TempDir()
+
+	source := filepath.Join(temp, "source.yml")
+	overlay := filepath.Join(temp, "overlay.yml")
+	destination := filepath.Join(temp, "result.yml")
+
+	if err := os.WriteFile(source, []byte(`server:
+  assets-path: /app/assets
+  frontend-diagnostics: false
+branding:
+  app-name: Test
+document:
+  head: |
+    https: untouched
+`), 0o600); err != nil {
+		t.Fatalf("write source config: %v", err)
+	}
+
+	if err := os.WriteFile(overlay, []byte(`auth:
+  oidc:
+    issuer: https://accounts.example.test
+analytics:
+  provider: goatcounter
+  endpoint: https://analytics.example.test
+`), 0o600); err != nil {
+		t.Fatalf("write overlay config: %v", err)
+	}
+
+	cmd := exec.Command(
+		"python3",
+		filepath.Join(root, "scripts", "prepare_test_prod_config.py"),
+		"--source", source,
+		"--destination", destination,
+		"--overlay", overlay,
+		"--frontend-diagnostics", "true",
+		"--https", "false",
+		"--resource-proxy-origins",
+		"http://osu.plex:32400 http://osu.sonarr:8079 http://osu.radarr:8095",
+	)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("prepare test-prod config failed: %v\n%s", err, output)
+	}
+
+	data, err := os.ReadFile(destination)
+	if err != nil {
+		t.Fatalf("read prepared config: %v", err)
+	}
+	config := string(data)
+
+	for _, expected := range []string{
+		"  assets-path: /app/assets",
+		"  frontend-diagnostics: true",
+		"    https: untouched",
+		"  resource-proxy:",
+		"    allowed-origins:",
+		"      - http://osu.plex:32400",
+		"      - http://osu.sonarr:8079",
+		"      - http://osu.radarr:8095",
+		"auth:",
+		"analytics:",
+	} {
+		if !strings.Contains(config, expected) {
+			t.Errorf("prepared config missing %q:\n%s", expected, config)
+		}
+	}
+
+	if strings.Contains(config, "  https: true") ||
+		strings.Contains(config, "  https: false") {
+		t.Errorf("disabled test HTTPS unexpectedly changed server config:\n%s", config)
+	}
+
+	t.Run("rejects existing resource proxy", func(t *testing.T) {
+		source := filepath.Join(temp, "existing-resource-proxy.yml")
+		destination := filepath.Join(temp, "existing-resource-proxy-result.yml")
+
+		if err := os.WriteFile(source, []byte(`server:
+  resource-proxy:
+    allowed-origins:
+      - http://existing.test
+`), 0o600); err != nil {
+			t.Fatalf("write source config: %v", err)
+		}
+
+		cmd := exec.Command(
+			"python3",
+			filepath.Join(root, "scripts", "prepare_test_prod_config.py"),
+			"--source", source,
+			"--destination", destination,
+			"--resource-proxy-origins", "http://new.test",
+		)
+		output, err := cmd.CombinedOutput()
+		if err == nil {
+			t.Fatalf("existing resource proxy was accepted:\n%s", output)
+		}
+		if !strings.Contains(string(output), "production config already contains server resource-proxy") {
+			t.Fatalf("unexpected existing resource-proxy error:\n%s", output)
+		}
+	})
+
+	t.Run("rejects duplicate server mappings", func(t *testing.T) {
+		source := filepath.Join(temp, "duplicate-server.yml")
+		destination := filepath.Join(temp, "duplicate-server-result.yml")
+
+		if err := os.WriteFile(source, []byte(`server:
+  port: 8080
+server:
+  port: 8081
+`), 0o600); err != nil {
+			t.Fatalf("write source config: %v", err)
+		}
+
+		cmd := exec.Command(
+			"python3",
+			filepath.Join(root, "scripts", "prepare_test_prod_config.py"),
+			"--source", source,
+			"--destination", destination,
+		)
+		output, err := cmd.CombinedOutput()
+		if err == nil {
+			t.Fatalf("duplicate server mappings were accepted:\n%s", output)
+		}
+		if !strings.Contains(string(output), "expected exactly one top-level server mapping; found 2") {
+			t.Fatalf("unexpected duplicate-server error:\n%s", output)
 		}
 	})
 }

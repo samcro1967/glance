@@ -119,7 +119,7 @@ The repository provides several levels of configuration documentation:
 * [Configuration documentation](docs/configuration.md) — page structure, shared configuration, widget defaults, server settings, branding, themes, and other top-level options.
 * [Widget catalog](docs/widgets.md) — configuration and examples for individual widgets.
 * [Theme documentation](docs/themes.md) — native themes, presets, page overrides, and custom styling.
-* [`glance-test.yml`](glance-test.yml) — the comprehensive development, regression, and visual-QA fixture. It demonstrates a broad portion of the supported configuration surface, but is intended for testing and reference rather than as a production starting configuration.
+* [`test-instance.yml`](test-instance.yml) — the comprehensive development, regression, and visual-QA fixture. It demonstrates a broad portion of the supported configuration surface, but is intended for testing and reference rather than as a production starting configuration.
 
 ## Installation
 
