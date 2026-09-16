@@ -532,6 +532,7 @@ server:
 | trusted-proxies | list | no | |
 | base-url | string | no | |
 | assets-path | string | no |  |
+| resource-proxy | object | no | disabled |
 | frontend-diagnostics | boolean | no | false |
 
 #### `host`
@@ -557,6 +558,33 @@ The base URL that Glance is hosted under. No need to specify this unless you're 
 
 #### `assets-path`
 The path to a directory that will be served by the server under the `/assets/` path. This is handy for widgets like the Monitor where you have to specify an icon URL and you want to self host all the icons rather than pointing to an external source.
+
+#### `resource-proxy`
+
+The optional resource proxy allows an HTTPS Glance dashboard to display images provided by explicitly authorized HTTP-only services without exposing the upstream resource URL or credentials embedded in that URL to the browser. The proxy is disabled when `resource-proxy` is omitted or when no allowed origins are configured.
+
+```yaml
+server:
+  resource-proxy:
+    allowed-origins:
+      - http://plex:32400
+      - http://sonarr:8989
+      - http://radarr:7878
+```
+
+Each entry in `allowed-origins` must be an HTTP origin consisting only of a scheme, host or IP address, and optional port. Matching is performed against the exact normalized origin, including the effective port. Wildcards and CIDR ranges are not supported, and configured origins cannot contain user information, paths other than `/`, queries, or fragments. Private and loopback addresses are permitted when explicitly configured so the proxy can intentionally reach internal services.
+
+Custom API templates opt individual resource URLs into this behavior with the `proxyURL` helper:
+
+```gotemplate
+<img src="{{ proxyURL $imageURL }}">
+```
+
+When `$imageURL` belongs to an allowed HTTP origin, `proxyURL` returns a Glance-local `/api/resource-proxy/` URL containing an opaque identifier rather than the upstream URL. This is useful when an internal service requires credentials in an image URL: the credential-bearing upstream URL remains server-side instead of being rendered into browser HTML, browser history, or normal resource requests. URLs that are not eligible for the configured proxy, including HTTPS URLs and URLs from origins that are not allowlisted, are returned unchanged.
+
+The resource endpoint uses normal Glance authentication. Upstream requests use a dedicated HTTP transport that does not inherit environment proxy settings. Browser cookies, authorization, and arbitrary request headers are not forwarded upstream, and upstream cookies are not relayed to the browser. Redirects are followed only when they remain within the originally authorized origin; redirecting to another origin is rejected even when that second origin is separately allowlisted.
+
+Proxy responses are limited to 10 MiB and supported raster image content types: JPEG, PNG, GIF, WebP, AVIF, and ICO. SVG and general-purpose HTML, XML, JSON, JavaScript, CSS, video, audio, PDF, and arbitrary binary responses are rejected. Proxy failures retain normal HTTP failure semantics while server diagnostics avoid logging the credential-bearing upstream URL.
 
 #### `frontend-diagnostics`
 Enables additional runtime diagnostics intended for development, troubleshooting, and performance investigation. It defaults to `false` and is not required for normal dashboard operation.
