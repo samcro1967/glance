@@ -219,6 +219,9 @@ func TestRemainingValueThemeHandlerAndLoginPage(t *testing.T) {
 		The login page is only rendered when authentication is enabled.
 		When RequiresAuth is false the handler redirects away from /login.
 	*/
+	a.Config.Auth.Users = map[string]*user{
+		"test-user": {},
+	}
 	a.RequiresAuth = true
 
 	loginReq := httptest.NewRequest(http.MethodGet, "/login", nil)
@@ -232,6 +235,24 @@ func TestRemainingValueThemeHandlerAndLoginPage(t *testing.T) {
 			loginRR.Code,
 			loginRR.Body.String(),
 		)
+	}
+
+	loginBody := loginRR.Body.String()
+	for _, expected := range []string{
+		`id="login-form"`,
+		`autocomplete="username"`,
+		`autocomplete="current-password"`,
+		`type="button" class="toggle-password-visibility"`,
+		`type="submit" class="login-button`,
+	} {
+		if !strings.Contains(loginBody, expected) {
+			t.Fatalf("login page missing expected markup %q", expected)
+		}
+	}
+
+	if strings.Contains(loginBody, `rel="preload"`) &&
+		strings.Contains(loginBody, `js/templating.js`) {
+		t.Fatal("login page unnecessarily preloads templating.js")
 	}
 
 	a.RequiresAuth = false

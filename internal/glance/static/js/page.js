@@ -1,7 +1,7 @@
 import { setupPresentation } from './presentation.js';
 import { cleanupPopoversWithin, setupPopovers } from './popover.js';
 import { setupMasonries } from './masonry.js';
-import { throttledDebounce, isElementVisible } from './utils.js';
+import { throttledDebounce, isElementVisible, openURLInNewTab } from './utils.js';
 
 import { attachExpandToggleButton, setupCollapsibleList } from './collapsible-list.js';
 import { setupSearchBoxes } from './search.js';
