@@ -132,6 +132,8 @@ The fork's differences from upstream span both user-visible functionality and un
 
 ### Incorporated upstream and platform correctness fixes
 
+- **Custom API numeric conversion compatibility** — Extends `toInt`, `toFloat`, and decorated JSON numeric accessors to handle numeric strings, percentage strings, native numeric values, and GJSON values consistently while preserving truncation for integer conversion. Adapted from [`ToTt0G/glance` commit `19ad8e5`](https://github.com/ToTt0G/glance/commit/19ad8e505bd1395ba8918731784a027c4162e1a6) and follow-up [`408b160`](https://github.com/ToTt0G/glance/commit/408b160acba54e32e46ed946a385d532801d8d44).
+
 - **Twitch Channels persisted-query recovery** — Updates the Twitch `StreamMetadata` persisted query after Twitch invalidated the previous hash and preserves Twitch GraphQL error messages so failures such as `PersistedQueryNotFound` remain diagnosable instead of surfacing as secondary JSON errors. Adapted from [`Gloweet/glance` commit `a143edb`](https://github.com/Gloweet/glance/commit/a143edb65f0fa81d13b1f5c5ef95d7a41b065cf2).
 
 - **Docker category filtering for parent/child groups** — Incorporates upstream [PR #1080](https://github.com/glanceapp/glance/pull/1080), applying Docker container category filtering to top-level containers rather than filtering children independently. Children associated through `glance.parent` remain grouped with a matching parent regardless of whether the child has no category or a different category, while hidden-container behavior remains unchanged.
