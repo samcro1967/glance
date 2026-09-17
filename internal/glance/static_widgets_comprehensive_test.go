@@ -2,12 +2,15 @@ package glance
 
 import (
 	"context"
+	"fmt"
 	"html/template"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/samcro1967/glance/pkg/sysinfo"
 )
 
 func TestComprehensiveNewWidgetAllKnownTypes(t *testing.T) {
@@ -612,5 +615,50 @@ func TestSearchOpenDomainsBrowserContract(t *testing.T) {
 		if !strings.Contains(pageSource, fragment) {
 			t.Fatalf("page.js missing Search composition contract fragment %q", fragment)
 		}
+	}
+}
+
+func TestServerStatsTemplateRendersAllMountpointProgressValues(t *testing.T) {
+	for _, count := range []int{1, 2, 3, 6} {
+		t.Run(fmt.Sprintf("%d mountpoints", count), func(t *testing.T) {
+			info := &sysinfo.SystemInfo{Hostname: "test-server"}
+			for i := 0; i < count; i++ {
+				info.Mountpoints = append(info.Mountpoints, sysinfo.MountpointInfo{
+					Path:        fmt.Sprintf("/disk-%d", i+1),
+					Name:        fmt.Sprintf("Disk %d", i+1),
+					TotalMB:     1000,
+					UsedMB:      uint64((90 - i*7) * 10),
+					UsedPercent: uint8(90 - i*7),
+				})
+			}
+
+			widget := &serverStatsWidget{
+				Servers: []serverStatsRequest{{
+					Info:        info,
+					IsReachable: true,
+				}},
+			}
+			widget.Type = "server-stats"
+			widget.ContentAvailable = true
+
+			rendered := string(widget.Render())
+
+			if !strings.Contains(rendered, `DISK</div>`) ||
+				!strings.Contains(rendered, `90 <span class="color-base">%</span>`) {
+				t.Fatalf("server stats disk headline did not preserve first mountpoint: %s", rendered)
+			}
+
+			for i := 0; i < count; i++ {
+				percent := 90 - i*7
+				expected := fmt.Sprintf(`style="--percent: %d"`, percent)
+				if !strings.Contains(rendered, expected) {
+					t.Fatalf("server stats render with %d mountpoints missing disk progress %q", count, expected)
+				}
+			}
+
+			if !strings.Contains(rendered, `progress-value-notice" style="--percent: 90"`) {
+				t.Fatalf("server stats render with %d mountpoints lost disk notice styling", count)
+			}
+		})
 	}
 }
