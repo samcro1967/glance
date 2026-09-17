@@ -12,6 +12,7 @@ const hidePasswordSVG = `<svg class="form-input-icon" stroke="var(--color-text-b
 </svg>`;
 
 const container = find("#login-container");
+const loginForm = find("#login-form");
 const usernameInput = find("#username");
 const passwordInput = find("#password");
 const errorMessage = find("#error-message");
@@ -73,18 +74,6 @@ function enableLoginButtonIfCriteriaMet() {
         && !state.isRateLimited
     );
 }
-
-function handleKeydown(event) {
-    if (event.key === "Enter") {
-        const isDisabled = loginButton.disabled;
-        if (!isDisabled) {
-            handleLoginAttempt();
-        }
-    }
-}
-
-usernameInput.on("keydown", handleKeydown);
-passwordInput.on("keydown", handleKeydown);
 
 usernameInput.on("input", enableLoginButtonIfCriteriaMet);
 passwordInput.on("input", enableLoginButtonIfCriteriaMet);
@@ -152,4 +141,8 @@ async function handleLoginAttempt() {
     }
 }
 
-loginButton.disable().on("click", handleLoginAttempt);
+loginButton.disable();
+loginForm.on("submit", event => {
+    event.preventDefault();
+    handleLoginAttempt();
+});

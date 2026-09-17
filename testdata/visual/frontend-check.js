@@ -155,7 +155,7 @@ async function runAuthChecks(browser, coveragePath = "") {
       throw new Error("Login button did not enable for valid fixture credentials");
     }
 
-    await loginButton.click();
+    await password.press("Enter");
 
     await errorMessage.waitFor({
       state: "visible",
@@ -632,6 +632,26 @@ async function main() {
     ) {
       throw new Error('Canonical group fixture did not switch tab state correctly');
     }
+
+    const groupTitleURL = await secondTab.getAttribute('data-title-url');
+
+    if (!groupTitleURL) {
+      throw new Error('Selected canonical group tab does not expose its configured title URL');
+    }
+
+    const popupPromise = page.waitForEvent('popup');
+    await secondTab.click();
+    const groupTitlePopup = await popupPromise;
+
+    if (groupTitlePopup.url() !== groupTitleURL) {
+      throw new Error(
+        `Selected group title opened ${groupTitlePopup.url()}, want ${groupTitleURL}`
+      );
+    }
+
+    await groupTitlePopup.close();
+
+    console.log('PASS selected group title URL interaction');
 
     const initialTheme = await page.locator('html').getAttribute('data-theme');
     const desktopThemePreset = page.locator(

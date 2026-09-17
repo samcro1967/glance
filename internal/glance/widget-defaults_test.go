@@ -1,6 +1,7 @@
 package glance
 
 import (
+	"fmt"
 	"log/slog"
 	"strings"
 	"testing"
@@ -2140,4 +2141,201 @@ pages:
 			}
 		}
 	})
+}
+
+func TestWidgetDefaultsCacheCronPrecedence(t *testing.T) {
+	config, err := newConfigFromYAML([]byte(`
+widget-defaults:
+  global:
+    cache: 10m
+  types:
+    rss:
+      cache-cron: "15 6 * * *"
+
+pages:
+  - name: Test
+    columns:
+      - size: full
+        widgets:
+          - type: rss
+            feeds:
+              - url: https://example.com/one.xml
+          - type: rss
+            cache: 30m
+            feeds:
+              - url: https://example.com/two.xml
+          - type: rss
+            cache-cron: "45 7 * * *"
+            feeds:
+              - url: https://example.com/three.xml
+`))
+	if err != nil {
+		t.Fatalf("newConfigFromYAML: %v", err)
+	}
+
+	inherited := config.Pages[0].Columns[0].Widgets[0].(*rssWidget)
+	explicitCache := config.Pages[0].Columns[0].Widgets[1].(*rssWidget)
+	explicitCron := config.Pages[0].Columns[0].Widgets[2].(*rssWidget)
+
+	if inherited.cacheType != cacheTypeCron || inherited.cacheCronSchedule == nil {
+		t.Fatalf("type cache-cron not applied: type=%v schedule=%v", inherited.cacheType, inherited.cacheCronSchedule)
+	}
+	if inherited.CustomCacheDuration != 0 || inherited.CustomCacheCron != "15 6 * * *" {
+		t.Fatalf("type cache-cron raw values = duration %v cron %q", inherited.CustomCacheDuration, inherited.CustomCacheCron)
+	}
+
+	if explicitCache.cacheType != cacheTypeDuration || explicitCache.cacheDuration != 30*time.Minute {
+		t.Fatalf("explicit cache = type %v duration %v, want duration/30m", explicitCache.cacheType, explicitCache.cacheDuration)
+	}
+	if explicitCache.CustomCacheCron != "" {
+		t.Fatalf("explicit cache retained inherited cron %q", explicitCache.CustomCacheCron)
+	}
+
+	if explicitCron.cacheType != cacheTypeCron || explicitCron.cacheCronSchedule == nil {
+		t.Fatalf("explicit cache-cron not applied: type=%v schedule=%v", explicitCron.cacheType, explicitCron.cacheCronSchedule)
+	}
+	if explicitCron.CustomCacheDuration != 0 || explicitCron.CustomCacheCron != "45 7 * * *" {
+		t.Fatalf("explicit cache-cron raw values = duration %v cron %q", explicitCron.CustomCacheDuration, explicitCron.CustomCacheCron)
+	}
+}
+
+func TestWidgetDefaultsTypeCacheOverridesGlobalCacheCron(t *testing.T) {
+	config, err := newConfigFromYAML([]byte(`
+widget-defaults:
+  global:
+    cache-cron: "15 6 * * *"
+  types:
+    rss:
+      cache: 20m
+
+pages:
+  - name: Test
+    columns:
+      - size: full
+        widgets:
+          - type: rss
+            feeds:
+              - url: https://example.com/feed.xml
+`))
+	if err != nil {
+		t.Fatalf("newConfigFromYAML: %v", err)
+	}
+
+	widget := config.Pages[0].Columns[0].Widgets[0].(*rssWidget)
+	if widget.cacheType != cacheTypeDuration || widget.cacheDuration != 20*time.Minute {
+		t.Fatalf("cache = type %v duration %v, want duration/20m", widget.cacheType, widget.cacheDuration)
+	}
+	if widget.CustomCacheCron != "" {
+		t.Fatalf("type cache retained global cron %q", widget.CustomCacheCron)
+	}
+}
+
+func TestWidgetDefaultsRejectCacheAndCacheCronAtSameLayer(t *testing.T) {
+	tests := []struct {
+		name string
+		yaml string
+	}{
+		{
+			name: "global defaults",
+			yaml: `
+widget-defaults:
+  global:
+    cache: 10m
+    cache-cron: "15 6 * * *"
+
+pages:
+  - name: Test
+    columns:
+      - size: full
+        widgets:
+          - type: rss
+            feeds:
+              - url: https://example.com/feed.xml
+`,
+		},
+		{
+			name: "type defaults",
+			yaml: `
+widget-defaults:
+  types:
+    rss:
+      cache: 10m
+      cache-cron: "15 6 * * *"
+
+pages:
+  - name: Test
+    columns:
+      - size: full
+        widgets:
+          - type: rss
+            feeds:
+              - url: https://example.com/feed.xml
+`,
+		},
+		{
+			name: "widget instance",
+			yaml: `
+pages:
+  - name: Test
+    columns:
+      - size: full
+        widgets:
+          - type: rss
+            cache: 10m
+            cache-cron: "15 6 * * *"
+            feeds:
+              - url: https://example.com/feed.xml
+`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := newConfigFromYAML([]byte(tt.yaml))
+			if err == nil || !strings.Contains(err.Error(), "cache") || !strings.Contains(err.Error(), "cache-cron") {
+				t.Fatalf("error = %v, want cache/cache-cron conflict", err)
+			}
+		})
+	}
+}
+
+func TestWidgetDefaultsRejectInvalidCacheCron(t *testing.T) {
+	tests := []struct {
+		name    string
+		value   string
+		wantErr string
+	}{
+		{name: "empty", value: "", wantErr: "cannot be empty"},
+		{name: "every", value: "@every 5m", wantErr: "does not support @every"},
+		{name: "seconds", value: "0 15 6 * * *", wantErr: "invalid cache-cron"},
+		{name: "cron timezone", value: "CRON_TZ=America/Chicago 15 6 * * *", wantErr: "does not support timezone prefixes"},
+		{name: "timezone", value: "TZ=America/Chicago 15 6 * * *", wantErr: "does not support timezone prefixes"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			yaml := fmt.Sprintf("widget-defaults:\n  global:\n    cache-cron: %q\n\npages:\n  - name: Test\n    columns:\n      - size: full\n        widgets:\n          - type: rss\n            feeds:\n              - url: https://example.com/feed.xml\n", tt.value)
+			_, err := newConfigFromYAML([]byte(yaml))
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("cache-cron %q error = %v, want containing %q", tt.value, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestWidgetInstanceRejectsInvalidCacheCron(t *testing.T) {
+	_, err := newConfigFromYAML([]byte(`
+pages:
+  - name: Test
+    columns:
+      - size: full
+        widgets:
+          - type: rss
+            cache-cron: "not a cron expression"
+            feeds:
+              - url: https://example.com/feed.xml
+`))
+	if err == nil || !strings.Contains(err.Error(), "invalid cache-cron") {
+		t.Fatalf("error = %v, want invalid cache-cron", err)
+	}
 }

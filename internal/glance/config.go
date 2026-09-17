@@ -757,7 +757,12 @@ func initializeConfiguredWidget(
 ) (widgetDefaultsLogSummary, error) {
 	defaultsSummary, err := applyWidgetDefaultsTree(candidate, defaults)
 	if err != nil {
-		return widgetDefaultsLogSummary{}, err
+		return widgetDefaultsLogSummary{}, widgetInitializationDiagnostic(
+			parsed,
+			err,
+			candidate,
+			source,
+		)
 	}
 
 	if err := candidate.initialize(); err != nil {
