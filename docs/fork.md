@@ -132,6 +132,8 @@ The fork's differences from upstream span both user-visible functionality and un
 
 ### Incorporated upstream and platform correctness fixes
 
+- **Twitch Channels persisted-query recovery** — Updates the Twitch `StreamMetadata` persisted query after Twitch invalidated the previous hash and preserves Twitch GraphQL error messages so failures such as `PersistedQueryNotFound` remain diagnosable instead of surfacing as secondary JSON errors. Adapted from [`Gloweet/glance` commit `a143edb`](https://github.com/Gloweet/glance/commit/a143edb65f0fa81d13b1f5c5ef95d7a41b065cf2).
+
 - **Docker category filtering for parent/child groups** — Incorporates upstream [PR #1080](https://github.com/glanceapp/glance/pull/1080), applying Docker container category filtering to top-level containers rather than filtering children independently. Children associated through `glance.parent` remain grouped with a matching parent regardless of whether the child has no category or a different category, while hidden-container behavior remains unchanged.
 - **Mountpoint CLI fix** — Incorporates upstream [PR #1065](https://github.com/glanceapp/glance/pull/1065), fixing the `mountpoint:info <path>` command so it can be invoked as documented instead of being rejected as an unknown command.
 - **Mountpoint auto-detection fix** — Incorporates upstream [PR #1070](https://github.com/glanceapp/glance/pull/1070), addressing upstream [issue #1074](https://github.com/glanceapp/glance/issues/1074) by fixing automatic mountpoint discovery in plain containers to include Docker `overlay` filesystems while filtering out virtual filesystems such as proc, sysfs, tmpfs, and cgroups.

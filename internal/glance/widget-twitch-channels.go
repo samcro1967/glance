@@ -86,7 +86,10 @@ func (channels twitchChannelList) sortByLive() {
 }
 
 type twitchOperationResponse struct {
-	Data       json.RawMessage
+	Data   json.RawMessage
+	Errors []struct {
+		Message string `json:"message"`
+	} `json:"errors"`
 	Extensions struct {
 		OperationName string `json:"operationName"`
 	}
@@ -120,7 +123,7 @@ type twitchStreamMetadataOperationResponse struct {
 
 const twitchChannelStatusOperationRequestBody = `[
 {"operationName":"ChannelShell","variables":{"login":"%s"},"extensions":{"persistedQuery":{"version":1,"sha256Hash":"580ab410bcd0c1ad194224957ae2241e5d252b2c5173d8e0cce9d32d5bb14efe"}}},
-{"operationName":"StreamMetadata","variables":{"channelLogin":"%s"},"extensions":{"persistedQuery":{"version":1,"sha256Hash":"676ee2f834ede42eb4514cdb432b3134fefc12590080c9a2c9bb44a2a4a63266"}}}
+{"operationName":"StreamMetadata","variables":{"channelLogin":"%s","includeIsDJ":true},"extensions":{"persistedQuery":{"version":1,"sha256Hash":"b57f9b910f8cd1a4659d894fe7550ccc81ec9052c01e438b290fd66a040b9b93"}}}
 ]`
 
 // Channel status requests remain independent because Twitch does not expose a documented stable batch-operation limit for this request shape.
@@ -151,6 +154,15 @@ func fetchChannelFromTwitchTask(ctx context.Context, channel string) (twitchChan
 	var streamMetadata twitchStreamMetadataOperationResponse
 
 	for i := range response {
+		if len(response[i].Errors) > 0 {
+			operation := response[i].Extensions.OperationName
+			if operation == "" {
+				operation = "unknown"
+			}
+
+			return result, fmt.Errorf("Twitch GraphQL %s operation failed: %s", operation, response[i].Errors[0].Message)
+		}
+
 		switch response[i].Extensions.OperationName {
 		case "ChannelShell":
 			if err = json.Unmarshal(response[i].Data, &channelShell); err != nil {
