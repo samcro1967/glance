@@ -70,6 +70,7 @@ The fork's differences from upstream span both user-visible functionality and un
 - **Clickable Video thumbnails** — Makes Video widget thumbnails navigate to the same video as the title across card, grid, and vertical-list presentations while honoring the existing new-tab policy. Adapted from [`grayespinoza/glance` commit `23efccdf`](https://github.com/grayespinoza/glance/commit/23efccdf).
 - **Clickable Reddit thumbnails** — Makes Reddit thumbnail images navigate to the post discussion across list and card presentations while preserving shared forum rendering for Hacker News and Lobsters and honoring the existing new-tab policy. Adapted from [`grayespinoza/glance` commit `6c055fea`](https://github.com/grayespinoza/glance/commit/6c055fea).
 - **Monitor site descriptions** — Adds optional per-site descriptive text to the standard Monitor presentation with bounded single-line rendering; compact Monitor presentation remains unchanged. Adapted from [`kirolos/glance` commit `5e01e5d`](https://github.com/kirolos/glance/commit/5e01e5d).
+- **Self-hosted Releases providers** — Adds validated per-repository `base-url` support for GitLab and Codeberg-compatible Releases sources while preserving the public provider defaults and existing GitHub/Docker Hub behavior. Redesigned from [`kirolos-esmat/glance` commit `529f789b`](https://github.com/kirolos-esmat/glance/commit/529f789b398a481ba445ef50550e87657c7ddd6f).
 
 ### Configuration, themes, and presentation
 

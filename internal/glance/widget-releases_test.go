@@ -430,3 +430,134 @@ func TestFetchLatestDockerHubReleaseRejectsInvalidRepository(t *testing.T) {
 		t.Fatalf("release = %#v, want nil", release)
 	}
 }
+
+func TestReleaseRequestCustomBaseURL(t *testing.T) {
+	tests := []struct {
+		name       string
+		yaml       string
+		wantSource releaseSource
+		wantRepo   string
+		wantBase   string
+		wantErr    string
+	}{
+		{
+			name:       "gitlab custom origin",
+			yaml:       "repository: gitlab:group/project\nbase-url: https://gitlab.example.com/\n",
+			wantSource: releaseSourceGitlab,
+			wantRepo:   "group/project",
+			wantBase:   "https://gitlab.example.com",
+		},
+		{
+			name:       "codeberg http origin",
+			yaml:       "repository: codeberg:owner/project\nbase-url: http://forge.internal:3000\n",
+			wantSource: releaseSourceCodeberg,
+			wantRepo:   "owner/project",
+			wantBase:   "http://forge.internal:3000",
+		},
+		{
+			name:    "github rejects custom origin",
+			yaml:    "repository: github:owner/project\nbase-url: https://github.example.com\n",
+			wantErr: "base-url is not supported for github repositories",
+		},
+		{
+			name:    "docker hub rejects custom origin",
+			yaml:    "repository: dockerhub:owner/project\nbase-url: https://docker.example.com\n",
+			wantErr: "base-url is not supported for dockerhub repositories",
+		},
+		{
+			name:    "rejects relative URL",
+			yaml:    "repository: gitlab:owner/project\nbase-url: gitlab.example.com\n",
+			wantErr: "base-url must be an absolute http or https URL",
+		},
+		{
+			name:    "rejects credentials",
+			yaml:    "repository: gitlab:owner/project\nbase-url: https://user:pass@gitlab.example.com\n",
+			wantErr: "base-url must not contain credentials, a query, or a fragment",
+		},
+		{
+			name:    "rejects path",
+			yaml:    "repository: codeberg:owner/project\nbase-url: https://forge.example.com/subpath\n",
+			wantErr: "base-url must not contain a path",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var request releaseRequest
+			err := yaml.Unmarshal([]byte(test.yaml), &request)
+			if test.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), test.wantErr) {
+					t.Fatalf("error = %v, want containing %q", err, test.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected unmarshal error: %v", err)
+			}
+			if request.source != test.wantSource {
+				t.Fatalf("source = %q, want %q", request.source, test.wantSource)
+			}
+			if request.Repository != test.wantRepo {
+				t.Fatalf("repository = %q, want %q", request.Repository, test.wantRepo)
+			}
+			if request.BaseURL != test.wantBase {
+				t.Fatalf("base URL = %q, want %q", request.BaseURL, test.wantBase)
+			}
+		})
+	}
+}
+
+func TestReleaseRequestStructuredRepositorySourceParsing(t *testing.T) {
+	var request releaseRequest
+	if err := yaml.Unmarshal([]byte("repository: gitlab:group/project\ninclude-prereleases: false\n"), &request); err != nil {
+		t.Fatalf("unexpected unmarshal error: %v", err)
+	}
+	if request.source != releaseSourceGitlab {
+		t.Fatalf("source = %q, want %q", request.source, releaseSourceGitlab)
+	}
+	if request.Repository != "group/project" {
+		t.Fatalf("repository = %q, want %q", request.Repository, "group/project")
+	}
+}
+
+func TestReleaseProviderURLs(t *testing.T) {
+	tests := []struct {
+		name    string
+		request *releaseRequest
+		build   func(*releaseRequest) string
+		want    string
+	}{
+		{
+			name:    "gitlab default",
+			request: &releaseRequest{Repository: "group/project"},
+			build:   gitLabReleaseURL,
+			want:    "https://gitlab.com/api/v4/projects/group%2Fproject/releases/permalink/latest",
+		},
+		{
+			name:    "gitlab custom",
+			request: &releaseRequest{Repository: "group/project", BaseURL: "https://gitlab.example.com"},
+			build:   gitLabReleaseURL,
+			want:    "https://gitlab.example.com/api/v4/projects/group%2Fproject/releases/permalink/latest",
+		},
+		{
+			name:    "codeberg default",
+			request: &releaseRequest{Repository: "owner/project"},
+			build:   codebergReleaseURL,
+			want:    "https://codeberg.org/api/v1/repos/owner/project/releases/latest",
+		},
+		{
+			name:    "codeberg custom",
+			request: &releaseRequest{Repository: "owner/project", BaseURL: "http://forge.internal:3000"},
+			build:   codebergReleaseURL,
+			want:    "http://forge.internal:3000/api/v1/repos/owner/project/releases/latest",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := test.build(test.request); got != test.want {
+				t.Fatalf("URL = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
