@@ -247,8 +247,17 @@ The following capabilities are common to registered widgets and may be configure
 | `title-url` | string | Default URL opened by the widget title |
 | `hide-header` | boolean | Whether the widget header is hidden |
 | `css-class` | string | Default custom CSS class |
-| `cache` | duration | Default refresh/cache interval where the widget supports configurable caching |
+| `cache` | duration | Default duration-based refresh/cache interval where the widget supports configurable caching |
+| `cache-cron` | string | Default cron-based refresh schedule where the widget supports configurable caching |
 | `new-tab` | boolean | Whether links governed by the widget's common link policy open in a new tab |
+
+`cache` and `cache-cron` are alternative forms of the same refresh scheduling capability and cannot both be configured at the same precedence level. A more-specific setting replaces either form inherited from a broader level. For example, a type-level `cache-cron` replaces a global `cache`, while an explicit widget `cache` replaces an inherited `cache-cron`.
+
+`cache-cron` uses standard five-field cron expressions in minute, hour, day-of-month, month, and day-of-week order: `minute hour day-of-month month day-of-week`. Standard wall-clock descriptors such as `@hourly` and `@daily` are also supported. Seconds fields are not supported. The duration-style `@every` descriptor is intentionally not supported; use `cache` for duration-based scheduling.
+
+Cron schedules use the Glance process timezone, which normally means the timezone configured for the Glance process or container. `CRON_TZ=` and `TZ=` prefixes are not supported.
+
+Cron scheduling changes only the normal refresh cadence. A newly started or reloaded widget remains immediately eligible for its initial refresh. Existing refresh, retry, cancellation, degraded-state, stale-content, and live-update behavior remains unchanged.
 
 `new-tab` is the canonical hierarchical setting for link destination. Existing widget-specific properties such as `same-tab` remain supported and are not deprecated. Where a widget or child exposes one of those existing controls, the more specific setting wins.
 

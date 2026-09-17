@@ -17,6 +17,7 @@ type widgetDefaultValues struct {
 	HideHeader        *bool              `yaml:"hide-header"`
 	CSSClass          *string            `yaml:"css-class"`
 	Cache             *durationField     `yaml:"cache"`
+	CacheCron         *string            `yaml:"cache-cron"`
 	NewTab            *bool              `yaml:"new-tab"`
 	Limit             *int               `yaml:"limit"`
 	CollapseAfter     *int               `yaml:"collapse-after"`
@@ -51,7 +52,7 @@ func (d widgetDefaultValues) configuredCapabilities() []widgetCapability {
 	if d.CSSClass != nil {
 		capabilities = append(capabilities, widgetCapabilityCSSClass)
 	}
-	if d.Cache != nil {
+	if d.Cache != nil || d.CacheCron != nil {
 		capabilities = append(capabilities, widgetCapabilityCache)
 	}
 	if d.NewTab != nil {
@@ -85,7 +86,26 @@ func (d widgetDefaultValues) configuredCapabilities() []widgetCapability {
 	return capabilities
 }
 
+func validateWidgetDefaultCacheSchedule(path string, values widgetDefaultValues) error {
+	if values.Cache != nil && values.CacheCron != nil {
+		return fmt.Errorf("%s cannot configure both cache and cache-cron", path)
+	}
+
+	if values.CacheCron != nil {
+		var base widgetBase
+		if err := base.withCacheCron(*values.CacheCron); err != nil {
+			return fmt.Errorf("%s: %w", path, err)
+		}
+	}
+
+	return nil
+}
+
 func validateWidgetDefaults(defaults widgetDefaultsConfig) error {
+	if err := validateWidgetDefaultCacheSchedule("widget-defaults.global", defaults.Global); err != nil {
+		return err
+	}
+
 	for _, capability := range defaults.Global.configuredCapabilities() {
 		supported := false
 		for widgetType := range widgetRegistry {
@@ -100,6 +120,10 @@ func validateWidgetDefaults(defaults widgetDefaultsConfig) error {
 	}
 
 	for widgetType, values := range defaults.Types {
+		if err := validateWidgetDefaultCacheSchedule("widget-defaults.types."+widgetType, values); err != nil {
+			return err
+		}
+
 		if _, ok := widgetRegistry[widgetType]; !ok {
 			return fmt.Errorf("widget-defaults.types contains unknown widget type %q", widgetType)
 		}
@@ -184,6 +208,11 @@ func overlayWidgetDefaultValues(base, override widgetDefaultValues) widgetDefaul
 	}
 	if override.Cache != nil {
 		base.Cache = override.Cache
+		base.CacheCron = nil
+	}
+	if override.CacheCron != nil {
+		base.CacheCron = override.CacheCron
+		base.Cache = nil
 	}
 	if override.NewTab != nil {
 		base.NewTab = override.NewTab
@@ -238,6 +267,27 @@ func applyWidgetCapabilityDefaults(candidate widget, defaults widgetDefaultsConf
 	}
 
 	resolved := resolveWidgetDefaultValues(candidate.GetType(), defaults)
+
+	if base.configuredFields["cache"] && base.configuredFields["cache-cron"] {
+		return fmt.Errorf("cache and cache-cron cannot both be configured on the same widget")
+	}
+
+	if base.configuredFields["cache"] {
+		base.CustomCacheCron = ""
+	} else {
+		cronExpression := base.CustomCacheCron
+		if !base.configuredFields["cache-cron"] && resolved.CacheCron != nil {
+			cronExpression = *resolved.CacheCron
+		}
+
+		if base.configuredFields["cache-cron"] || resolved.CacheCron != nil {
+			base.CustomCacheDuration = 0
+			base.CustomCacheCron = cronExpression
+			if err := base.withCacheCron(cronExpression); err != nil {
+				return err
+			}
+		}
+	}
 
 	if resolved.NewTab != nil &&
 		widgetSupportsCapability(candidate.GetType(), widgetCapabilityNewTab, widgetCapabilityScopeType) &&
@@ -337,8 +387,15 @@ func applyWidgetBaseDefaults(candidate widget, defaults widgetDefaultsConfig) {
 	if resolved.CSSClass != nil && !base.configuredFields["css-class"] {
 		base.CSSClass = *resolved.CSSClass
 	}
-	if resolved.Cache != nil && !base.configuredFields["cache"] {
-		base.CustomCacheDuration = *resolved.Cache
+	if !base.configuredFields["cache"] && !base.configuredFields["cache-cron"] {
+		if resolved.Cache != nil {
+			base.CustomCacheDuration = *resolved.Cache
+			base.CustomCacheCron = ""
+		}
+		if resolved.CacheCron != nil {
+			base.CustomCacheDuration = 0
+			base.CustomCacheCron = *resolved.CacheCron
+		}
 	}
 }
 
@@ -371,7 +428,7 @@ func applyWidgetDefaultsTree(
 	applyWidgetBaseDefaults(candidate, defaults)
 
 	if err := applyWidgetCapabilityDefaults(candidate, defaults); err != nil {
-		return widgetDefaultsLogSummary{}, err
+		return widgetDefaultsLogSummary{}, formatWidgetInitError(err, candidate)
 	}
 
 	container, ok := candidate.(widgetContainer)

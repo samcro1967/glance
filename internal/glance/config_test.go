@@ -818,6 +818,52 @@ func TestNewConfigFromParsedYAMLSemanticDiagnostics(t *testing.T) {
 	}
 }
 
+func TestWidgetCacheCronDiagnosticSource(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "glance.yml")
+	writeConfigTestFile(t, path, `pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets:
+          - type: rss
+            cache-cron: "not a cron expression"
+            feeds:
+              - url: https://example.com/feed.xml
+`)
+
+	parsed, err := parseYAMLIncludesWithSources(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = newConfigFromParsedYAML(parsed)
+	if err == nil {
+		t.Fatal("expected cache-cron configuration error")
+	}
+
+	var diagnostic *configDiagnostic
+	if !errors.As(err, &diagnostic) {
+		t.Fatalf("error type = %T, want *configDiagnostic: %v", err, err)
+	}
+
+	if want := absConfigTestPath(t, path); diagnostic.File != want {
+		t.Errorf("diagnostic file = %q, want %q", diagnostic.File, want)
+	}
+	if diagnostic.Line != 6 {
+		t.Errorf("diagnostic line = %d, want 6", diagnostic.Line)
+	}
+	if !strings.Contains(diagnostic.Message, "invalid cache-cron") {
+		t.Errorf("diagnostic message = %q, want invalid cache-cron", diagnostic.Message)
+	}
+	if diagnostic.cause == nil {
+		t.Fatal("diagnostic cause is nil")
+	}
+	if !errors.Is(err, diagnostic.cause) {
+		t.Error("diagnostic does not unwrap to its cache-cron cause")
+	}
+}
+
 func TestOIDCConfigValidation(t *testing.T) {
 	validSecret, err := makeAuthSecretKey(AUTH_SECRET_KEY_LENGTH)
 	if err != nil {

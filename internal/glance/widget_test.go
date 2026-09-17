@@ -1080,3 +1080,179 @@ func TestWidgetBaseTitleIconRendering(t *testing.T) {
 		})
 	}
 }
+
+func TestWidgetCacheCronParsingAndScheduling(t *testing.T) {
+	tests := []struct {
+		name       string
+		expression string
+		wantErr    string
+	}{
+		{name: "five field", expression: "15 6 * * *"},
+		{name: "hourly descriptor", expression: "@hourly"},
+		{name: "daily descriptor", expression: "@daily"},
+		{name: "empty", expression: "   ", wantErr: "cannot be empty"},
+		{name: "every descriptor", expression: "@every 5m", wantErr: "does not support @every"},
+		{name: "seconds field", expression: "0 15 6 * * *", wantErr: "invalid cache-cron"},
+		{name: "cron timezone", expression: "CRON_TZ=America/Chicago 15 6 * * *", wantErr: "does not support timezone prefixes"},
+		{name: "timezone", expression: "TZ=America/Chicago 15 6 * * *", wantErr: "does not support timezone prefixes"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			widget := &widgetBase{}
+			err := widget.withCacheCron(tt.expression)
+
+			if tt.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("withCacheCron(%q) error = %v, want containing %q", tt.expression, err, tt.wantErr)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("withCacheCron(%q): %v", tt.expression, err)
+			}
+			if widget.cacheType != cacheTypeCron {
+				t.Fatalf("cache type = %v, want cron", widget.cacheType)
+			}
+			if widget.cacheCronSchedule == nil {
+				t.Fatal("cron schedule was not parsed")
+			}
+		})
+	}
+}
+
+func TestWidgetCacheCronNextOccurrence(t *testing.T) {
+	widget := &widgetBase{}
+	if err := widget.withCacheCron("15 6 * * *"); err != nil {
+		t.Fatalf("withCacheCron: %v", err)
+	}
+
+	location := time.FixedZone("test", -5*60*60)
+	from := time.Date(2026, time.September, 17, 6, 16, 0, 0, location)
+	got := widget.cacheCronSchedule.Next(from)
+	want := time.Date(2026, time.September, 18, 6, 15, 0, 0, location)
+
+	if !got.Equal(want) {
+		t.Fatalf("next occurrence = %v, want %v", got, want)
+	}
+}
+
+func TestWidgetCacheCronCannotBeOverwrittenByCacheInitializers(t *testing.T) {
+	widget := &widgetBase{}
+	if err := widget.withCacheCron("@daily"); err != nil {
+		t.Fatalf("withCacheCron: %v", err)
+	}
+
+	schedule := widget.cacheCronSchedule
+	widget.withCacheDuration(time.Hour)
+	widget.withCacheOnTheHour()
+
+	if widget.cacheType != cacheTypeCron {
+		t.Fatalf("cache type = %v, want cron", widget.cacheType)
+	}
+	if widget.cacheCronSchedule != schedule {
+		t.Fatal("cache initializer replaced cron schedule")
+	}
+}
+
+func TestWidgetCacheCronLifecycleScheduling(t *testing.T) {
+	newWidget := func(t *testing.T) *widgetBase {
+		t.Helper()
+		widget := &widgetBase{
+			ID:               60,
+			Type:             "test-widget",
+			Title:            "Cron lifecycle",
+			ContentAvailable: true,
+		}
+		if err := widget.withCacheCron("* * * * *"); err != nil {
+			t.Fatalf("withCacheCron: %v", err)
+		}
+		return widget
+	}
+
+	t.Run("zero next update remains immediately due", func(t *testing.T) {
+		widget := newWidget(t)
+		now := time.Now()
+		if !widget.requiresUpdate(&now) {
+			t.Fatal("new cron widget with zero nextUpdate should be immediately due")
+		}
+	})
+
+	t.Run("success schedules next cron occurrence", func(t *testing.T) {
+		widget := newWidget(t)
+		before := time.Now()
+
+		if !widget.canContinueUpdateAfterHandlingErr(nil) {
+			t.Fatal("successful refresh should continue update")
+		}
+
+		if widget.nextUpdate.IsZero() {
+			t.Fatal("successful refresh did not schedule next cron occurrence")
+		}
+		if widget.nextUpdate.Before(before) || widget.nextUpdate.After(before.Add(2*time.Minute)) {
+			t.Fatalf("next update = %v, want next minute after %v", widget.nextUpdate, before)
+		}
+	})
+
+	t.Run("nonretryable failure schedules next cron occurrence", func(t *testing.T) {
+		widget := newWidget(t)
+		before := time.Now()
+
+		err := unexpectedHTTPStatusError(&http.Response{
+			StatusCode: http.StatusNotFound,
+			Status:     "404 Not Found",
+		})
+		if widget.canContinueUpdateAfterHandlingErr(err) {
+			t.Fatal("full refresh failure should not continue update")
+		}
+
+		if widget.updateRetriedTimes != 0 {
+			t.Fatalf("retry attempts = %d, want 0", widget.updateRetriedTimes)
+		}
+		if widget.nextUpdate.IsZero() {
+			t.Fatal("nonretryable failure did not schedule next cron occurrence")
+		}
+		if widget.nextUpdate.Before(before) || widget.nextUpdate.After(before.Add(2*time.Minute)) {
+			t.Fatalf("next update = %v, want next minute after %v", widget.nextUpdate, before)
+		}
+	})
+
+	t.Run("retryable failure schedules early retry before cron", func(t *testing.T) {
+		widget := newWidget(t)
+		before := time.Now()
+
+		err := unexpectedHTTPStatusError(&http.Response{
+			StatusCode: http.StatusBadGateway,
+			Status:     "502 Bad Gateway",
+		})
+		if widget.canContinueUpdateAfterHandlingErr(err) {
+			t.Fatal("full refresh failure should not continue update")
+		}
+
+		if widget.updateRetriedTimes != 1 {
+			t.Fatalf("retry attempts = %d, want 1", widget.updateRetriedTimes)
+		}
+		if widget.nextUpdate.IsZero() {
+			t.Fatal("retryable failure did not schedule retry")
+		}
+
+		nextCron := widget.cacheCronSchedule.Next(before)
+		if widget.nextUpdate.After(nextCron) {
+			t.Fatalf("retry = %v, later than next cron = %v", widget.nextUpdate, nextCron)
+		}
+	})
+
+	t.Run("cancellation does not reschedule", func(t *testing.T) {
+		widget := newWidget(t)
+		original := time.Now().Add(30 * time.Second)
+		widget.nextUpdate = original
+
+		if widget.canContinueUpdateAfterHandlingErr(context.Canceled) {
+			t.Fatal("cancelled refresh should not continue update")
+		}
+		if !widget.nextUpdate.Equal(original) {
+			t.Fatalf("cancelled refresh changed next update: got %v want %v", widget.nextUpdate, original)
+		}
+	})
+}

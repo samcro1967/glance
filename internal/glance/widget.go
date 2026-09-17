@@ -9,11 +9,14 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/robfig/cron/v3"
 )
 
 var widgetIDCounter atomic.Uint64
@@ -205,6 +208,7 @@ type cacheType int
 const (
 	cacheTypeInfinite cacheType = iota
 	cacheTypeDuration
+	cacheTypeCron
 	cacheTypeOnTheHour
 )
 
@@ -218,6 +222,7 @@ type widgetBase struct {
 	HideHeader          bool                 `yaml:"hide-header"`
 	CSSClass            string               `yaml:"css-class"`
 	CustomCacheDuration durationField        `yaml:"cache"`
+	CustomCacheCron     string               `yaml:"cache-cron"`
 	OpenLinksInNewTab   bool                 `yaml:"-"`
 	ContentAvailable    bool                 `yaml:"-"`
 	configuredFields    yamlConfiguredFields `yaml:"-"`
@@ -226,6 +231,7 @@ type widgetBase struct {
 	Notice              error                `yaml:"-"`
 	templateBuffer      bytes.Buffer         `yaml:"-"`
 	cacheDuration       time.Duration        `yaml:"-"`
+	cacheCronSchedule   cron.Schedule        `yaml:"-"`
 	cacheType           cacheType            `yaml:"-"`
 	nextUpdate          time.Time            `yaml:"-"`
 	updateRetriedTimes  int                  `yaml:"-"`
@@ -378,7 +384,45 @@ func (w *widgetBase) withTitleURL(titleURL string) *widgetBase {
 	return w
 }
 
+func (w *widgetBase) withCacheCron(expression string) error {
+	expression = strings.TrimSpace(expression)
+	if expression == "" {
+		return fmt.Errorf("cache-cron cannot be empty")
+	}
+
+	lowerExpression := strings.ToLower(expression)
+	if strings.HasPrefix(lowerExpression, "@every") {
+		return fmt.Errorf("cache-cron does not support @every; use cache for duration-based scheduling")
+	}
+
+	if strings.HasPrefix(expression, "CRON_TZ=") || strings.HasPrefix(expression, "TZ=") {
+		return fmt.Errorf("cache-cron does not support timezone prefixes; schedules use the Glance process timezone")
+	}
+
+	parser := cron.NewParser(
+		cron.Minute |
+			cron.Hour |
+			cron.Dom |
+			cron.Month |
+			cron.Dow |
+			cron.Descriptor,
+	)
+
+	schedule, err := parser.Parse(expression)
+	if err != nil {
+		return fmt.Errorf("invalid cache-cron %q: %w", expression, err)
+	}
+
+	w.cacheType = cacheTypeCron
+	w.cacheCronSchedule = schedule
+	return nil
+}
+
 func (w *widgetBase) withCacheDuration(duration time.Duration) *widgetBase {
+	if w.cacheType == cacheTypeCron {
+		return w
+	}
+
 	w.cacheType = cacheTypeDuration
 
 	if duration == -1 || w.CustomCacheDuration == 0 {
@@ -391,6 +435,10 @@ func (w *widgetBase) withCacheDuration(duration time.Duration) *widgetBase {
 }
 
 func (w *widgetBase) withCacheOnTheHour() *widgetBase {
+	if w.cacheType == cacheTypeCron {
+		return w
+	}
+
 	w.cacheType = cacheTypeOnTheHour
 
 	return w
@@ -516,6 +564,10 @@ func (w *widgetBase) getNextUpdateTime() time.Time {
 		return now.Add(time.Duration(
 			((60-now.Minute())*60)-now.Second(),
 		) * time.Second)
+	}
+
+	if w.cacheType == cacheTypeCron && w.cacheCronSchedule != nil {
+		return w.cacheCronSchedule.Next(now)
 	}
 
 	return time.Time{}
