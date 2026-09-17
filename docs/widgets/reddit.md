@@ -4,6 +4,8 @@
 
 Display posts from a subreddit with optional thumbnails, flairs, search, authentication, and custom request routing.
 
+When thumbnails are enabled, thumbnail images link to the post discussion and follow the widget's `open-links-in-new-tab` setting.
+
 ## Quick start
 
 ```yaml
