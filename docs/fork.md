@@ -132,6 +132,8 @@ The fork's differences from upstream span both user-visible functionality and un
 
 ### Incorporated upstream and platform correctness fixes
 
+- **ChangeDetection internal/external URL separation and page-title fallback** — Adds optional `link-url` configuration so Glance can use an internal ChangeDetection API address while generating browser-facing links from a public address, defaulting to `instance-url` for compatibility. Watch titles now fall back from explicit `title` to ChangeDetection `page_title` before deriving a title from the URL. Adapted from [`juvanj/glance` commit `bbe1b6d`](https://github.com/juvanj/glance/commit/bbe1b6d14a560d20479c0e03482735eb686e675a) and [`kirolos-esmat/glance` commit `9b580fe`](https://github.com/kirolos-esmat/glance/commit/9b580fef18eda2306cc98f9918b4e32206933fb3).
+
 - **Custom API numeric conversion compatibility** — Extends `toInt`, `toFloat`, and decorated JSON numeric accessors to handle numeric strings, percentage strings, native numeric values, and GJSON values consistently while preserving truncation for integer conversion. Adapted from [`ToTt0G/glance` commit `19ad8e5`](https://github.com/ToTt0G/glance/commit/19ad8e505bd1395ba8918731784a027c4162e1a6) and follow-up [`408b160`](https://github.com/ToTt0G/glance/commit/408b160acba54e32e46ed946a385d532801d8d44).
 
 - **Twitch Channels persisted-query recovery** — Updates the Twitch `StreamMetadata` persisted query after Twitch invalidated the previous hash and preserves Twitch GraphQL error messages so failures such as `PersistedQueryNotFound` remain diagnosable instead of surfacing as secondary JSON errors. Adapted from [`Gloweet/glance` commit `a143edb`](https://github.com/Gloweet/glance/commit/a143edb65f0fa81d13b1f5c5ef95d7a41b065cf2).
