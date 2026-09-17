@@ -511,6 +511,43 @@ func TestCarouselBrowserCleanupContract(t *testing.T) {
 	}
 }
 
+func TestPopoverViewportContainmentContract(t *testing.T) {
+	popoverJS, err := os.ReadFile(filepath.Join("static", "js", "popover.js"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(popoverJS)
+	for _, fragment := range []string{
+		"const viewportTop = window.scrollY",
+		"const maximumTop = Math.max(viewportTop, viewportBottom - containerBounds.height)",
+		"Math.min(Math.max(top, viewportTop), maximumTop)",
+		`window.addEventListener("scroll", queueRepositionContainer)`,
+		`window.addEventListener("resize", queueRepositionContainer)`,
+		`observer.observe(containerElement)`,
+		`window.removeEventListener("scroll", queueRepositionContainer)`,
+		`window.removeEventListener("resize", queueRepositionContainer)`,
+		`observer.unobserve(containerElement)`,
+	} {
+		if !strings.Contains(source, fragment) {
+			t.Fatalf("popover.js missing viewport containment fragment %q", fragment)
+		}
+	}
+
+	popoverCSS, err := os.ReadFile(filepath.Join("static", "css", "popover.css"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cssSource := string(popoverCSS)
+	for _, fragment := range []string{
+		"max-height: calc(100vh - var(--content-bounds-padding) - var(--content-bounds-padding) - var(--triangle-margin))",
+		"overflow-y: auto",
+	} {
+		if !strings.Contains(cssSource, fragment) {
+			t.Fatalf("popover.css missing oversized-content containment fragment %q", fragment)
+		}
+	}
+}
+
 func TestPopoverBrowserInitializationContract(t *testing.T) {
 	popoverJS, err := os.ReadFile(filepath.Join("static", "js", "popover.js"))
 	if err != nil {

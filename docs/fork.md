@@ -132,6 +132,8 @@ The fork's differences from upstream span both user-visible functionality and un
 
 ### Incorporated upstream and platform correctness fixes
 
+- **Popover viewport containment** — Clamps shared popover positioning to the visible viewport after above/below placement and gives oversized popover content an internal vertical scroll region so content remains reachable when neither side can contain it. Adapted and extended from [`Gloweet/glance` commit `0e12085`](https://github.com/Gloweet/glance/commit/0e12085f3bdd0533ac3c07327205bd936f9bcca4).
+
 - **Server Stats dynamic multi-drive display** — Renders progress values for every configured or discovered mountpoint instead of limiting the visible combined disk bar to the first two mountpoints, matching the existing backend and popover support for arbitrary mountpoint counts. Adapted from the presentation portion of [`ToTt0G/glance` commit `c5d6059`](https://github.com/ToTt0G/glance/commit/c5d6059376a9f930d8f73c94f539591f76dca196); its separate host-root remapping changes are intentionally not incorporated.
 
 - **ChangeDetection internal/external URL separation and page-title fallback** — Adds optional `link-url` configuration so Glance can use an internal ChangeDetection API address while generating browser-facing links from a public address, defaulting to `instance-url` for compatibility. Watch titles now fall back from explicit `title` to ChangeDetection `page_title` before deriving a title from the URL. Adapted from [`juvanj/glance` commit `bbe1b6d`](https://github.com/juvanj/glance/commit/bbe1b6d14a560d20479c0e03482735eb686e675a) and [`kirolos-esmat/glance` commit `9b580fe`](https://github.com/kirolos-esmat/glance/commit/9b580fef18eda2306cc98f9918b4e32206933fb3).

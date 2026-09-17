@@ -31,6 +31,8 @@
     border-radius: 5px;
     animation: popoverFrameEntrance 0.3s backwards cubic-bezier(0.16, 1, 0.3, 1);
     box-shadow: var(--shadow-properties) var(--shadow-color);
+    max-height: calc(100vh - var(--content-bounds-padding) - var(--content-bounds-padding) - var(--triangle-margin));
+    overflow-y: auto;
 }
 
 .popover-frame::before {
