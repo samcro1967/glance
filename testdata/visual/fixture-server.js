@@ -203,6 +203,38 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (url.pathname === '/api/v1/query_range') {
+    if (req.method !== 'POST') {
+      res.writeHead(405, { 'Content-Type': 'text/plain' });
+      res.end('Method not allowed');
+      return;
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    const values = [
+      42, 46, 44, 51, 57, 54, 63, 68,
+      64, 72, 78, 74, 82, 88, 84, 91,
+      87, 94, 89, 96, 92, 99, 95, 102
+    ].map((value, index, all) => [
+      now - (all.length - 1 - index) * 3600,
+      String(value)
+    ]);
+
+    sendJson(res, {
+      status: 'success',
+      data: {
+        resultType: 'matrix',
+        result: [
+          {
+            metric: { __name__: 'visual_fixture_requests_per_second' },
+            values
+          }
+        ]
+      }
+    });
+    return;
+  }
+
   if (url.pathname === '/containers/json') {
     sendJson(res, dockerContainers);
     return;

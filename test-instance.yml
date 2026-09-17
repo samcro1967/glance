@@ -702,6 +702,19 @@ pages:
             url: http://127.0.0.1:18089/
             timeout: 1s
 
+          - type: prometheus
+            title: Request Rate
+            css-class: visual-fixture-prometheus
+            server: http://127.0.0.1:18089
+            query: visual_fixture_requests_per_second
+            range: 24h
+            step: 1h
+            unit: compact-number
+            show-value: true
+            show-scale: true
+            show-time-labels: true
+            timeout: 1s
+
       - size: medium
         widgets:
           - type: change-detection

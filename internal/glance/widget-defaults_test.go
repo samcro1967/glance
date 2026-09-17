@@ -1810,6 +1810,84 @@ pages:
 	}
 }
 
+func TestPrometheusHTTPDefaultsHierarchy(t *testing.T) {
+	config, err := newConfigFromYAML([]byte(`
+widget-defaults:
+  global:
+    timeout: 11s
+    allow-insecure: true
+    headers:
+      X-Global: global
+      X-Override: global
+  types:
+    prometheus:
+      timeout: 12s
+      headers:
+        X-Type: prometheus
+        X-Override: type
+
+pages:
+  - name: Test
+    columns:
+      - size: full
+        widgets:
+          - type: prometheus
+            server: https://example.com
+            query: up
+
+          - type: prometheus
+            server: https://example.com
+            query: up
+            timeout: 21s
+            allow-insecure: false
+            headers:
+              X-Instance: instance
+              X-Override: instance
+`))
+	if err != nil {
+		t.Fatalf("newConfigFromYAML: %v", err)
+	}
+
+	widgets := config.Pages[0].Columns[0].Widgets
+
+	inherited := widgets[0].(*prometheusWidget)
+	if got := time.Duration(inherited.Timeout); got != 12*time.Second {
+		t.Fatalf("inherited Prometheus timeout = %v, want 12s", got)
+	}
+	if !inherited.AllowInsecure {
+		t.Fatal("Prometheus widget did not inherit global allow-insecure")
+	}
+	if got := inherited.Headers["X-Global"]; got != "global" {
+		t.Fatalf("inherited Prometheus global header = %q, want global", got)
+	}
+	if got := inherited.Headers["X-Type"]; got != "prometheus" {
+		t.Fatalf("inherited Prometheus type header = %q, want prometheus", got)
+	}
+	if got := inherited.Headers["X-Override"]; got != "type" {
+		t.Fatalf("inherited Prometheus header override = %q, want type", got)
+	}
+
+	explicit := widgets[1].(*prometheusWidget)
+	if got := time.Duration(explicit.Timeout); got != 21*time.Second {
+		t.Fatalf("explicit Prometheus timeout = %v, want 21s", got)
+	}
+	if explicit.AllowInsecure {
+		t.Fatal("explicit Prometheus allow-insecure false was overwritten")
+	}
+	if got := explicit.Headers["X-Global"]; got != "global" {
+		t.Fatalf("explicit Prometheus global header = %q, want global", got)
+	}
+	if got := explicit.Headers["X-Type"]; got != "prometheus" {
+		t.Fatalf("explicit Prometheus type header = %q, want prometheus", got)
+	}
+	if got := explicit.Headers["X-Instance"]; got != "instance" {
+		t.Fatalf("explicit Prometheus instance header = %q, want instance", got)
+	}
+	if got := explicit.Headers["X-Override"]; got != "instance" {
+		t.Fatalf("explicit Prometheus header override = %q, want instance", got)
+	}
+}
+
 func TestEveryRegisteredWidgetSupportsCommonCapabilities(t *testing.T) {
 	capabilities := []widgetCapability{
 		widgetCapabilityTitle,

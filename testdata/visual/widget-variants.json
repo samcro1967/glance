@@ -59,6 +59,9 @@
   "monitor": {
     "variants": ["standard", "compact"]
   },
+  "prometheus": {
+    "variants": ["representative-state"]
+  },
   "reddit": {
     "variants": [
       "vertical-list",

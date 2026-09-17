@@ -903,3 +903,124 @@ func TestCheckPiholeSessionIDIsValidUnexpectedStatusPreservesIdentity(t *testing
 		)
 	}
 }
+
+func TestParseBlockyMetrics(t *testing.T) {
+	metrics := `# HELP blocky_query_total queries
+blocky_query_total{client="a"} 80
+blocky_query_total{client="b"} 20
+blocky_response_total{reason="BLOCKED (CACHED)"} 25
+blocky_request_duration_seconds_sum 5
+blocky_denylist_cache_entries{group="default"} 1200
+`
+	totals, err := parseBlockyMetrics(metrics)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if totals.TotalQueries != 100 || totals.BlockedQueries != 25 || totals.DurationSeconds != 5 || totals.DomainsBlocked != 1200 {
+		t.Fatalf("unexpected totals: %+v", totals)
+	}
+}
+
+func TestFetchBlockyStatsZeroQueries(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.WriteString(w, "blocky_query_total 0\nblocky_request_duration_seconds_sum 0\n")
+	}))
+	defer server.Close()
+
+	stats, err := fetchBlockyStats(context.Background(), server.URL, false, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.BlockedPercent != 0 || stats.ResponseTime != 0 {
+		t.Fatalf("zero-query stats must not divide by zero: %+v", stats)
+	}
+}
+
+func TestFetchControldStatsZeroQueries(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer test-token" {
+			t.Fatalf("authorization = %q", r.Header.Get("Authorization"))
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(r.URL.Path, "time-series") {
+			_, _ = io.WriteString(w, `{"success":true,"body":{"queries":[]}}`)
+			return
+		}
+		_, _ = io.WriteString(w, `{"success":true,"body":{"queries":{}}}`)
+	}))
+	defer server.Close()
+
+	stats, err := fetchControldStats(context.Background(), server.URL, false, 0, "test-token", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.TotalQueries != 0 || stats.BlockedPercent != 0 {
+		t.Fatalf("unexpected zero-query stats: %+v", stats)
+	}
+}
+
+func TestFetchControldStatsPopulated(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer test-token" {
+			t.Fatalf("authorization = %q", r.Header.Get("Authorization"))
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(r.URL.Path, "time-series") {
+			_, _ = io.WriteString(w, `{"success":true,"body":{"queries":[
+				{"count":{"0":1,"1":3}},{"count":{"0":1,"1":3}},{"count":{"0":1,"1":3}},
+				{"count":{"0":2,"1":2}},{"count":{"0":2,"1":2}},{"count":{"0":2,"1":2}},
+				{"count":{"0":1,"1":3}},{"count":{"0":1,"1":3}},{"count":{"0":1,"1":3}},
+				{"count":{"0":2,"1":2}},{"count":{"0":2,"1":2}},{"count":{"0":2,"1":2}},
+				{"count":{"0":1,"1":3}},{"count":{"0":1,"1":3}},{"count":{"0":1,"1":3}},
+				{"count":{"0":2,"1":2}},{"count":{"0":2,"1":2}},{"count":{"0":2,"1":2}},
+				{"count":{"0":1,"1":3}},{"count":{"0":1,"1":3}},{"count":{"0":1,"1":3}},
+				{"count":{"0":2,"1":2}},{"count":{"0":2,"1":2}},{"count":{"0":2,"1":2}}
+			]}}`)
+			return
+		}
+
+		_, _ = io.WriteString(w, `{"success":true,"body":{"queries":{
+			"second.example":9,
+			"first.example":18,
+			"third.example":3
+		}}}`)
+	}))
+	defer server.Close()
+
+	stats, err := fetchControldStats(context.Background(), server.URL, false, 0, "test-token", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if stats.TotalQueries != 96 || stats.BlockedQueries != 36 || stats.BlockedPercent != 37 {
+		t.Fatalf("unexpected totals: %+v", stats)
+	}
+
+	if len(stats.TopBlockedDomains) != 3 {
+		t.Fatalf("top blocked domains length = %d, want 3", len(stats.TopBlockedDomains))
+	}
+	if stats.TopBlockedDomains[0].Domain != "first.example" || stats.TopBlockedDomains[0].PercentBlocked != 50 {
+		t.Fatalf("first top blocked domain = %+v", stats.TopBlockedDomains[0])
+	}
+	if stats.TopBlockedDomains[1].Domain != "second.example" || stats.TopBlockedDomains[1].PercentBlocked != 25 {
+		t.Fatalf("second top blocked domain = %+v", stats.TopBlockedDomains[1])
+	}
+
+	for i := range dnsStatsBars {
+		if stats.Series[i].Queries != 12 {
+			t.Fatalf("series[%d].Queries = %d, want 12", i, stats.Series[i].Queries)
+		}
+
+		wantBlocked := 3
+		if i%2 == 1 {
+			wantBlocked = 6
+		}
+		if stats.Series[i].Blocked != wantBlocked {
+			t.Fatalf("series[%d].Blocked = %d, want %d", i, stats.Series[i].Blocked, wantBlocked)
+		}
+		if stats.Series[i].PercentTotal != 100 {
+			t.Fatalf("series[%d].PercentTotal = %d, want 100", i, stats.Series[i].PercentTotal)
+		}
+	}
+}

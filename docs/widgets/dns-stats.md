@@ -2,7 +2,7 @@
 
 [Widgets](../widgets.md) · [Configuration](../configuration.md) · [Glance README](../../README.md)
 
-Display statistics from a self-hosted ad-blocking DNS resolver such as AdGuard Home, Pi-hole, or Technitium.
+Display statistics from a self-hosted ad-blocking DNS resolver such as AdGuard Home, Pi-hole, Technitium, Blocky, or Control D.
 
 Example:
 ## Quick start
@@ -22,7 +22,7 @@ Preview:
 
 > [!NOTE]
 >
-> When using AdGuard Home the 3rd statistic on top will be the average latency and when using Pi-hole or Technitium it will be the total number of blocked domains from all adlists.
+> The available summary metrics depend on the provider. AdGuard Home reports average latency; Pi-hole and Technitium report blocked-domain totals; Blocky can report both latency and denylist cache entries.
 
 ## Configuration
 
@@ -36,13 +36,13 @@ This widget also supports the [shared widget properties](../widgets.md#shared-pr
 | url | string | yes |  |
 | username | string | when service is `adguard` |  |
 | password | string | when service is `adguard` or `pihole-v6` |  |
-| token | string | when service is `pihole` |  |
+| token | string | when service is `pihole`, `technitium`, or `controld` |  |
 | hide-graph | bool | no | false |
 | hide-top-domains | bool | no | false |
 | hour-format | string | no | 12h |
 
 ### `service`
-Either `adguard`, `technitium`, or `pihole` (major version 5 and below) or `pihole-v6` (major version 6 and above).
+Either `adguard`, `blocky`, `controld`, `technitium`, `pihole` (major version 5 and below), or `pihole-v6` (major version 6 and above). Blocky reads Prometheus-format metrics directly from the configured URL and does not provide the time-series graph or top-domain list. Control D uses the reporting API and requires a token.
 
 ### `timeout`
 The maximum time to wait for a response from the DNS service.
@@ -64,7 +64,9 @@ For Pi-hole version 6+, this field is required if you have set a password to log
 ### `token`
 Required when using Pi-hole major version 5 or earlier. The API token which can be found in `Settings -> API -> Show API token`.
 
-Also required when using Technitium, an API token can be generated at `Administration -> Sessions -> Create Token`.
+Also required when using Technitium; an API token can be generated at `Administration -> Sessions -> Create Token`.
+
+Required when using Control D and sent as a bearer token to its reporting API.
 
 ### `hide-graph`
 Whether to hide the graph showing the number of queries over time.

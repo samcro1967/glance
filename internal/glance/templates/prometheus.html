@@ -1,0 +1,60 @@
+{{ template "widget-base.html" . }}
+
+{{ define "widget-content" }}
+<div class="prometheus">
+    {{ if .ShowValue }}
+    <div class="prometheus-current-value color-highlight">{{ .Graph.LatestValue }}</div>
+    {{ end }}
+
+    {{ if .Link }}
+    <a class="prometheus-chart-link" href="{{ .Link | safeURL }}" target="_blank" rel="noreferrer" aria-label="Open {{ .Title }} graph">
+    {{ else }}
+    <div class="prometheus-chart-link">
+    {{ end }}
+        <div class="prometheus-chart">
+            <div class="prometheus-plot">
+            <svg viewBox="0 0 1000 180" preserveAspectRatio="none" aria-hidden="true">
+                <g class="prometheus-gridlines" shape-rendering="crispEdges">
+                    <line x1="0" y1="1" x2="1000" y2="1" vector-effect="non-scaling-stroke"></line>
+                    <line x1="0" y1="90" x2="1000" y2="90" vector-effect="non-scaling-stroke"></line>
+                    <line x1="0" y1="179" x2="1000" y2="179" vector-effect="non-scaling-stroke"></line>
+                </g>
+                <polyline class="prometheus-line" fill="none" stroke-linejoin="round" stroke-linecap="round" points="{{ .Graph.Polyline }}" vector-effect="non-scaling-stroke"></polyline>
+            </svg>
+
+            <div class="prometheus-hover-points">
+                {{ range .Graph.Points }}
+                <div class="prometheus-hover-point{{ if .TooltipBelow }} prometheus-hover-point-tooltip-below{{ end }}{{ if .TooltipLeft }} prometheus-hover-point-tooltip-left{{ else if .TooltipRight }} prometheus-hover-point-tooltip-right{{ end }}"
+                    style="--point-left: {{ printf "%.4f" .HitLeft }}%; --point-width: {{ printf "%.4f" .HitWidth }}%; --point-offset: {{ printf "%.4f" .HitPointOffset }}%; --point-y: {{ printf "%.4f" .YPercent }}%;">
+                    <div class="prometheus-hover-guide"></div>
+                    <div class="prometheus-point-marker"></div>
+                    <div class="prometheus-point-output">
+                        <div class="prometheus-point-value color-highlight">{{ .FormattedValue }}</div>
+                        <div class="prometheus-point-time">{{ .FormattedTime }}</div>
+                    </div>
+                </div>
+                {{ end }}
+            </div>
+            </div>
+
+            {{ if .ShowScale }}
+            <div class="prometheus-scale">
+                <span>{{ .Graph.MaximumValue }}</span>
+                <span>{{ .Graph.MinimumValue }}</span>
+            </div>
+            {{ end }}
+        </div>
+
+        {{ if .ShowTimeLabels }}
+        <div class="prometheus-time-labels">
+            <span>{{ .Graph.StartTimeLabel }}</span>
+            <span>{{ .Graph.EndTimeLabel }}</span>
+        </div>
+        {{ end }}
+    {{ if .Link }}
+    </a>
+    {{ else }}
+    </div>
+    {{ end }}
+</div>
+{{ end }}
