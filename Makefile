@@ -2485,6 +2485,22 @@ performance-runtime:
 	done; \
 	cat "$$log"; \
 	$(MAKE) --no-print-directory frontend-diagnostic COMMAND=performance-snapshot; \
+	kill -USR1 "$$browser_pid"; \
+	deadline=$$(( $$(date +%s) + 10 )); \
+	while ! grep -q "^PERFORMANCE_BACKEND_DIAGNOSTICS_COMPLETE$$" "$$log"; do \
+		if ! kill -0 "$$browser_pid" >/dev/null 2>&1; then \
+			echo "Performance browser exited before backend diagnostics completed."; \
+			cat "$$log"; \
+			exit 1; \
+		fi; \
+		if [ "$$(date +%s)" -ge "$$deadline" ]; then \
+			echo "Timed out waiting for backend performance diagnostics."; \
+			cat "$$log"; \
+			exit 1; \
+		fi; \
+		sleep 0.25; \
+	done; \
+	sed -n "/^=== CORRELATED BACKEND DIAGNOSTICS ===$$/,/^PERFORMANCE_BACKEND_DIAGNOSTICS_COMPLETE$$/p" "$$log"; \
 	kill "$$browser_pid" >/dev/null 2>&1 || true; \
 	wait "$$browser_pid"; \
 	browser_pid=""; \

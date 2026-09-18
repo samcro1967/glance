@@ -5,6 +5,12 @@ import (
 	"time"
 )
 
+type renderWidgetAttribution struct {
+	ID    uint64
+	Type  string
+	Title string
+}
+
 type renderRuntimeDiagnosticsSnapshot struct {
 	StartedAt                  time.Time
 	WidgetCalls                uint64
@@ -12,9 +18,11 @@ type renderRuntimeDiagnosticsSnapshot struct {
 	WidgetRefreshLockWaits     uint64
 	WidgetLockWaitTotal        time.Duration
 	WidgetLockWaitMax          time.Duration
+	WidgetLockWaitMaxWidget    renderWidgetAttribution
 	WidgetRenders              uint64
 	WidgetRenderTotal          time.Duration
 	WidgetRenderMax            time.Duration
+	WidgetRenderMaxWidget      renderWidgetAttribution
 	PageExecutions             uint64
 	PageFailures               uint64
 	PageLockWaitTotal          time.Duration
@@ -32,9 +40,11 @@ type renderRuntimeDiagnostics struct {
 	widgetRefreshLockWaits     uint64
 	widgetLockWaitTotal        time.Duration
 	widgetLockWaitMax          time.Duration
+	widgetLockWaitMaxWidget    renderWidgetAttribution
 	widgetRenders              uint64
 	widgetRenderTotal          time.Duration
 	widgetRenderMax            time.Duration
+	widgetRenderMaxWidget      renderWidgetAttribution
 	pageExecutions             uint64
 	pageFailures               uint64
 	pageLockWaitTotal          time.Duration
@@ -60,7 +70,10 @@ func (d *renderRuntimeDiagnostics) recordWidgetSnapshotHit() {
 	d.mu.Unlock()
 }
 
-func (d *renderRuntimeDiagnostics) recordWidgetRefreshLockWait(duration time.Duration) {
+func (d *renderRuntimeDiagnostics) recordWidgetRefreshLockWait(
+	duration time.Duration,
+	widget renderWidgetAttribution,
+) {
 	if d == nil {
 		return
 	}
@@ -70,11 +83,15 @@ func (d *renderRuntimeDiagnostics) recordWidgetRefreshLockWait(duration time.Dur
 	d.widgetLockWaitTotal += duration
 	if duration > d.widgetLockWaitMax {
 		d.widgetLockWaitMax = duration
+		d.widgetLockWaitMaxWidget = widget
 	}
 	d.mu.Unlock()
 }
 
-func (d *renderRuntimeDiagnostics) recordWidgetRender(duration time.Duration) {
+func (d *renderRuntimeDiagnostics) recordWidgetRender(
+	duration time.Duration,
+	widget renderWidgetAttribution,
+) {
 	if d == nil {
 		return
 	}
@@ -85,6 +102,7 @@ func (d *renderRuntimeDiagnostics) recordWidgetRender(duration time.Duration) {
 	d.widgetRenderTotal += duration
 	if duration > d.widgetRenderMax {
 		d.widgetRenderMax = duration
+		d.widgetRenderMaxWidget = widget
 	}
 	d.mu.Unlock()
 }
@@ -134,9 +152,11 @@ func (d *renderRuntimeDiagnostics) snapshot() renderRuntimeDiagnosticsSnapshot {
 		WidgetRefreshLockWaits:     d.widgetRefreshLockWaits,
 		WidgetLockWaitTotal:        d.widgetLockWaitTotal,
 		WidgetLockWaitMax:          d.widgetLockWaitMax,
+		WidgetLockWaitMaxWidget:    d.widgetLockWaitMaxWidget,
 		WidgetRenders:              d.widgetRenders,
 		WidgetRenderTotal:          d.widgetRenderTotal,
 		WidgetRenderMax:            d.widgetRenderMax,
+		WidgetRenderMaxWidget:      d.widgetRenderMaxWidget,
 		PageExecutions:             d.pageExecutions,
 		PageFailures:               d.pageFailures,
 		PageLockWaitTotal:          d.pageLockWaitTotal,

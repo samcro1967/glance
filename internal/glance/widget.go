@@ -173,6 +173,13 @@ func refreshWidget(ctx context.Context, widget widget, schedulerNow *time.Time) 
 
 func renderWidget(widget widget) template.HTML {
 	base, hasBase := widgetBaseOf(widget)
+	attribution := renderWidgetAttribution{
+		ID:   widget.GetID(),
+		Type: widget.GetType(),
+	}
+	if hasBase {
+		attribution.Title = base.Title
+	}
 
 	if hasBase && !widget.tryLockRefresh() {
 		base.renderSnapshotMu.RLock()
@@ -187,7 +194,7 @@ func renderWidget(widget widget) template.HTML {
 
 		waitStarted := time.Now()
 		widget.lockRefresh()
-		renderDiagnostics.recordWidgetRefreshLockWait(time.Since(waitStarted))
+		renderDiagnostics.recordWidgetRefreshLockWait(time.Since(waitStarted), attribution)
 	} else if !hasBase {
 		widget.lockRefresh()
 	}
@@ -196,7 +203,7 @@ func renderWidget(widget widget) template.HTML {
 
 	renderStarted := time.Now()
 	rendered := widget.Render()
-	renderDiagnostics.recordWidgetRender(time.Since(renderStarted))
+	renderDiagnostics.recordWidgetRender(time.Since(renderStarted), attribution)
 
 	if hasBase {
 		base.renderSnapshotMu.Lock()

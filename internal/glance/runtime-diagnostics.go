@@ -154,41 +154,59 @@ type outboundHTTPDestinationDiagnosticsResponse struct {
 	LastExchangeAt    *time.Time `json:"last_exchange_at,omitempty"`
 }
 
+type renderWidgetAttributionResponse struct {
+	ID    uint64 `json:"id"`
+	Type  string `json:"type"`
+	Title string `json:"title,omitempty"`
+}
+
 type renderRuntimeDiagnosticsResponse struct {
-	StartedAt                      *time.Time `json:"started_at,omitempty"`
-	WidgetCalls                    uint64     `json:"widget_calls"`
-	WidgetSnapshotHits             uint64     `json:"widget_snapshot_hits"`
-	WidgetRefreshLockWaits         uint64     `json:"widget_refresh_lock_waits"`
-	WidgetLockWaitTotalMS          float64    `json:"widget_refresh_lock_wait_total_ms"`
-	WidgetLockWaitAverageMS        float64    `json:"widget_refresh_lock_wait_average_ms"`
-	WidgetLockWaitMaxMS            float64    `json:"widget_refresh_lock_wait_max_ms"`
-	WidgetRenders                  uint64     `json:"widget_renders"`
-	WidgetRenderTotalMS            float64    `json:"widget_render_total_ms"`
-	WidgetRenderAverageMS          float64    `json:"widget_render_average_ms"`
-	WidgetRenderMaxMS              float64    `json:"widget_render_max_ms"`
-	PageExecutions                 uint64     `json:"page_template_executions"`
-	PageFailures                   uint64     `json:"page_template_failures"`
-	PageLockWaitTotalMS            float64    `json:"page_lock_wait_total_ms"`
-	PageLockWaitAverageMS          float64    `json:"page_lock_wait_average_ms"`
-	PageLockWaitMaxMS              float64    `json:"page_lock_wait_max_ms"`
-	PageTemplateExecutionTotalMS   float64    `json:"page_template_execution_total_ms"`
-	PageTemplateExecutionAverageMS float64    `json:"page_template_execution_average_ms"`
-	PageTemplateExecutionMaxMS     float64    `json:"page_template_execution_max_ms"`
+	StartedAt                      *time.Time                      `json:"started_at,omitempty"`
+	WidgetCalls                    uint64                          `json:"widget_calls"`
+	WidgetSnapshotHits             uint64                          `json:"widget_snapshot_hits"`
+	WidgetRefreshLockWaits         uint64                          `json:"widget_refresh_lock_waits"`
+	WidgetLockWaitTotalMS          float64                         `json:"widget_refresh_lock_wait_total_ms"`
+	WidgetLockWaitAverageMS        float64                         `json:"widget_refresh_lock_wait_average_ms"`
+	WidgetLockWaitMaxMS            float64                         `json:"widget_refresh_lock_wait_max_ms"`
+	WidgetLockWaitMaxWidget        renderWidgetAttributionResponse `json:"widget_refresh_lock_wait_max_widget"`
+	WidgetRenders                  uint64                          `json:"widget_renders"`
+	WidgetRenderTotalMS            float64                         `json:"widget_render_total_ms"`
+	WidgetRenderAverageMS          float64                         `json:"widget_render_average_ms"`
+	WidgetRenderMaxMS              float64                         `json:"widget_render_max_ms"`
+	WidgetRenderMaxWidget          renderWidgetAttributionResponse `json:"widget_render_max_widget"`
+	PageExecutions                 uint64                          `json:"page_template_executions"`
+	PageFailures                   uint64                          `json:"page_template_failures"`
+	PageLockWaitTotalMS            float64                         `json:"page_lock_wait_total_ms"`
+	PageLockWaitAverageMS          float64                         `json:"page_lock_wait_average_ms"`
+	PageLockWaitMaxMS              float64                         `json:"page_lock_wait_max_ms"`
+	PageTemplateExecutionTotalMS   float64                         `json:"page_template_execution_total_ms"`
+	PageTemplateExecutionAverageMS float64                         `json:"page_template_execution_average_ms"`
+	PageTemplateExecutionMaxMS     float64                         `json:"page_template_execution_max_ms"`
 }
 
 func renderRuntimeDiagnosticsResponseFromSnapshot(
 	snapshot renderRuntimeDiagnosticsSnapshot,
 ) renderRuntimeDiagnosticsResponse {
 	response := renderRuntimeDiagnosticsResponse{
-		StartedAt:                    optionalDiagnosticTime(snapshot.StartedAt),
-		WidgetCalls:                  snapshot.WidgetCalls,
-		WidgetSnapshotHits:           snapshot.WidgetSnapshotHits,
-		WidgetRefreshLockWaits:       snapshot.WidgetRefreshLockWaits,
-		WidgetLockWaitTotalMS:        float64(snapshot.WidgetLockWaitTotal) / float64(time.Millisecond),
-		WidgetLockWaitMaxMS:          float64(snapshot.WidgetLockWaitMax) / float64(time.Millisecond),
-		WidgetRenders:                snapshot.WidgetRenders,
-		WidgetRenderTotalMS:          float64(snapshot.WidgetRenderTotal) / float64(time.Millisecond),
-		WidgetRenderMaxMS:            float64(snapshot.WidgetRenderMax) / float64(time.Millisecond),
+		StartedAt:              optionalDiagnosticTime(snapshot.StartedAt),
+		WidgetCalls:            snapshot.WidgetCalls,
+		WidgetSnapshotHits:     snapshot.WidgetSnapshotHits,
+		WidgetRefreshLockWaits: snapshot.WidgetRefreshLockWaits,
+		WidgetLockWaitTotalMS:  float64(snapshot.WidgetLockWaitTotal) / float64(time.Millisecond),
+		WidgetLockWaitMaxMS:    float64(snapshot.WidgetLockWaitMax) / float64(time.Millisecond),
+		WidgetLockWaitMaxWidget: renderWidgetAttributionResponse{
+			ID:    snapshot.WidgetLockWaitMaxWidget.ID,
+			Type:  snapshot.WidgetLockWaitMaxWidget.Type,
+			Title: snapshot.WidgetLockWaitMaxWidget.Title,
+		},
+		WidgetRenders:       snapshot.WidgetRenders,
+		WidgetRenderTotalMS: float64(snapshot.WidgetRenderTotal) / float64(time.Millisecond),
+		WidgetRenderMaxMS:   float64(snapshot.WidgetRenderMax) / float64(time.Millisecond),
+		WidgetRenderMaxWidget: renderWidgetAttributionResponse{
+			ID:    snapshot.WidgetRenderMaxWidget.ID,
+			Type:  snapshot.WidgetRenderMaxWidget.Type,
+			Title: snapshot.WidgetRenderMaxWidget.Title,
+		},
 		PageExecutions:               snapshot.PageExecutions,
 		PageFailures:                 snapshot.PageFailures,
 		PageLockWaitTotalMS:          float64(snapshot.PageLockWaitTotal) / float64(time.Millisecond),

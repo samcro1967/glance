@@ -236,15 +236,25 @@ func TestRuntimeDiagnosticsResponseFromSnapshot(t *testing.T) {
 func TestRenderRuntimeDiagnosticsResponseFromSnapshot(t *testing.T) {
 	now := time.Now()
 	snapshot := renderRuntimeDiagnosticsSnapshot{
-		StartedAt:                  now,
-		WidgetCalls:                5,
-		WidgetSnapshotHits:         3,
-		WidgetRefreshLockWaits:     1,
-		WidgetLockWaitTotal:        4 * time.Millisecond,
-		WidgetLockWaitMax:          4 * time.Millisecond,
-		WidgetRenders:              2,
-		WidgetRenderTotal:          12 * time.Millisecond,
-		WidgetRenderMax:            8 * time.Millisecond,
+		StartedAt:              now,
+		WidgetCalls:            5,
+		WidgetSnapshotHits:     3,
+		WidgetRefreshLockWaits: 1,
+		WidgetLockWaitTotal:    4 * time.Millisecond,
+		WidgetLockWaitMax:      4 * time.Millisecond,
+		WidgetLockWaitMaxWidget: renderWidgetAttribution{
+			ID:    22,
+			Type:  "custom-api",
+			Title: "Slow API",
+		},
+		WidgetRenders:     2,
+		WidgetRenderTotal: 12 * time.Millisecond,
+		WidgetRenderMax:   8 * time.Millisecond,
+		WidgetRenderMaxWidget: renderWidgetAttribution{
+			ID:    33,
+			Type:  "rss",
+			Title: "Slow RSS",
+		},
 		PageExecutions:             2,
 		PageFailures:               1,
 		PageLockWaitTotal:          6 * time.Millisecond,
@@ -264,8 +274,18 @@ func TestRenderRuntimeDiagnosticsResponseFromSnapshot(t *testing.T) {
 	if got.WidgetLockWaitAverageMS != 4 || got.WidgetLockWaitMaxMS != 4 {
 		t.Fatalf("unexpected widget lock-wait durations: %#v", got)
 	}
+	if got.WidgetLockWaitMaxWidget.ID != 22 ||
+		got.WidgetLockWaitMaxWidget.Type != "custom-api" ||
+		got.WidgetLockWaitMaxWidget.Title != "Slow API" {
+		t.Fatalf("unexpected widget lock-wait max attribution: %#v", got.WidgetLockWaitMaxWidget)
+	}
 	if got.WidgetRenderAverageMS != 6 || got.WidgetRenderMaxMS != 8 {
 		t.Fatalf("unexpected widget render durations: %#v", got)
+	}
+	if got.WidgetRenderMaxWidget.ID != 33 ||
+		got.WidgetRenderMaxWidget.Type != "rss" ||
+		got.WidgetRenderMaxWidget.Title != "Slow RSS" {
+		t.Fatalf("unexpected widget render max attribution: %#v", got.WidgetRenderMaxWidget)
 	}
 	if got.PageExecutions != 2 || got.PageFailures != 1 {
 		t.Fatalf("unexpected page counters: %#v", got)
@@ -283,15 +303,25 @@ func TestRuntimeDiagnosticsReportShowsRenderingPerformance(t *testing.T) {
 	response := runtimeDiagnosticsResponse{
 		GeneratedAt: now,
 		Rendering: renderRuntimeDiagnosticsResponse{
-			StartedAt:                      &now,
-			WidgetCalls:                    8,
-			WidgetSnapshotHits:             5,
-			WidgetRefreshLockWaits:         1,
-			WidgetLockWaitAverageMS:        2.5,
-			WidgetLockWaitMaxMS:            2.5,
-			WidgetRenders:                  3,
-			WidgetRenderAverageMS:          4.25,
-			WidgetRenderMaxMS:              7.5,
+			StartedAt:               &now,
+			WidgetCalls:             8,
+			WidgetSnapshotHits:      5,
+			WidgetRefreshLockWaits:  1,
+			WidgetLockWaitAverageMS: 2.5,
+			WidgetLockWaitMaxMS:     2.5,
+			WidgetLockWaitMaxWidget: renderWidgetAttributionResponse{
+				ID:    22,
+				Type:  "custom-api",
+				Title: "Slow API",
+			},
+			WidgetRenders:         3,
+			WidgetRenderAverageMS: 4.25,
+			WidgetRenderMaxMS:     7.5,
+			WidgetRenderMaxWidget: renderWidgetAttributionResponse{
+				ID:    33,
+				Type:  "rss",
+				Title: "Slow RSS",
+			},
 			PageExecutions:                 2,
 			PageFailures:                   1,
 			PageLockWaitAverageMS:          0.5,
@@ -316,7 +346,9 @@ func TestRuntimeDiagnosticsReportShowsRenderingPerformance(t *testing.T) {
 		"Actual renders:            3",
 		"Refresh-lock waits:        1",
 		"Refresh-lock wait avg/max: 2.500 / 2.500 ms",
+		"Refresh-lock wait max widget: id=22 type=custom-api title=\"Slow API\"",
 		"Widget render avg/max:     4.250 / 7.500 ms",
+		"Widget render max widget:    id=33 type=rss title=\"Slow RSS\"",
 		"Page template executions: 2",
 		"Page template failures:   1",
 		"Page lock wait avg/max:    0.500 / 0.750 ms",

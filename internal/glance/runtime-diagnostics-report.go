@@ -159,7 +159,25 @@ func formatRuntimeDiagnosticsReport(
 	fmt.Fprintf(&report, "Actual renders:            %d\n", response.Rendering.WidgetRenders)
 	fmt.Fprintf(&report, "Refresh-lock waits:        %d\n", response.Rendering.WidgetRefreshLockWaits)
 	fmt.Fprintf(&report, "Refresh-lock wait avg/max: %.3f / %.3f ms\n", response.Rendering.WidgetLockWaitAverageMS, response.Rendering.WidgetLockWaitMaxMS)
+	if response.Rendering.WidgetRefreshLockWaits > 0 {
+		fmt.Fprintf(
+			&report,
+			"Refresh-lock wait max widget: id=%d type=%s title=%q\n",
+			response.Rendering.WidgetLockWaitMaxWidget.ID,
+			response.Rendering.WidgetLockWaitMaxWidget.Type,
+			response.Rendering.WidgetLockWaitMaxWidget.Title,
+		)
+	}
 	fmt.Fprintf(&report, "Widget render avg/max:     %.3f / %.3f ms\n", response.Rendering.WidgetRenderAverageMS, response.Rendering.WidgetRenderMaxMS)
+	if response.Rendering.WidgetRenders > 0 {
+		fmt.Fprintf(
+			&report,
+			"Widget render max widget:    id=%d type=%s title=%q\n",
+			response.Rendering.WidgetRenderMaxWidget.ID,
+			response.Rendering.WidgetRenderMaxWidget.Type,
+			response.Rendering.WidgetRenderMaxWidget.Title,
+		)
+	}
 	fmt.Fprintf(&report, "Page template executions: %d\n", response.Rendering.PageExecutions)
 	fmt.Fprintf(&report, "Page template failures:   %d\n", response.Rendering.PageFailures)
 	fmt.Fprintf(&report, "Page lock wait avg/max:    %.3f / %.3f ms\n", response.Rendering.PageLockWaitAverageMS, response.Rendering.PageLockWaitMaxMS)
