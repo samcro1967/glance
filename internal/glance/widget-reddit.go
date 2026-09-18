@@ -257,6 +257,7 @@ func (widget *redditWidget) fetchSubredditPosts(ctx context.Context) (forumPostL
 		forumPost := forumPost{
 			Title:           html.UnescapeString(post.Title),
 			DiscussionUrl:   commentsUrl,
+			ThumbnailLink:   commentsUrl,
 			TargetUrlDomain: post.Domain,
 			CommentCount:    post.CommentsCount,
 			Score:           post.Upvotes,

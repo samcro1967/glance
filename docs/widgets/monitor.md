@@ -63,6 +63,7 @@ Properties for each site:
 | Name | Type | Required | Default |
 | ---- | ---- | -------- | ------- |
 | title | string | yes | |
+| description | string | no | |
 | url | string | yes | |
 | check-url | string | no | |
 | error-url | string | no | |
@@ -77,6 +78,10 @@ Properties for each site:
 `title`
 
 The title used to indicate the site.
+
+`description`
+
+Optional text displayed beneath the site title in the standard monitor style. It is omitted from the compact style.
 
 `url`
 

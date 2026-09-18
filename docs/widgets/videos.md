@@ -4,6 +4,8 @@
 
 Display the latest videos from YouTube channels or playlists in card, list, or grid layouts.
 
+Video thumbnails link to the same video as their title and follow the widget's `open-links-in-new-tab` setting.
+
 ## Quick start
 
 ```yaml

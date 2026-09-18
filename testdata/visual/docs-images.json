@@ -161,6 +161,12 @@
     "route": "/homelab-monitoring",
     "selector": ".visual-fixture-dns-stats"
   },
+  "widgets/prometheus.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-prometheus"
+  },
   "widgets/docker-containers.png": {
     "kind": "browser",
     "capture": "element",

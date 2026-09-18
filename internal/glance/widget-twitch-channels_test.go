@@ -2,7 +2,10 @@ package glance
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -45,5 +48,26 @@ func TestFetchChannelsFromTwitchCancellation(t *testing.T) {
 
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("expected context cancellation error, got %v", err)
+	}
+}
+
+func TestTwitchChannelOperationRequestUsesCurrentStreamMetadataQuery(t *testing.T) {
+	body := fmt.Sprintf(twitchChannelStatusOperationRequestBody, "test", "test")
+	if !strings.Contains(body, `"sha256Hash":"b57f9b910f8cd1a4659d894fe7550ccc81ec9052c01e438b290fd66a040b9b93"`) {
+		t.Fatal("StreamMetadata persisted-query hash is not current")
+	}
+	if !strings.Contains(body, `"includeIsDJ":true`) {
+		t.Fatal("StreamMetadata request is missing includeIsDJ")
+	}
+}
+
+func TestTwitchOperationResponsePreservesGraphQLErrors(t *testing.T) {
+	var response twitchOperationResponse
+	err := json.Unmarshal([]byte(`{"errors":[{"message":"PersistedQueryNotFound"}],"extensions":{"operationName":"StreamMetadata"}}`), &response)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(response.Errors) != 1 || response.Errors[0].Message != "PersistedQueryNotFound" {
+		t.Fatalf("errors=%#v", response.Errors)
 	}
 }

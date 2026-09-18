@@ -81,9 +81,32 @@ func TestComprehensiveChangeDetectionInitializeAndSort(t *testing.T) {
 	if err := w.initialize(); err != nil {
 		t.Fatal(err)
 	}
-	if w.Limit != 10 || w.CollapseAfter != 5 || w.InstanceURL != "https://www.changedetection.io" || w.Title != "Change Detection" {
+	if w.Limit != 10 || w.CollapseAfter != 5 || w.InstanceURL != "https://www.changedetection.io" || w.LinkURL != w.InstanceURL || w.Title != "Change Detection" {
 		t.Fatalf("defaults=%#v", w)
 	}
+
+	configured := &changeDetectionWidget{
+		InstanceURL: "https://changedetection.internal///",
+		LinkURL:     "https://changes.example.com///",
+	}
+	if err := configured.initialize(); err != nil {
+		t.Fatal(err)
+	}
+	if configured.InstanceURL != "https://changedetection.internal" {
+		t.Fatalf("InstanceURL=%q", configured.InstanceURL)
+	}
+	if configured.LinkURL != "https://changes.example.com" {
+		t.Fatalf("LinkURL=%q", configured.LinkURL)
+	}
+
+	defaultLink := &changeDetectionWidget{InstanceURL: "https://changedetection.internal///"}
+	if err := defaultLink.initialize(); err != nil {
+		t.Fatal(err)
+	}
+	if defaultLink.LinkURL != "https://changedetection.internal" {
+		t.Fatalf("default LinkURL=%q", defaultLink.LinkURL)
+	}
+
 	list := changeDetectionWatchList{{Title: "old", LastChanged: time.Unix(1, 0)}, {Title: "new", LastChanged: time.Unix(2, 0)}}.sortByNewest()
 	if list[0].Title != "new" {
 		t.Fatalf("sort=%#v", list)
@@ -97,32 +120,50 @@ func TestComprehensiveChangeDetectionFetchesUUIDsAndWatches(t *testing.T) {
 		}
 		switch r.URL.Path {
 		case "/api/v1/watch":
-			_, _ = rw.Write([]byte(`{"watch-1":{},"watch-2":{}}`))
+			_, _ = rw.Write([]byte(`{"watch-1":{},"watch-2":{},"watch-3":{}}`))
 		case "/api/v1/watch/watch-1":
-			_, _ = rw.Write([]byte(`{"title":"One","url":"https://www.example.invalid/a","last_changed":20,"date_created":10,"previous_md5":"1234567890"}`))
+			_, _ = rw.Write([]byte(`{"title":"Explicit","page_title":"Ignored Page Title","url":"https://www.example.invalid/a","last_changed":20,"date_created":10,"previous_md5":"1234567890"}`))
 		case "/api/v1/watch/watch-2":
-			_, _ = rw.Write([]byte(`{"title":"","url":"https://www.example.invalid/b/","last_changed":0,"date_created":30,"previous_md5":"abc"}`))
+			_, _ = rw.Write([]byte(`{"title":"","page_title":"Page B","url":"https://www.example.invalid/b/","last_changed":0,"date_created":30,"previous_md5":"abc"}`))
+		case "/api/v1/watch/watch-3":
+			_, _ = rw.Write([]byte(`{"title":"","page_title":"","url":"https://www.example.invalid/c/","last_changed":10,"date_created":5,"previous_md5":"def"}`))
 		default:
 			http.NotFound(rw, r)
 		}
 	}))
 	defer server.Close()
+
 	ids, err := fetchWatchUUIDsFromChangeDetection(context.Background(), server.URL, "token", 0, false, nil)
-	if err != nil || len(ids) != 2 {
+	if err != nil || len(ids) != 3 {
 		t.Fatalf("ids=%v err=%v", ids, err)
 	}
-	watches, err := fetchWatchesFromChangeDetection(context.Background(), server.URL, []string{"watch-1", "watch-2"}, "token", 0, false, nil)
+
+	watches, err := fetchWatchesFromChangeDetection(context.Background(), server.URL, server.URL, []string{"watch-1", "watch-2", "watch-3"}, "token", 0, false, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(watches) != 2 {
+	if len(watches) != 3 {
 		t.Fatalf("watches=%#v", watches)
 	}
-	if watches[1].PreviousHash != "12345678" {
-		t.Fatalf("hash=%q", watches[1].PreviousHash)
+
+	byURL := make(map[string]changeDetectionWatch, len(watches))
+	for _, watch := range watches {
+		byURL[watch.URL] = watch
 	}
-	if watches[0].Title != "example.invalid/b" || watches[0].PreviousHash != "abc" || !watches[0].LastChanged.Equal(time.Unix(30, 0)) {
-		t.Fatalf("fallback=%#v", watches[0])
+
+	explicit := byURL["https://www.example.invalid/a"]
+	if explicit.Title != "Explicit" || explicit.PreviousHash != "12345678" {
+		t.Fatalf("explicit=%#v", explicit)
+	}
+
+	pageTitle := byURL["https://www.example.invalid/b/"]
+	if pageTitle.Title != "Page B" || pageTitle.PreviousHash != "abc" || !pageTitle.LastChanged.Equal(time.Unix(30, 0)) {
+		t.Fatalf("page title fallback=%#v", pageTitle)
+	}
+
+	urlFallback := byURL["https://www.example.invalid/c/"]
+	if urlFallback.Title != "example.invalid/c" {
+		t.Fatalf("URL fallback=%#v", urlFallback)
 	}
 }
 
@@ -135,11 +176,11 @@ func TestComprehensiveChangeDetectionPartialAndEmpty(t *testing.T) {
 		http.Error(rw, "bad", http.StatusInternalServerError)
 	}))
 	defer server.Close()
-	watches, err := fetchWatchesFromChangeDetection(context.Background(), server.URL, []string{"good", "bad"}, "", 0, false, nil)
+	watches, err := fetchWatchesFromChangeDetection(context.Background(), server.URL, server.URL, []string{"good", "bad"}, "", 0, false, nil)
 	if len(watches) != 1 || err == nil || !errors.Is(err, errPartialContent) {
 		t.Fatalf("watches=%#v err=%v", watches, err)
 	}
-	empty, err := fetchWatchesFromChangeDetection(context.Background(), server.URL, nil, "", 0, false, nil)
+	empty, err := fetchWatchesFromChangeDetection(context.Background(), server.URL, server.URL, nil, "", 0, false, nil)
 	if err != nil || len(empty) != 0 {
 		t.Fatalf("empty=%#v err=%v", empty, err)
 	}

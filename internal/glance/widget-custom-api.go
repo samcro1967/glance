@@ -785,19 +785,19 @@ func (r decoratedGJSONResult) String(key string) string {
 }
 
 func (r decoratedGJSONResult) Int(key string) int {
-	if key == "" {
-		return int(r.Result.Int())
+	result := r.Result
+	if key != "" {
+		result = result.Get(key)
 	}
-
-	return int(r.Result.Get(key).Int())
+	return customAPIToInt(result)
 }
 
 func (r decoratedGJSONResult) Float(key string) float64 {
-	if key == "" {
-		return r.Result.Float()
+	result := r.Result
+	if key != "" {
+		result = result.Get(key)
 	}
-
-	return r.Result.Get(key).Float()
+	return customAPIToFloat(result)
 }
 
 func (r decoratedGJSONResult) Bool(key string) bool {
@@ -811,6 +811,42 @@ func (r decoratedGJSONResult) Bool(key string) bool {
 func (r decoratedGJSONResult) Get(key string) *decoratedGJSONResult {
 	return &decoratedGJSONResult{r.Result.Get(key)}
 }
+
+func customAPIToFloat(value any) float64 {
+	switch v := value.(type) {
+	case int:
+		return float64(v)
+	case int64:
+		return float64(v)
+	case uint:
+		return float64(v)
+	case uint64:
+		return float64(v)
+	case float32:
+		return float64(v)
+	case float64:
+		return v
+	case string:
+		parsed, err := strconv.ParseFloat(strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(v), "%")), 64)
+		if err == nil {
+			return parsed
+		}
+	case gjson.Result:
+		if v.Type == gjson.String {
+			return customAPIToFloat(v.String())
+		}
+		return v.Float()
+	case decoratedGJSONResult:
+		return customAPIToFloat(v.Result)
+	case *decoratedGJSONResult:
+		if v != nil {
+			return customAPIToFloat(v.Result)
+		}
+	}
+	return 0
+}
+
+func customAPIToInt(value any) int { return int(customAPIToFloat(value)) }
 
 func customAPIDoMathOp[T int | float64](a, b T, op string) T {
 	switch op {
@@ -872,12 +908,8 @@ var customAPITemplateFuncs = func() template.FuncMap {
 	}
 
 	funcs := template.FuncMap{
-		"toFloat": func(a int) float64 {
-			return float64(a)
-		},
-		"toInt": func(a float64) int {
-			return int(a)
-		},
+		"toFloat": customAPIToFloat,
+		"toInt":   customAPIToInt,
 		"add": func(a, b any) any {
 			return doMathOpWithAny(a, b, "add")
 		},

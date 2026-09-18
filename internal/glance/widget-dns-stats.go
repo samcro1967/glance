@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -44,6 +45,8 @@ type dnsStatsWidget struct {
 
 const (
 	dnsServiceAdguard    = "adguard"
+	dnsServiceBlocky     = "blocky"
+	dnsServiceControld   = "controld"
 	dnsServicePihole     = "pihole"
 	dnsServiceTechnitium = "technitium"
 	dnsServicePiholeV6   = "pihole-v6"
@@ -74,11 +77,15 @@ func (widget *dnsStatsWidget) initialize() error {
 
 	switch widget.Service {
 	case dnsServiceAdguard:
+	case dnsServiceBlocky:
+		widget.HideGraph = true
+		widget.HideTopDomains = true
+	case dnsServiceControld:
 	case dnsServicePiholeV6:
 	case dnsServicePihole:
 	case dnsServiceTechnitium:
 	default:
-		return fmt.Errorf("service must be one of: %s, %s, %s, %s", dnsServiceAdguard, dnsServicePihole, dnsServicePiholeV6, dnsServiceTechnitium)
+		return fmt.Errorf("service must be one of: %s, %s, %s, %s, %s, %s", dnsServiceAdguard, dnsServiceBlocky, dnsServiceControld, dnsServicePihole, dnsServicePiholeV6, dnsServiceTechnitium)
 	}
 
 	return nil
@@ -91,6 +98,10 @@ func (widget *dnsStatsWidget) update(ctx context.Context) {
 	switch widget.Service {
 	case dnsServiceAdguard:
 		stats, err = fetchAdguardStats(ctx, widget.URL, widget.AllowInsecure, widget.Timeout, widget.Username, widget.Password, widget.HideGraph)
+	case dnsServiceBlocky:
+		stats, err = fetchBlockyStats(ctx, widget.URL, widget.AllowInsecure, widget.Timeout)
+	case dnsServiceControld:
+		stats, err = fetchControldStats(ctx, widget.URL, widget.AllowInsecure, widget.Timeout, widget.Token, widget.HideGraph)
 	case dnsServicePihole:
 		stats, err = fetchPihole5Stats(ctx, widget.URL, widget.AllowInsecure, widget.Timeout, widget.Token, widget.HideGraph)
 	case dnsServiceTechnitium:
@@ -268,6 +279,225 @@ func fetchAdguardStats(ctx context.Context, instanceURL string, allowInsecure bo
 	if maxQueriesInSeries > 0 {
 		for i := range dnsStatsBars {
 			stats.Series[i].PercentTotal = int(float64(stats.Series[i].Queries) / float64(maxQueriesInSeries) * 100)
+		}
+	}
+
+	return stats, nil
+}
+
+type blockyMetricTotals struct {
+	TotalQueries    float64
+	BlockedQueries  float64
+	DurationSeconds float64
+	DomainsBlocked  float64
+}
+
+func parseBlockyMetrics(body string) (blockyMetricTotals, error) {
+	var totals blockyMetricTotals
+
+	for _, line := range strings.Split(body, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+
+		metric := fields[0]
+		name := metric
+		if index := strings.IndexByte(name, '{'); index >= 0 {
+			name = name[:index]
+		}
+
+		var target *float64
+		switch name {
+		case "blocky_query_total":
+			target = &totals.TotalQueries
+		case "blocky_request_duration_seconds_sum":
+			target = &totals.DurationSeconds
+		case "blocky_denylist_cache_entries":
+			target = &totals.DomainsBlocked
+		case "blocky_response_total":
+			if !strings.Contains(metric, `reason="BLOCKED`) {
+				continue
+			}
+			target = &totals.BlockedQueries
+		default:
+			continue
+		}
+
+		value, err := strconv.ParseFloat(fields[len(fields)-1], 64)
+		if err != nil {
+			return blockyMetricTotals{}, fmt.Errorf("parsing Blocky metric %s: %w", name, err)
+		}
+		*target += value
+	}
+
+	return totals, nil
+}
+
+func fetchBlockyStats(ctx context.Context, instanceURL string, allowInsecure bool, timeout durationField) (*dnsStats, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(instanceURL, "/"), nil)
+	if err != nil {
+		return nil, fmt.Errorf("creating Blocky metrics request: %w", err)
+	}
+
+	client := newHTTPClient(timeout, allowInsecure)
+	response, err := client.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("fetching Blocky metrics: %w", err)
+	}
+	defer func() { _ = response.Body.Close() }()
+
+	body, err := readHTTPResponseBody(response.Body, 2*1024*1024)
+	if err != nil {
+		return nil, fmt.Errorf("reading Blocky metrics: %w", err)
+	}
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return nil, unexpectedHTTPStatusError(response)
+	}
+
+	totals, err := parseBlockyMetrics(string(body))
+	if err != nil {
+		return nil, err
+	}
+
+	stats := &dnsStats{
+		TotalQueries:   int(totals.TotalQueries),
+		BlockedQueries: int(totals.BlockedQueries),
+		DomainsBlocked: int(totals.DomainsBlocked),
+	}
+	if totals.TotalQueries > 0 {
+		stats.BlockedPercent = int(totals.BlockedQueries / totals.TotalQueries * 100)
+		stats.ResponseTime = totals.DurationSeconds / totals.TotalQueries * 1000
+	}
+
+	return stats, nil
+}
+
+type controldDomainsResponse struct {
+	Success bool `json:"success"`
+	Body    struct {
+		Queries map[string]int `json:"queries"`
+	} `json:"body"`
+}
+
+type controldTimeSeriesEntry struct {
+	Count struct {
+		Blocked int `json:"0"`
+		Allowed int `json:"1"`
+	} `json:"count"`
+}
+
+type controldTimeSeriesResponse struct {
+	Success bool `json:"success"`
+	Body    struct {
+		Queries []controldTimeSeriesEntry `json:"queries"`
+	} `json:"body"`
+}
+
+func fetchControldStats(ctx context.Context, instanceURL string, allowInsecure bool, timeout durationField, token string, noGraph bool) (*dnsStats, error) {
+	startTs := time.Now().Add(-24 * time.Hour).UnixMilli()
+	baseURL := strings.TrimRight(instanceURL, "/")
+	client := newHTTPClient(timeout, allowInsecure)
+
+	fetch := func(requestURL string, destination any) error {
+		request, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
+		if err != nil {
+			return err
+		}
+		request.Header.Set("Authorization", "Bearer "+token)
+		response, err := client.Do(request)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = response.Body.Close() }()
+		body, err := readHTTPResponseBody(response.Body, 2*1024*1024)
+		if err != nil {
+			return err
+		}
+		if response.StatusCode < 200 || response.StatusCode >= 300 {
+			return unexpectedHTTPStatusError(response)
+		}
+		if err := json.Unmarshal(body, destination); err != nil {
+			return fmt.Errorf("decoding response: %w", err)
+		}
+		return nil
+	}
+
+	var timeSeries controldTimeSeriesResponse
+	timeSeriesURL := fmt.Sprintf("%s/reports/dns-queries/all-by-verdict/time-series?granularity=hour&startTs=%d", baseURL, startTs)
+	if err := fetch(timeSeriesURL, &timeSeries); err != nil {
+		return nil, fmt.Errorf("fetching ControlD time series: %w", err)
+	}
+	if !timeSeries.Success {
+		return nil, errors.New("ControlD time-series request was not successful")
+	}
+
+	var domains controldDomainsResponse
+	domainsURL := fmt.Sprintf("%s/reports/dns-queries/blocked-by-domain/pie-chart?startTs=%d", baseURL, startTs)
+	if err := fetch(domainsURL, &domains); err != nil {
+		return nil, fmt.Errorf("fetching ControlD blocked domains: %w", err)
+	}
+	if !domains.Success {
+		return nil, errors.New("ControlD blocked-domains request was not successful")
+	}
+
+	stats := &dnsStats{TopBlockedDomains: make([]dnsStatsBlockedDomain, 0, min(len(domains.Body.Queries), 5))}
+	for _, entry := range timeSeries.Body.Queries {
+		stats.BlockedQueries += entry.Count.Blocked
+		stats.TotalQueries += entry.Count.Blocked + entry.Count.Allowed
+	}
+	if stats.TotalQueries > 0 {
+		stats.BlockedPercent = int(float64(stats.BlockedQueries) / float64(stats.TotalQueries) * 100)
+	}
+
+	domainNames := make([]string, 0, len(domains.Body.Queries))
+	for domain := range domains.Body.Queries {
+		domainNames = append(domainNames, domain)
+	}
+	sort.SliceStable(domainNames, func(i, j int) bool {
+		return domains.Body.Queries[domainNames[i]] > domains.Body.Queries[domainNames[j]]
+	})
+	for _, domain := range domainNames[:min(len(domainNames), 5)] {
+		item := dnsStatsBlockedDomain{Domain: domain}
+		if stats.BlockedQueries > 0 {
+			item.PercentBlocked = int(float64(domains.Body.Queries[domain]) / float64(stats.BlockedQueries) * 100)
+		}
+		stats.TopBlockedDomains = append(stats.TopBlockedDomains, item)
+	}
+
+	if noGraph {
+		return stats, nil
+	}
+
+	series := timeSeries.Body.Queries
+	if len(series) > dnsStatsHoursSpan {
+		series = series[len(series)-dnsStatsHoursSpan:]
+	} else if len(series) < dnsStatsHoursSpan {
+		series = append(make([]controldTimeSeriesEntry, dnsStatsHoursSpan-len(series)), series...)
+	}
+
+	maxQueries := 0
+	for i := range dnsStatsBars {
+		queries, blocked := 0, 0
+		for j := range dnsStatsHoursPerBar {
+			entry := series[i*dnsStatsHoursPerBar+j]
+			blocked += entry.Count.Blocked
+			queries += entry.Count.Blocked + entry.Count.Allowed
+		}
+		stats.Series[i] = dnsStatsSeries{Queries: queries, Blocked: blocked}
+		if queries > 0 {
+			stats.Series[i].PercentBlocked = int(float64(blocked) / float64(queries) * 100)
+		}
+		maxQueries = max(maxQueries, queries)
+	}
+	if maxQueries > 0 {
+		for i := range dnsStatsBars {
+			stats.Series[i].PercentTotal = int(float64(stats.Series[i].Queries) / float64(maxQueries) * 100)
 		}
 	}
 

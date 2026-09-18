@@ -171,20 +171,27 @@ function repositionContainer() {
     const topWhenAbove = targetBounds.top + window.scrollY - containerBounds.height;
     const topWhenBelow = targetBounds.top + window.scrollY + targetBounds.height;
 
-    if (
+    const placeAbove =
         position === "above" && topWhenAbove > window.scrollY ||
-        (position === "below" && topWhenBelow + containerBounds.height > window.scrollY + window.innerHeight)
-    ) {
+        (position === "below" && topWhenBelow + containerBounds.height > window.scrollY + window.innerHeight);
+
+    let top;
+    if (placeAbove) {
         containerElement.classList.add("position-above");
         frameElement.style.removeProperty("margin-top");
         frameElement.style.marginBottom = distanceFromTarget;
-        containerElement.style.top = topWhenAbove + "px";
+        top = topWhenAbove;
     } else {
         containerElement.classList.remove("position-above");
         frameElement.style.removeProperty("margin-bottom");
         frameElement.style.marginTop = distanceFromTarget;
-        containerElement.style.top = topWhenBelow + "px";
+        top = topWhenBelow;
     }
+
+    const viewportTop = window.scrollY;
+    const viewportBottom = viewportTop + window.innerHeight;
+    const maximumTop = Math.max(viewportTop, viewportBottom - containerBounds.height);
+    containerElement.style.top = Math.min(Math.max(top, viewportTop), maximumTop) + "px";
 }
 
 function hidePopover() {

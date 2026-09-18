@@ -40,6 +40,28 @@ func TestDockerContainersWidgetInitializeDefaults(t *testing.T) {
 	}
 }
 
+func TestDockerContainersWidgetInitializeGroupBy(t *testing.T) {
+	t.Run("compose project", func(t *testing.T) {
+		widget := &dockerContainersWidget{GroupBy: dockerContainerGroupByComposeProject}
+
+		if err := widget.initialize(); err != nil {
+			t.Fatalf("unexpected initialization error: %v", err)
+		}
+	})
+
+	t.Run("invalid", func(t *testing.T) {
+		widget := &dockerContainersWidget{GroupBy: "invalid"}
+
+		err := widget.initialize()
+		if err == nil {
+			t.Fatal("expected invalid group-by error")
+		}
+		if !strings.Contains(err.Error(), "group-by must be one of: compose-project") {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
+}
+
 func TestDockerContainersWidgetInitializePreservesSocketPath(t *testing.T) {
 	widget := &dockerContainersWidget{
 		SockPath: "tcp://docker.example.com:2375",
@@ -459,6 +481,188 @@ func TestGroupDockerContainerChildrenCategoryFilter(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGroupDockerContainersByComposeProject(t *testing.T) {
+	containers := dockerContainerList{
+		{Name: "Zulu", ComposeProject: "media"},
+		{Name: "Alpha", ComposeProject: "apps"},
+		{Name: "Standalone"},
+		{Name: "Bravo", ComposeProject: "apps"},
+	}
+
+	groups := groupDockerContainersByComposeProject(containers)
+
+	if len(groups) != 3 {
+		t.Fatalf("group count = %d, want 3", len(groups))
+	}
+
+	if groups[0].Name != "apps" || groups[1].Name != "media" || groups[2].Name != "" {
+		t.Fatalf(
+			"group order = [%q %q %q], want [apps media ungrouped]",
+			groups[0].Name,
+			groups[1].Name,
+			groups[2].Name,
+		)
+	}
+
+	gotApps := []string{
+		groups[0].Containers[0].Name,
+		groups[0].Containers[1].Name,
+	}
+	if !reflect.DeepEqual(gotApps, []string{"Alpha", "Bravo"}) {
+		t.Fatalf("apps containers = %v, want [Alpha Bravo]", gotApps)
+	}
+
+	if len(groups[2].Containers) != 1 || groups[2].Containers[0].Name != "Standalone" {
+		t.Fatalf("ungrouped containers = %#v, want Standalone", groups[2].Containers)
+	}
+}
+
+func TestFetchDockerContainersComposeProjectPreservesParentChildHierarchy(t *testing.T) {
+	response := []dockerContainerJsonResponse{
+		{
+			Names:  []string{"/parent"},
+			Image:  "example/parent",
+			State:  "running",
+			Status: "Up 5 minutes",
+			Labels: dockerContainerLabels{
+				dockerContainerLabelID:             "service",
+				dockerContainerLabelComposeProject: "parent-project",
+			},
+		},
+		{
+			Names:  []string{"/child"},
+			Image:  "example/child",
+			State:  "running",
+			Status: "Up 5 minutes",
+			Labels: dockerContainerLabels{
+				dockerContainerLabelParent:         "service",
+				dockerContainerLabelComposeProject: "different-project",
+			},
+		},
+		{
+			Names:  []string{"/standalone"},
+			Image:  "example/standalone",
+			State:  "running",
+			Status: "Up 5 minutes",
+		},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			t.Errorf("encoding Docker response: %v", err)
+		}
+	}))
+	defer server.Close()
+
+	containers, err := fetchDockerContainers(
+		context.Background(),
+		server.URL,
+		false,
+		"",
+		false,
+		false,
+		nil,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("fetching containers: %v", err)
+	}
+
+	containers.sortByStateIconThenName()
+	groups := groupDockerContainersByComposeProject(containers)
+
+	if len(containers) != 2 {
+		t.Fatalf("top-level container count = %d, want 2", len(containers))
+	}
+
+	var parent *dockerContainer
+	for i := range containers {
+		if containers[i].Name == "parent" {
+			parent = &containers[i]
+			break
+		}
+	}
+	if parent == nil {
+		t.Fatal("parent container not found")
+	}
+	if parent.ComposeProject != "parent-project" {
+		t.Fatalf("parent compose project = %q, want %q", parent.ComposeProject, "parent-project")
+	}
+	if len(parent.Children) != 1 || parent.Children[0].Name != "child" {
+		t.Fatalf("parent children = %#v, want child", parent.Children)
+	}
+
+	if len(groups) != 2 {
+		t.Fatalf("group count = %d, want 2", len(groups))
+	}
+	if groups[0].Name != "parent-project" {
+		t.Fatalf("first group = %q, want %q", groups[0].Name, "parent-project")
+	}
+	if groups[1].Name != "" {
+		t.Fatalf("last group = %q, want ungrouped", groups[1].Name)
+	}
+}
+
+func TestDockerContainersWidgetRenderGrouping(t *testing.T) {
+	containers := dockerContainerList{
+		{
+			Name:           "Application",
+			Image:          "example/application",
+			State:          "running",
+			StateText:      "up",
+			StateIcon:      dockerContainerStateIconOK,
+			Icon:           newCustomIconField("si:docker"),
+			ComposeProject: "apps",
+		},
+		{
+			Name:      "Standalone",
+			Image:     "example/standalone",
+			State:     "running",
+			StateText: "up",
+			StateIcon: dockerContainerStateIconOK,
+			Icon:      newCustomIconField("si:docker"),
+		},
+	}
+
+	t.Run("flat mode preserves existing presentation", func(t *testing.T) {
+		widget := &dockerContainersWidget{
+			widgetBase: widgetBase{ContentAvailable: true},
+			Containers: containers,
+		}
+
+		rendered := string(widget.Render())
+
+		if !strings.Contains(rendered, "Application") || !strings.Contains(rendered, "Standalone") {
+			t.Fatalf("flat render missing containers: %s", rendered)
+		}
+		if strings.Contains(rendered, ">apps<") || strings.Contains(rendered, ">Ungrouped<") {
+			t.Fatalf("flat render unexpectedly contains grouping headings: %s", rendered)
+		}
+	})
+
+	t.Run("compose project mode renders groups", func(t *testing.T) {
+		widget := &dockerContainersWidget{
+			widgetBase: widgetBase{ContentAvailable: true},
+			GroupBy:    dockerContainerGroupByComposeProject,
+			Containers: containers,
+			Groups:     groupDockerContainersByComposeProject(containers),
+		}
+
+		rendered := string(widget.Render())
+
+		if !strings.Contains(rendered, ">apps<") {
+			t.Fatalf("grouped render missing compose project heading: %s", rendered)
+		}
+		if !strings.Contains(rendered, ">Ungrouped<") {
+			t.Fatalf("grouped render missing ungrouped heading: %s", rendered)
+		}
+		if !strings.Contains(rendered, "Application") || !strings.Contains(rendered, "Standalone") {
+			t.Fatalf("grouped render missing containers: %s", rendered)
+		}
+	})
 }
 
 func TestDockerContainerListSortByStateIconThenName(t *testing.T) {

@@ -78,6 +78,7 @@ const dockerContainers = [
     Labels: {
       'glance.name': 'Glance',
       'glance.id': 'glance',
+      'com.docker.compose.project': 'glance-stack',
       'glance.description': 'Dashboard',
       'glance.url': 'https://github.com/samcro1967/glance'
     }
@@ -90,6 +91,7 @@ const dockerContainers = [
     Labels: {
       'glance.name': 'Visual Worker',
       'glance.parent': 'glance',
+      'com.docker.compose.project': 'worker-stack',
       'glance.description': 'Background worker'
     }
   },
@@ -100,6 +102,7 @@ const dockerContainers = [
     Status: 'Up 45 minutes',
     Labels: {
       'glance.name': 'Fixture API',
+      'com.docker.compose.project': 'fixture-services',
       'glance.description': 'Deterministic test service'
     }
   },
@@ -199,6 +202,38 @@ const server = http.createServer((req, res) => {
         { 'telemetry.example.com': 287 },
         { 'promotions.example.net': 194 }
       ]
+    });
+    return;
+  }
+
+  if (url.pathname === '/api/v1/query_range') {
+    if (req.method !== 'POST') {
+      res.writeHead(405, { 'Content-Type': 'text/plain' });
+      res.end('Method not allowed');
+      return;
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    const values = [
+      42, 46, 44, 51, 57, 54, 63, 68,
+      64, 72, 78, 74, 82, 88, 84, 91,
+      87, 94, 89, 96, 92, 99, 95, 102
+    ].map((value, index, all) => [
+      now - (all.length - 1 - index) * 3600,
+      String(value)
+    ]);
+
+    sendJson(res, {
+      status: 'success',
+      data: {
+        resultType: 'matrix',
+        result: [
+          {
+            metric: { __name__: 'visual_fixture_requests_per_second' },
+            values
+          }
+        ]
+      }
     });
     return;
   }

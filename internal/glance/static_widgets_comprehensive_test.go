@@ -2,16 +2,19 @@ package glance
 
 import (
 	"context"
+	"fmt"
 	"html/template"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/samcro1967/glance/pkg/sysinfo"
 )
 
 func TestComprehensiveNewWidgetAllKnownTypes(t *testing.T) {
-	types := []string{"calendar", "calendar-legacy", "ics-events", "clock", "analog-clock", "weather", "bookmarks", "iframe", "markdown", "html", "hacker-news", "releases", "videos", "markets", "stocks", "reddit", "rss", "monitor", "twitch-top-games", "twitch-channels", "lobsters", "change-detection", "repository", "search", "extension", "group", "dns-stats", "split-column", "custom-api", "docker-containers", "server-stats", "timer", "to-do", "unit-converter", "calculator", "stack", "status-bar"}
+	types := []string{"calendar", "calendar-legacy", "ics-events", "clock", "analog-clock", "weather", "bookmarks", "iframe", "markdown", "html", "hacker-news", "releases", "videos", "markets", "stocks", "reddit", "rss", "monitor", "prometheus", "twitch-top-games", "twitch-channels", "lobsters", "change-detection", "repository", "search", "extension", "group", "dns-stats", "split-column", "custom-api", "docker-containers", "server-stats", "timer", "to-do", "unit-converter", "calculator", "stack", "status-bar"}
 	seen := map[uint64]bool{}
 	for _, typ := range types {
 		t.Run(typ, func(t *testing.T) {
@@ -508,6 +511,43 @@ func TestCarouselBrowserCleanupContract(t *testing.T) {
 	}
 }
 
+func TestPopoverViewportContainmentContract(t *testing.T) {
+	popoverJS, err := os.ReadFile(filepath.Join("static", "js", "popover.js"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(popoverJS)
+	for _, fragment := range []string{
+		"const viewportTop = window.scrollY",
+		"const maximumTop = Math.max(viewportTop, viewportBottom - containerBounds.height)",
+		"Math.min(Math.max(top, viewportTop), maximumTop)",
+		`window.addEventListener("scroll", queueRepositionContainer)`,
+		`window.addEventListener("resize", queueRepositionContainer)`,
+		`observer.observe(containerElement)`,
+		`window.removeEventListener("scroll", queueRepositionContainer)`,
+		`window.removeEventListener("resize", queueRepositionContainer)`,
+		`observer.unobserve(containerElement)`,
+	} {
+		if !strings.Contains(source, fragment) {
+			t.Fatalf("popover.js missing viewport containment fragment %q", fragment)
+		}
+	}
+
+	popoverCSS, err := os.ReadFile(filepath.Join("static", "css", "popover.css"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cssSource := string(popoverCSS)
+	for _, fragment := range []string{
+		"max-height: calc(100vh - var(--content-bounds-padding) - var(--content-bounds-padding) - var(--triangle-margin))",
+		"overflow-y: auto",
+	} {
+		if !strings.Contains(cssSource, fragment) {
+			t.Fatalf("popover.css missing oversized-content containment fragment %q", fragment)
+		}
+	}
+}
+
 func TestPopoverBrowserInitializationContract(t *testing.T) {
 	popoverJS, err := os.ReadFile(filepath.Join("static", "js", "popover.js"))
 	if err != nil {
@@ -612,5 +652,50 @@ func TestSearchOpenDomainsBrowserContract(t *testing.T) {
 		if !strings.Contains(pageSource, fragment) {
 			t.Fatalf("page.js missing Search composition contract fragment %q", fragment)
 		}
+	}
+}
+
+func TestServerStatsTemplateRendersAllMountpointProgressValues(t *testing.T) {
+	for _, count := range []int{1, 2, 3, 6} {
+		t.Run(fmt.Sprintf("%d mountpoints", count), func(t *testing.T) {
+			info := &sysinfo.SystemInfo{Hostname: "test-server"}
+			for i := 0; i < count; i++ {
+				info.Mountpoints = append(info.Mountpoints, sysinfo.MountpointInfo{
+					Path:        fmt.Sprintf("/disk-%d", i+1),
+					Name:        fmt.Sprintf("Disk %d", i+1),
+					TotalMB:     1000,
+					UsedMB:      uint64((90 - i*7) * 10),
+					UsedPercent: uint8(90 - i*7),
+				})
+			}
+
+			widget := &serverStatsWidget{
+				Servers: []serverStatsRequest{{
+					Info:        info,
+					IsReachable: true,
+				}},
+			}
+			widget.Type = "server-stats"
+			widget.ContentAvailable = true
+
+			rendered := string(widget.Render())
+
+			if !strings.Contains(rendered, `DISK</div>`) ||
+				!strings.Contains(rendered, `90 <span class="color-base">%</span>`) {
+				t.Fatalf("server stats disk headline did not preserve first mountpoint: %s", rendered)
+			}
+
+			for i := 0; i < count; i++ {
+				percent := 90 - i*7
+				expected := fmt.Sprintf(`style="--percent: %d"`, percent)
+				if !strings.Contains(rendered, expected) {
+					t.Fatalf("server stats render with %d mountpoints missing disk progress %q", count, expected)
+				}
+			}
+
+			if !strings.Contains(rendered, `progress-value-notice" style="--percent: 90"`) {
+				t.Fatalf("server stats render with %d mountpoints lost disk notice styling", count)
+			}
+		})
 	}
 }

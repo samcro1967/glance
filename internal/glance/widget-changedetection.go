@@ -17,6 +17,7 @@ type changeDetectionWidget struct {
 	ChangeDetections changeDetectionWatchList `yaml:"-"`
 	WatchUUIDs       []string                 `yaml:"watches"`
 	InstanceURL      string                   `yaml:"instance-url"`
+	LinkURL          string                   `yaml:"link-url"`
 	Token            string                   `yaml:"token"`
 	Limit            int                      `yaml:"limit"`
 	CollapseAfter    int                      `yaml:"collapse-after"`
@@ -39,6 +40,11 @@ func (widget *changeDetectionWidget) initialize() error {
 	if widget.InstanceURL == "" {
 		widget.InstanceURL = "https://www.changedetection.io"
 	}
+	widget.InstanceURL = strings.TrimRight(widget.InstanceURL, "/")
+	if widget.LinkURL == "" {
+		widget.LinkURL = widget.InstanceURL
+	}
+	widget.LinkURL = strings.TrimRight(widget.LinkURL, "/")
 
 	return nil
 }
@@ -54,7 +60,7 @@ func (widget *changeDetectionWidget) update(ctx context.Context) {
 		widget.WatchUUIDs = uuids
 	}
 
-	watches, err := fetchWatchesFromChangeDetection(ctx, widget.InstanceURL, widget.WatchUUIDs, string(widget.Token), widget.Timeout, widget.AllowInsecure, widget.Headers)
+	watches, err := fetchWatchesFromChangeDetection(ctx, widget.InstanceURL, widget.LinkURL, widget.WatchUUIDs, string(widget.Token), widget.Timeout, widget.AllowInsecure, widget.Headers)
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
 		return
@@ -95,6 +101,7 @@ type changeDetectionResponseJson struct {
 	LastChanged  int64  `json:"last_changed"`
 	DateCreated  int64  `json:"date_created"`
 	PreviousHash string `json:"previous_md5"`
+	PageTitle    string `json:"page_title"`
 }
 
 func fetchWatchUUIDsFromChangeDetection(ctx context.Context, instanceURL string, token string, timeout durationField, allowInsecure bool, headers map[string]string) ([]string, error) {
@@ -136,7 +143,7 @@ func fetchWatchUUIDsFromChangeDetection(ctx context.Context, instanceURL string,
 	return uuids, nil
 }
 
-func fetchWatchesFromChangeDetection(ctx context.Context, instanceURL string, requestedWatchIDs []string, token string, timeout durationField, allowInsecure bool, headers map[string]string) (changeDetectionWatchList, error) {
+func fetchWatchesFromChangeDetection(ctx context.Context, instanceURL string, linkURL string, requestedWatchIDs []string, token string, timeout durationField, allowInsecure bool, headers map[string]string) (changeDetectionWatchList, error) {
 	watches := make(changeDetectionWatchList, 0, len(requestedWatchIDs))
 
 	if len(requestedWatchIDs) == 0 {
@@ -204,7 +211,7 @@ func fetchWatchesFromChangeDetection(ctx context.Context, instanceURL string, re
 
 		watch := changeDetectionWatch{
 			URL:     watchJson.URL,
-			DiffURL: fmt.Sprintf("%s/diff/%s?from_version=%d", instanceURL, requestedWatchIDs[i], watchJson.LastChanged-1),
+			DiffURL: fmt.Sprintf("%s/diff/%s?from_version=%d", linkURL, requestedWatchIDs[i], watchJson.LastChanged-1),
 		}
 
 		if watchJson.LastChanged == 0 {
@@ -215,6 +222,8 @@ func fetchWatchesFromChangeDetection(ctx context.Context, instanceURL string, re
 
 		if watchJson.Title != "" {
 			watch.Title = watchJson.Title
+		} else if watchJson.PageTitle != "" {
+			watch.Title = watchJson.PageTitle
 		} else {
 			watch.Title = strings.TrimPrefix(strings.Trim(stripURLScheme(watchJson.URL), "/"), "www.")
 		}

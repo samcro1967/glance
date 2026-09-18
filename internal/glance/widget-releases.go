@@ -105,6 +105,7 @@ func (r appReleaseList) sortByNewest() appReleaseList {
 type releaseRequest struct {
 	IncludePreleases bool   `yaml:"include-prereleases"`
 	Repository       string `yaml:"repository"`
+	BaseURL          string `yaml:"base-url"`
 
 	source releaseSource
 	token  *string
@@ -129,10 +130,10 @@ func (r *releaseRequest) UnmarshalYAML(node *yaml.Node) error {
 		}
 	}
 
-	parts := strings.SplitN(repository, ":", 2)
+	parts := strings.SplitN(r.Repository, ":", 2)
 	if len(parts) == 1 {
 		r.source = releaseSourceGithub
-	} else if len(parts) == 2 {
+	} else {
 		r.Repository = parts[1]
 
 		switch parts[0] {
@@ -149,7 +150,46 @@ func (r *releaseRequest) UnmarshalYAML(node *yaml.Node) error {
 		}
 	}
 
+	if r.BaseURL != "" {
+		if r.source != releaseSourceGitlab && r.source != releaseSourceCodeberg {
+			return fmt.Errorf("base-url is not supported for %s repositories", r.source)
+		}
+
+		baseURL, err := normalizeReleaseBaseURL(r.BaseURL)
+		if err != nil {
+			return err
+		}
+		r.BaseURL = baseURL
+	}
+
 	return nil
+}
+
+func normalizeReleaseBaseURL(value string) (string, error) {
+	parsed, err := url.Parse(value)
+	if err != nil {
+		return "", fmt.Errorf("invalid base-url: %w", err)
+	}
+
+	if (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+		return "", errors.New("base-url must be an absolute http or https URL")
+	}
+	if parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return "", errors.New("base-url must not contain credentials, a query, or a fragment")
+	}
+	if parsed.Path != "" && parsed.Path != "/" {
+		return "", errors.New("base-url must not contain a path")
+	}
+
+	parsed.Path = ""
+	return strings.TrimSuffix(parsed.String(), "/"), nil
+}
+
+func (r *releaseRequest) providerBaseURL(defaultURL string) string {
+	if r.BaseURL != "" {
+		return r.BaseURL
+	}
+	return defaultURL
 }
 
 func fetchLatestReleases(ctx context.Context, requests []*releaseRequest) (appReleaseList, error) {
@@ -376,14 +416,19 @@ type gitlabReleaseResponseJson struct {
 	} `json:"_links"`
 }
 
+func gitLabReleaseURL(request *releaseRequest) string {
+	return fmt.Sprintf(
+		"%s/api/v4/projects/%s/releases/permalink/latest",
+		request.providerBaseURL("https://gitlab.com"),
+		url.QueryEscape(request.Repository),
+	)
+}
+
 func fetchLatestGitLabRelease(ctx context.Context, request *releaseRequest) (*appRelease, error) {
 	httpRequest, err := http.NewRequestWithContext(
 		ctx,
 		"GET",
-		fmt.Sprintf(
-			"https://gitlab.com/api/v4/projects/%s/releases/permalink/latest",
-			url.QueryEscape(request.Repository),
-		),
+		gitLabReleaseURL(request),
 		nil,
 	)
 	if err != nil {
@@ -414,14 +459,19 @@ type codebergReleaseResponseJson struct {
 	HtmlUrl     string `json:"html_url"`
 }
 
+func codebergReleaseURL(request *releaseRequest) string {
+	return fmt.Sprintf(
+		"%s/api/v1/repos/%s/releases/latest",
+		request.providerBaseURL("https://codeberg.org"),
+		request.Repository,
+	)
+}
+
 func fetchLatestCodebergRelease(ctx context.Context, request *releaseRequest) (*appRelease, error) {
 	httpRequest, err := http.NewRequestWithContext(
 		ctx,
 		"GET",
-		fmt.Sprintf(
-			"https://codeberg.org/api/v1/repos/%s/releases/latest",
-			request.Repository,
-		),
+		codebergReleaseURL(request),
 		nil,
 	)
 	if err != nil {

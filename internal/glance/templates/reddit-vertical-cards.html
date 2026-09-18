@@ -8,7 +8,7 @@
     <div class="glance-card widget-content-frame relative">
         {{ if ne "" .ThumbnailUrl }}
         <div class="reddit-card-thumbnail-container">
-            <img class="reddit-card-thumbnail" loading="lazy" src="{{ .ThumbnailUrl }}" alt="">
+            <a href="{{ .DiscussionUrl | safeURL }}"{{ if $.OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }}><img class="reddit-card-thumbnail" loading="lazy" src="{{ .ThumbnailUrl }}" alt=""></a>
         </div>
         {{ end }}
         <div class="padding-widget relative">

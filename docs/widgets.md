@@ -113,6 +113,7 @@ Set custom CSS classes for the specific widget instance.
 | Widget | Purpose |
 | --- | --- |
 | [Monitor](widgets/monitor.md) | Monitor configured services and endpoints. |
+| [Prometheus](widgets/prometheus.md) | Graph a PromQL range query from a Prometheus-compatible server. |
 | [Docker Containers](widgets/docker-containers.md) | Display Docker container status. |
 | [DNS Stats](widgets/dns-stats.md) | Display DNS service statistics. |
 | [Server Stats](widgets/server-stats.md) | Display local and remote server statistics. |
