@@ -44,7 +44,7 @@ type frontendDiagnosticEvent struct {
 
 const (
 	frontendDiagnosticsRecentProblemLimit      = 20
-	frontendDiagnosticsRecentActiveResultLimit = 20
+	frontendDiagnosticsRecentActiveResultLimit = 100
 )
 
 type frontendRuntimeDiagnosticProblem struct {
@@ -114,6 +114,9 @@ func frontendDiagnosticIsActiveResult(event frontendDiagnosticEvent) bool {
 		"memory_snapshot",
 		"paint_snapshot",
 		"web_vitals_snapshot",
+		"lcp_attribution",
+		"cls_attribution",
+		"performance_snapshot_complete",
 		"long_task_capture_start",
 		"long_task_capture_complete",
 		"long_task_capture_unsupported",
@@ -202,6 +205,29 @@ func (d *frontendRuntimeDiagnostics) record(events []frontendDiagnosticEvent) {
 			)
 		}
 	}
+}
+
+func (d *frontendRuntimeDiagnostics) activeResultsForCommand(commandID uint64) []frontendRuntimeDiagnosticActiveResult {
+	if d == nil || commandID == 0 {
+		return nil
+	}
+
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	results := make([]frontendRuntimeDiagnosticActiveResult, 0)
+	for _, result := range d.recentActiveResults {
+		if result.Event.CommandID != commandID {
+			continue
+		}
+
+		results = append(results, frontendRuntimeDiagnosticActiveResult{
+			RecordedAt: result.RecordedAt,
+			Event:      cloneFrontendDiagnosticEvent(result.Event),
+		})
+	}
+
+	return results
 }
 
 func (d *frontendRuntimeDiagnostics) snapshot() frontendRuntimeDiagnosticsSnapshot {

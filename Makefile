@@ -42,6 +42,10 @@ TEST_PROD_CONFIG_DIR ?= .glance-prod-test-config
 PPROF_DIR ?= .pprof
 PROFILE ?= heap
 PPROF_SECONDS ?= 30
+PAGE ?= tech
+DASHBOARD ?= admin
+PERFORMANCE_USERNAME ?= performance-test
+PERFORMANCE_PASSWORD ?= performance-test
 
 CI_RUN_RETRIES ?= 12
 CI_RUN_RETRY_DELAY ?= 5
@@ -339,17 +343,11 @@ validate-all: validate coverage frontend-coverage benchmark lighthouse performan
 performance-check:
 	python3 scripts/check_performance_observability.py
 
-performance: performance-check benchmark lighthouse
+performance: performance-check benchmark lighthouse performance-runtime
 	@echo
-	@echo "=== REPRESENTATIVE RUNTIME PERFORMANCE ==="
-	@echo "Automated benchmarks and Lighthouse are complete."
-	@echo "For production-representative runtime evidence, use the explicit test-prod workflow:"
-	@echo "  make test-prod-start TEST_FRONTEND_DIAGNOSTICS=true"
-	@echo "  make frontend-diagnostic COMMAND=performance-snapshot"
-	@echo "  make pprof-capture PROFILE=cpu PPROF_SECONDS=30"
-	@echo "  make pprof-summary PROFILE=cpu"
-	@echo "  Review authenticated /api/diagnostics/report for outbound HTTP, rendering, and frontend runtime metrics."
+	@echo "Automated performance analysis complete."
 	@echo "Runtime/provider/browser measurements are informational and are not pass/fail thresholds."
+
 
 lighthouse:
 	@report=$$(mktemp /tmp/glance-lighthouse.XXXXXX.json); trap '$(MAKE) test-instance-stop >/dev/null 2>&1 || true; rm -f "$$report"' EXIT; $(MAKE) test-instance-stop >/dev/null; $(MAKE) test-instance-start; CHROME_PATH="$${GLANCE_VISUAL_CHROME:-/usr/bin/google-chrome}" npx --yes lighthouse@$(LIGHTHOUSE_VERSION) http://127.0.0.1:18080 --chrome-flags="--headless --no-sandbox" --output=json --output-path="$$report" --quiet; REPORT="$$report" node -e 'const r=require(process.env.REPORT); for (const [id,c] of Object.entries(r.categories)) console.log(id+": "+Math.round(c.score*100)); const failed=Object.values(r.audits).filter(a=>a.score!==null && a.score<1 && a.scoreDisplayMode!=="notApplicable").filter(a=>a.details || ["button-name","color-contrast","target-size"].includes(a.id)); const accessibility=failed.filter(a=>r.categories.accessibility && r.categories.accessibility.auditRefs.some(ref=>ref.id===a.id)); if (accessibility.length) console.log("accessibility findings: "+accessibility.map(a=>a.id).join(", "));'
@@ -2446,12 +2444,59 @@ test-all-stop:
 	@$(MAKE) --no-print-directory test-container-stop
 	@echo "All Makefile-managed development/test runtimes are stopped."
 
-.PHONY: frontend-diagnostic pprof-capture pprof-summary
+.PHONY: performance-runtime frontend-diagnostic pprof-capture pprof-summary
+
+performance-runtime:
+	@set -euo pipefail; \
+	log=$$(mktemp /tmp/glance-performance-browser.XXXXXX.log); \
+	browser_pid=""; \
+	cleanup() { \
+		if [ -n "$$browser_pid" ] && kill -0 "$$browser_pid" >/dev/null 2>&1; then \
+			kill "$$browser_pid" >/dev/null 2>&1 || true; \
+			wait "$$browser_pid" >/dev/null 2>&1 || true; \
+		fi; \
+		$(MAKE) --no-print-directory test-prod-stop >/dev/null 2>&1 || true; \
+		rm -f "$$log"; \
+	}; \
+	trap cleanup EXIT INT TERM; \
+	echo "=== PRODUCTION-REPRESENTATIVE PERFORMANCE ==="; \
+	$(MAKE) --no-print-directory test-prod-stop >/dev/null; \
+	$(MAKE) --no-print-directory test-prod-start \
+		TEST_FRONTEND_DIAGNOSTICS=true; \
+	GLANCE_PERFORMANCE_PAGE="$(PAGE)" \
+	GLANCE_PERFORMANCE_DASHBOARD="$(DASHBOARD)" \
+	GLANCE_PERFORMANCE_USERNAME="$(PERFORMANCE_USERNAME)" \
+	GLANCE_PERFORMANCE_PASSWORD="$(PERFORMANCE_PASSWORD)" \
+	node testdata/visual/performance.js >"$$log" 2>&1 & \
+	browser_pid=$$!; \
+	deadline=$$(( $$(date +%s) + 45 )); \
+	while ! grep -q "^PERFORMANCE_BROWSER_READY$$" "$$log"; do \
+		if ! kill -0 "$$browser_pid" >/dev/null 2>&1; then \
+			echo "Performance browser exited before becoming ready."; \
+			cat "$$log"; \
+			exit 1; \
+		fi; \
+		if [ "$$(date +%s)" -ge "$$deadline" ]; then \
+			echo "Timed out waiting for performance browser readiness."; \
+			cat "$$log"; \
+			exit 1; \
+		fi; \
+		sleep 0.25; \
+	done; \
+	cat "$$log"; \
+	$(MAKE) --no-print-directory frontend-diagnostic COMMAND=performance-snapshot; \
+	kill "$$browser_pid" >/dev/null 2>&1 || true; \
+	wait "$$browser_pid"; \
+	browser_pid=""; \
+	echo; \
+	echo "Performance runtime measurement complete for PAGE=$(PAGE)."
 
 frontend-diagnostic:
 	@set -euo pipefail; \
 	case "$(COMMAND)" in \
-		performance-snapshot|long-task-capture|runtime-state) ;; \
+		performance-snapshot) completion="performance_snapshot_complete"; timeout=10 ;; \
+		long-task-capture) completion="long_task_capture_complete long_task_capture_unsupported long_task_capture_error"; timeout=40 ;; \
+		runtime-state) completion="runtime_state"; timeout=10 ;; \
 		*) \
 			echo "Unsupported COMMAND=$(COMMAND)."; \
 			echo "Supported: performance-snapshot long-task-capture runtime-state"; \
@@ -2467,14 +2512,35 @@ frontend-diagnostic:
 		echo "Production-runtime test container is not running."; \
 		exit 1; \
 	fi; \
-	url="http://127.0.0.1:6060/debug/frontend-diagnostics/$(COMMAND)"; \
+	base="http://127.0.0.1:6060/debug/frontend-diagnostics"; \
 	echo "Publishing frontend diagnostic command: $(COMMAND)"; \
-	response="$$(docker exec "$(TEST_PROD_CONTAINER)" wget -qO- --post-data="" "$$url")" || { \
+	response="$$(docker exec "$(TEST_PROD_CONTAINER)" wget -qO- --post-data="" "$$base/$(COMMAND)")" || { \
 		echo "Frontend diagnostics are not available in $(TEST_PROD_CONTAINER)."; \
 		echo "Restart with TEST_FRONTEND_DIAGNOSTICS=true."; \
 		exit 1; \
 	}; \
-	echo "Published: $$response"
+	command_id="$$(RESPONSE="$$response" python3 -c 'import json, os; print(json.loads(os.environ["RESPONSE"])["id"])')"; \
+	echo "Command ID: $$command_id"; \
+	result_url="$$base/results/$$command_id"; \
+	deadline=$$(( $$(date +%s) + timeout )); \
+	while :; do \
+		results="$$(docker exec "$(TEST_PROD_CONTAINER)" wget -qO- "$$result_url")" || { \
+			echo "Failed to retrieve frontend diagnostic results for command $$command_id."; \
+			exit 1; \
+		}; \
+		if RESULTS="$$results" COMPLETION="$$completion" python3 -c 'import json, os, sys; data=json.loads(os.environ["RESULTS"]); sys.exit(0 if any(item.get("Event", {}).get("event") in os.environ["COMPLETION"].split() for item in data) else 1)'; then \
+			break; \
+		fi; \
+		if [ "$$(date +%s)" -ge "$$deadline" ]; then \
+			echo "Timed out waiting for $$completion for command $$command_id."; \
+			echo "$$results"; \
+			exit 1; \
+		fi; \
+		sleep 0.25; \
+	done; \
+	echo; \
+	echo "=== FRONTEND DIAGNOSTIC RESULTS ==="; \
+	RESULTS="$$results" python3 -c 'import json, os; data=json.loads(os.environ["RESULTS"]); [print(json.dumps(item.get("Event", {}), sort_keys=True)) for item in data]'
 
 pprof-capture:
 	@set -euo pipefail; \

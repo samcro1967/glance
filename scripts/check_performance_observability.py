@@ -102,6 +102,9 @@ CONTRACTS = (
             '"largest-contentful-paint"',
             "finalizeFrontendDiagnosticLCP",
             "lcp_finalized",
+            '"lcp_attribution"',
+            '"cls_attribution"',
+            '"performance_snapshot_complete"',
             "frontendDiagnosticResourceIsPersistent",
             "persistent_count",
             '"layout-shift"',
@@ -111,7 +114,13 @@ CONTRACTS = (
     Contract(
         "frontend",
         "internal/glance/frontend-diagnostics.go",
-        ('"paint_snapshot"', '"web_vitals_snapshot"'),
+        (
+            '"paint_snapshot"',
+            '"web_vitals_snapshot"',
+            '"lcp_attribution"',
+            '"cls_attribution"',
+            '"performance_snapshot_complete"',
+        ),
     ),
     Contract(
         "integration",
@@ -120,6 +129,7 @@ CONTRACTS = (
             '"GET /api/diagnostics"',
             '"GET /api/diagnostics/report"',
             '"POST /api/frontend-diagnostics/performance-snapshot"',
+            '"GET /debug/frontend-diagnostics/results/{commandID}"',
         ),
     ),
 )

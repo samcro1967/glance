@@ -2,6 +2,7 @@ package glance
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net"
 	"net/http"
@@ -627,6 +628,63 @@ func TestInternalFrontendDiagnosticCommandRoutes(t *testing.T) {
 			t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNotFound)
 		}
 	})
+}
+
+func TestInternalFrontendDiagnosticResults(t *testing.T) {
+	app := newFrontendDiagnosticsTestApplication(true)
+	app.frontendDiagnostics = newFrontendRuntimeDiagnostics()
+	app.frontendDiagnostics.record([]frontendDiagnosticEvent{
+		{Event: "performance_snapshot", CommandID: 41},
+		{Event: "web_vitals_snapshot", CommandID: 41, Metrics: map[string]float64{"lcp_ms": 600}},
+		{Event: "lcp_attribution", CommandID: 41, Detail: `{"element":{"tag":"img"}}`},
+		{Event: "performance_snapshot_complete", CommandID: 41},
+		{Event: "runtime_state", CommandID: 42},
+	})
+
+	server := &processServer{}
+	server.setActiveApplication(app)
+	handler := server.processDiagnosticProfileHandler()
+
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(
+		recorder,
+		httptest.NewRequest(http.MethodGet, "/debug/frontend-diagnostics/results/41", nil),
+	)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body = %q", recorder.Code, http.StatusOK, recorder.Body.String())
+	}
+
+	var results []frontendRuntimeDiagnosticActiveResult
+	if err := json.Unmarshal(recorder.Body.Bytes(), &results); err != nil {
+		t.Fatalf("decode results: %v", err)
+	}
+	if len(results) != 4 {
+		t.Fatalf("results = %d, want 4", len(results))
+	}
+	for _, result := range results {
+		if result.Event.CommandID != 41 {
+			t.Fatalf("result command ID = %d, want 41", result.Event.CommandID)
+		}
+	}
+
+	recorder = httptest.NewRecorder()
+	handler.ServeHTTP(
+		recorder,
+		httptest.NewRequest(http.MethodGet, "/debug/frontend-diagnostics/results/not-a-number", nil),
+	)
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("invalid command status = %d, want %d", recorder.Code, http.StatusBadRequest)
+	}
+
+	app.Config.Server.FrontendDiagnostics = false
+	recorder = httptest.NewRecorder()
+	handler.ServeHTTP(
+		recorder,
+		httptest.NewRequest(http.MethodGet, "/debug/frontend-diagnostics/results/41", nil),
+	)
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("disabled diagnostics status = %d, want %d", recorder.Code, http.StatusNotFound)
+	}
 }
 
 func TestContentionProfilingCanBeEnabledAndDisabled(t *testing.T) {

@@ -18,11 +18,14 @@ const frontendPerformanceState = {
     lcpMS: null,
     lcpFinalized: false,
     lcpObserver: null,
+    lcpAttribution: null,
     clsSupported: false,
     cls: 0,
     clsWindowValue: 0,
     clsWindowStart: 0,
     clsWindowLast: 0,
+    clsWindowSources: [],
+    clsAttribution: [],
     eventTimingSupported: false,
     eventTimingCount: 0,
     maxEventDurationMS: 0,
@@ -33,6 +36,59 @@ function frontendDiagnosticPerformanceEntrySupported(type) {
         typeof PerformanceObserver !== "undefined" &&
         PerformanceObserver.supportedEntryTypes?.includes(type) === true
     );
+}
+
+function frontendDiagnosticElementDescriptor(element) {
+    if (!(element instanceof Element)) {
+        return "";
+    }
+
+    const tag = element.tagName.toLowerCase();
+    const id = element.id ? `#${element.id.slice(0, 64)}` : "";
+    const classes = Array.from(element.classList)
+        .slice(0, 4)
+        .map((value) => `.${value.slice(0, 48)}`)
+        .join("");
+
+    return `${tag}${id}${classes}`.slice(0, 120);
+}
+
+function frontendDiagnosticSanitizedResourceURL(value) {
+    if (!value) {
+        return null;
+    }
+
+    try {
+        const url = new URL(value, window.location.href);
+        return url.origin + url.pathname;
+    } catch {
+        return null;
+    }
+}
+
+function frontendDiagnosticRect(rect) {
+    if (!rect) {
+        return null;
+    }
+
+    return {
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+    };
+}
+
+function frontendDiagnosticLayoutShiftSources(entry) {
+    if (!Array.isArray(entry.sources)) {
+        return [];
+    }
+
+    return entry.sources.slice(0, 6).map((source) => ({
+        element: frontendDiagnosticElementDescriptor(source.node),
+        previous_rect: frontendDiagnosticRect(source.previousRect),
+        current_rect: frontendDiagnosticRect(source.currentRect),
+    }));
 }
 
 function finalizeFrontendDiagnosticLCP() {
@@ -56,6 +112,11 @@ function setupFrontendPerformanceObservers() {
             const observer = new PerformanceObserver((list) => {
                 for (const entry of list.getEntries()) {
                     frontendPerformanceState.lcpMS = entry.startTime;
+                    frontendPerformanceState.lcpAttribution = {
+                        element: frontendDiagnosticElementDescriptor(entry.element),
+                        resource: frontendDiagnosticSanitizedResourceURL(entry.url),
+                        size: entry.size,
+                    };
                 }
             });
             frontendPerformanceState.lcpObserver = observer;
@@ -84,22 +145,28 @@ function setupFrontendPerformanceObservers() {
                         continue;
                     }
 
+                    const sources = frontendDiagnosticLayoutShiftSources(entry);
+
                     if (
                         frontendPerformanceState.clsWindowLast !== 0 &&
                         entry.startTime - frontendPerformanceState.clsWindowLast < 1000 &&
                         entry.startTime - frontendPerformanceState.clsWindowStart < 5000
                     ) {
                         frontendPerformanceState.clsWindowValue += entry.value;
+                        frontendPerformanceState.clsWindowSources = frontendPerformanceState.clsWindowSources
+                            .concat(sources)
+                            .slice(0, 6);
                     } else {
                         frontendPerformanceState.clsWindowValue = entry.value;
                         frontendPerformanceState.clsWindowStart = entry.startTime;
+                        frontendPerformanceState.clsWindowSources = sources;
                     }
 
                     frontendPerformanceState.clsWindowLast = entry.startTime;
-                    frontendPerformanceState.cls = Math.max(
-                        frontendPerformanceState.cls,
-                        frontendPerformanceState.clsWindowValue
-                    );
+                    if (frontendPerformanceState.clsWindowValue > frontendPerformanceState.cls) {
+                        frontendPerformanceState.cls = frontendPerformanceState.clsWindowValue;
+                        frontendPerformanceState.clsAttribution = frontendPerformanceState.clsWindowSources.slice();
+                    }
                 }
             });
             observer.observe({ type: "layout-shift", buffered: true });
@@ -336,6 +403,10 @@ function frontendDiagnosticPerformanceSnapshot(reason, commandID) {
         return;
     }
 
+    if (commandID) {
+        finalizeFrontendDiagnosticLCP();
+    }
+
     const resources = performance.getEntriesByType("resource");
     const navigation = performance.getEntriesByType("navigation")[0];
     const paints = performance.getEntriesByType("paint");
@@ -389,6 +460,37 @@ function frontendDiagnosticPerformanceSnapshot(reason, commandID) {
         commandID,
         metrics: webVitalsMetrics,
     });
+
+    if (frontendPerformanceState.lcpAttribution !== null) {
+        const attribution = frontendPerformanceState.lcpAttribution;
+        frontendDiagnostic("lcp_attribution", {
+            commandID,
+            detail: [
+                `element=${attribution.element || ""}`,
+                `resource=${attribution.resource || ""}`,
+            ].join(" ").slice(0, 256),
+            metrics: {
+                size: attribution.size || 0,
+            },
+        });
+    }
+
+    for (const attribution of frontendPerformanceState.clsAttribution) {
+        frontendDiagnostic("cls_attribution", {
+            commandID,
+            detail: `element=${attribution.element || ""}`.slice(0, 256),
+            metrics: {
+                previous_x: attribution.previous_rect?.x ?? 0,
+                previous_y: attribution.previous_rect?.y ?? 0,
+                previous_width: attribution.previous_rect?.width ?? 0,
+                previous_height: attribution.previous_rect?.height ?? 0,
+                current_x: attribution.current_rect?.x ?? 0,
+                current_y: attribution.current_rect?.y ?? 0,
+                current_width: attribution.current_rect?.width ?? 0,
+                current_height: attribution.current_rect?.height ?? 0,
+            },
+        });
+    }
 
     if (navigation) {
         frontendDiagnostic("navigation_snapshot", {
@@ -460,6 +562,11 @@ function frontendDiagnosticPerformanceSnapshot(reason, commandID) {
             },
         });
     }
+
+    frontendDiagnostic("performance_snapshot_complete", {
+        commandID,
+        detail: `reason=${reason}`,
+    }, true);
 }
 export function captureFrontendPerformanceSnapshot(reason = "manual", commandID) {
     frontendDiagnosticPerformanceSnapshot(reason, commandID);

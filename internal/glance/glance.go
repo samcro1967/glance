@@ -3,6 +3,7 @@ package glance
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net"
@@ -1199,8 +1200,34 @@ func (s *processServer) processDiagnosticProfileHandler() http.Handler {
 	mux.HandleFunc("POST /debug/frontend-diagnostics/performance-snapshot", s.handleInternalFrontendDiagnosticCommand("performance_snapshot"))
 	mux.HandleFunc("POST /debug/frontend-diagnostics/long-task-capture", s.handleInternalFrontendDiagnosticCommand("long_task_capture"))
 	mux.HandleFunc("POST /debug/frontend-diagnostics/runtime-state", s.handleInternalFrontendDiagnosticCommand("runtime_state"))
+	mux.HandleFunc("GET /debug/frontend-diagnostics/results/{commandID}", s.handleInternalFrontendDiagnosticResults)
 
 	return mux
+}
+
+func (s *processServer) handleInternalFrontendDiagnosticResults(w http.ResponseWriter, r *http.Request) {
+	app := s.activeApplication.Load()
+	if app == nil || !app.Config.Server.FrontendDiagnostics {
+		http.NotFound(w, r)
+		return
+	}
+
+	commandID, err := strconv.ParseUint(r.PathValue("commandID"), 10, 64)
+	if err != nil || commandID == 0 {
+		http.Error(w, "Invalid command ID", http.StatusBadRequest)
+		return
+	}
+
+	results := app.frontendDiagnostics.activeResultsForCommand(commandID)
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(results); err != nil {
+		slog.Error(
+			"Frontend diagnostic result encoding failed",
+			"command_id", commandID,
+			"error", err,
+		)
+	}
 }
 
 func (s *processServer) handleInternalFrontendDiagnosticCommand(commandName string) http.HandlerFunc {
