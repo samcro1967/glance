@@ -303,6 +303,7 @@ func TestRuntimeGenerationRejectsListenerChangeWithoutDisturbingCurrentGeneratio
 		t.Fatalf("create process server: %v", err)
 	}
 	defer func() { _ = server.shutdown() }()
+	server.setActiveApplication(oldApp)
 
 	oldRuntime := oldApp.startRuntime()
 	defer oldRuntime.stop()
@@ -331,6 +332,9 @@ func TestRuntimeGenerationRejectsListenerChangeWithoutDisturbingCurrentGeneratio
 	if generation.runtime != oldRuntime {
 		t.Fatal("rejected reload replaced current runtime")
 	}
+	if server.activeApplication.Load() != oldApp {
+		t.Fatal("rejected reload replaced active application")
+	}
 
 	select {
 	case <-oldWidget.cancelled:
@@ -354,6 +358,10 @@ func TestRuntimeGenerationSuccessfulReloadCommitsNewGenerationAndRetiresOld(t *t
 		t.Fatalf("create process server: %v", err)
 	}
 	defer func() { _ = server.shutdown() }()
+	server.setActiveApplication(oldApp)
+
+	oldSubscription, unsubscribeOld := oldApp.liveUpdates.subscribe(nil)
+	defer unsubscribeOld()
 
 	oldRuntime := oldApp.startRuntime()
 
@@ -372,6 +380,7 @@ func TestRuntimeGenerationSuccessfulReloadCommitsNewGenerationAndRetiresOld(t *t
 server:
   host: 127.0.0.1
   port: 0
+  frontend-diagnostics: true
 
 branding:
   app-name: Reloaded Glance
@@ -396,6 +405,36 @@ pages:
 	if generation.runtime == oldRuntime {
 		t.Fatal("successful reload retained old runtime")
 	}
+	if server.activeApplication.Load() != generation.runtime.app {
+		t.Fatal("successful reload did not install new active application")
+	}
+	if server.activeApplication.Load() == oldApp {
+		t.Fatal("successful reload retained old active application")
+	}
+
+	newSubscription, unsubscribeNew := generation.runtime.app.liveUpdates.subscribe(nil)
+	defer unsubscribeNew()
+
+	recorder := httptest.NewRecorder()
+	server.processDiagnosticProfileHandler().ServeHTTP(
+		recorder,
+		httptest.NewRequest(http.MethodPost, "/debug/frontend-diagnostics/runtime-state", nil),
+	)
+	if recorder.Code != http.StatusAccepted {
+		t.Fatalf("post-reload diagnostic status = %d, want %d; body = %q", recorder.Code, http.StatusAccepted, recorder.Body.String())
+	}
+
+	newCommands := newSubscription.takeDiagnosticCommands()
+	if len(newCommands) != 1 {
+		t.Fatalf("new application received %d post-reload commands, want 1", len(newCommands))
+	}
+	if newCommands[0].Command != "runtime_state" {
+		t.Fatalf("post-reload command = %q, want runtime_state", newCommands[0].Command)
+	}
+	if oldCommands := oldSubscription.takeDiagnosticCommands(); len(oldCommands) != 0 {
+		t.Fatalf("old application received %d post-reload commands, want 0", len(oldCommands))
+	}
+
 	if generation.config.Branding.AppName != "Reloaded Glance" {
 		t.Fatalf(
 			"new generation app name = %q, want Reloaded Glance",
@@ -429,6 +468,7 @@ func TestRuntimeGenerationApplicationFailurePreservesCurrentGeneration(t *testin
 		t.Fatalf("create process server: %v", err)
 	}
 	defer func() { _ = server.shutdown() }()
+	server.setActiveApplication(oldApp)
 
 	oldRuntime := oldApp.startRuntime()
 	defer oldRuntime.stop()
@@ -459,12 +499,134 @@ func TestRuntimeGenerationApplicationFailurePreservesCurrentGeneration(t *testin
 	if generation.runtime != oldRuntime {
 		t.Fatal("failed candidate replaced current runtime")
 	}
+	if server.activeApplication.Load() != oldApp {
+		t.Fatal("failed candidate replaced active application")
+	}
 
 	select {
 	case <-oldWidget.cancelled:
 		t.Fatal("failed candidate cancelled current scheduler")
 	default:
 	}
+}
+
+func TestInternalFrontendDiagnosticCommandRoutes(t *testing.T) {
+	tests := []struct {
+		name    string
+		path    string
+		command string
+	}{
+		{
+			name:    "performance snapshot",
+			path:    "/debug/frontend-diagnostics/performance-snapshot",
+			command: "performance_snapshot",
+		},
+		{
+			name:    "long task capture",
+			path:    "/debug/frontend-diagnostics/long-task-capture",
+			command: "long_task_capture",
+		},
+		{
+			name:    "runtime state",
+			path:    "/debug/frontend-diagnostics/runtime-state",
+			command: "runtime_state",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			app := newFrontendDiagnosticsTestApplication(true)
+			app.liveUpdates = newLiveUpdateBroker()
+
+			subscription, unsubscribe := app.liveUpdates.subscribe(nil)
+			defer unsubscribe()
+
+			server := &processServer{}
+			server.setActiveApplication(app)
+			handler := server.processDiagnosticProfileHandler()
+
+			recorder := httptest.NewRecorder()
+			handler.ServeHTTP(
+				recorder,
+				httptest.NewRequest(http.MethodPost, test.path, nil),
+			)
+
+			if recorder.Code != http.StatusAccepted {
+				t.Fatalf("status = %d, want %d; body = %q", recorder.Code, http.StatusAccepted, recorder.Body.String())
+			}
+
+			commands := subscription.takeDiagnosticCommands()
+			if len(commands) != 1 {
+				t.Fatalf("published commands = %d, want 1", len(commands))
+			}
+			if commands[0].ID == 0 {
+				t.Fatal("command ID must be nonzero")
+			}
+			if commands[0].Command != test.command {
+				t.Fatalf("command = %q, want %q", commands[0].Command, test.command)
+			}
+		})
+	}
+
+	t.Run("disabled", func(t *testing.T) {
+		app := newFrontendDiagnosticsTestApplication(false)
+		app.liveUpdates = newLiveUpdateBroker()
+
+		subscription, unsubscribe := app.liveUpdates.subscribe(nil)
+		defer unsubscribe()
+
+		server := &processServer{}
+		server.setActiveApplication(app)
+
+		recorder := httptest.NewRecorder()
+		server.processDiagnosticProfileHandler().ServeHTTP(
+			recorder,
+			httptest.NewRequest(http.MethodPost, "/debug/frontend-diagnostics/performance-snapshot", nil),
+		)
+
+		if recorder.Code != http.StatusNotFound {
+			t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNotFound)
+		}
+		if commands := subscription.takeDiagnosticCommands(); len(commands) != 0 {
+			t.Fatalf("disabled diagnostics published %d commands", len(commands))
+		}
+	})
+
+	t.Run("method restricted", func(t *testing.T) {
+		app := newFrontendDiagnosticsTestApplication(true)
+		app.liveUpdates = newLiveUpdateBroker()
+
+		server := &processServer{}
+		server.setActiveApplication(app)
+
+		recorder := httptest.NewRecorder()
+		server.processDiagnosticProfileHandler().ServeHTTP(
+			recorder,
+			httptest.NewRequest(http.MethodGet, "/debug/frontend-diagnostics/performance-snapshot", nil),
+		)
+
+		if recorder.Code != http.StatusMethodNotAllowed {
+			t.Fatalf("status = %d, want %d", recorder.Code, http.StatusMethodNotAllowed)
+		}
+	})
+
+	t.Run("arbitrary command unavailable", func(t *testing.T) {
+		app := newFrontendDiagnosticsTestApplication(true)
+		app.liveUpdates = newLiveUpdateBroker()
+
+		server := &processServer{}
+		server.setActiveApplication(app)
+
+		recorder := httptest.NewRecorder()
+		server.processDiagnosticProfileHandler().ServeHTTP(
+			recorder,
+			httptest.NewRequest(http.MethodPost, "/debug/frontend-diagnostics/arbitrary", nil),
+		)
+
+		if recorder.Code != http.StatusNotFound {
+			t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNotFound)
+		}
+	})
 }
 
 func TestContentionProfilingCanBeEnabledAndDisabled(t *testing.T) {

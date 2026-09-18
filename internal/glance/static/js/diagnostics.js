@@ -16,6 +16,8 @@ let frontendDiagnosticsImmediateFlushPending = false;
 const frontendPerformanceState = {
     lcpSupported: false,
     lcpMS: null,
+    lcpFinalized: false,
+    lcpObserver: null,
     clsSupported: false,
     cls: 0,
     clsWindowValue: 0,
@@ -33,6 +35,16 @@ function frontendDiagnosticPerformanceEntrySupported(type) {
     );
 }
 
+function finalizeFrontendDiagnosticLCP() {
+    if (!frontendPerformanceState.lcpSupported || frontendPerformanceState.lcpFinalized) {
+        return;
+    }
+
+    frontendPerformanceState.lcpFinalized = true;
+    frontendPerformanceState.lcpObserver?.disconnect();
+    frontendPerformanceState.lcpObserver = null;
+}
+
 function setupFrontendPerformanceObservers() {
     if (!frontendDiagnosticsEnabled || typeof PerformanceObserver === "undefined") {
         return;
@@ -46,9 +58,20 @@ function setupFrontendPerformanceObservers() {
                     frontendPerformanceState.lcpMS = entry.startTime;
                 }
             });
+            frontendPerformanceState.lcpObserver = observer;
             observer.observe({ type: "largest-contentful-paint", buffered: true });
+
+            window.addEventListener("pointerdown", finalizeFrontendDiagnosticLCP, {
+                once: true,
+                capture: true,
+            });
+            window.addEventListener("keydown", finalizeFrontendDiagnosticLCP, {
+                once: true,
+                capture: true,
+            });
         } catch {
             frontendPerformanceState.lcpSupported = false;
+            frontendPerformanceState.lcpObserver = null;
         }
     }
 
@@ -296,6 +319,18 @@ export function frontendDiagnosticLongTaskCapture(durationMS = 30000, commandID)
     }, durationMS);
 }
 
+function frontendDiagnosticResourceIsPersistent(resource) {
+    try {
+        const url = new URL(resource.name, window.location.href);
+        return (
+            url.origin === window.location.origin &&
+            url.pathname === "/api/live-updates"
+        );
+    } catch {
+        return false;
+    }
+}
+
 function frontendDiagnosticPerformanceSnapshot(reason, commandID) {
     if (!frontendDiagnosticsEnabled) {
         return;
@@ -334,6 +369,7 @@ function frontendDiagnosticPerformanceSnapshot(reason, commandID) {
 
     const webVitalsMetrics = {
         lcp_supported: frontendPerformanceState.lcpSupported ? 1 : 0,
+        lcp_finalized: frontendPerformanceState.lcpFinalized ? 1 : 0,
         cls_supported: frontendPerformanceState.clsSupported ? 1 : 0,
         event_timing_supported: frontendPerformanceState.eventTimingSupported ? 1 : 0,
     };
@@ -371,6 +407,8 @@ function frontendDiagnosticPerformanceSnapshot(reason, commandID) {
     }
 
     if (resources.length > 0) {
+        let ordinaryCount = 0;
+        let persistentCount = 0;
         let transferBytes = 0;
         let encodedBytes = 0;
         let decodedBytes = 0;
@@ -378,6 +416,12 @@ function frontendDiagnosticPerformanceSnapshot(reason, commandID) {
         let slowest = null;
 
         for (const resource of resources) {
+            if (frontendDiagnosticResourceIsPersistent(resource)) {
+                persistentCount++;
+                continue;
+            }
+
+            ordinaryCount++;
             transferBytes += resource.transferSize || 0;
             encodedBytes += resource.encodedBodySize || 0;
             decodedBytes += resource.decodedBodySize || 0;
@@ -392,7 +436,8 @@ function frontendDiagnosticPerformanceSnapshot(reason, commandID) {
             commandID,
             detail: `slowest=${slowest?.name?.slice(0, 240) ?? ""}`,
             metrics: {
-                count: resources.length,
+                count: ordinaryCount,
+                persistent_count: persistentCount,
                 transfer_bytes: transferBytes,
                 encoded_bytes: encodedBytes,
                 decoded_bytes: decodedBytes,
@@ -448,6 +493,10 @@ function setupFrontendDiagnosticsLifecycle() {
     });
 
     document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden") {
+            finalizeFrontendDiagnosticLCP();
+        }
+
         frontendDiagnostic("visibility_change", {
             detail: `visibility=${document.visibilityState}`,
         });

@@ -1192,3 +1192,38 @@ func frontendDiagnosticProfileHandler() http.Handler {
 
 	return mux
 }
+
+func (s *processServer) processDiagnosticProfileHandler() http.Handler {
+	mux := http.NewServeMux()
+	mux.Handle("/debug/pprof/", frontendDiagnosticProfileHandler())
+	mux.HandleFunc("POST /debug/frontend-diagnostics/performance-snapshot", s.handleInternalFrontendDiagnosticCommand("performance_snapshot"))
+	mux.HandleFunc("POST /debug/frontend-diagnostics/long-task-capture", s.handleInternalFrontendDiagnosticCommand("long_task_capture"))
+	mux.HandleFunc("POST /debug/frontend-diagnostics/runtime-state", s.handleInternalFrontendDiagnosticCommand("runtime_state"))
+
+	return mux
+}
+
+func (s *processServer) handleInternalFrontendDiagnosticCommand(commandName string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		app := s.activeApplication.Load()
+		if app == nil || !app.Config.Server.FrontendDiagnostics {
+			http.NotFound(w, r)
+			return
+		}
+
+		command, err := app.publishFrontendDiagnosticCommand(commandName)
+		if err != nil {
+			http.Error(w, "Live updates unavailable", http.StatusServiceUnavailable)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		_, _ = fmt.Fprintf(
+			w,
+			`{"id":%d,"command":"%s"}`,
+			command.ID,
+			command.Command,
+		)
+	}
+}

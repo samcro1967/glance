@@ -139,6 +139,7 @@ func (g *runtimeGeneration) reload(
 
 	previousRuntime := g.runtime
 	server.swap(candidateRuntime.handler)
+	server.setActiveApplication(candidateApp)
 	g.runtime = candidateRuntime
 	g.config = &candidateApp.Config
 	server.reconcileProfiling(candidateApp.Config.Server.FrontendDiagnostics)
@@ -150,6 +151,8 @@ type processServer struct {
 	listener net.Listener
 	server   *http.Server
 	handler  *swappableHandler
+
+	activeApplication atomic.Pointer[application]
 
 	profileMu          sync.Mutex
 	profileServer      *http.Server
@@ -190,6 +193,10 @@ func (s *processServer) swap(handler http.Handler) {
 	s.handler.swap(handler)
 }
 
+func (s *processServer) setActiveApplication(app *application) {
+	s.activeApplication.Store(app)
+}
+
 func (s *processServer) reconcileProfiling(enabled bool) {
 	s.profileMu.Lock()
 	defer s.profileMu.Unlock()
@@ -202,7 +209,7 @@ func (s *processServer) reconcileProfiling(enabled bool) {
 
 		profileServer := &http.Server{
 			Addr:              "127.0.0.1:6060",
-			Handler:           frontendDiagnosticProfileHandler(),
+			Handler:           s.processDiagnosticProfileHandler(),
 			ReadHeaderTimeout: 5 * time.Second,
 			IdleTimeout:       120 * time.Second,
 		}

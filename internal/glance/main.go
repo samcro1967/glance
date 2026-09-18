@@ -175,6 +175,7 @@ func serveApp(configPath string) error {
 		return fmt.Errorf("starting server: %w", err)
 	}
 	server.profileDiagnostics = profilingDiagnostics
+	server.setActiveApplication(initialApp)
 
 	initialRuntime := initialApp.startRuntime()
 	generation := &runtimeGeneration{

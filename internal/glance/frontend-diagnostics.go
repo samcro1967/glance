@@ -256,27 +256,9 @@ func (a *application) handleFrontendRuntimeStateRequest(w http.ResponseWriter, r
 	a.handleFrontendDiagnosticCommandRequest(w, r, "runtime_state")
 }
 
-func (a *application) handleFrontendDiagnosticCommandRequest(
-	w http.ResponseWriter,
-	r *http.Request,
-	commandName string,
-) {
-	if !a.Config.Server.FrontendDiagnostics {
-		http.NotFound(w, r)
-		return
-	}
-
-	if a.handleUnauthorizedResponse(w, r, showUnauthorizedJSON) {
-		return
-	}
-
+func (a *application) publishFrontendDiagnosticCommand(commandName string) (frontendDiagnosticCommand, error) {
 	if a.liveUpdates == nil {
-		http.Error(
-			w,
-			"Live updates unavailable",
-			http.StatusServiceUnavailable,
-		)
-		return
+		return frontendDiagnosticCommand{}, errors.New("live updates unavailable")
 	}
 
 	command := frontendDiagnosticCommand{
@@ -293,6 +275,29 @@ func (a *application) handleFrontendDiagnosticCommandRequest(
 		"command_id", command.ID,
 		"command", command.Command,
 	)
+
+	return command, nil
+}
+
+func (a *application) handleFrontendDiagnosticCommandRequest(
+	w http.ResponseWriter,
+	r *http.Request,
+	commandName string,
+) {
+	if !a.Config.Server.FrontendDiagnostics {
+		http.NotFound(w, r)
+		return
+	}
+
+	if a.handleUnauthorizedResponse(w, r, showUnauthorizedJSON) {
+		return
+	}
+
+	command, err := a.publishFrontendDiagnosticCommand(commandName)
+	if err != nil {
+		http.Error(w, "Live updates unavailable", http.StatusServiceUnavailable)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)

@@ -183,6 +183,9 @@ help:
 	@echo "    make benchmark                Run Go benchmarks with allocation statistics"
 	@echo "    make performance-check        Validate required performance observability surfaces"
 	@echo "    make performance              Run repeatable local performance evidence"
+	@echo "    make frontend-diagnostic COMMAND=performance-snapshot"
+	@echo "                                  Trigger browser diagnostics in diagnostics-enabled test-prod"
+	@echo "                                  Commands: performance-snapshot long-task-capture runtime-state"
 	@echo "    make pprof-capture PROFILE=heap [PPROF_SECONDS=30]"
 	@echo "                                  Capture a profile from diagnostics-enabled test-prod"
 	@echo "    make pprof-summary PROFILE=heap"
@@ -342,6 +345,7 @@ performance: performance-check benchmark lighthouse
 	@echo "Automated benchmarks and Lighthouse are complete."
 	@echo "For production-representative runtime evidence, use the explicit test-prod workflow:"
 	@echo "  make test-prod-start TEST_FRONTEND_DIAGNOSTICS=true"
+	@echo "  make frontend-diagnostic COMMAND=performance-snapshot"
 	@echo "  make pprof-capture PROFILE=cpu PPROF_SECONDS=30"
 	@echo "  make pprof-summary PROFILE=cpu"
 	@echo "  Review authenticated /api/diagnostics/report for outbound HTTP, rendering, and frontend runtime metrics."
@@ -2442,7 +2446,35 @@ test-all-stop:
 	@$(MAKE) --no-print-directory test-container-stop
 	@echo "All Makefile-managed development/test runtimes are stopped."
 
-.PHONY: pprof-capture pprof-summary
+.PHONY: frontend-diagnostic pprof-capture pprof-summary
+
+frontend-diagnostic:
+	@set -euo pipefail; \
+	case "$(COMMAND)" in \
+		performance-snapshot|long-task-capture|runtime-state) ;; \
+		*) \
+			echo "Unsupported COMMAND=$(COMMAND)."; \
+			echo "Supported: performance-snapshot long-task-capture runtime-state"; \
+			exit 1; \
+			;; \
+	esac; \
+	if ! docker inspect "$(TEST_PROD_CONTAINER)" >/dev/null 2>&1; then \
+		echo "Production-runtime test container does not exist."; \
+		echo "Start it with TEST_FRONTEND_DIAGNOSTICS=true first."; \
+		exit 1; \
+	fi; \
+	if [ "$$(docker inspect "$(TEST_PROD_CONTAINER)" --format "{{.State.Running}}")" != "true" ]; then \
+		echo "Production-runtime test container is not running."; \
+		exit 1; \
+	fi; \
+	url="http://127.0.0.1:6060/debug/frontend-diagnostics/$(COMMAND)"; \
+	echo "Publishing frontend diagnostic command: $(COMMAND)"; \
+	response="$$(docker exec "$(TEST_PROD_CONTAINER)" wget -qO- --post-data="" "$$url")" || { \
+		echo "Frontend diagnostics are not available in $(TEST_PROD_CONTAINER)."; \
+		echo "Restart with TEST_FRONTEND_DIAGNOSTICS=true."; \
+		exit 1; \
+	}; \
+	echo "Published: $$response"
 
 pprof-capture:
 	@set -euo pipefail; \
