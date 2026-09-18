@@ -63,6 +63,11 @@ make validate-all
 make lighthouse
 make coverage
 make benchmark
+make performance-check
+make performance
+make performance-runtime PAGE=<page>
+make pprof-capture PROFILE=<profile>
+make pprof-summary PROFILE=<profile>
 make vuln
 make status
 make staged-diff
@@ -316,6 +321,8 @@ make test-prod-stop
 ```
 
 This builds the current source into an isolated test image and uses the production container as its runtime reference. It does not replace the running production container.
+
+For performance investigations against that production-representative environment, use `make performance-runtime PAGE=<page>`. The maintained workflow correlates the browser performance snapshot with backend rendering, refresh synchronization, widget refresh activity, and outbound HTTP diagnostics from the same isolated runtime. Prefer this correlated evidence over manually constructing a runtime or inferring an application bottleneck from a single timing source.
 
 The production-runtime workflow also supports maintained configuration and environment overrides for cases where a feature must be exercised without modifying the real production configuration. Use the Makefile-supported override interfaces rather than manually constructing an alternate Docker runtime.
 
