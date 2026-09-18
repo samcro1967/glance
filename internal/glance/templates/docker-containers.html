@@ -1,8 +1,25 @@
 {{ template "widget-base.html" . }}
 
 {{- define "widget-content" }}
+{{- if eq .GroupBy "compose-project" }}
+<div class="list list-gap-20">
+    {{- range .Groups }}
+    <div>
+        <div class="size-h3 margin-bottom-10">{{ if .Name }}{{ .Name }}{{ else }}Ungrouped{{ end }}</div>
+        {{- template "docker-container-list" .Containers }}
+    </div>
+    {{- else }}
+    <div class="text-center">No containers available to show.</div>
+    {{- end }}
+</div>
+{{- else }}
+{{- template "docker-container-list" .Containers }}
+{{- end }}
+{{- end }}
+
+{{- define "docker-container-list" }}
 <ul class="dynamic-columns list-gap-20 list-with-separator">
-    {{- range .Containers }}
+    {{- range . }}
     <li class="docker-container flex items-center gap-15">
         <div class="shrink-0" data-popover-type="html" data-popover-position="above" data-popover-offset="0.25" data-popover-margin="0.1rem" data-popover-max-width="400px" aria-hidden="true">
             <img class="docker-container-icon{{ if .Icon.AutoInvert }} flat-icon{{ end }}" src="{{ .Icon.URL }}" alt="" loading="lazy">

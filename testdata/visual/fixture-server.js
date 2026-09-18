@@ -78,6 +78,7 @@ const dockerContainers = [
     Labels: {
       'glance.name': 'Glance',
       'glance.id': 'glance',
+      'com.docker.compose.project': 'glance-stack',
       'glance.description': 'Dashboard',
       'glance.url': 'https://github.com/samcro1967/glance'
     }
@@ -90,6 +91,7 @@ const dockerContainers = [
     Labels: {
       'glance.name': 'Visual Worker',
       'glance.parent': 'glance',
+      'com.docker.compose.project': 'worker-stack',
       'glance.description': 'Background worker'
     }
   },
@@ -100,6 +102,7 @@ const dockerContainers = [
     Status: 'Up 45 minutes',
     Labels: {
       'glance.name': 'Fixture API',
+      'com.docker.compose.project': 'fixture-services',
       'glance.description': 'Deterministic test service'
     }
   },

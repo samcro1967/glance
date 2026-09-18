@@ -22,7 +22,9 @@ type dockerContainersWidget struct {
 	Category             string                       `yaml:"category"`
 	SockPath             string                       `yaml:"sock-path"`
 	FormatContainerNames bool                         `yaml:"format-container-names"`
+	GroupBy              string                       `yaml:"group-by"`
 	Containers           dockerContainerList          `yaml:"-"`
+	Groups               []dockerContainerGroup       `yaml:"-"`
 	LabelOverrides       map[string]map[string]string `yaml:"containers"`
 	DefaultNewTab        *bool                        `yaml:"-"`
 }
@@ -32,6 +34,10 @@ func (widget *dockerContainersWidget) initialize() error {
 
 	if widget.SockPath == "" {
 		widget.SockPath = "/var/run/docker.sock"
+	}
+
+	if widget.GroupBy != "" && widget.GroupBy != dockerContainerGroupByComposeProject {
+		return fmt.Errorf("group-by must be one of: %s", dockerContainerGroupByComposeProject)
 	}
 
 	return nil
@@ -53,6 +59,10 @@ func (widget *dockerContainersWidget) update(ctx context.Context) {
 	}
 
 	containers.sortByStateIconThenName()
+	widget.Groups = nil
+	if widget.GroupBy == dockerContainerGroupByComposeProject {
+		widget.Groups = groupDockerContainersByComposeProject(containers)
+	}
 	widget.Containers = containers
 }
 
@@ -61,16 +71,19 @@ func (widget *dockerContainersWidget) Render() template.HTML {
 }
 
 const (
-	dockerContainerLabelHide        = "glance.hide"
-	dockerContainerLabelName        = "glance.name"
-	dockerContainerLabelURL         = "glance.url"
-	dockerContainerLabelDescription = "glance.description"
-	dockerContainerLabelSameTab     = "glance.same-tab"
-	dockerContainerLabelIcon        = "glance.icon"
-	dockerContainerLabelID          = "glance.id"
-	dockerContainerLabelParent      = "glance.parent"
-	dockerContainerLabelCategory    = "glance.category"
+	dockerContainerLabelHide           = "glance.hide"
+	dockerContainerLabelName           = "glance.name"
+	dockerContainerLabelURL            = "glance.url"
+	dockerContainerLabelDescription    = "glance.description"
+	dockerContainerLabelSameTab        = "glance.same-tab"
+	dockerContainerLabelIcon           = "glance.icon"
+	dockerContainerLabelID             = "glance.id"
+	dockerContainerLabelParent         = "glance.parent"
+	dockerContainerLabelCategory       = "glance.category"
+	dockerContainerLabelComposeProject = "com.docker.compose.project"
 )
+
+const dockerContainerGroupByComposeProject = "compose-project"
 
 const (
 	dockerContainerStateIconOK     = "ok"
@@ -114,16 +127,22 @@ func (l *dockerContainerLabels) getOrDefault(label, def string) string {
 }
 
 type dockerContainer struct {
-	Name        string
-	URL         string
-	SameTab     bool
-	Image       string
-	State       string
-	StateText   string
-	StateIcon   string
-	Description string
-	Icon        customIconField
-	Children    dockerContainerList
+	Name           string
+	URL            string
+	SameTab        bool
+	Image          string
+	State          string
+	StateText      string
+	StateIcon      string
+	Description    string
+	Icon           customIconField
+	Children       dockerContainerList
+	ComposeProject string
+}
+
+type dockerContainerGroup struct {
+	Name       string
+	Containers dockerContainerList
 }
 
 type dockerContainerList []dockerContainer
@@ -138,6 +157,42 @@ func (containers dockerContainerList) sortByStateIconThenName() {
 
 		return strings.ToLower(containers[a].Name) < strings.ToLower(containers[b].Name)
 	})
+}
+
+func groupDockerContainersByComposeProject(containers dockerContainerList) []dockerContainerGroup {
+	grouped := make(map[string]dockerContainerList)
+	ungrouped := make(dockerContainerList, 0)
+
+	for i := range containers {
+		container := containers[i]
+		if container.ComposeProject == "" {
+			ungrouped = append(ungrouped, container)
+			continue
+		}
+		grouped[container.ComposeProject] = append(grouped[container.ComposeProject], container)
+	}
+
+	names := make([]string, 0, len(grouped))
+	for name := range grouped {
+		names = append(names, name)
+	}
+	sort.Slice(names, func(i, j int) bool {
+		left := strings.ToLower(names[i])
+		right := strings.ToLower(names[j])
+		if left == right {
+			return names[i] < names[j]
+		}
+		return left < right
+	})
+
+	groups := make([]dockerContainerGroup, 0, len(names)+1)
+	for _, name := range names {
+		groups = append(groups, dockerContainerGroup{Name: name, Containers: grouped[name]})
+	}
+	if len(ungrouped) > 0 {
+		groups = append(groups, dockerContainerGroup{Containers: ungrouped})
+	}
+	return groups
 }
 
 func dockerContainerStateToStateIcon(container *dockerContainerJsonResponse) string {
@@ -192,14 +247,15 @@ func fetchDockerContainers(
 		}
 
 		dc := dockerContainer{
-			Name:        deriveDockerContainerName(container, formatNames),
-			URL:         container.Labels.getOrDefault(dockerContainerLabelURL, ""),
-			Description: container.Labels.getOrDefault(dockerContainerLabelDescription, ""),
-			SameTab:     sameTab,
-			Image:       container.Image,
-			State:       strings.ToLower(container.State),
-			StateText:   strings.ToLower(container.Status),
-			Icon:        newCustomIconField(container.Labels.getOrDefault(dockerContainerLabelIcon, "si:docker")),
+			Name:           deriveDockerContainerName(container, formatNames),
+			URL:            container.Labels.getOrDefault(dockerContainerLabelURL, ""),
+			Description:    container.Labels.getOrDefault(dockerContainerLabelDescription, ""),
+			SameTab:        sameTab,
+			Image:          container.Image,
+			State:          strings.ToLower(container.State),
+			StateText:      strings.ToLower(container.Status),
+			Icon:           newCustomIconField(container.Labels.getOrDefault(dockerContainerLabelIcon, "si:docker")),
+			ComposeProject: container.Labels.getOrDefault(dockerContainerLabelComposeProject, ""),
 		}
 
 		if idValue := container.Labels.getOrDefault(dockerContainerLabelID, ""); idValue != "" {

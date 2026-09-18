@@ -686,6 +686,13 @@ pages:
             sock-path: http://127.0.0.1:18089
             hide-by-default: false
 
+          - type: docker-containers
+            title: Docker Containers by Compose Project
+            css-class: visual-fixture-docker-containers-compose
+            sock-path: http://127.0.0.1:18089
+            hide-by-default: false
+            group-by: compose-project
+
       - size: medium
         widgets:
           - type: server-stats
