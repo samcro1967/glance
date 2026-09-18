@@ -73,9 +73,14 @@ func TestPageContentRequestDoesNotRefreshWidgets(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/api/pages/home/content/", nil)
 	request.SetPathValue("page", "home")
 	response := httptest.NewRecorder()
+	beforeRendering := renderDiagnostics.snapshot()
 
 	app.handlePageContentRequest(response, request)
 
+	afterRendering := renderDiagnostics.snapshot()
+	if afterRendering.PageExecutions != beforeRendering.PageExecutions+1 {
+		t.Fatalf("page template executions = %d, want %d", afterRendering.PageExecutions, beforeRendering.PageExecutions+1)
+	}
 	if response.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", response.Code, http.StatusOK)
 	}
@@ -514,6 +519,7 @@ func (widget *renderSynchronizationTestWidget) Render() template.HTML {
 
 func TestRenderWidgetUsesCommittedSnapshotDuringActiveRefresh(t *testing.T) {
 	widget := newRenderSynchronizationTestWidget()
+	beforeRendering := renderDiagnostics.snapshot()
 
 	initialRenderDone := make(chan template.HTML, 1)
 	go func() {
@@ -570,6 +576,13 @@ func TestRenderWidgetUsesCommittedSnapshotDuringActiveRefresh(t *testing.T) {
 	case <-refreshDone:
 	case <-time.After(time.Second):
 		t.Fatal("refresh did not complete")
+	}
+
+	afterRendering := renderDiagnostics.snapshot()
+	if afterRendering.WidgetCalls != beforeRendering.WidgetCalls+2 ||
+		afterRendering.WidgetRenders != beforeRendering.WidgetRenders+1 ||
+		afterRendering.WidgetSnapshotHits != beforeRendering.WidgetSnapshotHits+1 {
+		t.Fatalf("unexpected render diagnostics delta: before=%#v after=%#v", beforeRendering, afterRendering)
 	}
 }
 

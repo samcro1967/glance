@@ -13,6 +13,101 @@ let frontendDiagnosticsFlushTimer = null;
 let frontendDiagnosticsFlushInProgress = false;
 let frontendDiagnosticsImmediateFlushPending = false;
 
+const frontendPerformanceState = {
+    lcpSupported: false,
+    lcpMS: null,
+    clsSupported: false,
+    cls: 0,
+    clsWindowValue: 0,
+    clsWindowStart: 0,
+    clsWindowLast: 0,
+    eventTimingSupported: false,
+    eventTimingCount: 0,
+    maxEventDurationMS: 0,
+};
+
+function frontendDiagnosticPerformanceEntrySupported(type) {
+    return (
+        typeof PerformanceObserver !== "undefined" &&
+        PerformanceObserver.supportedEntryTypes?.includes(type) === true
+    );
+}
+
+function setupFrontendPerformanceObservers() {
+    if (!frontendDiagnosticsEnabled || typeof PerformanceObserver === "undefined") {
+        return;
+    }
+
+    if (frontendDiagnosticPerformanceEntrySupported("largest-contentful-paint")) {
+        frontendPerformanceState.lcpSupported = true;
+        try {
+            const observer = new PerformanceObserver((list) => {
+                for (const entry of list.getEntries()) {
+                    frontendPerformanceState.lcpMS = entry.startTime;
+                }
+            });
+            observer.observe({ type: "largest-contentful-paint", buffered: true });
+        } catch {
+            frontendPerformanceState.lcpSupported = false;
+        }
+    }
+
+    if (frontendDiagnosticPerformanceEntrySupported("layout-shift")) {
+        frontendPerformanceState.clsSupported = true;
+        try {
+            const observer = new PerformanceObserver((list) => {
+                for (const entry of list.getEntries()) {
+                    if (entry.hadRecentInput) {
+                        continue;
+                    }
+
+                    if (
+                        frontendPerformanceState.clsWindowLast !== 0 &&
+                        entry.startTime - frontendPerformanceState.clsWindowLast < 1000 &&
+                        entry.startTime - frontendPerformanceState.clsWindowStart < 5000
+                    ) {
+                        frontendPerformanceState.clsWindowValue += entry.value;
+                    } else {
+                        frontendPerformanceState.clsWindowValue = entry.value;
+                        frontendPerformanceState.clsWindowStart = entry.startTime;
+                    }
+
+                    frontendPerformanceState.clsWindowLast = entry.startTime;
+                    frontendPerformanceState.cls = Math.max(
+                        frontendPerformanceState.cls,
+                        frontendPerformanceState.clsWindowValue
+                    );
+                }
+            });
+            observer.observe({ type: "layout-shift", buffered: true });
+        } catch {
+            frontendPerformanceState.clsSupported = false;
+        }
+    }
+
+    if (frontendDiagnosticPerformanceEntrySupported("event")) {
+        frontendPerformanceState.eventTimingSupported = true;
+        try {
+            const observer = new PerformanceObserver((list) => {
+                for (const entry of list.getEntries()) {
+                    frontendPerformanceState.eventTimingCount++;
+                    frontendPerformanceState.maxEventDurationMS = Math.max(
+                        frontendPerformanceState.maxEventDurationMS,
+                        entry.duration
+                    );
+                }
+            });
+            observer.observe({
+                type: "event",
+                buffered: true,
+                durationThreshold: 16,
+            });
+        } catch {
+            frontendPerformanceState.eventTimingSupported = false;
+        }
+    }
+}
+
 export function frontendDiagnostic(event, fields = {}, flush = false) {
     if (!frontendDiagnosticsEnabled) {
         return;
@@ -208,6 +303,7 @@ function frontendDiagnosticPerformanceSnapshot(reason, commandID) {
 
     const resources = performance.getEntriesByType("resource");
     const navigation = performance.getEntriesByType("navigation")[0];
+    const paints = performance.getEntriesByType("paint");
 
     frontendDiagnostic("performance_snapshot", {
         commandID,
@@ -220,6 +316,43 @@ function frontendDiagnosticPerformanceSnapshot(reason, commandID) {
             resources: resources.length,
         },
     }, true);
+
+    const paintMetrics = {};
+    for (const paint of paints) {
+        if (paint.name === "first-paint") {
+            paintMetrics.first_paint_ms = paint.startTime;
+        } else if (paint.name === "first-contentful-paint") {
+            paintMetrics.first_contentful_paint_ms = paint.startTime;
+        }
+    }
+    if (Object.keys(paintMetrics).length > 0) {
+        frontendDiagnostic("paint_snapshot", {
+            commandID,
+            metrics: paintMetrics,
+        });
+    }
+
+    const webVitalsMetrics = {
+        lcp_supported: frontendPerformanceState.lcpSupported ? 1 : 0,
+        cls_supported: frontendPerformanceState.clsSupported ? 1 : 0,
+        event_timing_supported: frontendPerformanceState.eventTimingSupported ? 1 : 0,
+    };
+    if (frontendPerformanceState.lcpMS !== null) {
+        webVitalsMetrics.lcp_ms = frontendPerformanceState.lcpMS;
+    }
+    if (frontendPerformanceState.clsSupported) {
+        webVitalsMetrics.cls = frontendPerformanceState.cls;
+    }
+    if (frontendPerformanceState.eventTimingSupported) {
+        webVitalsMetrics.event_timing_count = frontendPerformanceState.eventTimingCount;
+        if (frontendPerformanceState.eventTimingCount > 0) {
+            webVitalsMetrics.max_event_duration_ms = frontendPerformanceState.maxEventDurationMS;
+        }
+    }
+    frontendDiagnostic("web_vitals_snapshot", {
+        commandID,
+        metrics: webVitalsMetrics,
+    });
 
     if (navigation) {
         frontendDiagnostic("navigation_snapshot", {
@@ -291,6 +424,8 @@ function setupFrontendDiagnosticsLifecycle() {
     if (!frontendDiagnosticsEnabled) {
         return;
     }
+
+    setupFrontendPerformanceObservers();
 
     window.addEventListener("error", (event) => {
         frontendDiagnostic("window_error", {

@@ -62,7 +62,7 @@ func newResourceProxyHTTPClient(policy *resourceProxyPolicy) *http.Client {
 	transport.Proxy = nil
 
 	client := &http.Client{
-		Transport: transport,
+		Transport: observeHTTPTransport(transport),
 		Timeout:   defaultClientTimeout,
 	}
 

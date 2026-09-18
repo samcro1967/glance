@@ -122,6 +122,51 @@ func formatRuntimeDiagnosticsReport(
 	fmt.Fprintf(&report, "Lock skips:   %d\n", response.TotalLockSkips)
 
 	fmt.Fprintln(&report)
+	fmt.Fprintln(&report, "OUTBOUND HTTP")
+	fmt.Fprintln(&report, "-------------")
+	fmt.Fprintf(&report, "Started:          %s\n", formatDiagnosticsReportTime(response.OutboundHTTP.StartedAt))
+	fmt.Fprintf(&report, "Exchanges:        %d\n", response.OutboundHTTP.Exchanges)
+	fmt.Fprintf(&report, "Transport errors: %d\n", response.OutboundHTTP.TransportErrors)
+	fmt.Fprintf(&report, "Responses:        1xx=%d 2xx=%d 3xx=%d 4xx=%d 5xx=%d other=%d\n", response.OutboundHTTP.Status1xx, response.OutboundHTTP.Status2xx, response.OutboundHTTP.Status3xx, response.OutboundHTTP.Status4xx, response.OutboundHTTP.Status5xx, response.OutboundHTTP.OtherResponses)
+	fmt.Fprintf(&report, "Average:          %.3f ms\n", response.OutboundHTTP.AverageDurationMS)
+	fmt.Fprintf(&report, "Maximum:          %.3f ms\n", response.OutboundHTTP.MaxDurationMS)
+	fmt.Fprintln(&report, "Timing boundary:  transport RoundTrip through response headers; response body/decode excluded")
+
+	if len(response.OutboundHTTP.Destinations) == 0 {
+		fmt.Fprintln(&report, "Destinations:     none")
+	} else {
+		fmt.Fprintln(&report, "Destinations:")
+		for _, destination := range response.OutboundHTTP.Destinations {
+			fmt.Fprintf(
+				&report,
+				"  %s  exchanges=%d errors=%d avg=%.3fms last=%.3fms max=%.3fms\n",
+				destination.Destination,
+				destination.Exchanges,
+				destination.TransportErrors,
+				destination.AverageDurationMS,
+				destination.LastDurationMS,
+				destination.MaxDurationMS,
+			)
+		}
+	}
+
+	fmt.Fprintln(&report)
+	fmt.Fprintln(&report, "RENDERING")
+	fmt.Fprintln(&report, "---------")
+	fmt.Fprintf(&report, "Started:                   %s\n", formatDiagnosticsReportTime(response.Rendering.StartedAt))
+	fmt.Fprintf(&report, "Widget calls:              %d\n", response.Rendering.WidgetCalls)
+	fmt.Fprintf(&report, "Snapshot hits:             %d\n", response.Rendering.WidgetSnapshotHits)
+	fmt.Fprintf(&report, "Actual renders:            %d\n", response.Rendering.WidgetRenders)
+	fmt.Fprintf(&report, "Refresh-lock waits:        %d\n", response.Rendering.WidgetRefreshLockWaits)
+	fmt.Fprintf(&report, "Refresh-lock wait avg/max: %.3f / %.3f ms\n", response.Rendering.WidgetLockWaitAverageMS, response.Rendering.WidgetLockWaitMaxMS)
+	fmt.Fprintf(&report, "Widget render avg/max:     %.3f / %.3f ms\n", response.Rendering.WidgetRenderAverageMS, response.Rendering.WidgetRenderMaxMS)
+	fmt.Fprintf(&report, "Page template executions: %d\n", response.Rendering.PageExecutions)
+	fmt.Fprintf(&report, "Page template failures:   %d\n", response.Rendering.PageFailures)
+	fmt.Fprintf(&report, "Page lock wait avg/max:    %.3f / %.3f ms\n", response.Rendering.PageLockWaitAverageMS, response.Rendering.PageLockWaitMaxMS)
+	fmt.Fprintf(&report, "Page template avg/max:     %.3f / %.3f ms\n", response.Rendering.PageTemplateExecutionAverageMS, response.Rendering.PageTemplateExecutionMaxMS)
+	fmt.Fprintln(&report, "Timing boundaries:         widget Render() excludes refresh-lock wait; page template execution excludes page-lock wait")
+
+	fmt.Fprintln(&report)
 	fmt.Fprintln(&report, "CONFIGURATION")
 	fmt.Fprintln(&report, "-------------")
 

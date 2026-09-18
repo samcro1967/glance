@@ -181,17 +181,22 @@ func renderWidget(widget widget) template.HTML {
 		base.renderSnapshotMu.RUnlock()
 
 		if hasSnapshot {
+			renderDiagnostics.recordWidgetSnapshotHit()
 			return snapshot
 		}
 
+		waitStarted := time.Now()
 		widget.lockRefresh()
+		renderDiagnostics.recordWidgetRefreshLockWait(time.Since(waitStarted))
 	} else if !hasBase {
 		widget.lockRefresh()
 	}
 
 	defer widget.unlockRefresh()
 
+	renderStarted := time.Now()
 	rendered := widget.Render()
+	renderDiagnostics.recordWidgetRender(time.Since(renderStarted))
 
 	if hasBase {
 		base.renderSnapshotMu.Lock()

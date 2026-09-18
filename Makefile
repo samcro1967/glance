@@ -6,7 +6,7 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps build goreleaser-check frontend-audit frontend-check validate validate-all test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln image-vuln status staged-diff upstream-status upstream-dev-status branch park push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-nonruntime deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final lint lighthouse
+.PHONY: help deps build goreleaser-check frontend-audit frontend-check validate validate-all test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln image-vuln status staged-diff upstream-status upstream-dev-status branch park push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-nonruntime deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final lint lighthouse performance-check performance
 
 COUNT ?= 10
 COVERAGE_FILE ?= coverage.out
@@ -181,6 +181,8 @@ help:
 	@echo
 	@echo "  ENGINEERING DIAGNOSTICS:"
 	@echo "    make benchmark                Run Go benchmarks with allocation statistics"
+	@echo "    make performance-check        Validate required performance observability surfaces"
+	@echo "    make performance              Run repeatable local performance evidence"
 	@echo "    make pprof-capture PROFILE=heap [PPROF_SECONDS=30]"
 	@echo "                                  Capture a profile from diagnostics-enabled test-prod"
 	@echo "    make pprof-summary PROFILE=heap"
@@ -216,7 +218,7 @@ help:
 	@echo "  make check                    Tests + race + build + format + whitespace + docs + lint + frontend audit"
 	@echo "  make lint                     Run correctness-oriented Go static analysis"
 	@echo "  make validate                 Full release-gate validation including browser, visual, and vulnerability checks"
-	@echo "  make validate-all             Full validation plus informational coverage, benchmarks, and Lighthouse"
+	@echo "  make validate-all             Full validation plus coverage, benchmarks, Lighthouse, and observability checks"
 	@echo "  make goreleaser-check         Validate formal-release configuration"
 	@echo
 	@echo "REPOSITORY:"
@@ -329,7 +331,21 @@ lint:
 
 validate: check frontend-check visual-check vuln
 
-validate-all: validate coverage frontend-coverage benchmark lighthouse
+validate-all: validate coverage frontend-coverage benchmark lighthouse performance-check
+
+performance-check:
+	python3 scripts/check_performance_observability.py
+
+performance: performance-check benchmark lighthouse
+	@echo
+	@echo "=== REPRESENTATIVE RUNTIME PERFORMANCE ==="
+	@echo "Automated benchmarks and Lighthouse are complete."
+	@echo "For production-representative runtime evidence, use the explicit test-prod workflow:"
+	@echo "  make test-prod-start TEST_FRONTEND_DIAGNOSTICS=true"
+	@echo "  make pprof-capture PROFILE=cpu PPROF_SECONDS=30"
+	@echo "  make pprof-summary PROFILE=cpu"
+	@echo "  Review authenticated /api/diagnostics/report for outbound HTTP, rendering, and frontend runtime metrics."
+	@echo "Runtime/provider/browser measurements are informational and are not pass/fail thresholds."
 
 lighthouse:
 	@report=$$(mktemp /tmp/glance-lighthouse.XXXXXX.json); trap '$(MAKE) test-instance-stop >/dev/null 2>&1 || true; rm -f "$$report"' EXIT; $(MAKE) test-instance-stop >/dev/null; $(MAKE) test-instance-start; CHROME_PATH="$${GLANCE_VISUAL_CHROME:-/usr/bin/google-chrome}" npx --yes lighthouse@$(LIGHTHOUSE_VERSION) http://127.0.0.1:18080 --chrome-flags="--headless --no-sandbox" --output=json --output-path="$$report" --quiet; REPORT="$$report" node -e 'const r=require(process.env.REPORT); for (const [id,c] of Object.entries(r.categories)) console.log(id+": "+Math.round(c.score*100)); const failed=Object.values(r.audits).filter(a=>a.score!==null && a.score<1 && a.scoreDisplayMode!=="notApplicable").filter(a=>a.details || ["button-name","color-contrast","target-size"].includes(a.id)); const accessibility=failed.filter(a=>r.categories.accessibility && r.categories.accessibility.auditRefs.some(ref=>ref.id===a.id)); if (accessibility.length) console.log("accessibility findings: "+accessibility.map(a=>a.id).join(", "));'

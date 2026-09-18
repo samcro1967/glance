@@ -389,7 +389,7 @@ func fetchDockerContainersFromSource(
 			return dialer.DialContext(ctx, "unix", source)
 		}
 		client = &http.Client{
-			Transport: transport,
+			Transport: observeHTTPTransport(transport),
 			Timeout:   defaultClientTimeout,
 		}
 	}

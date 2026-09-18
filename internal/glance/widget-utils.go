@@ -41,12 +41,12 @@ var defaultInsecureHTTPTransport = func() *http.Transport {
 }()
 
 var defaultHTTPClient = &http.Client{
-	Transport: defaultHTTPTransport,
+	Transport: observeHTTPTransport(defaultHTTPTransport),
 	Timeout:   defaultClientTimeout,
 }
 
 var defaultInsecureHTTPClient = &http.Client{
-	Transport: defaultInsecureHTTPTransport,
+	Transport: observeHTTPTransport(defaultInsecureHTTPTransport),
 	Timeout:   defaultClientTimeout,
 }
 

@@ -336,7 +336,7 @@ func (widget *redditWidget) fetchNewAppAccessToken(ctx context.Context) error {
 // so we use uTLS to mimic a real browser's TLS fingerprint, which seems to work around the issue
 var redditHTTPClient = &http.Client{
 	Timeout: 5 * time.Second,
-	Transport: &http2.Transport{
+	Transport: observeHTTPTransport(&http2.Transport{
 		DialTLSContext: func(ctx context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
 			host, _, err := net.SplitHostPort(addr)
 			if err != nil {
@@ -359,7 +359,7 @@ var redditHTTPClient = &http.Client{
 
 			return uconn, nil
 		},
-	},
+	}),
 }
 
 var (

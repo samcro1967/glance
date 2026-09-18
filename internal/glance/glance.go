@@ -885,10 +885,14 @@ func (a *application) handlePageContentRequest(w http.ResponseWriter, r *http.Re
 	var responseBytes bytes.Buffer
 
 	func() {
+		lockWaitStarted := time.Now()
 		page.mu.Lock()
+		renderDiagnostics.recordPageLockWait(time.Since(lockWaitStarted))
 		defer page.mu.Unlock()
 
+		templateStarted := time.Now()
 		err = pageContentTemplate.Execute(&responseBytes, pageData)
+		renderDiagnostics.recordPageTemplateExecution(time.Since(templateStarted), err)
 	}()
 
 	if err != nil {

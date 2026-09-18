@@ -112,6 +112,8 @@ func frontendDiagnosticIsActiveResult(event frontendDiagnosticEvent) bool {
 		"navigation_snapshot",
 		"resource_snapshot",
 		"memory_snapshot",
+		"paint_snapshot",
+		"web_vitals_snapshot",
 		"long_task_capture_start",
 		"long_task_capture_complete",
 		"long_task_capture_unsupported",

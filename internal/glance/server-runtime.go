@@ -7,12 +7,30 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
-const serverShutdownTimeout = 10 * time.Second
+const (
+	serverShutdownTimeout = 10 * time.Second
+
+	// Contention profiling is diagnostic-only because both profiles add
+	// runtime sampling overhead.
+	mutexProfileFraction = 5
+	blockProfileRate     = 1_000_000
+)
+
+func enableContentionProfiling() {
+	runtime.SetMutexProfileFraction(mutexProfileFraction)
+	runtime.SetBlockProfileRate(blockProfileRate)
+}
+
+func disableContentionProfiling() {
+	runtime.SetMutexProfileFraction(0)
+	runtime.SetBlockProfileRate(0)
+}
 
 type swappableHandler struct {
 	active atomic.Value
@@ -189,6 +207,7 @@ func (s *processServer) reconcileProfiling(enabled bool) {
 			IdleTimeout:       120 * time.Second,
 		}
 		s.profileServer = profileServer
+		enableContentionProfiling()
 		s.profileDiagnostics.recordRunning()
 		s.profileWG.Add(1)
 		go func() {
@@ -200,6 +219,7 @@ func (s *processServer) reconcileProfiling(enabled bool) {
 				s.profileMu.Lock()
 				if s.profileServer == profileServer {
 					s.profileServer = nil
+					disableContentionProfiling()
 				}
 				s.profileMu.Unlock()
 			}
@@ -208,12 +228,14 @@ func (s *processServer) reconcileProfiling(enabled bool) {
 	}
 
 	if s.profileServer == nil {
+		disableContentionProfiling()
 		s.profileDiagnostics.recordDisabled()
 		return
 	}
 
 	profileServer := s.profileServer
 	s.profileServer = nil
+	disableContentionProfiling()
 	s.profileDiagnostics.recordDisabled()
 	if err := profileServer.Close(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		slog.Warn("Failed to stop performance profiling server", "error", err)
@@ -224,6 +246,7 @@ func (s *processServer) shutdown() error {
 	s.profileMu.Lock()
 	profileServer := s.profileServer
 	s.profileServer = nil
+	disableContentionProfiling()
 	s.profileMu.Unlock()
 
 	if profileServer != nil {

@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -463,6 +464,24 @@ func TestRuntimeGenerationApplicationFailurePreservesCurrentGeneration(t *testin
 	case <-oldWidget.cancelled:
 		t.Fatal("failed candidate cancelled current scheduler")
 	default:
+	}
+}
+
+func TestContentionProfilingCanBeEnabledAndDisabled(t *testing.T) {
+	originalMutexFraction := runtime.SetMutexProfileFraction(0)
+	t.Cleanup(func() {
+		runtime.SetMutexProfileFraction(originalMutexFraction)
+		runtime.SetBlockProfileRate(0)
+	})
+
+	enableContentionProfiling()
+	if got := runtime.SetMutexProfileFraction(mutexProfileFraction); got != mutexProfileFraction {
+		t.Fatalf("mutex profile fraction after enable = %d, want %d", got, mutexProfileFraction)
+	}
+
+	disableContentionProfiling()
+	if got := runtime.SetMutexProfileFraction(0); got != 0 {
+		t.Fatalf("mutex profile fraction after disable = %d, want 0", got)
 	}
 }
 

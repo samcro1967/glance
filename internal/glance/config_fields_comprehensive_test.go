@@ -130,7 +130,15 @@ func TestComprehensiveProxyOptionsField(t *testing.T) {
 	if scalar.client == nil || scalar.client.Timeout != defaultClientTimeout {
 		t.Fatal("scalar proxy client defaults not set")
 	}
-	tr, ok := scalar.client.Transport.(*http.Transport)
+	observed, ok := scalar.client.Transport.(observedRoundTripper)
+	if !ok {
+		t.Fatalf("transport type = %T, want observedRoundTripper", scalar.client.Transport)
+	}
+	if observed.diagnostics != outboundHTTPDiagnostics {
+		t.Fatal("proxy client does not use process-wide outbound HTTP diagnostics")
+	}
+
+	tr, ok := observed.transport.(*http.Transport)
 	if !ok || tr.Proxy == nil {
 		t.Fatal("proxy transport not configured")
 	}
@@ -162,7 +170,18 @@ func TestComprehensiveProxyOptionsField(t *testing.T) {
 	if mapping.client == nil || mapping.client.Timeout != 9*time.Second {
 		t.Fatalf("timeout=%v", mapping.client)
 	}
-	tr = mapping.client.Transport.(*http.Transport)
+	observed, ok = mapping.client.Transport.(observedRoundTripper)
+	if !ok {
+		t.Fatalf("transport type = %T, want observedRoundTripper", mapping.client.Transport)
+	}
+	if observed.diagnostics != outboundHTTPDiagnostics {
+		t.Fatal("insecure proxy client does not use process-wide outbound HTTP diagnostics")
+	}
+
+	tr, ok = observed.transport.(*http.Transport)
+	if !ok {
+		t.Fatalf("underlying transport type = %T, want *http.Transport", observed.transport)
+	}
 	if tr == defaultHTTPTransport || tr == defaultInsecureHTTPTransport {
 		t.Fatal("insecure proxy client must use an independent transport")
 	}
