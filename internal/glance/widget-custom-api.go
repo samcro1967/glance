@@ -349,19 +349,21 @@ func (widget *customAPIWidget) update(ctx context.Context) {
 		)
 
 		if err != nil {
-			widget.withError(err)
-
 			if !widget.LastSuccessfulUpdate.IsZero() {
 				widget.Stale = true
 			}
 
+			widget.canContinueUpdateAfterHandlingErr(err)
+			return
+		}
+
+		if !widget.canContinueUpdateAfterHandlingErr(nil) {
 			return
 		}
 
 		widget.StatusBarCompactItems = items
 		widget.LastSuccessfulUpdate = time.Now()
 		widget.Stale = false
-		widget.withError(nil)
 		return
 	}
 

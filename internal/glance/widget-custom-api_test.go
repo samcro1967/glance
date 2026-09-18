@@ -1118,6 +1118,129 @@ func TestStatusBarCustomAPIContract(t *testing.T) {
 	}
 }
 
+func TestStatusBarCustomAPICompactStaleFallbackAndRecovery(t *testing.T) {
+	responseBody := `{"items":[{"line1":"first"}]}`
+	statusCode := http.StatusOK
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(statusCode)
+
+		if responseBody != "" {
+			_, _ = w.Write([]byte(responseBody))
+		}
+	}))
+	defer server.Close()
+
+	widget := &customAPIWidget{
+		CustomAPIRequest:     newTestCustomAPIRequest(t, server.URL),
+		statusBarCompactMode: true,
+	}
+
+	widget.update(context.Background())
+
+	if widget.Stale {
+		t.Fatal("compact widget should not be stale after successful refresh")
+	}
+	if widget.LastSuccessfulUpdate.IsZero() {
+		t.Fatal("expected compact successful refresh timestamp")
+	}
+	if len(widget.StatusBarCompactItems) != 1 {
+		t.Fatalf("compact item count = %d, want 1", len(widget.StatusBarCompactItems))
+	}
+
+	firstItems := append([]statusBarCustomAPIItem(nil), widget.StatusBarCompactItems...)
+	firstSuccessfulUpdate := widget.LastSuccessfulUpdate
+
+	statusCode = http.StatusNotFound
+	responseBody = ""
+
+	widget.update(context.Background())
+
+	if !widget.Stale {
+		t.Fatal("expected compact widget to be stale after failed refresh")
+	}
+	if !reflect.DeepEqual(widget.StatusBarCompactItems, firstItems) {
+		t.Fatalf("failed compact refresh replaced last-known-good items: got %#v, want %#v", widget.StatusBarCompactItems, firstItems)
+	}
+	if !widget.LastSuccessfulUpdate.Equal(firstSuccessfulUpdate) {
+		t.Fatalf("failed compact refresh changed last successful timestamp: got %v, want %v", widget.LastSuccessfulUpdate, firstSuccessfulUpdate)
+	}
+	if widget.Error == nil {
+		t.Fatal("expected compact widget error after failed refresh")
+	}
+	if !widget.refreshDegraded {
+		t.Fatal("expected compact widget to enter degraded refresh state")
+	}
+	if widget.refreshFailureClass != refreshFailureRequest {
+		t.Fatalf("compact failure class = %q, want %q", widget.refreshFailureClass, refreshFailureRequest)
+	}
+	if widget.refreshFailureCount != 1 {
+		t.Fatalf("compact failure count = %d, want 1", widget.refreshFailureCount)
+	}
+
+	time.Sleep(time.Millisecond)
+
+	statusCode = http.StatusOK
+	responseBody = `{"items":[{"line1":"second"}]}`
+
+	widget.update(context.Background())
+
+	if widget.Stale {
+		t.Fatal("expected compact stale state to clear after recovery")
+	}
+	if widget.Error != nil {
+		t.Fatalf("expected compact error to clear after recovery, got %v", widget.Error)
+	}
+	if widget.refreshDegraded {
+		t.Fatal("expected compact degraded state to clear after recovery")
+	}
+	if widget.refreshFailureCount != 0 {
+		t.Fatalf("compact failure count = %d, want 0 after recovery", widget.refreshFailureCount)
+	}
+	if widget.refreshFailureClass != refreshFailureUnknown {
+		t.Fatalf("compact failure class = %q, want %q after recovery", widget.refreshFailureClass, refreshFailureUnknown)
+	}
+	if !widget.LastSuccessfulUpdate.After(firstSuccessfulUpdate) {
+		t.Fatalf("expected compact successful timestamp to advance: first=%v recovered=%v", firstSuccessfulUpdate, widget.LastSuccessfulUpdate)
+	}
+	if reflect.DeepEqual(widget.StatusBarCompactItems, firstItems) {
+		t.Fatal("expected recovered compact refresh to replace last-known-good items")
+	}
+}
+
+func TestStatusBarCustomAPICompactInitialFailureHasNoStaleFallback(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	widget := &customAPIWidget{
+		CustomAPIRequest:     newTestCustomAPIRequest(t, server.URL),
+		statusBarCompactMode: true,
+	}
+
+	widget.update(context.Background())
+
+	if widget.Stale {
+		t.Fatal("initial compact failure must not be stale without last-known-good content")
+	}
+	if !widget.LastSuccessfulUpdate.IsZero() {
+		t.Fatalf("initial compact failure unexpectedly recorded successful timestamp: %v", widget.LastSuccessfulUpdate)
+	}
+	if widget.Error == nil {
+		t.Fatal("expected compact widget error after initial failure")
+	}
+	if !widget.refreshDegraded {
+		t.Fatal("expected initial compact failure to enter degraded refresh state")
+	}
+	if widget.refreshFailureClass != refreshFailureRequest {
+		t.Fatalf("compact failure class = %q, want %q", widget.refreshFailureClass, refreshFailureRequest)
+	}
+	if widget.refreshFailureCount != 1 {
+		t.Fatalf("compact failure count = %d, want 1", widget.refreshFailureCount)
+	}
+}
+
 func TestStatusBarCustomAPICompactInitialization(t *testing.T) {
 	tests := []struct {
 		name      string
