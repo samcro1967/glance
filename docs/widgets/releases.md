@@ -47,6 +47,18 @@ repositories:
   - codeberg:redict/redict
 ```
 
+GitLab and Codeberg repositories can use a custom `base-url` when the service is hosted somewhere other than the public provider. The value must be an absolute `http` or `https` origin without credentials, a path, query, or fragment:
+
+```yaml
+repositories:
+  - repository: gitlab:group/project
+    base-url: https://gitlab.example.com
+  - repository: codeberg:owner/project
+    base-url: https://forge.example.com
+```
+
+When `base-url` is omitted, GitLab uses `https://gitlab.com` and Codeberg uses `https://codeberg.org`. Custom base URLs are not supported for GitHub or Docker Hub repositories.
+
 Official images on Docker Hub can be specified by omitting the owner:
 
 ```yaml

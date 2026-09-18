@@ -45,6 +45,9 @@ var builtinWidgetDefaults = map[string]widgetDefaultValues{
 		Cache:   durationDefault(5 * time.Minute),
 		Timeout: durationDefault(3 * time.Second),
 	},
+	"prometheus": {
+		Cache: durationDefault(5 * time.Minute),
+	},
 	"reddit": {
 		Limit:         intDefault(15),
 		CollapseAfter: intDefault(5),

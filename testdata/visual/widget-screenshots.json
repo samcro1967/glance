@@ -103,6 +103,10 @@
     "route": "/homelab-monitoring",
     "selector": ".visual-fixture-dns-stats"
   },
+  "prometheus": {
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-prometheus"
+  },
   "server-stats": {
     "route": "/homelab-monitoring",
     "selector": ".visual-fixture-server-stats"

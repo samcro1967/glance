@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/tidwall/gjson"
 )
 
 type customAPIRoundTripperFunc func(*http.Request) (*http.Response, error)
@@ -1252,4 +1254,93 @@ func TestFetchAndRenderCustomAPIRequestProxyURL(t *testing.T) {
 			t.Fatalf("rendered URL = %q, want unchanged %q", got, rawURL)
 		}
 	})
+}
+
+func TestCustomAPINumericConversions(t *testing.T) {
+	tests := []struct {
+		name      string
+		value     any
+		wantFloat float64
+		wantInt   int
+	}{
+		{"int", 12, 12, 12},
+		{"int64", int64(13), 13, 13},
+		{"uint", uint(14), 14, 14},
+		{"uint64", uint64(15), 15, 15},
+		{"float32", float32(12.5), 12.5, 12},
+		{"float64", 12.75, 12.75, 12},
+		{"negative truncates toward zero", -12.75, -12.75, -12},
+		{"numeric string", " 12.75 ", 12.75, 12},
+		{"percentage", "82.5%", 82.5, 82},
+		{"percentage whitespace", " 82.5% ", 82.5, 82},
+		{"negative percentage", "-82.5%", -82.5, -82},
+		{"gjson number", gjson.Parse(`42.5`), 42.5, 42},
+		{"gjson string", gjson.Parse(`"42.5%"`), 42.5, 42},
+		{"decorated gjson", decoratedGJSONResult{gjson.Parse(`"42.5%"`)}, 42.5, 42},
+		{"decorated gjson pointer", &decoratedGJSONResult{gjson.Parse(`"42.5%"`)}, 42.5, 42},
+		{"invalid", "nope", 0, 0},
+		{"empty", "", 0, 0},
+		{"nil", nil, 0, 0},
+		{"nil decorated gjson pointer", (*decoratedGJSONResult)(nil), 0, 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := customAPIToFloat(tt.value); got != tt.wantFloat {
+				t.Fatalf("customAPIToFloat(%#v)=%v want=%v", tt.value, got, tt.wantFloat)
+			}
+			if got := customAPIToInt(tt.value); got != tt.wantInt {
+				t.Fatalf("customAPIToInt(%#v)=%v want=%v", tt.value, got, tt.wantInt)
+			}
+		})
+	}
+}
+
+func TestDecoratedGJSONNumericConversions(t *testing.T) {
+	r := decoratedGJSONResult{gjson.Parse(`{"usage":"82.5%","negative":"-12.75","number":42.5}`)}
+
+	tests := []struct {
+		key       string
+		wantFloat float64
+		wantInt   int
+	}{
+		{"usage", 82.5, 82},
+		{"negative", -12.75, -12},
+		{"number", 42.5, 42},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.key, func(t *testing.T) {
+			if got := r.Float(tt.key); got != tt.wantFloat {
+				t.Fatalf("Float(%q)=%v want=%v", tt.key, got, tt.wantFloat)
+			}
+			if got := r.Int(tt.key); got != tt.wantInt {
+				t.Fatalf("Int(%q)=%v want=%v", tt.key, got, tt.wantInt)
+			}
+		})
+	}
+}
+
+func TestCustomAPINumericConversionsThroughTemplateSurface(t *testing.T) {
+	compiled, err := template.New("").Funcs(customAPITemplateFuncs).Parse(
+		`{{ toFloat "82.5%" }}|{{ toInt "-12.75" }}|{{ .JSON.Float "usage" }}|{{ .JSON.Int "negative" }}`,
+	)
+	if err != nil {
+		t.Fatalf("parse template: %v", err)
+	}
+
+	data := struct {
+		JSON decoratedGJSONResult
+	}{
+		JSON: decoratedGJSONResult{gjson.Parse(`{"usage":"42.5%","negative":"-8.75"}`)},
+	}
+
+	var output strings.Builder
+	if err := compiled.Execute(&output, data); err != nil {
+		t.Fatalf("execute template: %v", err)
+	}
+
+	if got, want := output.String(), "82.5|-12|42.5|-8"; got != want {
+		t.Fatalf("output=%q want=%q", got, want)
+	}
 }

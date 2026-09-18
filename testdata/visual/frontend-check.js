@@ -600,6 +600,175 @@ async function main() {
 
     await page.evaluate(() => window.scrollTo(0, 0));
 
+    await page.evaluate((headerHeight) => {
+      const fixture = document.createElement("div");
+      fixture.dataset.frontendCheckPopoverFixture = "true";
+      fixture.style.position = "absolute";
+      fixture.style.left = "400px";
+      fixture.style.top = `${headerHeight + 10}px`;
+
+      const target = document.createElement("button");
+      target.type = "button";
+      target.textContent = "Popover viewport test";
+      target.dataset.popoverType = "html";
+      target.dataset.popoverPosition = "above";
+      target.dataset.popoverTrigger = "click";
+
+      const content = document.createElement("div");
+      content.dataset.popoverHtml = "";
+      content.innerHTML = "<div style='height: 1400px; width: 300px;'>Oversized popover content</div>";
+
+      target.appendChild(content);
+      fixture.appendChild(target);
+      document.body.appendChild(fixture);
+
+      const pageModule = document.querySelector('script[type="module"][src$="/js/page.js"]');
+      if (!pageModule) {
+        throw new Error("Unable to locate loaded page.js module for popover fixture");
+      }
+
+      const popoverModuleURL = new URL("./popover.js", pageModule.src).href;
+      return import(popoverModuleURL).then(({ setupPopovers }) => {
+        setupPopovers(fixture);
+      });
+    }, headerGeometry.headerHeight);
+
+    const popoverFixture = page.locator("[data-frontend-check-popover-fixture]");
+    const popoverTarget = popoverFixture.locator("button");
+    const popoverContainer = page.locator(".popover-container");
+    const popoverFrame = popoverContainer.locator(".popover-frame");
+
+    await popoverTarget.click();
+    await popoverContainer.waitFor({ state: "visible" });
+
+    let popoverGeometry = await popoverContainer.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const frame = element.querySelector(".popover-frame");
+      const frameStyle = getComputedStyle(frame);
+
+      return {
+        top: rect.top,
+        bottom: rect.bottom,
+        viewportHeight: window.innerHeight,
+        positionAbove: element.classList.contains("position-above"),
+        frameClientHeight: frame.clientHeight,
+        frameScrollHeight: frame.scrollHeight,
+        frameOverflowY: frameStyle.overflowY
+      };
+    });
+
+    if (popoverGeometry.positionAbove) {
+      throw new Error("Top-edge popover did not fall back below its target");
+    }
+
+    if (
+      popoverGeometry.top < -1 ||
+      popoverGeometry.bottom > popoverGeometry.viewportHeight + 1
+    ) {
+      throw new Error(
+        `Top-edge popover escaped viewport: top=${popoverGeometry.top}px bottom=${popoverGeometry.bottom}px viewport=${popoverGeometry.viewportHeight}px`
+      );
+    }
+
+    if (
+      popoverGeometry.frameOverflowY !== "auto" ||
+      popoverGeometry.frameScrollHeight <= popoverGeometry.frameClientHeight
+    ) {
+      throw new Error(
+        `Oversized popover is not internally scrollable: overflow=${popoverGeometry.frameOverflowY} client=${popoverGeometry.frameClientHeight}px scroll=${popoverGeometry.frameScrollHeight}px`
+      );
+    }
+
+    await page.keyboard.press("Escape");
+    await popoverContainer.waitFor({ state: "hidden" });
+
+    await page.evaluate(() => {
+      const fixture = document.querySelector("[data-frontend-check-popover-fixture]");
+      const target = fixture.querySelector("button");
+      fixture.style.top = `${document.documentElement.scrollHeight - target.offsetHeight - 10}px`;
+      target.dataset.popoverPosition = "below";
+    });
+
+    await popoverTarget.scrollIntoViewIfNeeded();
+    await popoverTarget.click();
+    await popoverContainer.waitFor({ state: "visible" });
+
+    popoverGeometry = await popoverContainer.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      return {
+        top: rect.top,
+        bottom: rect.bottom,
+        viewportHeight: window.innerHeight,
+        positionAbove: element.classList.contains("position-above")
+      };
+    });
+
+    if (!popoverGeometry.positionAbove) {
+      throw new Error("Bottom-edge popover did not flip above its target");
+    }
+
+    if (
+      popoverGeometry.top < -1 ||
+      popoverGeometry.bottom > popoverGeometry.viewportHeight + 1
+    ) {
+      throw new Error(
+        `Bottom-edge popover escaped viewport: top=${popoverGeometry.top}px bottom=${popoverGeometry.bottom}px viewport=${popoverGeometry.viewportHeight}px`
+      );
+    }
+
+    await page.evaluate(() => window.scrollBy(0, -100));
+    await page.evaluate(() => new Promise(resolve =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve))
+    ));
+
+    popoverGeometry = await popoverContainer.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      return {
+        top: rect.top,
+        bottom: rect.bottom,
+        viewportHeight: window.innerHeight
+      };
+    });
+
+    if (
+      popoverGeometry.top < -1 ||
+      popoverGeometry.bottom > popoverGeometry.viewportHeight + 1
+    ) {
+      throw new Error(
+        `Scrolled popover escaped viewport: top=${popoverGeometry.top}px bottom=${popoverGeometry.bottom}px viewport=${popoverGeometry.viewportHeight}px`
+      );
+    }
+
+    await page.setViewportSize({ width: VIEWPORT.width, height: 700 });
+    await page.evaluate(() => new Promise(resolve =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve))
+    ));
+
+    popoverGeometry = await popoverContainer.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      return {
+        top: rect.top,
+        bottom: rect.bottom,
+        viewportHeight: window.innerHeight
+      };
+    });
+
+    if (
+      popoverGeometry.top < -1 ||
+      popoverGeometry.bottom > popoverGeometry.viewportHeight + 1
+    ) {
+      throw new Error(
+        `Resized popover escaped viewport: top=${popoverGeometry.top}px bottom=${popoverGeometry.bottom}px viewport=${popoverGeometry.viewportHeight}px`
+      );
+    }
+
+    await page.setViewportSize(VIEWPORT);
+    await page.keyboard.press("Escape");
+    await popoverFixture.evaluate(element => element.remove());
+    await page.evaluate(() => window.scrollTo(0, 0));
+
+    console.log("PASS shared popover viewport containment");
+
     const group = page.locator('.visual-fixture-group');
     const groupTabs = group.locator('[role="tab"]');
     const groupPanels = group.locator('[role="tabpanel"]');

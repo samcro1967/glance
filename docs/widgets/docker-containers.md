@@ -103,6 +103,7 @@ This widget also supports the [shared widget properties](../widgets.md#shared-pr
 | ---- | ---- | -------- | ------- |
 | hide-by-default | boolean | no | false |
 | format-container-names | boolean | no | false |
+| group-by | string | no | |
 | sock-path | string | no | /var/run/docker.sock |
 | category | string | no | |
 | running-only | boolean | no | false |
@@ -112,6 +113,20 @@ Whether to hide the containers by default. If set to `true` you'll have to manua
 
 ### `format-container-names`
 When set to `true`, automatically converts container names such as `container_name_1` into `Container Name 1`.
+
+### `group-by`
+Optionally groups the displayed top-level containers by Docker Compose project. The only supported value is `compose-project`.
+
+```yaml
+- type: docker-containers
+  group-by: compose-project
+```
+
+Compose grouping uses Docker's `com.docker.compose.project` label. Containers without that label remain visible in an **Ungrouped** section. Compose project groups are displayed alphabetically, with the Ungrouped section last.
+
+This is presentation grouping only. Existing `glance.id` and `glance.parent` relationships are resolved first and remain unchanged, so child containers continue to appear under their configured parent rather than becoming separate top-level entries. `hide-by-default`, `category`, and `running-only` retain their existing filtering behavior.
+
+When `group-by` is omitted, the widget retains its existing flat presentation.
 
 ### `sock-path`
 The path to the Docker socket. This can also be a [remote socket](https://docs.docker.com/engine/daemon/remote-access/) or proxied socket using something like [docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy).

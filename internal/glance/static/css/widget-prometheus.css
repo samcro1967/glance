@@ -1,0 +1,181 @@
+.prometheus-current-value {
+    font-size: clamp(2rem, 6cqi, 3.2rem);
+    line-height: 1.2;
+    margin-bottom: 1rem;
+}
+
+.prometheus-chart-link {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+}
+
+a.prometheus-chart-link {
+    border-radius: var(--border-radius);
+}
+
+.prometheus-chart {
+    display: contents;
+}
+
+.prometheus-plot {
+    grid-column: 1;
+    height: clamp(9rem, 18cqi, 18rem);
+    min-width: 0;
+    position: relative;
+}
+
+.prometheus-chart svg {
+    height: 100%;
+    width: 100%;
+    overflow: visible;
+}
+
+.prometheus-gridlines {
+    stroke: var(--color-graph-gridlines);
+    stroke-width: 1;
+}
+
+.prometheus-line {
+    stroke: var(--color-primary);
+    stroke-width: 2px;
+    transition: opacity .2s, stroke .2s;
+}
+
+.prometheus-chart:has(.prometheus-hover-point:hover) .prometheus-line {
+    opacity: 0.35;
+}
+
+a.prometheus-chart-link:hover .prometheus-line,
+a.prometheus-chart-link:focus-visible .prometheus-line {
+    stroke: var(--color-text-highlight);
+}
+
+.prometheus-scale {
+    display: flex;
+    grid-column: 2;
+    grid-row: 1;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 0.2rem 0 0.2rem 0.6rem;
+    color: var(--color-text-subdue);
+    font-size: var(--font-size-h6);
+    pointer-events: none;
+}
+
+.prometheus-hover-points {
+    position: absolute;
+    inset: 0;
+}
+
+.prometheus-hover-point {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--point-left);
+    width: var(--point-width);
+}
+
+.prometheus-hover-guide {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--point-offset);
+    width: 1px;
+    background: var(--color-text-subdue);
+    opacity: 0;
+    transform: scaleY(0.85);
+    transition: opacity .2s, transform .2s;
+}
+
+.prometheus-point-marker {
+    position: absolute;
+    left: var(--point-offset);
+    top: var(--point-y);
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 50%;
+    background: var(--color-primary);
+    border: 2px solid var(--color-widget-background);
+    box-shadow: 0 0 0 1px var(--color-primary);
+    opacity: 0.75;
+    transform: translate(-50%, -50%) scale(0.65);
+    transition: background-color .2s, box-shadow .2s, opacity .2s, transform .2s;
+}
+
+.prometheus-point-output {
+    position: absolute;
+    z-index: 1;
+    left: var(--point-offset);
+    top: var(--point-y);
+    min-width: max-content;
+    padding: 0.3rem 0.6rem;
+    border-radius: var(--border-radius);
+    background: var(--color-widget-background);
+    border: 1px solid var(--color-widget-content-border);
+    box-shadow: 0 2px 0 hsl(var(--bghs), calc(var(--scheme) (var(--scheme) var(--bgl)) - 0.5%));
+    text-align: center;
+    opacity: 0;
+    transform: translate(var(--tooltip-x, -50%), calc(-100% - 1rem)) translateY(0.5rem);
+    transition: opacity .2s, transform .2s;
+    pointer-events: none;
+}
+
+.prometheus-hover-point-tooltip-below .prometheus-point-output {
+    transform: translate(var(--tooltip-x, -50%), 1rem) translateY(-0.5rem);
+}
+
+.prometheus-hover-point-tooltip-left {
+    --tooltip-x: 0%;
+}
+
+.prometheus-hover-point-tooltip-right {
+    --tooltip-x: -100%;
+}
+
+.prometheus-hover-point:hover .prometheus-hover-guide,
+.prometheus-hover-point:hover .prometheus-point-output {
+    opacity: 1;
+}
+
+.prometheus-hover-point:hover .prometheus-hover-guide {
+    transform: scaleY(1);
+}
+
+.prometheus-chart:has(.prometheus-hover-point:hover) .prometheus-hover-point:not(:hover) .prometheus-point-marker {
+    opacity: 0.25;
+}
+
+.prometheus-hover-point:hover .prometheus-point-marker {
+    background: var(--color-text-highlight);
+    box-shadow: 0 0 0 1px var(--color-text-highlight);
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.15);
+}
+
+.prometheus-hover-point:hover .prometheus-point-output {
+    transform: translate(var(--tooltip-x, -50%), calc(-100% - 1rem)) translateY(0);
+}
+
+.prometheus-hover-point-tooltip-below:hover .prometheus-point-output {
+    transform: translate(var(--tooltip-x, -50%), 1rem) translateY(0);
+}
+
+.prometheus-point-value {
+    font-size: var(--font-size-h5);
+    line-height: 1.3;
+}
+
+.prometheus-point-time {
+    color: var(--color-text-subdue);
+    font-size: var(--font-size-h6);
+}
+
+.prometheus-time-labels {
+    display: flex;
+    grid-column: 1;
+    justify-content: space-between;
+    color: var(--color-text-subdue);
+    font-size: var(--font-size-h6);
+    margin-top: 0.4rem;
+}

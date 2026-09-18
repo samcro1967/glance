@@ -27,7 +27,7 @@
     "variants": ["representative-state"]
   },
   "docker-containers": {
-    "variants": ["standard", "parent-child"]
+    "variants": ["standard", "parent-child", "compose-project-grouping"]
   },
   "extension": {
     "variants": ["successful-local-fixture"]
@@ -58,6 +58,9 @@
   },
   "monitor": {
     "variants": ["standard", "compact"]
+  },
+  "prometheus": {
+    "variants": ["representative-state"]
   },
   "reddit": {
     "variants": [

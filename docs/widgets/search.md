@@ -53,6 +53,7 @@ Either a value from the table below or a URL to a custom search engine. Use `{QU
 | duckduckgo | `https://duckduckgo.com/?q={QUERY}` |
 | google | `https://www.google.com/search?q={QUERY}` |
 | bing | `https://www.bing.com/search?q={QUERY}` |
+| brave | `https://search.brave.com/search?q={QUERY}` |
 | perplexity | `https://www.perplexity.ai/search?q={QUERY}` |
 | kagi | `https://kagi.com/search?q={QUERY}` |
 | startpage | `https://www.startpage.com/search?q={QUERY}` |

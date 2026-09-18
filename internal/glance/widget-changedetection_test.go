@@ -91,6 +91,7 @@ func TestFetchWatchesFromChangeDetectionCancellation(t *testing.T) {
 		_, err := fetchWatchesFromChangeDetection(
 			ctx,
 			server.URL,
+			server.URL,
 			[]string{
 				"watch-1",
 				"watch-2",
@@ -191,6 +192,7 @@ func TestChangeDetectionHTTPPolicySendsHeadersAndTokenWins(t *testing.T) {
 	watches, err := fetchWatchesFromChangeDetection(
 		context.Background(),
 		server.URL,
+		server.URL,
 		ids,
 		token,
 		0,
@@ -205,5 +207,54 @@ func TestChangeDetectionHTTPPolicySendsHeadersAndTokenWins(t *testing.T) {
 	}
 	if got := requests.Load(); got != 2 {
 		t.Fatalf("requests = %d, want 2", got)
+	}
+}
+
+func TestFetchWatchesFromChangeDetectionUsesLinkURLOnlyForDiffLinks(t *testing.T) {
+	var apiRequests atomic.Int32
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		apiRequests.Add(1)
+		if r.URL.Path != "/api/v1/watch/watch-1" {
+			t.Errorf("API path=%q", r.URL.Path)
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = w.Write([]byte(`{"title":"Test","url":"https://example.com","last_changed":5}`))
+	}))
+	defer apiServer.Close()
+
+	var linkRequests atomic.Int32
+	linkServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		linkRequests.Add(1)
+		http.Error(w, "link URL must not receive API requests", http.StatusInternalServerError)
+	}))
+	defer linkServer.Close()
+
+	watches, err := fetchWatchesFromChangeDetection(
+		context.Background(),
+		apiServer.URL,
+		linkServer.URL,
+		[]string{"watch-1"},
+		"",
+		0,
+		false,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("fetchWatchesFromChangeDetection: %v", err)
+	}
+	if len(watches) != 1 {
+		t.Fatalf("watches=%d want=1", len(watches))
+	}
+	if got := apiRequests.Load(); got != 1 {
+		t.Fatalf("API requests=%d want=1", got)
+	}
+	if got := linkRequests.Load(); got != 0 {
+		t.Fatalf("link URL requests=%d want=0", got)
+	}
+
+	wantDiffURL := linkServer.URL + "/diff/watch-1?from_version=4"
+	if got := watches[0].DiffURL; got != wantDiffURL {
+		t.Fatalf("DiffURL=%q want=%q", got, wantDiffURL)
 	}
 }
