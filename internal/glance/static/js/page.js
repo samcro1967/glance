@@ -1028,6 +1028,11 @@ function setupLiveWidgetUpdates() {
     connect();
 }
 
+function markPageContentReady(pageElement) {
+    pageElement.classList.add("content-ready");
+    pageElement.setAttribute("aria-busy", "false");
+}
+
 async function setupPage() {
     const setupStarted = performance.now();
     frontendDiagnostic("page_setup_start");
@@ -1052,8 +1057,7 @@ async function setupPage() {
             pageLoadError.hidden = false;
         }
 
-        pageElement.classList.add("content-ready");
-        pageElement.setAttribute("aria-busy", "false");
+        markPageContentReady(pageElement);
         return;
     }
 
@@ -1097,8 +1101,7 @@ async function setupPage() {
             () => setupLiveWidgetUpdates()
         );
     } finally {
-        pageElement.classList.add("content-ready");
-        pageElement.setAttribute("aria-busy", "false");
+        markPageContentReady(pageElement);
 
         for (let i = 0; i < contentReadyCallbacks.length; i++) {
             contentReadyCallbacks[i]();

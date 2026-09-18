@@ -79,15 +79,51 @@ function frontendDiagnosticRect(rect) {
     };
 }
 
+function frontendDiagnosticElementRect(element) {
+    if (!(element instanceof Element)) {
+        return null;
+    }
+
+    return frontendDiagnosticRect(element.getBoundingClientRect());
+}
+
+function frontendDiagnosticLayoutContext() {
+    const selectors = [
+        ".body-content",
+        ".content-bounds.grow",
+        "#page",
+        "#page-content",
+        ".page-columns",
+        ".bottom-widgets",
+        ".footer",
+    ];
+
+    return selectors.map((selector) => {
+        const element = document.querySelector(selector);
+
+        return {
+            selector,
+            element: frontendDiagnosticElementDescriptor(element),
+            rect: frontendDiagnosticElementRect(element),
+        };
+    });
+}
+
 function frontendDiagnosticLayoutShiftSources(entry) {
     if (!Array.isArray(entry.sources)) {
         return [];
     }
 
+    const context = frontendDiagnosticLayoutContext();
+
     return entry.sources.slice(0, 6).map((source) => ({
         element: frontendDiagnosticElementDescriptor(source.node),
+        parent: frontendDiagnosticElementDescriptor(source.node?.parentElement),
+        previous: frontendDiagnosticElementDescriptor(source.node?.previousElementSibling),
         previous_rect: frontendDiagnosticRect(source.previousRect),
         current_rect: frontendDiagnosticRect(source.currentRect),
+        previous_rect_current: frontendDiagnosticElementRect(source.node?.previousElementSibling),
+        context,
     }));
 }
 
@@ -398,6 +434,43 @@ function frontendDiagnosticResourceIsPersistent(resource) {
     }
 }
 
+function frontendDiagnosticResourceTimingMetrics(resource) {
+    if (!resource) {
+        return {};
+    }
+
+    const resourceStart = resource.startTime;
+    const resourceEnd = resource.responseEnd;
+
+    const duration = (end, start) => {
+        if (
+            !Number.isFinite(resourceStart)
+            || !Number.isFinite(resourceEnd)
+            || !Number.isFinite(start)
+            || !Number.isFinite(end)
+            || resourceEnd < resourceStart
+            || start < resourceStart
+            || end > resourceEnd
+            || end < start
+        ) {
+            return 0;
+        }
+
+        return end - start;
+    };
+
+    return {
+        slowest_fetch_to_request_ms: duration(resource.requestStart, resource.fetchStart),
+        slowest_dns_ms: duration(resource.domainLookupEnd, resource.domainLookupStart),
+        slowest_connect_ms: duration(resource.connectEnd, resource.connectStart),
+        slowest_tls_ms: resource.secureConnectionStart > 0
+            ? duration(resource.connectEnd, resource.secureConnectionStart)
+            : 0,
+        slowest_ttfb_ms: duration(resource.responseStart, resource.requestStart),
+        slowest_download_ms: duration(resource.responseEnd, resource.responseStart),
+    };
+}
+
 function frontendDiagnosticPerformanceSnapshot(reason, commandID) {
     if (!frontendDiagnosticsEnabled) {
         return;
@@ -475,10 +548,16 @@ function frontendDiagnosticPerformanceSnapshot(reason, commandID) {
         });
     }
 
+    const emittedCLSContexts = new Set();
+
     for (const attribution of frontendPerformanceState.clsAttribution) {
         frontendDiagnostic("cls_attribution", {
             commandID,
-            detail: `element=${attribution.element || ""}`.slice(0, 256),
+            detail: [
+                `element=${attribution.element || ""}`,
+                `parent=${attribution.parent || ""}`,
+                `previous=${attribution.previous || ""}`,
+            ].join(" ").slice(0, 256),
             metrics: {
                 previous_x: attribution.previous_rect?.x ?? 0,
                 previous_y: attribution.previous_rect?.y ?? 0,
@@ -488,8 +567,31 @@ function frontendDiagnosticPerformanceSnapshot(reason, commandID) {
                 current_y: attribution.current_rect?.y ?? 0,
                 current_width: attribution.current_rect?.width ?? 0,
                 current_height: attribution.current_rect?.height ?? 0,
+                previous_sibling_current_y: attribution.previous_rect_current?.y ?? 0,
+                previous_sibling_current_width: attribution.previous_rect_current?.width ?? 0,
+                previous_sibling_current_height: attribution.previous_rect_current?.height ?? 0,
             },
         });
+
+        if (attribution.context && !emittedCLSContexts.has(attribution.context)) {
+            emittedCLSContexts.add(attribution.context);
+
+            for (const context of attribution.context) {
+                frontendDiagnostic("cls_layout_context", {
+                    commandID,
+                    detail: [
+                        `selector=${context.selector}`,
+                        `element=${context.element || ""}`,
+                    ].join(" ").slice(0, 256),
+                    metrics: {
+                        x: context.rect?.x ?? 0,
+                        y: context.rect?.y ?? 0,
+                        width: context.rect?.width ?? 0,
+                        height: context.rect?.height ?? 0,
+                    },
+                });
+            }
+        }
     }
 
     if (navigation) {
@@ -536,7 +638,7 @@ function frontendDiagnosticPerformanceSnapshot(reason, commandID) {
 
         frontendDiagnostic("resource_snapshot", {
             commandID,
-            detail: `slowest=${slowest?.name?.slice(0, 240) ?? ""}`,
+            detail: `slowest=${frontendDiagnosticSanitizedResourceURL(slowest?.name) ?? ""}`.slice(0, 256),
             metrics: {
                 count: ordinaryCount,
                 persistent_count: persistentCount,
@@ -545,6 +647,7 @@ function frontendDiagnosticPerformanceSnapshot(reason, commandID) {
                 decoded_bytes: decodedBytes,
                 total_duration_ms: totalDuration,
                 slowest_ms: slowest?.duration ?? 0,
+                ...frontendDiagnosticResourceTimingMetrics(slowest),
             },
         });
     }

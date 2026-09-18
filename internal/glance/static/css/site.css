@@ -567,7 +567,8 @@ kbd:active {
 }
 
 .footer-micro-clock {
-    height: 22.5px;
+    min-width: 77px;
+    min-height: 25.5px;
     flex-direction: column;
     justify-content: center;
     align-items: center;
