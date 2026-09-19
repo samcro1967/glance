@@ -40,6 +40,13 @@ const monitoringExamples = Object.fromEntries(
   ])
 );
 
+const alertmanagerExample = JSON.parse(
+  fs.readFileSync(
+    path.join(__dirname, '../../docs/examples/custom-api/alertmanager/example.json'),
+    'utf8'
+  )
+);
+
 function sendJson(res, value) {
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(value));
@@ -240,6 +247,11 @@ const server = http.createServer((req, res) => {
 
   if (url.pathname === '/containers/json') {
     sendJson(res, dockerContainers);
+    return;
+  }
+
+  if (url.pathname === '/examples/custom-api/alertmanager') {
+    sendJson(res, alertmanagerExample);
     return;
   }
 

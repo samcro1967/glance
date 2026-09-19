@@ -329,6 +329,16 @@
     "route": "/date-time-weather",
     "selector": ".visual-fixture-weather"
   },
+  "examples/custom-api/alertmanager.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/screenshots/examples-custom-api-monitoring",
+    "selector": ".visual-example-alertmanager",
+    "viewport": {
+      "width": 1600,
+      "height": 1000
+    }
+  },
   "examples/custom-api/monitoring/argus.png": {
     "kind": "browser",
     "capture": "element",

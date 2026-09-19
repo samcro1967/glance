@@ -1,0 +1,58 @@
+[
+  {
+    "annotations": {
+      "description": "Filesystem /var is above 95% utilization.",
+      "summary": "Filesystem space is critically low"
+    },
+    "receivers": [{"name": "homelab-critical"}],
+    "fingerprint": "8f14e45fceea167a",
+    "startsAt": "2026-09-19T11:15:00Z",
+    "updatedAt": "2026-09-19T13:20:00Z",
+    "endsAt": "2026-09-19T14:20:00Z",
+    "status": {"state": "active", "silencedBy": [], "inhibitedBy": [], "mutedBy": []},
+    "labels": {"alertname": "FilesystemSpaceLow", "instance": "storage01", "job": "node", "severity": "critical"},
+    "generatorURL": "https://prometheus.example.com/graph"
+  },
+  {
+    "annotations": {
+      "description": "CPU utilization has remained above 85% for 15 minutes.",
+      "summary": "High CPU utilization"
+    },
+    "receivers": [{"name": "homelab-warning"}],
+    "fingerprint": "45c48cce2e2d7fbdea1afc51c7c6ad26",
+    "startsAt": "2026-09-19T12:40:00Z",
+    "updatedAt": "2026-09-19T13:20:00Z",
+    "endsAt": "2026-09-19T14:20:00Z",
+    "status": {"state": "active", "silencedBy": [], "inhibitedBy": [], "mutedBy": []},
+    "labels": {"alertname": "HighCPUUsage", "instance": "docker01", "job": "node", "severity": "warning"},
+    "generatorURL": "https://prometheus.example.com/graph"
+  },
+  {
+    "annotations": {
+      "description": "A planned maintenance window is suppressing this alert.",
+      "summary": "Host unavailable during maintenance"
+    },
+    "receivers": [{"name": "homelab-critical"}],
+    "fingerprint": "6512bd43d9caa6e02c990b0a82652dca",
+    "startsAt": "2026-09-19T10:00:00Z",
+    "updatedAt": "2026-09-19T13:20:00Z",
+    "endsAt": "2026-09-19T15:00:00Z",
+    "status": {"state": "suppressed", "silencedBy": ["maintenance-window"], "inhibitedBy": [], "mutedBy": []},
+    "labels": {"alertname": "InstanceDown", "instance": "backup01", "job": "node", "severity": "critical"},
+    "generatorURL": "https://prometheus.example.com/graph"
+  },
+  {
+    "annotations": {
+      "description": "Service alert is inhibited by an active host-level alert.",
+      "summary": "Service unavailable"
+    },
+    "receivers": [{"name": "homelab-warning"}],
+    "fingerprint": "c20ad4d76fe97759aa27a0c99bff6710",
+    "startsAt": "2026-09-19T12:55:00Z",
+    "updatedAt": "2026-09-19T13:20:00Z",
+    "endsAt": "2026-09-19T14:20:00Z",
+    "status": {"state": "suppressed", "silencedBy": [], "inhibitedBy": ["InstanceDown"], "mutedBy": []},
+    "labels": {"alertname": "ServiceUnavailable", "instance": "media01", "job": "application", "severity": "warning"},
+    "generatorURL": "https://prometheus.example.com/graph"
+  }
+]

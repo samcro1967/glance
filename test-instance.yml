@@ -1577,6 +1577,17 @@ pages:
     columns:
       - size: full
         widgets:
+          - type: custom-api
+            title: Alertmanager
+            icon: sh:prometheus
+            css-class: visual-example-alertmanager
+            url: http://127.0.0.1:18089/examples/custom-api/alertmanager
+            cache: 1h
+            headers:
+              Accept: application/json
+            template: |
+              $include: docs/examples/custom-api/alertmanager/template.yml
+
           - type: group
             widgets:
               - type: custom-api
