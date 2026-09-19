@@ -12,6 +12,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"go.uber.org/goleak"
 )
 
 func TestSwappableHandlerRoutesNewRequestsToNewGeneration(t *testing.T) {
@@ -172,6 +174,8 @@ func TestProcessServerSwapDoesNotRebindListener(t *testing.T) {
 }
 
 func TestApplicationRuntimeStopCancelsScheduler(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
 	widget := newServerLifecycleTestWidget()
 	app := newServerLifecycleTestApplication(t, 0, widget)
 
@@ -193,6 +197,8 @@ func TestApplicationRuntimeStopCancelsScheduler(t *testing.T) {
 }
 
 func TestProcessServerGracefulShutdownAllowsInflightRequest(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
 	started := make(chan struct{})
 	release := make(chan struct{})
 	var completed atomic.Bool
@@ -345,6 +351,8 @@ func TestRuntimeGenerationRejectsListenerChangeWithoutDisturbingCurrentGeneratio
 }
 
 func TestRuntimeGenerationSuccessfulReloadCommitsNewGenerationAndRetiresOld(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
 	oldWidget := newServerLifecycleTestWidget()
 	oldApp := newServerLifecycleTestApplication(t, 0, oldWidget)
 	diagnostics := newConfigRuntimeDiagnostics("glance.yml")
@@ -706,6 +714,8 @@ func TestContentionProfilingCanBeEnabledAndDisabled(t *testing.T) {
 }
 
 func TestProcessServerProfilingCanBeReconciledWithoutMainServerImpact(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
 	server, err := newProcessServer("127.0.0.1", 0, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	}))

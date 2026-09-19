@@ -3,6 +3,7 @@ package glance
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -46,6 +47,18 @@ func TestFetchWeatherForOpenMeteoPlaceCancellation(t *testing.T) {
 func TestWeatherWidgetGeocodingCancellationIsLifecycleNeutral(t *testing.T) {
 	resetOpenMeteoPlaceResourceCache(t)
 
+	fetchCompleted := make(chan struct{})
+
+	wave3Transport(t, func(request *http.Request) (*http.Response, error) {
+		defer close(fetchCompleted)
+
+		return wave3Response(
+			http.StatusOK,
+			`{"results":[{"name":"Canceled Location","latitude":38.8,"longitude":-90.6,"timezone":"America/Chicago","country":"United States"}]}`,
+			nil,
+		), nil
+	})
+
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
@@ -59,6 +72,12 @@ func TestWeatherWidgetGeocodingCancellationIsLifecycleNeutral(t *testing.T) {
 	widget.nextUpdate = originalNextUpdate
 
 	widget.update(ctx)
+
+	select {
+	case <-fetchCompleted:
+	case <-time.After(time.Second):
+		t.Fatal("detached geocoding fetch did not complete")
+	}
 
 	if widget.Place != nil {
 		t.Fatalf("cancelled geocoding populated place: %+v", widget.Place)

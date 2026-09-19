@@ -129,6 +129,10 @@ func encodeOIDCPrincipal(issuer string, subject string) (string, error) {
 func decodeOIDCPrincipal(encoded string) (oidcPrincipal, error) {
 	var principal oidcPrincipal
 
+	if len([]byte(encoded)) > AUTH_TOKEN_V2_MAX_PRINCIPAL_LENGTH {
+		return principal, fmt.Errorf("OIDC principal length exceeds %d bytes", AUTH_TOKEN_V2_MAX_PRINCIPAL_LENGTH)
+	}
+
 	data, err := base64.RawURLEncoding.DecodeString(encoded)
 	if err != nil {
 		return principal, fmt.Errorf("decoding OIDC principal: %w", err)

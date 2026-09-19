@@ -3,6 +3,7 @@ package glance
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -195,6 +196,12 @@ func TestPriorityRSSResolveURL(t *testing.T) {
 				t.Fatalf("resolveRSSURL() = %q, want %q", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestPriorityRSSResolveURLRejectsMalformedResolvedAuthority(t *testing.T) {
+	if got := resolveRSSURL("//::", "0", "http://0"); got != "" {
+		t.Fatalf("resolveRSSURL() = %q, want empty", got)
 	}
 }
 
@@ -470,4 +477,27 @@ func TestPriorityRSSItemLinkPrefixValidation(t *testing.T) {
 	if unsafe != "" {
 		t.Fatalf("unsafe prefixed link = %q, want empty", unsafe)
 	}
+}
+
+func FuzzResolveRSSURL(f *testing.F) {
+	for _, seed := range [][3]string{{"", "", ""}, {"https://example.com/post", "https://example.com/feed.xml", "https://fallback.example.com/feed.xml"}, {"/posts/one", "https://example.com/feed.xml", "https://fallback.example.com/feed.xml"}, {"images/item.jpg", "https://example.com/posts/feed.xml", "https://fallback.example.com/feed.xml"}, {"javascript:alert(1)", "https://example.com/feed.xml", "https://fallback.example.com/feed.xml"}, {"https://[::1", "https://example.com/feed.xml", "https://fallback.example.com/feed.xml"}, {"/posts/one", "/relative-feed", "https://fallback.example.com/feed.xml"}, {"/posts/one", "example.com", "/relative-fallback"}} {
+		f.Add(seed[0], seed[1], seed[2])
+	}
+
+	f.Fuzz(func(t *testing.T, value string, firstBase string, secondBase string) {
+		resolved := resolveRSSURL(value, firstBase, secondBase)
+		if resolved == "" {
+			return
+		}
+		parsed, err := url.Parse(resolved)
+		if err != nil {
+			t.Fatalf("resolved RSS URL %q cannot be parsed: %v", resolved, err)
+		}
+		if !parsed.IsAbs() {
+			t.Fatalf("resolved RSS URL %q is not absolute", resolved)
+		}
+		if parsed.Scheme != "http" && parsed.Scheme != "https" {
+			t.Fatalf("resolved RSS URL %q has unsafe scheme %q", resolved, parsed.Scheme)
+		}
+	})
 }

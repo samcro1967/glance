@@ -295,6 +295,29 @@ func TestFindYAMLCommentStart(t *testing.T) {
 	}
 }
 
+func FuzzFindYAMLCommentStart(f *testing.F) {
+	for _, seed := range []string{"", "no comment here", "# full line comment", "key: value # comment", "key: value#no-space-not-comment", `key: "value # not comment"`, `key: 'value # not comment'`, `key: "value \"quoted # text\""`, `key: 'value ''quoted # text''' # comment`, "key:\tvalue\t# comment", `key: "unterminated # quoted`, `key: 'unterminated # quoted`} {
+		f.Add(seed)
+	}
+
+	f.Fuzz(func(t *testing.T, input string) {
+		line := []byte(input)
+		index := findYAMLCommentStart(line)
+		if index == -1 {
+			return
+		}
+		if index < 0 || index >= len(line) {
+			t.Fatalf("findYAMLCommentStart(%q) returned out-of-range index %d", input, index)
+		}
+		if line[index] != '#' {
+			t.Fatalf("findYAMLCommentStart(%q) returned index %d containing %q, want #", input, index, line[index])
+		}
+		if index != 0 && line[index-1] != ' ' && line[index-1] != '\t' {
+			t.Fatalf("findYAMLCommentStart(%q) returned index %d without preceding whitespace", input, index)
+		}
+	})
+}
+
 func writeConfigTestFile(t *testing.T, path, contents string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {

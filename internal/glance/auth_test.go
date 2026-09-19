@@ -255,6 +255,10 @@ func TestOIDCPrincipalRejectsInvalidInputs(t *testing.T) {
 				append([]byte{0, 3}, []byte("iss")...),
 			),
 		},
+		{
+			name:      "encoded principal too long",
+			principal: strings.Repeat("A", AUTH_TOKEN_V2_MAX_PRINCIPAL_LENGTH+1),
+		},
 	}
 
 	for _, tt := range tests {
@@ -2484,4 +2488,87 @@ func TestHandleAuthenticationAttemptClearsPreviousFailures(t *testing.T) {
 			"expected successful login to clear previous failed attempts",
 		)
 	}
+}
+
+func FuzzDecodeOIDCPrincipal(f *testing.F) {
+	for _, seed := range []string{"", "%%%"} {
+		f.Add(seed)
+	}
+	for _, pair := range [][2]string{{"https://issuer.example", "subject-123"}, {"https://issuer.example/path|with|delimiters", "subject-世界|value"}} {
+		encoded, err := encodeOIDCPrincipal(pair[0], pair[1])
+		if err != nil {
+			f.Fatalf("encoding OIDC principal seed: %v", err)
+		}
+		f.Add(encoded)
+		if len(encoded) > 1 {
+			f.Add(encoded[:len(encoded)-1])
+		}
+	}
+
+	f.Fuzz(func(t *testing.T, encoded string) {
+		principal, err := decodeOIDCPrincipal(encoded)
+		if err != nil {
+			return
+		}
+		if principal.Issuer == "" {
+			t.Fatal("decoded OIDC principal has empty issuer")
+		}
+		if principal.Subject == "" {
+			t.Fatal("decoded OIDC principal has empty subject")
+		}
+		reencoded, err := encodeOIDCPrincipal(principal.Issuer, principal.Subject)
+		if err != nil {
+			t.Fatalf("re-encoding decoded OIDC principal: %v", err)
+		}
+		roundTrip, err := decodeOIDCPrincipal(reencoded)
+		if err != nil {
+			t.Fatalf("decoding re-encoded OIDC principal: %v", err)
+		}
+		if roundTrip != principal {
+			t.Fatalf("OIDC principal round trip changed value: got %#v want %#v", roundTrip, principal)
+		}
+	})
+}
+
+func FuzzVerifySessionTokenV4(f *testing.F) {
+	secret := bytes.Repeat([]byte{0x5a}, AUTH_SECRET_KEY_LENGTH)
+	now := time.Unix(1_800_000_000, 0)
+
+	for _, seed := range []struct {
+		method                authMethod
+		principal             string
+		displayName           string
+		authorizationIdentity string
+	}{
+		{authMethodLocal, "local-user", "Local User", "local-user"},
+		{authMethodOIDC, "oidc-principal", "OIDC User", "oidc-user"},
+	} {
+		token, err := generateSessionTokenV4(seed.method, seed.principal, seed.displayName, seed.authorizationIdentity, secret, now)
+		if err != nil {
+			f.Fatalf("generating V4 session token seed: %v", err)
+		}
+		f.Add(token)
+	}
+	f.Add("")
+	f.Add("%%%")
+	f.Add(base64.StdEncoding.EncodeToString([]byte(AUTH_TOKEN_V2_MAGIC)))
+
+	f.Fuzz(func(t *testing.T, token string) {
+		verified, err := verifySessionTokenV4(token, secret, now)
+		if err != nil {
+			return
+		}
+		if verified.Method != authMethodLocal && verified.Method != authMethodOIDC {
+			t.Fatalf("verified invalid authentication method: %d", verified.Method)
+		}
+		if len([]byte(verified.Principal)) == 0 || len([]byte(verified.Principal)) > AUTH_TOKEN_V2_MAX_PRINCIPAL_LENGTH {
+			t.Fatalf("verified invalid principal length: %d", len([]byte(verified.Principal)))
+		}
+		if len([]byte(verified.DisplayName)) > AUTH_TOKEN_V3_MAX_DISPLAY_LENGTH {
+			t.Fatalf("verified invalid display name length: %d", len([]byte(verified.DisplayName)))
+		}
+		if len([]byte(verified.AuthorizationIdentity)) == 0 || len([]byte(verified.AuthorizationIdentity)) > AUTH_TOKEN_V4_MAX_AUTHORIZATION_IDENTITY_LENGTH {
+			t.Fatalf("verified invalid authorization identity length: %d", len([]byte(verified.AuthorizationIdentity)))
+		}
+	})
 }
