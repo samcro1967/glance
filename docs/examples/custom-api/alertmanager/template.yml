@@ -1,0 +1,48 @@
+{{ $alerts := .JSON.Array "" }}
+<div class="flex flex-column gap-10">
+  {{ if eq (len $alerts) 0 }}
+    <div class="glance-status glance-status-positive">No alerts</div>
+  {{ else }}
+    <div class="size-h3">{{ len $alerts }} alert{{ if ne (len $alerts) 1 }}s{{ end }}</div>
+    {{ range $alerts }}
+      {{ $severity := .String "labels.severity" }}
+      {{ $state := .String "status.state" }}
+      <div class="card padding-10">
+        <div class="flex items-center justify-between gap-10">
+          <div class="size-h4 color-highlight text-truncate">{{ .String "labels.alertname" }}</div>
+          {{ if eq $state "suppressed" }}
+            <div class="glance-status glance-status-neutral">Suppressed</div>
+          {{ else if eq $severity "critical" }}
+            <div class="glance-status glance-status-negative">Critical</div>
+          {{ else if eq $severity "warning" }}
+            <div class="glance-status glance-status-warning">Warning</div>
+          {{ else }}
+            <div class="glance-status glance-status-positive">{{ $state }}</div>
+          {{ end }}
+        </div>
+        {{ if .Exists "annotations.summary" }}
+          <div class="margin-top-5">{{ .String "annotations.summary" }}</div>
+        {{ end }}
+        {{ if .Exists "annotations.description" }}
+          <div class="color-subdue size-smaller margin-top-5">{{ .String "annotations.description" }}</div>
+        {{ end }}
+        <ul class="list-horizontal-text color-subdue size-smaller margin-top-5">
+          {{ if .Exists "labels.instance" }}<li>{{ .String "labels.instance" }}</li>{{ end }}
+          {{ if .Exists "labels.job" }}<li>{{ .String "labels.job" }}</li>{{ end }}
+          {{ range .Array "receivers" }}<li>{{ .String "name" }}</li>{{ end }}
+          {{ if .Exists "startsAt" }}<li>started <span {{ .String "startsAt" | parseTime "rfc3339" | toRelativeTime }}></span></li>{{ end }}
+        </ul>
+        {{ if gt (len (.Array "status.silencedBy")) 0 }}
+          <div class="color-subdue size-smaller margin-top-5">Silenced</div>
+        {{ else if gt (len (.Array "status.inhibitedBy")) 0 }}
+          <div class="color-subdue size-smaller margin-top-5">Inhibited</div>
+        {{ else if gt (len (.Array "status.mutedBy")) 0 }}
+          <div class="color-subdue size-smaller margin-top-5">Muted</div>
+        {{ end }}
+        {{ if .Exists "generatorURL" }}
+          <div class="margin-top-5"><a class="size-smaller" href="{{ .String "generatorURL" }}" target="_blank" rel="noreferrer">Open source</a></div>
+        {{ end }}
+      </div>
+    {{ end }}
+  {{ end }}
+</div>

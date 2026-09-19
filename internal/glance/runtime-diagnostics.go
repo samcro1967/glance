@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"slices"
 	"time"
 )
 
@@ -105,17 +106,127 @@ func collectRuntimeDiagnostics(refreshWidgets []widget) runtimeDiagnostics {
 }
 
 type runtimeDiagnosticsResponse struct {
-	GeneratedAt       time.Time                           `json:"generated_at"`
-	RefreshWidgets    int                                 `json:"refresh_widgets"`
-	RefreshingWidgets int                                 `json:"refreshing_widgets"`
-	DegradedWidgets   int                                 `json:"degraded_widgets"`
-	TotalAttempts     uint64                              `json:"total_attempts"`
-	TotalSuccesses    uint64                              `json:"total_successes"`
-	TotalFailures     uint64                              `json:"total_failures"`
-	TotalLockSkips    uint64                              `json:"total_lock_skips"`
-	Widgets           []widgetRefreshDiagnosticsResponse  `json:"widgets"`
-	Config            configRuntimeDiagnosticsResponse    `json:"config"`
-	Profiling         profilingRuntimeDiagnosticsResponse `json:"profiling"`
+	GeneratedAt       time.Time                              `json:"generated_at"`
+	RefreshWidgets    int                                    `json:"refresh_widgets"`
+	RefreshingWidgets int                                    `json:"refreshing_widgets"`
+	DegradedWidgets   int                                    `json:"degraded_widgets"`
+	TotalAttempts     uint64                                 `json:"total_attempts"`
+	TotalSuccesses    uint64                                 `json:"total_successes"`
+	TotalFailures     uint64                                 `json:"total_failures"`
+	TotalLockSkips    uint64                                 `json:"total_lock_skips"`
+	Widgets           []widgetRefreshDiagnosticsResponse     `json:"widgets"`
+	Config            configRuntimeDiagnosticsResponse       `json:"config"`
+	Profiling         profilingRuntimeDiagnosticsResponse    `json:"profiling"`
+	OutboundHTTP      outboundHTTPRuntimeDiagnosticsResponse `json:"outbound_http"`
+	Rendering         renderRuntimeDiagnosticsResponse       `json:"rendering"`
+}
+
+type outboundHTTPRuntimeDiagnosticsResponse struct {
+	StartedAt         *time.Time                                   `json:"started_at,omitempty"`
+	Exchanges         uint64                                       `json:"exchanges"`
+	TransportErrors   uint64                                       `json:"transport_errors"`
+	Status1xx         uint64                                       `json:"status_1xx"`
+	Status2xx         uint64                                       `json:"status_2xx"`
+	Status3xx         uint64                                       `json:"status_3xx"`
+	Status4xx         uint64                                       `json:"status_4xx"`
+	Status5xx         uint64                                       `json:"status_5xx"`
+	OtherResponses    uint64                                       `json:"other_responses"`
+	TotalDurationMS   float64                                      `json:"total_round_trip_duration_ms"`
+	AverageDurationMS float64                                      `json:"average_round_trip_duration_ms"`
+	MaxDurationMS     float64                                      `json:"max_round_trip_duration_ms"`
+	Destinations      []outboundHTTPDestinationDiagnosticsResponse `json:"destinations"`
+}
+
+type outboundHTTPDestinationDiagnosticsResponse struct {
+	Destination       string     `json:"destination"`
+	Exchanges         uint64     `json:"exchanges"`
+	TransportErrors   uint64     `json:"transport_errors"`
+	Status1xx         uint64     `json:"status_1xx"`
+	Status2xx         uint64     `json:"status_2xx"`
+	Status3xx         uint64     `json:"status_3xx"`
+	Status4xx         uint64     `json:"status_4xx"`
+	Status5xx         uint64     `json:"status_5xx"`
+	OtherResponses    uint64     `json:"other_responses"`
+	TotalDurationMS   float64    `json:"total_round_trip_duration_ms"`
+	AverageDurationMS float64    `json:"average_round_trip_duration_ms"`
+	LastDurationMS    float64    `json:"last_round_trip_duration_ms"`
+	MaxDurationMS     float64    `json:"max_round_trip_duration_ms"`
+	LastExchangeAt    *time.Time `json:"last_exchange_at,omitempty"`
+}
+
+type renderWidgetAttributionResponse struct {
+	ID    uint64 `json:"id"`
+	Type  string `json:"type"`
+	Title string `json:"title,omitempty"`
+}
+
+type renderRuntimeDiagnosticsResponse struct {
+	StartedAt                      *time.Time                      `json:"started_at,omitempty"`
+	WidgetCalls                    uint64                          `json:"widget_calls"`
+	WidgetSnapshotHits             uint64                          `json:"widget_snapshot_hits"`
+	WidgetRefreshLockWaits         uint64                          `json:"widget_refresh_lock_waits"`
+	WidgetLockWaitTotalMS          float64                         `json:"widget_refresh_lock_wait_total_ms"`
+	WidgetLockWaitAverageMS        float64                         `json:"widget_refresh_lock_wait_average_ms"`
+	WidgetLockWaitMaxMS            float64                         `json:"widget_refresh_lock_wait_max_ms"`
+	WidgetLockWaitMaxWidget        renderWidgetAttributionResponse `json:"widget_refresh_lock_wait_max_widget"`
+	WidgetRenders                  uint64                          `json:"widget_renders"`
+	WidgetRenderTotalMS            float64                         `json:"widget_render_total_ms"`
+	WidgetRenderAverageMS          float64                         `json:"widget_render_average_ms"`
+	WidgetRenderMaxMS              float64                         `json:"widget_render_max_ms"`
+	WidgetRenderMaxWidget          renderWidgetAttributionResponse `json:"widget_render_max_widget"`
+	PageExecutions                 uint64                          `json:"page_template_executions"`
+	PageFailures                   uint64                          `json:"page_template_failures"`
+	PageLockWaitTotalMS            float64                         `json:"page_lock_wait_total_ms"`
+	PageLockWaitAverageMS          float64                         `json:"page_lock_wait_average_ms"`
+	PageLockWaitMaxMS              float64                         `json:"page_lock_wait_max_ms"`
+	PageTemplateExecutionTotalMS   float64                         `json:"page_template_execution_total_ms"`
+	PageTemplateExecutionAverageMS float64                         `json:"page_template_execution_average_ms"`
+	PageTemplateExecutionMaxMS     float64                         `json:"page_template_execution_max_ms"`
+}
+
+func renderRuntimeDiagnosticsResponseFromSnapshot(
+	snapshot renderRuntimeDiagnosticsSnapshot,
+) renderRuntimeDiagnosticsResponse {
+	response := renderRuntimeDiagnosticsResponse{
+		StartedAt:              optionalDiagnosticTime(snapshot.StartedAt),
+		WidgetCalls:            snapshot.WidgetCalls,
+		WidgetSnapshotHits:     snapshot.WidgetSnapshotHits,
+		WidgetRefreshLockWaits: snapshot.WidgetRefreshLockWaits,
+		WidgetLockWaitTotalMS:  float64(snapshot.WidgetLockWaitTotal) / float64(time.Millisecond),
+		WidgetLockWaitMaxMS:    float64(snapshot.WidgetLockWaitMax) / float64(time.Millisecond),
+		WidgetLockWaitMaxWidget: renderWidgetAttributionResponse{
+			ID:    snapshot.WidgetLockWaitMaxWidget.ID,
+			Type:  snapshot.WidgetLockWaitMaxWidget.Type,
+			Title: snapshot.WidgetLockWaitMaxWidget.Title,
+		},
+		WidgetRenders:       snapshot.WidgetRenders,
+		WidgetRenderTotalMS: float64(snapshot.WidgetRenderTotal) / float64(time.Millisecond),
+		WidgetRenderMaxMS:   float64(snapshot.WidgetRenderMax) / float64(time.Millisecond),
+		WidgetRenderMaxWidget: renderWidgetAttributionResponse{
+			ID:    snapshot.WidgetRenderMaxWidget.ID,
+			Type:  snapshot.WidgetRenderMaxWidget.Type,
+			Title: snapshot.WidgetRenderMaxWidget.Title,
+		},
+		PageExecutions:               snapshot.PageExecutions,
+		PageFailures:                 snapshot.PageFailures,
+		PageLockWaitTotalMS:          float64(snapshot.PageLockWaitTotal) / float64(time.Millisecond),
+		PageLockWaitMaxMS:            float64(snapshot.PageLockWaitMax) / float64(time.Millisecond),
+		PageTemplateExecutionTotalMS: float64(snapshot.PageTemplateExecutionTotal) / float64(time.Millisecond),
+		PageTemplateExecutionMaxMS:   float64(snapshot.PageTemplateExecutionMax) / float64(time.Millisecond),
+	}
+
+	if snapshot.WidgetRefreshLockWaits > 0 {
+		response.WidgetLockWaitAverageMS = response.WidgetLockWaitTotalMS / float64(snapshot.WidgetRefreshLockWaits)
+	}
+	if snapshot.WidgetRenders > 0 {
+		response.WidgetRenderAverageMS = response.WidgetRenderTotalMS / float64(snapshot.WidgetRenders)
+	}
+	if snapshot.PageExecutions > 0 {
+		response.PageLockWaitAverageMS = response.PageLockWaitTotalMS / float64(snapshot.PageExecutions)
+		response.PageTemplateExecutionAverageMS = response.PageTemplateExecutionTotalMS / float64(snapshot.PageExecutions)
+	}
+
+	return response
 }
 
 type profilingRuntimeDiagnosticsResponse struct {
@@ -160,6 +271,61 @@ type widgetRefreshDiagnosticsResponse struct {
 	LastSchedulerLagMS  float64             `json:"last_scheduler_lag_ms"`
 	MaxSchedulerLagMS   float64             `json:"max_scheduler_lag_ms"`
 	NextUpdate          *time.Time          `json:"next_update,omitempty"`
+}
+
+func outboundHTTPRuntimeDiagnosticsResponseFromSnapshot(
+	snapshot outboundHTTPRuntimeDiagnosticsSnapshot,
+) outboundHTTPRuntimeDiagnosticsResponse {
+	response := outboundHTTPRuntimeDiagnosticsResponse{
+		StartedAt:       optionalDiagnosticTime(snapshot.StartedAt),
+		Exchanges:       snapshot.Exchanges,
+		TransportErrors: snapshot.TransportErrors,
+		Status1xx:       snapshot.Status1xx,
+		Status2xx:       snapshot.Status2xx,
+		Status3xx:       snapshot.Status3xx,
+		Status4xx:       snapshot.Status4xx,
+		Status5xx:       snapshot.Status5xx,
+		OtherResponses:  snapshot.OtherResponses,
+		TotalDurationMS: float64(snapshot.TotalDuration) / float64(time.Millisecond),
+		MaxDurationMS:   float64(snapshot.MaxDuration) / float64(time.Millisecond),
+		Destinations:    make([]outboundHTTPDestinationDiagnosticsResponse, 0, len(snapshot.Destinations)),
+	}
+
+	if snapshot.Exchanges > 0 {
+		response.AverageDurationMS = response.TotalDurationMS / float64(snapshot.Exchanges)
+	}
+
+	destinations := make([]string, 0, len(snapshot.Destinations))
+	for destination := range snapshot.Destinations {
+		destinations = append(destinations, destination)
+	}
+	slices.Sort(destinations)
+
+	for _, destination := range destinations {
+		entry := snapshot.Destinations[destination]
+		entryResponse := outboundHTTPDestinationDiagnosticsResponse{
+			Destination:     destination,
+			Exchanges:       entry.Exchanges,
+			TransportErrors: entry.TransportErrors,
+			Status1xx:       entry.Status1xx,
+			Status2xx:       entry.Status2xx,
+			Status3xx:       entry.Status3xx,
+			Status4xx:       entry.Status4xx,
+			Status5xx:       entry.Status5xx,
+			OtherResponses:  entry.OtherResponses,
+			TotalDurationMS: float64(entry.TotalDuration) / float64(time.Millisecond),
+			LastDurationMS:  float64(entry.LastDuration) / float64(time.Millisecond),
+			MaxDurationMS:   float64(entry.MaxDuration) / float64(time.Millisecond),
+			LastExchangeAt:  optionalDiagnosticTime(entry.LastExchangeAt),
+		}
+		if entry.Exchanges > 0 {
+			entryResponse.AverageDurationMS = entryResponse.TotalDurationMS / float64(entry.Exchanges)
+		}
+
+		response.Destinations = append(response.Destinations, entryResponse)
+	}
+
+	return response
 }
 
 func optionalDiagnosticTime(value time.Time) *time.Time {
@@ -236,6 +402,14 @@ func (a *application) runtimeDiagnosticsResponse() runtimeDiagnosticsResponse {
 			}
 		}
 	}
+
+	response.OutboundHTTP = outboundHTTPRuntimeDiagnosticsResponseFromSnapshot(
+		outboundHTTPDiagnostics.snapshot(),
+	)
+
+	response.Rendering = renderRuntimeDiagnosticsResponseFromSnapshot(
+		renderDiagnostics.snapshot(),
+	)
 
 	if a.profilingDiagnostics != nil {
 		profilingSnapshot := a.profilingDiagnostics.snapshot()

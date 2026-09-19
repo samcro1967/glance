@@ -49,6 +49,7 @@ function updateRelativeTimeForElements(elements)
 function setupDynamicRelativeTime() {
     const updateInterval = 60 * 1000;
     let lastUpdateTime = Date.now();
+    let timeout = null;
 
     const updateElementsAndTimestamp = () => {
         updateRelativeTimeForElements(
@@ -57,38 +58,66 @@ function setupDynamicRelativeTime() {
         lastUpdateTime = Date.now();
     };
 
-    updateElementsAndTimestamp();
-
-    const scheduleRepeatingUpdate = () => setInterval(updateElementsAndTimestamp, updateInterval);
-
-    if (document.hidden === undefined) {
-        scheduleRepeatingUpdate();
-        return;
-    }
-
-    let timeout = scheduleRepeatingUpdate();
-
-    document.addEventListener("visibilitychange", () => {
-        if (document.hidden) {
-            clearTimeout(timeout);
+    const clearScheduledUpdate = () => {
+        if (timeout === null) {
             return;
         }
 
+        clearTimeout(timeout);
+        timeout = null;
+    };
+
+    const scheduleUpdate = (delay = updateInterval) => {
+        clearScheduledUpdate();
+        timeout = setTimeout(() => {
+            updateElementsAndTimestamp();
+            scheduleUpdate();
+        }, delay);
+    };
+
+    const resumeUpdates = () => {
         const delta = Date.now() - lastUpdateTime;
 
         if (delta >= updateInterval) {
             updateElementsAndTimestamp();
-            timeout = scheduleRepeatingUpdate();
+            scheduleUpdate();
             return;
         }
 
-        timeout = setTimeout(() => {
-            updateElementsAndTimestamp();
-            timeout = scheduleRepeatingUpdate();
-        }, updateInterval - delta);
-    });
-}
+        scheduleUpdate(updateInterval - delta);
+    };
 
+    const handleVisibilityChange = () => {
+        if (document.hidden) {
+            clearScheduledUpdate();
+            return;
+        }
+
+        resumeUpdates();
+    };
+
+    const handlePageHide = () => {
+        clearScheduledUpdate();
+    };
+
+    const handlePageShow = (event) => {
+        if (event.persisted && !document.hidden) {
+            resumeUpdates();
+        }
+    };
+
+    updateElementsAndTimestamp();
+
+    if (document.hidden === undefined) {
+        scheduleUpdate();
+        return;
+    }
+
+    scheduleUpdate();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", handlePageHide);
+    window.addEventListener("pageshow", handlePageShow);
+}
 
 export { updateRelativeTimeForElements };
 export { setupDynamicRelativeTime };

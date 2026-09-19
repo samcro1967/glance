@@ -329,6 +329,16 @@
     "route": "/date-time-weather",
     "selector": ".visual-fixture-weather"
   },
+  "examples/custom-api/alertmanager.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/screenshots/examples-custom-api-monitoring",
+    "selector": ".visual-example-alertmanager",
+    "viewport": {
+      "width": 1600,
+      "height": 1000
+    }
+  },
   "examples/custom-api/monitoring/argus.png": {
     "kind": "browser",
     "capture": "element",
@@ -478,5 +488,23 @@
       "width": 1600,
       "height": 1000
     }
+  },
+  "widgets/bookmarks-grid.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-bookmarks-grid"
+  },
+  "widgets/monitor-grid.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-monitor-grid"
+  },
+  "widgets/docker-containers-grid.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-docker-containers-compose-grid"
   }
 }

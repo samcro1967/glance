@@ -6,7 +6,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var bookmarksWidgetTemplate = mustParseTemplate("bookmarks.html", "widget-base.html")
+var (
+	bookmarksWidgetTemplate     = mustParseTemplate("bookmarks.html", "widget-base.html")
+	bookmarksWidgetGridTemplate = mustParseTemplate("bookmarks-grid.html", "widget-base.html")
+)
 
 type bookmarkLink struct {
 	Title        string          `yaml:"title"`
@@ -43,6 +46,7 @@ func (group *bookmarkGroup) UnmarshalYAML(node *yaml.Node) error {
 type bookmarksWidget struct {
 	widgetBase `yaml:",inline"`
 	cachedHTML template.HTML   `yaml:"-"`
+	Style      string          `yaml:"style"`
 	Groups     []bookmarkGroup `yaml:"groups"`
 }
 
@@ -79,7 +83,12 @@ func (widget *bookmarksWidget) initialize() error {
 		}
 	}
 
-	widget.cachedHTML = widget.renderTemplate(widget, bookmarksWidgetTemplate)
+	template := bookmarksWidgetTemplate
+	if widget.Style == "grid-cards" {
+		template = bookmarksWidgetGridTemplate
+	}
+
+	widget.cachedHTML = widget.renderTemplate(widget, template)
 
 	return nil
 }

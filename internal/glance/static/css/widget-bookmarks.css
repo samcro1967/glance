@@ -69,3 +69,38 @@
         transition: none;
     }
 }
+
+.bookmarks-grid-groups {
+    display: grid;
+    gap: 2.4rem;
+}
+
+.bookmarks-grid-icon-container {
+    margin-block: 0;
+    padding: 0.7rem;
+}
+
+.bookmarks-grid-icon {
+    width: 2.8rem;
+    height: 2.8rem;
+}
+
+.bookmarks-grid-description {
+    margin-top: 0.2rem;
+    color: var(--theme-muted-text-color, var(--color-text-subdue));
+}
+
+.bookmarks-grid-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.7rem;
+    min-width: 0;
+    width: 100%;
+}
+
+.bookmarks-grid-text {
+    width: 100%;
+    text-align: center;
+}

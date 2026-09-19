@@ -233,7 +233,7 @@ func (p *proxyOptionsField) initializeClient(proxyURL string) error {
 		transport = defaultInsecureHTTPTransport.Clone()
 	}
 	transport.Proxy = http.ProxyURL(parsedURL)
-	p.client.Transport = transport
+	p.client.Transport = observeHTTPTransport(transport)
 
 	return nil
 }

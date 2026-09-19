@@ -18,6 +18,7 @@ var frontendDiagnosticCommandID atomic.Uint64
 const frontendDiagnosticCommandQueueLimit = 8
 
 const liveUpdateHeartbeatInterval = 30 * time.Second
+const liveUpdateWriteTimeout = 10 * time.Second
 
 type frontendDiagnosticCommand struct {
 	ID      uint64 `json:"id"`
@@ -231,8 +232,7 @@ func (a *application) handleLiveUpdatesRequest(w http.ResponseWriter, r *http.Re
 		)
 	}
 
-	flusher, ok := w.(http.Flusher)
-	if !ok {
+	if _, ok := w.(http.Flusher); !ok {
 		if a.Config.Server.FrontendDiagnostics {
 			slog.Info(
 				"Frontend diagnostic",
@@ -243,6 +243,32 @@ func (a *application) handleLiveUpdatesRequest(w http.ResponseWriter, r *http.Re
 		}
 		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
 		return
+	}
+
+	responseController := http.NewResponseController(w)
+	logWriteDeadlineFailure := func(operation string, err error) {
+		if a.Config.Server.FrontendDiagnostics {
+			slog.Info(
+				"Frontend diagnostic",
+				"source", "server",
+				"event", "live_updates_write_deadline_failed",
+				"connection", connectionID,
+				"operation", operation,
+				"error", err,
+			)
+		}
+	}
+	logFlushFailure := func(operation string, err error) {
+		if a.Config.Server.FrontendDiagnostics {
+			slog.Info(
+				"Frontend diagnostic",
+				"source", "server",
+				"event", "live_updates_flush_failed",
+				"connection", connectionID,
+				"operation", operation,
+				"error", err,
+			)
+		}
 	}
 
 	w.Header().Set("Content-Type", "text/event-stream")
@@ -280,7 +306,18 @@ func (a *application) handleLiveUpdatesRequest(w http.ResponseWriter, r *http.Re
 	// the connection has been established even when no widget is currently
 	// due for refresh.
 	w.WriteHeader(http.StatusOK)
-	flusher.Flush()
+	if err := responseController.SetWriteDeadline(time.Now().Add(liveUpdateWriteTimeout)); err != nil {
+		logWriteDeadlineFailure("initial", err)
+		return
+	}
+	if err := responseController.Flush(); err != nil {
+		logFlushFailure("initial", err)
+		return
+	}
+	if err := responseController.SetWriteDeadline(time.Time{}); err != nil {
+		logWriteDeadlineFailure("initial", err)
+		return
+	}
 
 	heartbeat := time.NewTicker(liveUpdateHeartbeatInterval)
 	defer heartbeat.Stop()
@@ -309,6 +346,10 @@ func (a *application) handleLiveUpdatesRequest(w http.ResponseWriter, r *http.Re
 			return
 
 		case <-heartbeat.C:
+			if err := responseController.SetWriteDeadline(time.Now().Add(liveUpdateWriteTimeout)); err != nil {
+				logWriteDeadlineFailure("heartbeat", err)
+				return
+			}
 			if _, err := io.WriteString(w, ": keepalive\n\n"); err != nil {
 				if a.Config.Server.FrontendDiagnostics {
 					slog.Info(
@@ -321,7 +362,14 @@ func (a *application) handleLiveUpdatesRequest(w http.ResponseWriter, r *http.Re
 				}
 				return
 			}
-			flusher.Flush()
+			if err := responseController.Flush(); err != nil {
+				logFlushFailure("heartbeat", err)
+				return
+			}
+			if err := responseController.SetWriteDeadline(time.Time{}); err != nil {
+				logWriteDeadlineFailure("heartbeat", err)
+				return
+			}
 
 		case _, ok := <-subscription.ready:
 			if !ok {
@@ -334,6 +382,11 @@ func (a *application) handleLiveUpdatesRequest(w http.ResponseWriter, r *http.Re
 						"reason", "subscription_closed",
 					)
 				}
+				return
+			}
+
+			if err := responseController.SetWriteDeadline(time.Now().Add(liveUpdateWriteTimeout)); err != nil {
+				logWriteDeadlineFailure("updates", err)
 				return
 			}
 
@@ -410,7 +463,14 @@ func (a *application) handleLiveUpdatesRequest(w http.ResponseWriter, r *http.Re
 				}
 			}
 
-			flusher.Flush()
+			if err := responseController.Flush(); err != nil {
+				logFlushFailure("updates", err)
+				return
+			}
+			if err := responseController.SetWriteDeadline(time.Time{}); err != nil {
+				logWriteDeadlineFailure("updates", err)
+				return
+			}
 
 			if a.Config.Server.FrontendDiagnostics {
 				slog.Info(

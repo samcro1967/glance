@@ -44,7 +44,9 @@ type frontendDiagnosticEvent struct {
 
 const (
 	frontendDiagnosticsRecentProblemLimit      = 20
-	frontendDiagnosticsRecentActiveResultLimit = 20
+	frontendDiagnosticsRecentActiveResultLimit = 100
+	frontendDiagnosticsProblemCountLimit       = 128
+	frontendDiagnosticsProblemCountOther       = "OTHER"
 )
 
 type frontendRuntimeDiagnosticProblem struct {
@@ -112,6 +114,12 @@ func frontendDiagnosticIsActiveResult(event frontendDiagnosticEvent) bool {
 		"navigation_snapshot",
 		"resource_snapshot",
 		"memory_snapshot",
+		"paint_snapshot",
+		"web_vitals_snapshot",
+		"lcp_attribution",
+		"cls_attribution",
+		"cls_layout_context",
+		"performance_snapshot_complete",
 		"long_task_capture_start",
 		"long_task_capture_complete",
 		"long_task_capture_unsupported",
@@ -183,7 +191,14 @@ func (d *frontendRuntimeDiagnostics) record(events []frontendDiagnosticEvent) {
 		}
 
 		d.totalProblemEvents++
-		d.problemCounts[event.Event]++
+
+		if _, tracked := d.problemCounts[event.Event]; tracked {
+			d.problemCounts[event.Event]++
+		} else if len(d.problemCounts) < frontendDiagnosticsProblemCountLimit {
+			d.problemCounts[event.Event] = 1
+		} else {
+			d.problemCounts[frontendDiagnosticsProblemCountOther]++
+		}
 
 		d.recentProblems = append(
 			d.recentProblems,
@@ -200,6 +215,29 @@ func (d *frontendRuntimeDiagnostics) record(events []frontendDiagnosticEvent) {
 			)
 		}
 	}
+}
+
+func (d *frontendRuntimeDiagnostics) activeResultsForCommand(commandID uint64) []frontendRuntimeDiagnosticActiveResult {
+	if d == nil || commandID == 0 {
+		return nil
+	}
+
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	results := make([]frontendRuntimeDiagnosticActiveResult, 0)
+	for _, result := range d.recentActiveResults {
+		if result.Event.CommandID != commandID {
+			continue
+		}
+
+		results = append(results, frontendRuntimeDiagnosticActiveResult{
+			RecordedAt: result.RecordedAt,
+			Event:      cloneFrontendDiagnosticEvent(result.Event),
+		})
+	}
+
+	return results
 }
 
 func (d *frontendRuntimeDiagnostics) snapshot() frontendRuntimeDiagnosticsSnapshot {
@@ -254,27 +292,9 @@ func (a *application) handleFrontendRuntimeStateRequest(w http.ResponseWriter, r
 	a.handleFrontendDiagnosticCommandRequest(w, r, "runtime_state")
 }
 
-func (a *application) handleFrontendDiagnosticCommandRequest(
-	w http.ResponseWriter,
-	r *http.Request,
-	commandName string,
-) {
-	if !a.Config.Server.FrontendDiagnostics {
-		http.NotFound(w, r)
-		return
-	}
-
-	if a.handleUnauthorizedResponse(w, r, showUnauthorizedJSON) {
-		return
-	}
-
+func (a *application) publishFrontendDiagnosticCommand(commandName string) (frontendDiagnosticCommand, error) {
 	if a.liveUpdates == nil {
-		http.Error(
-			w,
-			"Live updates unavailable",
-			http.StatusServiceUnavailable,
-		)
-		return
+		return frontendDiagnosticCommand{}, errors.New("live updates unavailable")
 	}
 
 	command := frontendDiagnosticCommand{
@@ -291,6 +311,29 @@ func (a *application) handleFrontendDiagnosticCommandRequest(
 		"command_id", command.ID,
 		"command", command.Command,
 	)
+
+	return command, nil
+}
+
+func (a *application) handleFrontendDiagnosticCommandRequest(
+	w http.ResponseWriter,
+	r *http.Request,
+	commandName string,
+) {
+	if !a.Config.Server.FrontendDiagnostics {
+		http.NotFound(w, r)
+		return
+	}
+
+	if a.handleUnauthorizedResponse(w, r, showUnauthorizedJSON) {
+		return
+	}
+
+	command, err := a.publishFrontendDiagnosticCommand(commandName)
+	if err != nil {
+		http.Error(w, "Live updates unavailable", http.StatusServiceUnavailable)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)

@@ -32,13 +32,22 @@ func TestDefaultHTTPClientTransportSettings(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			transport, ok := test.client.Transport.(*http.Transport)
+			observed, ok := test.client.Transport.(observedRoundTripper)
 			if !ok {
-				t.Fatalf("transport type = %T, want *http.Transport", test.client.Transport)
+				t.Fatalf("transport type = %T, want observedRoundTripper", test.client.Transport)
+			}
+
+			transport, ok := observed.transport.(*http.Transport)
+			if !ok {
+				t.Fatalf("underlying transport type = %T, want *http.Transport", observed.transport)
 			}
 
 			if transport != test.wantTransport {
 				t.Fatal("client does not use expected canonical transport")
+			}
+
+			if observed.diagnostics != outboundHTTPDiagnostics {
+				t.Fatal("client does not use process-wide outbound HTTP diagnostics")
 			}
 
 			if transport.MaxIdleConnsPerHost != 10 {
@@ -127,8 +136,17 @@ func TestNewHTTPClient(t *testing.T) {
 				)
 			}
 
-			if client.Transport != test.wantTransport {
-				t.Fatal("client does not use expected transport")
+			observed, ok := client.Transport.(observedRoundTripper)
+			if !ok {
+				t.Fatalf("transport type = %T, want observedRoundTripper", client.Transport)
+			}
+
+			if observed.transport != test.wantTransport {
+				t.Fatal("client does not use expected underlying transport")
+			}
+
+			if observed.diagnostics != outboundHTTPDiagnostics {
+				t.Fatal("client does not use process-wide outbound HTTP diagnostics")
 			}
 		})
 	}

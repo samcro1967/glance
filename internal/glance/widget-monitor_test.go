@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -609,5 +610,76 @@ func TestFetchSiteStatusTaskSendsConfiguredHeaders(t *testing.T) {
 	}
 	if status.Error != nil {
 		t.Fatalf("status error: %v", status.Error)
+	}
+}
+
+func TestMonitorWidgetStyles(t *testing.T) {
+	sites := []monitorSite{
+		{
+			SiteStatusRequest: &SiteStatusRequest{},
+			Status:            &siteStatus{Code: http.StatusOK},
+			URL:               "https://healthy.example.invalid",
+			Title:             "Healthy",
+			Description:       "Healthy service",
+			StatusText:        "OK",
+			StatusStyle:       "ok",
+		},
+		{
+			SiteStatusRequest: &SiteStatusRequest{},
+			Status:            &siteStatus{Code: http.StatusServiceUnavailable},
+			URL:               "https://failing.example.invalid",
+			Title:             "Failing",
+			Description:       "Failing service",
+			StatusText:        "Server Error",
+			StatusStyle:       "error",
+		},
+	}
+
+	for _, tc := range []struct {
+		name            string
+		style           string
+		showFailingOnly bool
+		wantClass       string
+		notClass        string
+		wantHealthy     bool
+	}{
+		{name: "default", wantClass: "dynamic-columns", notClass: "monitor-grid-card", wantHealthy: true},
+		{name: "compact", style: "compact", wantClass: "list-gap-8", notClass: "monitor-grid-card", wantHealthy: true},
+		{name: "grid-cards", style: "grid-cards", wantClass: "monitor-grid-card", notClass: "dynamic-columns", wantHealthy: true},
+		{name: "grid-cards-failing-only", style: "grid-cards", showFailingOnly: true, wantClass: "monitor-grid-card", notClass: "dynamic-columns", wantHealthy: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			widget := &monitorWidget{
+				Style:           tc.style,
+				ShowFailingOnly: tc.showFailingOnly,
+				HasFailing:      true,
+				Sites:           sites,
+			}
+			widget.ContentAvailable = true
+
+			html := string(widget.Render())
+			if !strings.Contains(html, tc.wantClass) {
+				t.Fatalf("rendered HTML missing %q: %s", tc.wantClass, html)
+			}
+			if strings.Contains(html, tc.notClass) {
+				t.Fatalf("rendered HTML unexpectedly contains %q: %s", tc.notClass, html)
+			}
+			if tc.style == "grid-cards" {
+				healthyLink := `href="https://healthy.example.invalid"`
+				if got := strings.Contains(html, healthyLink); got != tc.wantHealthy {
+					t.Fatalf("healthy site rendered = %t, want %t: %s", got, tc.wantHealthy, html)
+				}
+				if !strings.Contains(html, `href="https://failing.example.invalid"`) {
+					t.Fatalf("failing site missing from rendered HTML: %s", html)
+				}
+			} else {
+				if got := strings.Contains(html, ">Healthy</a>"); got != tc.wantHealthy {
+					t.Fatalf("healthy site rendered = %t, want %t: %s", got, tc.wantHealthy, html)
+				}
+				if !strings.Contains(html, ">Failing</a>") {
+					t.Fatalf("failing site missing from rendered HTML: %s", html)
+				}
+			}
+		})
 	}
 }

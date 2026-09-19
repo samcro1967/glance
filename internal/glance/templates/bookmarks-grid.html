@@ -1,0 +1,32 @@
+{{ template "widget-base.html" . }}
+
+{{ define "widget-content" }}
+<div class="bookmarks-grid-groups">
+    {{- range .Groups }}
+    <div class="bookmarks-group bookmarks-grid-group"{{ if .Color }} style="--bookmarks-group-color: {{ .Color.String | safeCSS }}"{{ end }}>
+        {{- if ne .Title "" }}
+        <div class="bookmarks-group-title size-h3 margin-bottom-5">{{ .Title }}</div>
+        {{- end }}
+        <div class="glance-app-grid bookmarks-grid">
+            {{- range .Links }}
+            <a href="{{ .URL | safeURL }}" class="glance-card glance-app-card bookmarks-grid-card" target="_blank" rel="noreferrer">
+                <div class="bookmarks-grid-content">
+                    {{- if ne "" .Icon.URL }}
+                    <div class="bookmarks-icon-container bookmarks-grid-icon-container">
+                        <img class="bookmarks-icon bookmarks-grid-icon{{ if .Icon.AutoInvert }} flat-icon{{ end }}" src="{{ .Icon.URL }}" alt="" loading="lazy">
+                    </div>
+                    {{- end }}
+                    <div class="bookmarks-grid-text min-width-0">
+                        <div class="bookmarks-link {{ if .HideArrow }}bookmarks-link-no-arrow {{ end }}color-highlight size-h4 text-truncate">{{ .Title }}</div>
+                        {{- if .Description }}
+                        <div class="bookmarks-grid-description text-truncate">{{ .Description }}</div>
+                        {{- end }}
+                    </div>
+                </div>
+            </a>
+            {{- end }}
+        </div>
+    </div>
+    {{- end }}
+</div>
+{{ end }}

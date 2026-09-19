@@ -24,3 +24,75 @@
     width: 2rem;
     height: 2rem;
 }
+
+.docker-container-grid-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.7rem;
+    width: 100%;
+    min-width: 0;
+    text-align: center;
+}
+
+.docker-container-grid-card .docker-container-icon {
+    width: 3.6rem;
+    height: 3.6rem;
+}
+
+.docker-container-grid-popover,
+.docker-container-grid-status {
+    position: relative;
+    z-index: 2;
+}
+
+.docker-container-grid-link::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+}
+
+.docker-container-grid-status {
+    position: absolute;
+    right: var(--density-card-padding-inline);
+    bottom: var(--density-card-padding-block);
+}
+
+.docker-container-grid-status .docker-container-status-icon {
+    width: 1.6rem;
+    height: 1.6rem;
+}
+
+.docker-container-grid-text {
+    width: 100%;
+    min-width: 0;
+    text-align: center;
+}
+
+.docker-container-grid-text > div:last-child {
+    margin-top: 0.2rem;
+    color: var(--theme-muted-text-color, var(--color-text-subdue));
+}
+
+.docker-container-grid-groups {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 2rem var(--density-presentation-gap);
+}
+
+.docker-container-grid-group {
+    flex: 0 0 auto;
+}
+
+.docker-container-grid-group .docker-containers-grid {
+    grid-template-columns: repeat(auto-fill, 10rem);
+    width: max-content;
+    max-width: 100%;
+}
+
+.popover-frame:has(.docker-container-grid-popover-content) {
+    overflow-y: hidden;
+}
