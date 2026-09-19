@@ -15,6 +15,7 @@ import (
 var (
 	monitorWidgetTemplate        = mustParseTemplate("monitor.html", "widget-base.html")
 	monitorWidgetCompactTemplate = mustParseTemplate("monitor-compact.html", "widget-base.html")
+	monitorWidgetGridTemplate    = mustParseTemplate("monitor-grid.html", "widget-base.html")
 )
 
 type monitorSite struct {
@@ -92,11 +93,14 @@ func (widget *monitorWidget) update(ctx context.Context) {
 }
 
 func (widget *monitorWidget) Render() template.HTML {
-	if widget.Style == "compact" {
+	switch widget.Style {
+	case "compact":
 		return widget.renderTemplate(widget, monitorWidgetCompactTemplate)
+	case "grid-cards":
+		return widget.renderTemplate(widget, monitorWidgetGridTemplate)
+	default:
+		return widget.renderTemplate(widget, monitorWidgetTemplate)
 	}
-
-	return widget.renderTemplate(widget, monitorWidgetTemplate)
 }
 
 func statusCodeToText(status int, altStatusCodes []int) string {

@@ -114,6 +114,18 @@ const dockerContainers = [
     }
   },
   {
+    Names: ['/fixture-web'],
+    Image: 'example/web:latest',
+    State: 'running',
+    Status: 'Up 30 minutes',
+    Labels: {
+      'glance.name': 'Fixture Web',
+      'com.docker.compose.project': 'fixture-services',
+      'glance.description': 'Frontend test service',
+      'glance.url': 'https://example.com/'
+    }
+  },
+  {
     Names: ['/paused-service'],
     Image: 'example/service:latest',
     State: 'paused',

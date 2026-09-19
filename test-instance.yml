@@ -724,6 +724,64 @@ pages:
 
       - size: medium
         widgets:
+          - type: bookmarks
+            title: Bookmarks Grid
+            css-class: visual-fixture-bookmarks-grid
+            style: grid-cards
+            groups:
+              - title: Development
+                links:
+                  - title: Glance
+                    url: https://github.com/glanceapp/glance
+                    description: Upstream dashboard project
+                    icon: si:github
+                  - title: Fork
+                    url: https://github.com/samcro1967/glance
+                    description: Development fork
+                    icon: si:github
+              - title: Reference
+                links:
+                  - title: Go
+                    url: https://go.dev/
+                    description: Go documentation
+                    icon: si:go
+                  - title: YAML
+                    url: https://yaml.org/
+                    description: YAML specification
+                    icon: si:yaml
+                  - title: MDN
+                    url: https://developer.mozilla.org/
+                    description: Web documentation
+                    icon: si:mdnwebdocs
+
+          - type: monitor
+            title: Monitor Grid
+            css-class: visual-fixture-monitor-grid
+            style: grid-cards
+            cache: 5m
+            sites:
+              - title: GitHub
+                url: https://github.com/
+                icon: si:github
+              - title: Glance
+                url: https://github.com/samcro1967/glance
+                icon: si:github
+
+          - type: docker-containers
+            title: Docker Containers Grid
+            css-class: visual-fixture-docker-containers-grid
+            style: grid-cards
+            sock-path: http://127.0.0.1:18089
+            hide-by-default: false
+
+          - type: docker-containers
+            title: Docker Grid by Compose Project
+            css-class: visual-fixture-docker-containers-compose-grid
+            style: grid-cards
+            sock-path: http://127.0.0.1:18089
+            hide-by-default: false
+            group-by: compose-project
+
           - type: change-detection
             title: ChangeDetection.io
             css-class: visual-fixture-change-detection

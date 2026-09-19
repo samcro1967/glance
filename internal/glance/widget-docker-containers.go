@@ -13,7 +13,10 @@ import (
 	"time"
 )
 
-var dockerContainersWidgetTemplate = mustParseTemplate("docker-containers.html", "widget-base.html")
+var (
+	dockerContainersWidgetTemplate     = mustParseTemplate("docker-containers.html", "widget-base.html")
+	dockerContainersWidgetGridTemplate = mustParseTemplate("docker-containers-grid.html", "widget-base.html")
+)
 
 type dockerContainersWidget struct {
 	widgetBase           `yaml:",inline"`
@@ -23,6 +26,7 @@ type dockerContainersWidget struct {
 	SockPath             string                       `yaml:"sock-path"`
 	FormatContainerNames bool                         `yaml:"format-container-names"`
 	GroupBy              string                       `yaml:"group-by"`
+	Style                string                       `yaml:"style"`
 	Containers           dockerContainerList          `yaml:"-"`
 	Groups               []dockerContainerGroup       `yaml:"-"`
 	LabelOverrides       map[string]map[string]string `yaml:"containers"`
@@ -67,6 +71,10 @@ func (widget *dockerContainersWidget) update(ctx context.Context) {
 }
 
 func (widget *dockerContainersWidget) Render() template.HTML {
+	if widget.Style == "grid-cards" {
+		return widget.renderTemplate(widget, dockerContainersWidgetGridTemplate)
+	}
+
 	return widget.renderTemplate(widget, dockerContainersWidgetTemplate)
 }
 

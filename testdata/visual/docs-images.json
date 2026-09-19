@@ -488,5 +488,23 @@
       "width": 1600,
       "height": 1000
     }
+  },
+  "widgets/bookmarks-grid.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-bookmarks-grid"
+  },
+  "widgets/monitor-grid.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-monitor-grid"
+  },
+  "widgets/docker-containers-grid.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-docker-containers-compose-grid"
   }
 }

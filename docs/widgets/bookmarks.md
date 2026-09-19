@@ -50,6 +50,27 @@ Organize frequently used links into configurable groups with optional colors, ic
 | Property | Type | Required | Default |
 | --- | --- | --- | --- |
 | `groups` | array | yes | — |
+| `style` | string | no | — |
+
+### `style`
+
+Set to `grid-cards` to display bookmark links as square application cards. Cards automatically wrap based on the available widget width, while bookmark groups remain separate. Grid-card links always open in a new tab.
+
+```yaml
+- type: bookmarks
+  style: grid-cards
+  groups:
+    - title: Applications
+      links:
+        - title: GitHub
+          url: https://github.com/
+          icon: si:github
+        - title: Docker
+          url: https://www.docker.com/
+          icon: si:docker
+```
+
+![Bookmarks grid-card style](../images/widgets/bookmarks-grid.png)
 
 All widgets also support the [shared widget properties](../widgets.md#shared-properties).
 
