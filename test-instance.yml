@@ -664,7 +664,7 @@ pages:
             start-sunday: true
 
   - name: Homelab & Monitoring
-    icon: mdi:server
+    icon: hla:linux
     slug: homelab-monitoring
     width: wide
     columns:
