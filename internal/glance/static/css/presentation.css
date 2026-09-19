@@ -128,6 +128,21 @@
 }
 
 
+.glance-app-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(10rem, 100%), 10rem));
+    gap: var(--density-presentation-gap);
+}
+
+.glance-app-card {
+    position: relative;
+    min-width: 0;
+    aspect-ratio: 1 / 1;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
 .glance-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));

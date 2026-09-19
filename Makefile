@@ -6,7 +6,7 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps build goreleaser-check frontend-audit frontend-check validate validate-all test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln image-vuln status staged-diff upstream-status upstream-dev-status branch park push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-nonruntime deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final lint lighthouse
+.PHONY: help deps build goreleaser-check frontend-audit frontend-check validate validate-all test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln image-vuln status staged-diff upstream-status upstream-dev-status branch park push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-nonruntime deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final lint lighthouse performance-check performance
 
 COUNT ?= 10
 COVERAGE_FILE ?= coverage.out
@@ -42,6 +42,10 @@ TEST_PROD_CONFIG_DIR ?= .glance-prod-test-config
 PPROF_DIR ?= .pprof
 PROFILE ?= heap
 PPROF_SECONDS ?= 30
+PAGE ?= tech
+DASHBOARD ?= admin
+PERFORMANCE_USERNAME ?= performance-test
+PERFORMANCE_PASSWORD ?= performance-test
 
 CI_RUN_RETRIES ?= 12
 CI_RUN_RETRY_DELAY ?= 5
@@ -181,6 +185,11 @@ help:
 	@echo
 	@echo "  ENGINEERING DIAGNOSTICS:"
 	@echo "    make benchmark                Run Go benchmarks with allocation statistics"
+	@echo "    make performance-check        Validate required performance observability surfaces"
+	@echo "    make performance              Run repeatable local performance evidence"
+	@echo "    make frontend-diagnostic COMMAND=performance-snapshot"
+	@echo "                                  Trigger browser diagnostics in diagnostics-enabled test-prod"
+	@echo "                                  Commands: performance-snapshot long-task-capture runtime-state"
 	@echo "    make pprof-capture PROFILE=heap [PPROF_SECONDS=30]"
 	@echo "                                  Capture a profile from diagnostics-enabled test-prod"
 	@echo "    make pprof-summary PROFILE=heap"
@@ -216,7 +225,7 @@ help:
 	@echo "  make check                    Tests + race + build + format + whitespace + docs + lint + frontend audit"
 	@echo "  make lint                     Run correctness-oriented Go static analysis"
 	@echo "  make validate                 Full release-gate validation including browser, visual, and vulnerability checks"
-	@echo "  make validate-all             Full validation plus informational coverage, benchmarks, and Lighthouse"
+	@echo "  make validate-all             Full validation plus coverage, benchmarks, Lighthouse, and observability checks"
 	@echo "  make goreleaser-check         Validate formal-release configuration"
 	@echo
 	@echo "REPOSITORY:"
@@ -329,7 +338,16 @@ lint:
 
 validate: check frontend-check visual-check vuln
 
-validate-all: validate coverage frontend-coverage benchmark lighthouse
+validate-all: validate coverage frontend-coverage benchmark lighthouse performance-check
+
+performance-check:
+	python3 scripts/check_performance_observability.py
+
+performance: performance-check benchmark lighthouse performance-runtime
+	@echo
+	@echo "Automated performance analysis complete."
+	@echo "Runtime/provider/browser measurements are informational and are not pass/fail thresholds."
+
 
 lighthouse:
 	@report=$$(mktemp /tmp/glance-lighthouse.XXXXXX.json); trap '$(MAKE) test-instance-stop >/dev/null 2>&1 || true; rm -f "$$report"' EXIT; $(MAKE) test-instance-stop >/dev/null; $(MAKE) test-instance-start; CHROME_PATH="$${GLANCE_VISUAL_CHROME:-/usr/bin/google-chrome}" npx --yes lighthouse@$(LIGHTHOUSE_VERSION) http://127.0.0.1:18080 --chrome-flags="--headless --no-sandbox" --output=json --output-path="$$report" --quiet; REPORT="$$report" node -e 'const r=require(process.env.REPORT); for (const [id,c] of Object.entries(r.categories)) console.log(id+": "+Math.round(c.score*100)); const failed=Object.values(r.audits).filter(a=>a.score!==null && a.score<1 && a.scoreDisplayMode!=="notApplicable").filter(a=>a.details || ["button-name","color-contrast","target-size"].includes(a.id)); const accessibility=failed.filter(a=>r.categories.accessibility && r.categories.accessibility.auditRefs.some(ref=>ref.id===a.id)); if (accessibility.length) console.log("accessibility findings: "+accessibility.map(a=>a.id).join(", "));'
@@ -2426,7 +2444,119 @@ test-all-stop:
 	@$(MAKE) --no-print-directory test-container-stop
 	@echo "All Makefile-managed development/test runtimes are stopped."
 
-.PHONY: pprof-capture pprof-summary
+.PHONY: performance-runtime frontend-diagnostic pprof-capture pprof-summary
+
+performance-runtime:
+	@set -euo pipefail; \
+	log=$$(mktemp /tmp/glance-performance-browser.XXXXXX.log); \
+	browser_pid=""; \
+	cleanup() { \
+		if [ -n "$$browser_pid" ] && kill -0 "$$browser_pid" >/dev/null 2>&1; then \
+			kill "$$browser_pid" >/dev/null 2>&1 || true; \
+			wait "$$browser_pid" >/dev/null 2>&1 || true; \
+		fi; \
+		$(MAKE) --no-print-directory test-prod-stop >/dev/null 2>&1 || true; \
+		rm -f "$$log"; \
+	}; \
+	trap cleanup EXIT INT TERM; \
+	echo "=== PRODUCTION-REPRESENTATIVE PERFORMANCE ==="; \
+	$(MAKE) --no-print-directory test-prod-stop >/dev/null; \
+	$(MAKE) --no-print-directory test-prod-start \
+		TEST_FRONTEND_DIAGNOSTICS=true; \
+	GLANCE_PERFORMANCE_PAGE="$(PAGE)" \
+	GLANCE_PERFORMANCE_DASHBOARD="$(DASHBOARD)" \
+	GLANCE_PERFORMANCE_USERNAME="$(PERFORMANCE_USERNAME)" \
+	GLANCE_PERFORMANCE_PASSWORD="$(PERFORMANCE_PASSWORD)" \
+	node testdata/visual/performance.js >"$$log" 2>&1 & \
+	browser_pid=$$!; \
+	deadline=$$(( $$(date +%s) + 45 )); \
+	while ! grep -q "^PERFORMANCE_BROWSER_READY$$" "$$log"; do \
+		if ! kill -0 "$$browser_pid" >/dev/null 2>&1; then \
+			echo "Performance browser exited before becoming ready."; \
+			cat "$$log"; \
+			exit 1; \
+		fi; \
+		if [ "$$(date +%s)" -ge "$$deadline" ]; then \
+			echo "Timed out waiting for performance browser readiness."; \
+			cat "$$log"; \
+			exit 1; \
+		fi; \
+		sleep 0.25; \
+	done; \
+	cat "$$log"; \
+	$(MAKE) --no-print-directory frontend-diagnostic COMMAND=performance-snapshot; \
+	kill -USR1 "$$browser_pid"; \
+	deadline=$$(( $$(date +%s) + 10 )); \
+	while ! grep -q "^PERFORMANCE_BACKEND_DIAGNOSTICS_COMPLETE$$" "$$log"; do \
+		if ! kill -0 "$$browser_pid" >/dev/null 2>&1; then \
+			echo "Performance browser exited before backend diagnostics completed."; \
+			cat "$$log"; \
+			exit 1; \
+		fi; \
+		if [ "$$(date +%s)" -ge "$$deadline" ]; then \
+			echo "Timed out waiting for backend performance diagnostics."; \
+			cat "$$log"; \
+			exit 1; \
+		fi; \
+		sleep 0.25; \
+	done; \
+	sed -n "/^=== CORRELATED BACKEND DIAGNOSTICS ===$$/,/^PERFORMANCE_BACKEND_DIAGNOSTICS_COMPLETE$$/p" "$$log"; \
+	kill "$$browser_pid" >/dev/null 2>&1 || true; \
+	wait "$$browser_pid"; \
+	browser_pid=""; \
+	echo; \
+	echo "Performance runtime measurement complete for PAGE=$(PAGE)."
+
+frontend-diagnostic:
+	@set -euo pipefail; \
+	case "$(COMMAND)" in \
+		performance-snapshot) completion="performance_snapshot_complete"; timeout=10 ;; \
+		long-task-capture) completion="long_task_capture_complete long_task_capture_unsupported long_task_capture_error"; timeout=40 ;; \
+		runtime-state) completion="runtime_state"; timeout=10 ;; \
+		*) \
+			echo "Unsupported COMMAND=$(COMMAND)."; \
+			echo "Supported: performance-snapshot long-task-capture runtime-state"; \
+			exit 1; \
+			;; \
+	esac; \
+	if ! docker inspect "$(TEST_PROD_CONTAINER)" >/dev/null 2>&1; then \
+		echo "Production-runtime test container does not exist."; \
+		echo "Start it with TEST_FRONTEND_DIAGNOSTICS=true first."; \
+		exit 1; \
+	fi; \
+	if [ "$$(docker inspect "$(TEST_PROD_CONTAINER)" --format "{{.State.Running}}")" != "true" ]; then \
+		echo "Production-runtime test container is not running."; \
+		exit 1; \
+	fi; \
+	base="http://127.0.0.1:6060/debug/frontend-diagnostics"; \
+	echo "Publishing frontend diagnostic command: $(COMMAND)"; \
+	response="$$(docker exec "$(TEST_PROD_CONTAINER)" wget -qO- --post-data="" "$$base/$(COMMAND)")" || { \
+		echo "Frontend diagnostics are not available in $(TEST_PROD_CONTAINER)."; \
+		echo "Restart with TEST_FRONTEND_DIAGNOSTICS=true."; \
+		exit 1; \
+	}; \
+	command_id="$$(RESPONSE="$$response" python3 -c 'import json, os; print(json.loads(os.environ["RESPONSE"])["id"])')"; \
+	echo "Command ID: $$command_id"; \
+	result_url="$$base/results/$$command_id"; \
+	deadline=$$(( $$(date +%s) + timeout )); \
+	while :; do \
+		results="$$(docker exec "$(TEST_PROD_CONTAINER)" wget -qO- "$$result_url")" || { \
+			echo "Failed to retrieve frontend diagnostic results for command $$command_id."; \
+			exit 1; \
+		}; \
+		if RESULTS="$$results" COMPLETION="$$completion" python3 -c 'import json, os, sys; data=json.loads(os.environ["RESULTS"]); sys.exit(0 if any(item.get("Event", {}).get("event") in os.environ["COMPLETION"].split() for item in data) else 1)'; then \
+			break; \
+		fi; \
+		if [ "$$(date +%s)" -ge "$$deadline" ]; then \
+			echo "Timed out waiting for $$completion for command $$command_id."; \
+			echo "$$results"; \
+			exit 1; \
+		fi; \
+		sleep 0.25; \
+	done; \
+	echo; \
+	echo "=== FRONTEND DIAGNOSTIC RESULTS ==="; \
+	RESULTS="$$results" python3 -c 'import json, os; data=json.loads(os.environ["RESULTS"]); [print(json.dumps(item.get("Event", {}), sort_keys=True)) for item in data]'
 
 pprof-capture:
 	@set -euo pipefail; \
@@ -2669,13 +2799,13 @@ visual-check:
 
 visual-screenshots: visual-check
 	@echo "=== VISUAL QA SCREENSHOTS ==="
-	@bash testdata/visual/run.sh qa $(if $(DASHBOARD),--dashboard=$(DASHBOARD)) $(if $(PAGE),--page=$(PAGE)) $(if $(VIEWPORT),--viewport=$(VIEWPORT))
+	@bash testdata/visual/run.sh qa $(if $(VISUAL_DASHBOARD),--dashboard=$(VISUAL_DASHBOARD)) $(if $(VISUAL_PAGE),--page=$(VISUAL_PAGE)) $(if $(VIEWPORT),--viewport=$(VIEWPORT))
 
 visual-docs:
 	@echo "=== VISUAL DOCUMENTATION STAGING CONTRACT ==="
 	@python3 testdata/visual/check-gallery.py --allow-missing-browser-images
 	@echo "=== VISUAL DOCUMENTATION SCREENSHOTS - STAGING ONLY ==="
-	@bash testdata/visual/run.sh docs $(if $(DASHBOARD),--dashboard=$(DASHBOARD)) $(if $(PAGE),--page=$(PAGE)) $(if $(IMAGE),--image=$(IMAGE))
+	@bash testdata/visual/run.sh docs $(if $(VISUAL_DASHBOARD),--dashboard=$(VISUAL_DASHBOARD)) $(if $(VISUAL_PAGE),--page=$(VISUAL_PAGE)) $(if $(VISUAL_IMAGE),--image=$(VISUAL_IMAGE))
 	@echo
 	@echo "Documentation captures are staged only."
 	@echo "Review testdata/visual/docs-staging before promotion."
@@ -2684,7 +2814,7 @@ visual-docs-promote:
 	@echo "=== VISUAL DOCUMENTATION PROMOTION CONTRACT ==="
 	@python3 testdata/visual/check-gallery.py --allow-missing-browser-images
 	@echo "=== PROMOTE APPROVED DOCUMENTATION SCREENSHOTS ==="
-	@python3 testdata/visual/promote-docs.py $(if $(DASHBOARD),--dashboard=$(DASHBOARD)) $(if $(PAGE),--page=$(PAGE)) $(if $(IMAGE),--image=$(IMAGE))
+	@python3 testdata/visual/promote-docs.py $(if $(VISUAL_DASHBOARD),--dashboard=$(VISUAL_DASHBOARD)) $(if $(VISUAL_PAGE),--page=$(VISUAL_PAGE)) $(if $(VISUAL_IMAGE),--image=$(VISUAL_IMAGE))
 
 visual-all: visual-check
 	@echo "=== VISUAL QA + STAGED DOCUMENTATION SCREENSHOTS ==="

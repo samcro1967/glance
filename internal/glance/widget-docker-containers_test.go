@@ -611,6 +611,7 @@ func TestDockerContainersWidgetRenderGrouping(t *testing.T) {
 		{
 			Name:           "Application",
 			Image:          "example/application",
+			URL:            "https://application.example.invalid",
 			State:          "running",
 			StateText:      "up",
 			StateIcon:      dockerContainerStateIconOK,
@@ -661,6 +662,69 @@ func TestDockerContainersWidgetRenderGrouping(t *testing.T) {
 		}
 		if !strings.Contains(rendered, "Application") || !strings.Contains(rendered, "Standalone") {
 			t.Fatalf("grouped render missing containers: %s", rendered)
+		}
+
+	})
+	t.Run("grid mode renders cards", func(t *testing.T) {
+		widget := &dockerContainersWidget{
+			widgetBase: widgetBase{ContentAvailable: true},
+			Style:      "grid-cards",
+			Containers: containers,
+		}
+
+		rendered := string(widget.Render())
+
+		if !strings.Contains(rendered, "docker-container-grid-card") {
+			t.Fatalf("grid render missing grid card: %s", rendered)
+		}
+		if strings.Contains(rendered, "dynamic-columns") {
+			t.Fatalf("grid render unexpectedly contains default layout: %s", rendered)
+		}
+		if !strings.Contains(rendered, "glance-app-grid") || !strings.Contains(rendered, "glance-app-card") {
+			t.Fatalf("grid render missing shared application grid/card presentation: %s", rendered)
+		}
+		if !strings.Contains(rendered, `href="https://application.example.invalid"`) || !strings.Contains(rendered, `target="_blank"`) {
+			t.Fatalf("grid render missing new-tab application link: %s", rendered)
+		}
+		if !strings.Contains(rendered, `data-popover-type="html"`) {
+			t.Fatalf("grid render missing whole-card Docker details popover: %s", rendered)
+		}
+		if !strings.Contains(rendered, "Application") || !strings.Contains(rendered, "Standalone") {
+			t.Fatalf("grid render missing containers: %s", rendered)
+		}
+		if strings.Contains(rendered, ">apps<") || strings.Contains(rendered, ">Ungrouped<") {
+			t.Fatalf("flat grid render unexpectedly contains grouping headings: %s", rendered)
+		}
+	})
+
+	t.Run("grid compose project mode renders groups", func(t *testing.T) {
+		widget := &dockerContainersWidget{
+			widgetBase: widgetBase{ContentAvailable: true},
+			Style:      "grid-cards",
+			GroupBy:    dockerContainerGroupByComposeProject,
+			Containers: containers,
+			Groups:     groupDockerContainersByComposeProject(containers),
+		}
+
+		rendered := string(widget.Render())
+
+		if !strings.Contains(rendered, "docker-container-grid-card") {
+			t.Fatalf("grouped grid render missing grid card: %s", rendered)
+		}
+		if strings.Contains(rendered, "dynamic-columns") {
+			t.Fatalf("grouped grid render unexpectedly contains default layout: %s", rendered)
+		}
+		if !strings.Contains(rendered, "docker-container-grid-groups") {
+			t.Fatalf("grouped grid render missing wrapping group layout: %s", rendered)
+		}
+		if !strings.Contains(rendered, "glance-app-grid") || !strings.Contains(rendered, "glance-app-card") {
+			t.Fatalf("grouped grid render missing shared application grid/card presentation: %s", rendered)
+		}
+		if !strings.Contains(rendered, ">apps<") || !strings.Contains(rendered, ">Ungrouped<") {
+			t.Fatalf("grouped grid render missing grouping headings: %s", rendered)
+		}
+		if !strings.Contains(rendered, "Application") || !strings.Contains(rendered, "Standalone") {
+			t.Fatalf("grouped grid render missing containers: %s", rendered)
 		}
 	})
 }

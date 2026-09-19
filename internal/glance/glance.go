@@ -3,6 +3,7 @@ package glance
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net"
@@ -885,10 +886,14 @@ func (a *application) handlePageContentRequest(w http.ResponseWriter, r *http.Re
 	var responseBytes bytes.Buffer
 
 	func() {
+		lockWaitStarted := time.Now()
 		page.mu.Lock()
+		renderDiagnostics.recordPageLockWait(time.Since(lockWaitStarted))
 		defer page.mu.Unlock()
 
+		templateStarted := time.Now()
 		err = pageContentTemplate.Execute(&responseBytes, pageData)
+		renderDiagnostics.recordPageTemplateExecution(time.Since(templateStarted), err)
 	}()
 
 	if err != nil {
@@ -1187,4 +1192,65 @@ func frontendDiagnosticProfileHandler() http.Handler {
 	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 
 	return mux
+}
+
+func (s *processServer) processDiagnosticProfileHandler() http.Handler {
+	mux := http.NewServeMux()
+	mux.Handle("/debug/pprof/", frontendDiagnosticProfileHandler())
+	mux.HandleFunc("POST /debug/frontend-diagnostics/performance-snapshot", s.handleInternalFrontendDiagnosticCommand("performance_snapshot"))
+	mux.HandleFunc("POST /debug/frontend-diagnostics/long-task-capture", s.handleInternalFrontendDiagnosticCommand("long_task_capture"))
+	mux.HandleFunc("POST /debug/frontend-diagnostics/runtime-state", s.handleInternalFrontendDiagnosticCommand("runtime_state"))
+	mux.HandleFunc("GET /debug/frontend-diagnostics/results/{commandID}", s.handleInternalFrontendDiagnosticResults)
+
+	return mux
+}
+
+func (s *processServer) handleInternalFrontendDiagnosticResults(w http.ResponseWriter, r *http.Request) {
+	app := s.activeApplication.Load()
+	if app == nil || !app.Config.Server.FrontendDiagnostics {
+		http.NotFound(w, r)
+		return
+	}
+
+	commandID, err := strconv.ParseUint(r.PathValue("commandID"), 10, 64)
+	if err != nil || commandID == 0 {
+		http.Error(w, "Invalid command ID", http.StatusBadRequest)
+		return
+	}
+
+	results := app.frontendDiagnostics.activeResultsForCommand(commandID)
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(results); err != nil {
+		slog.Error(
+			"Frontend diagnostic result encoding failed",
+			"command_id", commandID,
+			"error", err,
+		)
+	}
+}
+
+func (s *processServer) handleInternalFrontendDiagnosticCommand(commandName string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		app := s.activeApplication.Load()
+		if app == nil || !app.Config.Server.FrontendDiagnostics {
+			http.NotFound(w, r)
+			return
+		}
+
+		command, err := app.publishFrontendDiagnosticCommand(commandName)
+		if err != nil {
+			http.Error(w, "Live updates unavailable", http.StatusServiceUnavailable)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		_, _ = fmt.Fprintf(
+			w,
+			`{"id":%d,"command":"%s"}`,
+			command.ID,
+			command.Command,
+		)
+	}
 }

@@ -1,0 +1,9 @@
+- type: custom-api
+  title: Alertmanager
+  icon: sh:prometheus
+  url: ${ALERTMANAGER_URL}/api/v2/alerts
+  cache: 1m
+  headers:
+    Accept: application/json
+  template: |
+    $include: template.yml

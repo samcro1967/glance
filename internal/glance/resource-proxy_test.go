@@ -258,9 +258,17 @@ func TestResourceProxyHTTPClientUsesIndependentTransportWithoutEnvironmentProxy(
 		t.Fatalf("newResourceProxy() error = %v", err)
 	}
 
-	transport, ok := proxy.client.Transport.(*http.Transport)
+	observed, ok := proxy.client.Transport.(observedRoundTripper)
 	if !ok {
-		t.Fatalf("transport type = %T, want *http.Transport", proxy.client.Transport)
+		t.Fatalf("transport type = %T, want observedRoundTripper", proxy.client.Transport)
+	}
+	if observed.diagnostics != outboundHTTPDiagnostics {
+		t.Fatal("resource proxy client does not use process-wide outbound HTTP diagnostics")
+	}
+
+	transport, ok := observed.transport.(*http.Transport)
+	if !ok {
+		t.Fatalf("underlying transport type = %T, want *http.Transport", observed.transport)
 	}
 	if transport == defaultHTTPTransport {
 		t.Fatal("resource proxy client uses shared default transport")

@@ -34,3 +34,34 @@
     height: 1.8rem;
     flex-shrink: 0;
 }
+
+.monitor-grid-content {
+    width: 100%;
+    text-align: center;
+}
+
+.monitor-grid-card .monitor-site-icon {
+    width: 3.6rem;
+    margin-inline: auto;
+    margin-bottom: 0.8rem;
+}
+
+.monitor-grid-card .list-horizontal-text {
+    justify-content: center;
+}
+
+.monitor-grid-status-icon {
+    position: absolute;
+    right: var(--density-card-padding-inline);
+    bottom: var(--density-card-padding-block);
+    width: 1.6rem;
+    height: 1.6rem;
+}
+
+.monitor-grid-card .monitor-grid-content {
+    padding-inline: 0.2rem;
+}
+
+.monitor-grid-card .list-horizontal-text {
+    padding-inline: 0.4rem 1.8rem;
+}

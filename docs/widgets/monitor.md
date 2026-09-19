@@ -51,7 +51,23 @@ This widget also supports the [shared widget properties](../widgets.md#shared-pr
 Shows only a list of failing sites when set to `true`.
 
 ### `style`
-Used to change the appearance of the widget. Possible values are `compact`.
+Used to change the appearance of the widget. Possible values are `compact` and `grid-cards`.
+
+`grid-cards` displays monitored sites as square application cards that automatically wrap based on the available widget width. The entire card is the link and opens in a new tab. Site status and response-time information remain visible on each card.
+
+```yaml
+- type: monitor
+  style: grid-cards
+  sites:
+    - title: Jellyfin
+      url: https://jellyfin.yourdomain.com
+      icon: si:jellyfin
+    - title: Gitea
+      url: https://gitea.yourdomain.com
+      icon: si:gitea
+```
+
+![Monitor grid-card style](../images/widgets/monitor-grid.png)
 
 Preview of `compact`:
 

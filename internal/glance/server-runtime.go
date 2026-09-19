@@ -7,12 +7,30 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
 )
 
-const serverShutdownTimeout = 10 * time.Second
+const (
+	serverShutdownTimeout = 10 * time.Second
+
+	// Contention profiling is diagnostic-only because both profiles add
+	// runtime sampling overhead.
+	mutexProfileFraction = 5
+	blockProfileRate     = 1_000_000
+)
+
+func enableContentionProfiling() {
+	runtime.SetMutexProfileFraction(mutexProfileFraction)
+	runtime.SetBlockProfileRate(blockProfileRate)
+}
+
+func disableContentionProfiling() {
+	runtime.SetMutexProfileFraction(0)
+	runtime.SetBlockProfileRate(0)
+}
 
 type swappableHandler struct {
 	active atomic.Value
@@ -121,6 +139,7 @@ func (g *runtimeGeneration) reload(
 
 	previousRuntime := g.runtime
 	server.swap(candidateRuntime.handler)
+	server.setActiveApplication(candidateApp)
 	g.runtime = candidateRuntime
 	g.config = &candidateApp.Config
 	server.reconcileProfiling(candidateApp.Config.Server.FrontendDiagnostics)
@@ -132,6 +151,8 @@ type processServer struct {
 	listener net.Listener
 	server   *http.Server
 	handler  *swappableHandler
+
+	activeApplication atomic.Pointer[application]
 
 	profileMu          sync.Mutex
 	profileServer      *http.Server
@@ -172,6 +193,10 @@ func (s *processServer) swap(handler http.Handler) {
 	s.handler.swap(handler)
 }
 
+func (s *processServer) setActiveApplication(app *application) {
+	s.activeApplication.Store(app)
+}
+
 func (s *processServer) reconcileProfiling(enabled bool) {
 	s.profileMu.Lock()
 	defer s.profileMu.Unlock()
@@ -184,11 +209,12 @@ func (s *processServer) reconcileProfiling(enabled bool) {
 
 		profileServer := &http.Server{
 			Addr:              "127.0.0.1:6060",
-			Handler:           frontendDiagnosticProfileHandler(),
+			Handler:           s.processDiagnosticProfileHandler(),
 			ReadHeaderTimeout: 5 * time.Second,
 			IdleTimeout:       120 * time.Second,
 		}
 		s.profileServer = profileServer
+		enableContentionProfiling()
 		s.profileDiagnostics.recordRunning()
 		s.profileWG.Add(1)
 		go func() {
@@ -200,6 +226,7 @@ func (s *processServer) reconcileProfiling(enabled bool) {
 				s.profileMu.Lock()
 				if s.profileServer == profileServer {
 					s.profileServer = nil
+					disableContentionProfiling()
 				}
 				s.profileMu.Unlock()
 			}
@@ -208,12 +235,14 @@ func (s *processServer) reconcileProfiling(enabled bool) {
 	}
 
 	if s.profileServer == nil {
+		disableContentionProfiling()
 		s.profileDiagnostics.recordDisabled()
 		return
 	}
 
 	profileServer := s.profileServer
 	s.profileServer = nil
+	disableContentionProfiling()
 	s.profileDiagnostics.recordDisabled()
 	if err := profileServer.Close(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		slog.Warn("Failed to stop performance profiling server", "error", err)
@@ -224,6 +253,7 @@ func (s *processServer) shutdown() error {
 	s.profileMu.Lock()
 	profileServer := s.profileServer
 	s.profileServer = nil
+	disableContentionProfiling()
 	s.profileMu.Unlock()
 
 	if profileServer != nil {

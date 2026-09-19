@@ -329,6 +329,47 @@ func TestComprehensiveBookmarksInheritance(t *testing.T) {
 	}
 }
 
+func TestComprehensiveBookmarksStyles(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		style     string
+		wantClass string
+		notClass  string
+	}{
+		{name: "default", wantClass: "dynamic-columns", notClass: "bookmarks-grid-card"},
+		{name: "grid-cards", style: "grid-cards", wantClass: "bookmarks-grid-card", notClass: "dynamic-columns"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			w := &bookmarksWidget{
+				Style: tc.style,
+				Groups: []bookmarkGroup{{
+					Title: "Services",
+					Links: []bookmarkLink{{
+						Title:       "Example",
+						URL:         "https://example.invalid",
+						Description: "Example service",
+					}},
+				}},
+			}
+
+			if err := w.initialize(); err != nil {
+				t.Fatal(err)
+			}
+
+			html := string(w.Render())
+			if !strings.Contains(html, tc.wantClass) {
+				t.Fatalf("rendered HTML missing %q: %s", tc.wantClass, html)
+			}
+			if strings.Contains(html, tc.notClass) {
+				t.Fatalf("rendered HTML unexpectedly contains %q: %s", tc.notClass, html)
+			}
+			if !strings.Contains(html, `target="_blank"`) {
+				t.Fatalf("resolved link target missing from rendered HTML: %s", html)
+			}
+		})
+	}
+}
+
 func TestComprehensiveContainerEmptyLifecycle(t *testing.T) {
 	now := time.Now()
 	base := &containerWidgetBase{}

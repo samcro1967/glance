@@ -104,6 +104,7 @@ This widget also supports the [shared widget properties](../widgets.md#shared-pr
 | hide-by-default | boolean | no | false |
 | format-container-names | boolean | no | false |
 | group-by | string | no | |
+| style | string | no | |
 | sock-path | string | no | /var/run/docker.sock |
 | category | string | no | |
 | running-only | boolean | no | false |
@@ -113,6 +114,20 @@ Whether to hide the containers by default. If set to `true` you'll have to manua
 
 ### `format-container-names`
 When set to `true`, automatically converts container names such as `container_name_1` into `Container Name 1`.
+
+### `style`
+
+Set to `grid-cards` to display containers as square application cards that automatically wrap based on the available widget width. Container URLs open in a new tab. Hovering anywhere on a card displays the container details popover, while the container state remains visible on the card.
+
+`grid-cards` can be combined with `group-by: compose-project` to display Compose projects as separate wrapping groups.
+
+```yaml
+- type: docker-containers
+  style: grid-cards
+  group-by: compose-project
+```
+
+![Docker containers grid-card style](../images/widgets/docker-containers-grid.png)
 
 ### `group-by`
 Optionally groups the displayed top-level containers by Docker Compose project. The only supported value is `compose-project`.

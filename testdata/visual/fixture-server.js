@@ -40,6 +40,13 @@ const monitoringExamples = Object.fromEntries(
   ])
 );
 
+const alertmanagerExample = JSON.parse(
+  fs.readFileSync(
+    path.join(__dirname, '../../docs/examples/custom-api/alertmanager/example.json'),
+    'utf8'
+  )
+);
+
 function sendJson(res, value) {
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify(value));
@@ -104,6 +111,18 @@ const dockerContainers = [
       'glance.name': 'Fixture API',
       'com.docker.compose.project': 'fixture-services',
       'glance.description': 'Deterministic test service'
+    }
+  },
+  {
+    Names: ['/fixture-web'],
+    Image: 'example/web:latest',
+    State: 'running',
+    Status: 'Up 30 minutes',
+    Labels: {
+      'glance.name': 'Fixture Web',
+      'com.docker.compose.project': 'fixture-services',
+      'glance.description': 'Frontend test service',
+      'glance.url': 'https://example.com/'
     }
   },
   {
@@ -240,6 +259,11 @@ const server = http.createServer((req, res) => {
 
   if (url.pathname === '/containers/json') {
     sendJson(res, dockerContainers);
+    return;
+  }
+
+  if (url.pathname === '/examples/custom-api/alertmanager') {
+    sendJson(res, alertmanagerExample);
     return;
   }
 

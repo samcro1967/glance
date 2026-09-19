@@ -233,6 +233,240 @@ func TestRuntimeDiagnosticsResponseFromSnapshot(t *testing.T) {
 	}
 }
 
+func TestRenderRuntimeDiagnosticsResponseFromSnapshot(t *testing.T) {
+	now := time.Now()
+	snapshot := renderRuntimeDiagnosticsSnapshot{
+		StartedAt:              now,
+		WidgetCalls:            5,
+		WidgetSnapshotHits:     3,
+		WidgetRefreshLockWaits: 1,
+		WidgetLockWaitTotal:    4 * time.Millisecond,
+		WidgetLockWaitMax:      4 * time.Millisecond,
+		WidgetLockWaitMaxWidget: renderWidgetAttribution{
+			ID:    22,
+			Type:  "custom-api",
+			Title: "Slow API",
+		},
+		WidgetRenders:     2,
+		WidgetRenderTotal: 12 * time.Millisecond,
+		WidgetRenderMax:   8 * time.Millisecond,
+		WidgetRenderMaxWidget: renderWidgetAttribution{
+			ID:    33,
+			Type:  "rss",
+			Title: "Slow RSS",
+		},
+		PageExecutions:             2,
+		PageFailures:               1,
+		PageLockWaitTotal:          6 * time.Millisecond,
+		PageLockWaitMax:            5 * time.Millisecond,
+		PageTemplateExecutionTotal: 20 * time.Millisecond,
+		PageTemplateExecutionMax:   14 * time.Millisecond,
+	}
+
+	got := renderRuntimeDiagnosticsResponseFromSnapshot(snapshot)
+
+	if got.StartedAt == nil || !got.StartedAt.Equal(now) {
+		t.Fatalf("started at = %v, want %v", got.StartedAt, now)
+	}
+	if got.WidgetCalls != 5 || got.WidgetSnapshotHits != 3 || got.WidgetRenders != 2 || got.WidgetRefreshLockWaits != 1 {
+		t.Fatalf("unexpected widget counters: %#v", got)
+	}
+	if got.WidgetLockWaitAverageMS != 4 || got.WidgetLockWaitMaxMS != 4 {
+		t.Fatalf("unexpected widget lock-wait durations: %#v", got)
+	}
+	if got.WidgetLockWaitMaxWidget.ID != 22 ||
+		got.WidgetLockWaitMaxWidget.Type != "custom-api" ||
+		got.WidgetLockWaitMaxWidget.Title != "Slow API" {
+		t.Fatalf("unexpected widget lock-wait max attribution: %#v", got.WidgetLockWaitMaxWidget)
+	}
+	if got.WidgetRenderAverageMS != 6 || got.WidgetRenderMaxMS != 8 {
+		t.Fatalf("unexpected widget render durations: %#v", got)
+	}
+	if got.WidgetRenderMaxWidget.ID != 33 ||
+		got.WidgetRenderMaxWidget.Type != "rss" ||
+		got.WidgetRenderMaxWidget.Title != "Slow RSS" {
+		t.Fatalf("unexpected widget render max attribution: %#v", got.WidgetRenderMaxWidget)
+	}
+	if got.PageExecutions != 2 || got.PageFailures != 1 {
+		t.Fatalf("unexpected page counters: %#v", got)
+	}
+	if got.PageLockWaitAverageMS != 3 || got.PageLockWaitMaxMS != 5 {
+		t.Fatalf("unexpected page lock-wait durations: %#v", got)
+	}
+	if got.PageTemplateExecutionAverageMS != 10 || got.PageTemplateExecutionMaxMS != 14 {
+		t.Fatalf("unexpected page template durations: %#v", got)
+	}
+}
+
+func TestRuntimeDiagnosticsReportShowsRenderingPerformance(t *testing.T) {
+	now := time.Now()
+	response := runtimeDiagnosticsResponse{
+		GeneratedAt: now,
+		Rendering: renderRuntimeDiagnosticsResponse{
+			StartedAt:               &now,
+			WidgetCalls:             8,
+			WidgetSnapshotHits:      5,
+			WidgetRefreshLockWaits:  1,
+			WidgetLockWaitAverageMS: 2.5,
+			WidgetLockWaitMaxMS:     2.5,
+			WidgetLockWaitMaxWidget: renderWidgetAttributionResponse{
+				ID:    22,
+				Type:  "custom-api",
+				Title: "Slow API",
+			},
+			WidgetRenders:         3,
+			WidgetRenderAverageMS: 4.25,
+			WidgetRenderMaxMS:     7.5,
+			WidgetRenderMaxWidget: renderWidgetAttributionResponse{
+				ID:    33,
+				Type:  "rss",
+				Title: "Slow RSS",
+			},
+			PageExecutions:                 2,
+			PageFailures:                   1,
+			PageLockWaitAverageMS:          0.5,
+			PageLockWaitMaxMS:              0.75,
+			PageTemplateExecutionAverageMS: 12.5,
+			PageTemplateExecutionMaxMS:     20,
+		},
+	}
+
+	report := formatRuntimeDiagnosticsReport(
+		response,
+		runtimeDiagnosticsReportIdentity{},
+		false,
+		frontendRuntimeDiagnosticsSnapshot{},
+	)
+
+	for _, want := range []string{
+		"Overall: HEALTHY",
+		"RENDERING",
+		"Widget calls:              8",
+		"Snapshot hits:             5",
+		"Actual renders:            3",
+		"Refresh-lock waits:        1",
+		"Refresh-lock wait avg/max: 2.500 / 2.500 ms",
+		"Refresh-lock wait max widget: id=22 type=custom-api title=\"Slow API\"",
+		"Widget render avg/max:     4.250 / 7.500 ms",
+		"Widget render max widget:    id=33 type=rss title=\"Slow RSS\"",
+		"Page template executions: 2",
+		"Page template failures:   1",
+		"Page lock wait avg/max:    0.500 / 0.750 ms",
+		"Page template avg/max:     12.500 / 20.000 ms",
+		"widget Render() excludes refresh-lock wait; page template execution excludes page-lock wait",
+	} {
+		if !strings.Contains(report, want) {
+			t.Fatalf("report missing %q:\n%s", want, report)
+		}
+	}
+}
+
+func TestOutboundHTTPRuntimeDiagnosticsResponseFromSnapshot(t *testing.T) {
+	now := time.Now()
+	snapshot := outboundHTTPRuntimeDiagnosticsSnapshot{
+		StartedAt:       now,
+		Exchanges:       3,
+		TransportErrors: 1,
+		Status2xx:       1,
+		Status3xx:       1,
+		TotalDuration:   60 * time.Millisecond,
+		MaxDuration:     30 * time.Millisecond,
+		Destinations: map[string]outboundHTTPDestinationDiagnostics{
+			"GET https://z.example": {
+				Exchanges:      1,
+				Status2xx:      1,
+				TotalDuration:  30 * time.Millisecond,
+				LastDuration:   30 * time.Millisecond,
+				MaxDuration:    30 * time.Millisecond,
+				LastExchangeAt: now,
+			},
+			"GET https://a.example": {
+				Exchanges:       2,
+				TransportErrors: 1,
+				Status3xx:       1,
+				TotalDuration:   30 * time.Millisecond,
+				LastDuration:    20 * time.Millisecond,
+				MaxDuration:     20 * time.Millisecond,
+				LastExchangeAt:  now,
+			},
+		},
+	}
+
+	got := outboundHTTPRuntimeDiagnosticsResponseFromSnapshot(snapshot)
+
+	if got.StartedAt == nil || !got.StartedAt.Equal(now) {
+		t.Fatalf("started at = %v, want %v", got.StartedAt, now)
+	}
+	if got.Exchanges != 3 || got.TransportErrors != 1 || got.Status2xx != 1 || got.Status3xx != 1 {
+		t.Fatalf("unexpected aggregate response: %#v", got)
+	}
+	if got.TotalDurationMS != 60 || got.AverageDurationMS != 20 || got.MaxDurationMS != 30 {
+		t.Fatalf("unexpected aggregate durations: %#v", got)
+	}
+	if len(got.Destinations) != 2 {
+		t.Fatalf("destinations = %d, want 2", len(got.Destinations))
+	}
+	if got.Destinations[0].Destination != "GET https://a.example" ||
+		got.Destinations[1].Destination != "GET https://z.example" {
+		t.Fatalf("destinations not sorted: %#v", got.Destinations)
+	}
+	if got.Destinations[0].AverageDurationMS != 15 ||
+		got.Destinations[0].LastDurationMS != 20 ||
+		got.Destinations[0].MaxDurationMS != 20 {
+		t.Fatalf("unexpected destination durations: %#v", got.Destinations[0])
+	}
+}
+
+func TestRuntimeDiagnosticsReportShowsOutboundHTTPPerformance(t *testing.T) {
+	now := time.Now()
+	response := runtimeDiagnosticsResponse{
+		GeneratedAt: now,
+		OutboundHTTP: outboundHTTPRuntimeDiagnosticsResponse{
+			StartedAt:         &now,
+			Exchanges:         4,
+			TransportErrors:   1,
+			Status2xx:         2,
+			Status3xx:         1,
+			AverageDurationMS: 12.5,
+			MaxDurationMS:     40,
+			Destinations: []outboundHTTPDestinationDiagnosticsResponse{
+				{
+					Destination:       "GET https://api.example",
+					Exchanges:         4,
+					TransportErrors:   1,
+					AverageDurationMS: 12.5,
+					LastDurationMS:    10,
+					MaxDurationMS:     40,
+				},
+			},
+		},
+	}
+
+	report := formatRuntimeDiagnosticsReport(
+		response,
+		runtimeDiagnosticsReportIdentity{},
+		false,
+		frontendRuntimeDiagnosticsSnapshot{},
+	)
+
+	for _, want := range []string{
+		"Overall: HEALTHY",
+		"OUTBOUND HTTP",
+		"Exchanges:        4",
+		"Transport errors: 1",
+		"Responses:        1xx=0 2xx=2 3xx=1 4xx=0 5xx=0 other=0",
+		"Average:          12.500 ms",
+		"Maximum:          40.000 ms",
+		"transport RoundTrip through response headers; response body/decode excluded",
+		"GET https://api.example",
+		"exchanges=4 errors=1 avg=12.500ms last=10.000ms max=40.000ms",
+	} {
+		if !strings.Contains(report, want) {
+			t.Fatalf("report missing %q:\n%s", want, report)
+		}
+	}
+}
+
 func TestRuntimeDiagnosticsEndpoint(t *testing.T) {
 	app := newGlanceTestApplication(t, `
 pages:
