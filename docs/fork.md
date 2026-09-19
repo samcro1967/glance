@@ -171,6 +171,8 @@ The test suite contains hundreds of tests across application behavior, providers
 
 Concurrency-sensitive behavior is validated with Go's race detector. During stabilization, important suites were also executed repeatedly with both normal and race-enabled test runs to expose intermittent concurrency or lifecycle failures.
 
+Goroutine lifecycle regression protection additionally uses `go.uber.org/goleak` to detect unexpected background work that survives test completion. Package-wide leak verification complements rather than replaces the race detector and existing scheduler and failure/recovery soak tests: the race detector identifies unsafe concurrent memory access, soak tests detect workload-driven goroutine growth, and goleak identifies goroutines that outlive their intended ownership boundary. Targeted leak assertions cover high-risk lifecycle paths including scheduler cancellation, application runtime shutdown, configuration-generation replacement, live-update termination, shared keyed-resource and RSS fetch completion after caller cancellation, graceful HTTP server shutdown, and profiling-listener reconciliation. The package-wide check explicitly closes idle connections owned by the process-global shared HTTP transports before final leak verification so normal connection pooling is not misclassified as leaked application work.
+
 Several production defects were discovered through this process, reproduced with regression tests, and then fixed. Those tests remain in the suite to protect against recurrence.
 
 ## Development and CI validation
