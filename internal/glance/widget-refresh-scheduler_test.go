@@ -10,6 +10,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"go.uber.org/goleak"
 )
 
 func TestRefreshDueWidgetsRefreshesDueWidget(t *testing.T) {
@@ -319,6 +321,8 @@ func TestRefreshDueWidgetsStopsSchedulingAfterCancellation(t *testing.T) {
 }
 
 func TestWidgetRefreshSchedulerStopsWhenCancelled(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	done := make(chan struct{})

@@ -55,6 +55,8 @@ Common development targets include:
 make test
 make test-race
 make test-focused
+make fuzz FUZZ=FuzzName FUZZTIME=30s
+make fuzz-all FUZZTIME=10s
 make build
 make lint
 make check
@@ -169,6 +171,24 @@ make test-focused TEST_RUN='<test expression>'
 ```
 
 Focused testing is useful while developing or diagnosing a specific subsystem, including authentication and OIDC behavior, but it does not replace the broader validation required before integration.
+
+Different regression tools protect different failure classes and should be used where they fit the changed behavior. The race detector identifies unsafe concurrent memory access; repeated and soak-style tests help expose intermittent or workload-driven failures; `go.uber.org/goleak` detects goroutines that survive beyond their intended ownership boundary; and native Go fuzzing exercises parsers, codecs, normalization, policy boundaries, and other input-sensitive logic with malformed or unexpected inputs. These mechanisms complement deterministic regression tests rather than replacing them.
+
+For focused native fuzzing, use:
+
+```text
+make fuzz FUZZ=FuzzName FUZZTIME=30s
+```
+
+Use `FUZZ_PACKAGE=<package>` when the maintained target is outside the default `./internal/glance` package. To exercise all maintained fuzz targets sequentially with a bounded per-target duration, use:
+
+```text
+make fuzz-all FUZZTIME=10s
+```
+
+Active time-budgeted fuzzing is intentionally not part of `make check` or `make validate`. Ordinary Go test execution still runs committed fuzz seed corpora as deterministic regression coverage. When fuzzing discovers a production defect, add a deterministic regression test for the minimized failure rather than relying on a local fuzz cache for permanent protection.
+
+Changes that introduce or alter goroutine ownership, cancellation, schedulers, shared background work, server or runtime lifecycle, live updates, or similar asynchronous behavior should include or update goleak coverage when that provides a meaningful ownership-boundary assertion.
 
 Repeated test targets are available where a single execution is insufficient evidence for concurrency-sensitive or intermittent behavior.
 

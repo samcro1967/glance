@@ -6,9 +6,10 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps build goreleaser-check frontend-audit frontend-check validate validate-all test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fmt-check diff-check staged-check docs-check check coverage vuln image-vuln status staged-diff upstream-status upstream-dev-status branch park push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-nonruntime deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final lint lighthouse performance-check performance
+.PHONY: help deps build goreleaser-check frontend-audit frontend-check validate validate-all test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fuzz fuzz-all fmt-check diff-check staged-check docs-check check coverage vuln image-vuln status staged-diff upstream-status upstream-dev-status branch park push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-nonruntime deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final lint lighthouse performance-check performance
 
 COUNT ?= 10
+FUZZTIME ?= 30s
 COVERAGE_FILE ?= coverage.out
 BASE_REF ?= origin/dev
 
@@ -212,6 +213,9 @@ help:
 	@echo "  make test-race                Go tests with race detector"
 	@echo "  make test-count COUNT=10      Repeated Go tests"
 	@echo "  make test-race-count COUNT=10 Repeated race tests"
+	@echo "  make fuzz FUZZ=FuzzName [FUZZTIME=30s] [FUZZ_PACKAGE=package]"
+	@echo "                                Run one Go fuzz target; package defaults to ./internal/glance"
+	@echo "  make fuzz-all [FUZZTIME=30s] Run all maintained Go fuzz targets sequentially"
 	@echo "  make coverage                 Generate test coverage"
 	@echo "  make vuln                     Go vulnerability analysis"
 	@echo "  make image-vuln IMAGE=image   Show fixable container vulnerabilities; informational only"
@@ -304,6 +308,21 @@ test-focused:
 
 test-race-count:
 	go test -race ./... -count=$(COUNT)
+
+fuzz:
+	@if [ -z "$(FUZZ)" ]; then \
+		echo "FUZZ is required. Example: make fuzz FUZZ=FuzzVerifySessionTokenV4"; \
+		exit 2; \
+	fi
+	go test $(if $(FUZZ_PACKAGE),$(FUZZ_PACKAGE),./internal/glance) -run='^$$' -fuzz='^$(FUZZ)$$' -fuzztime='$(FUZZTIME)'
+
+fuzz-all:
+	$(MAKE) fuzz FUZZ=FuzzVerifySessionTokenV4 FUZZTIME='$(FUZZTIME)'
+	$(MAKE) fuzz FUZZ=FuzzDecodeOIDCPrincipal FUZZTIME='$(FUZZTIME)'
+	$(MAKE) fuzz FUZZ=FuzzNormalizeResourceProxyOrigin FUZZTIME='$(FUZZTIME)'
+	$(MAKE) fuzz FUZZ=FuzzResourceProxyPolicyAllowsURL FUZZTIME='$(FUZZTIME)'
+	$(MAKE) fuzz FUZZ=FuzzResolveRSSURL FUZZTIME='$(FUZZTIME)'
+	$(MAKE) fuzz FUZZ=FuzzFindYAMLCommentStart FUZZTIME='$(FUZZTIME)'
 
 build:
 	go build ./...

@@ -10,6 +10,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"go.uber.org/goleak"
 )
 
 func resetRSSResourceRequests(t *testing.T) {
@@ -204,6 +206,8 @@ func TestRSSResourceWaitingCallerCanCancel(t *testing.T) {
 }
 
 func TestRSSResourceLeaderCancellationDoesNotCancelSharedFetch(t *testing.T) {
+	defer goleak.VerifyNone(t)
+
 	resetRSSResourceRequests(t)
 
 	var calls atomic.Int32

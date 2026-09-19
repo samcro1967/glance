@@ -330,6 +330,7 @@ The common widget `icon` property adds an optional icon immediately before the w
 icon: si:immich # si for Simple icons https://simpleicons.org/
 icon: sh:immich # sh for selfh.st icons https://selfh.st/icons/
 icon: di:immich # di for Dashboard icons https://github.com/homarr-labs/dashboard-icons
+icon: hla:linux # hla for Homelab SVG Assets https://github.com/loganmarchione/homelab-svg-assets
 icon: mdi:camera # mdi for Material Design icons https://pictogrammers.com/library/mdi/
 ```
 
@@ -339,7 +340,7 @@ Title icons participate in `widget-defaults`, so they can be configured globally
 
 Prefix an icon value with `auto-invert ` to automatically invert it for dark themes. The `si:` and `mdi:` prefixes enable auto-inversion automatically.
 
-The `sh:` and `di:` prefixes request SVG icons by default. If an icon is only available as a PNG, add the extension to its name:
+The `sh:` and `di:` prefixes request SVG icons by default. If an icon is only available as a PNG, add the extension to its name. The `hla:` prefix uses Homelab SVG Assets, which provides SVG icons:
 
 ```yaml
 icon: sh:unmanic.png
