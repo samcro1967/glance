@@ -3,14 +3,182 @@ package glance
 import (
 	"bufio"
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
+
+type liveUpdateDeadlineTestWriter struct {
+	mu               sync.Mutex
+	header           http.Header
+	deadlines        []time.Time
+	flushes          int
+	setDeadlineError error
+	flushError       error
+}
+
+func newLiveUpdateDeadlineTestWriter() *liveUpdateDeadlineTestWriter {
+	return &liveUpdateDeadlineTestWriter{
+		header: make(http.Header),
+	}
+}
+
+func (w *liveUpdateDeadlineTestWriter) Header() http.Header {
+	return w.header
+}
+
+func (w *liveUpdateDeadlineTestWriter) Write(p []byte) (int, error) {
+	return len(p), nil
+}
+
+func (w *liveUpdateDeadlineTestWriter) WriteHeader(int) {}
+
+func (w *liveUpdateDeadlineTestWriter) Flush() {}
+
+func (w *liveUpdateDeadlineTestWriter) FlushError() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	w.flushes++
+	return w.flushError
+}
+
+func (w *liveUpdateDeadlineTestWriter) SetWriteDeadline(deadline time.Time) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if w.setDeadlineError != nil {
+		return w.setDeadlineError
+	}
+
+	w.deadlines = append(w.deadlines, deadline)
+	return nil
+}
+
+func (w *liveUpdateDeadlineTestWriter) snapshot() ([]time.Time, int) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	return append([]time.Time(nil), w.deadlines...), w.flushes
+}
+
+func TestLiveUpdatesInitialFlushUsesBoundedWriteDeadline(t *testing.T) {
+	app := newGlanceTestApplication(t, `
+pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets: []
+`)
+
+	writer := newLiveUpdateDeadlineTestWriter()
+	request := httptest.NewRequest(http.MethodGet, "/api/live-updates", nil)
+
+	done := make(chan struct{})
+	go func() {
+		app.handleLiveUpdatesRequest(writer, request)
+		close(done)
+	}()
+
+	deadline := time.Now().Add(time.Second)
+	for {
+		deadlines, flushes := writer.snapshot()
+		if len(deadlines) >= 2 && flushes >= 1 {
+			if deadlines[0].IsZero() {
+				t.Fatal("initial SSE write deadline is zero")
+			}
+			if !deadlines[1].IsZero() {
+				t.Fatalf("initial SSE write deadline was not cleared: %v", deadlines[1])
+			}
+			break
+		}
+
+		if time.Now().After(deadline) {
+			t.Fatal("timed out waiting for initial SSE deadline and flush")
+		}
+		time.Sleep(time.Millisecond)
+	}
+
+	app.liveUpdates.close()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("live updates handler did not stop after broker close")
+	}
+}
+
+func TestLiveUpdatesStopsWhenWriteDeadlineCannotBeSet(t *testing.T) {
+	app := newGlanceTestApplication(t, `
+pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets: []
+`)
+
+	writer := newLiveUpdateDeadlineTestWriter()
+	writer.setDeadlineError = errors.New("set deadline failed")
+	request := httptest.NewRequest(http.MethodGet, "/api/live-updates", nil)
+
+	done := make(chan struct{})
+	go func() {
+		app.handleLiveUpdatesRequest(writer, request)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("live updates handler did not stop after write deadline failure")
+	}
+
+	app.liveUpdates.mu.Lock()
+	subscriberCount := len(app.liveUpdates.subscribers)
+	app.liveUpdates.mu.Unlock()
+	if subscriberCount != 0 {
+		t.Fatalf("subscriber count = %d after write deadline failure, want 0", subscriberCount)
+	}
+}
+
+func TestLiveUpdatesStopsWhenInitialFlushFails(t *testing.T) {
+	app := newGlanceTestApplication(t, `
+pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets: []
+`)
+
+	writer := newLiveUpdateDeadlineTestWriter()
+	writer.flushError = errors.New("flush failed")
+	request := httptest.NewRequest(http.MethodGet, "/api/live-updates", nil)
+
+	done := make(chan struct{})
+	go func() {
+		app.handleLiveUpdatesRequest(writer, request)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("live updates handler did not stop after flush failure")
+	}
+
+	app.liveUpdates.mu.Lock()
+	subscriberCount := len(app.liveUpdates.subscribers)
+	app.liveUpdates.mu.Unlock()
+	if subscriberCount != 0 {
+		t.Fatalf("subscriber count = %d after flush failure, want 0", subscriberCount)
+	}
+}
 
 func TestWidgetContentRequestRendersWidget(t *testing.T) {
 	app := newGlanceTestApplication(t, `

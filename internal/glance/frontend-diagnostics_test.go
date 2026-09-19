@@ -669,6 +669,43 @@ func TestFrontendRuntimeDiagnosticsBoundsRecentProblems(t *testing.T) {
 	}
 }
 
+func TestFrontendRuntimeDiagnosticsBoundsProblemCountCardinality(t *testing.T) {
+	store := newFrontendRuntimeDiagnostics()
+
+	for i := 0; i < frontendDiagnosticsProblemCountLimit; i++ {
+		store.record([]frontendDiagnosticEvent{
+			{Event: fmt.Sprintf("problem_%d_error", i)},
+		})
+	}
+
+	store.record([]frontendDiagnosticEvent{
+		{Event: "overflow_one_error"},
+		{Event: "overflow_two_error"},
+		{Event: "problem_0_error"},
+	})
+
+	snapshot := store.snapshot()
+
+	if got, want := len(snapshot.ProblemCounts), frontendDiagnosticsProblemCountLimit+1; got != want {
+		t.Fatalf("problem count cardinality = %d, want %d", got, want)
+	}
+	if got := snapshot.ProblemCounts["problem_0_error"]; got != 2 {
+		t.Fatalf("existing problem count = %d, want 2", got)
+	}
+	if got := snapshot.ProblemCounts[frontendDiagnosticsProblemCountOther]; got != 2 {
+		t.Fatalf("overflow problem count = %d, want 2", got)
+	}
+	if _, exists := snapshot.ProblemCounts["overflow_one_error"]; exists {
+		t.Fatal("overflow problem unexpectedly received an individual counter")
+	}
+	if _, exists := snapshot.ProblemCounts["overflow_two_error"]; exists {
+		t.Fatal("overflow problem unexpectedly received an individual counter")
+	}
+	if got, want := snapshot.TotalProblemEvents, uint64(frontendDiagnosticsProblemCountLimit+3); got != want {
+		t.Fatalf("total problem events = %d, want %d", got, want)
+	}
+}
+
 func TestFrontendRuntimeDiagnosticsRetainsActiveResults(t *testing.T) {
 	store := newFrontendRuntimeDiagnostics()
 

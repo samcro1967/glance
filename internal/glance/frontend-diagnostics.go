@@ -45,6 +45,8 @@ type frontendDiagnosticEvent struct {
 const (
 	frontendDiagnosticsRecentProblemLimit      = 20
 	frontendDiagnosticsRecentActiveResultLimit = 100
+	frontendDiagnosticsProblemCountLimit       = 128
+	frontendDiagnosticsProblemCountOther       = "OTHER"
 )
 
 type frontendRuntimeDiagnosticProblem struct {
@@ -189,7 +191,14 @@ func (d *frontendRuntimeDiagnostics) record(events []frontendDiagnosticEvent) {
 		}
 
 		d.totalProblemEvents++
-		d.problemCounts[event.Event]++
+
+		if _, tracked := d.problemCounts[event.Event]; tracked {
+			d.problemCounts[event.Event]++
+		} else if len(d.problemCounts) < frontendDiagnosticsProblemCountLimit {
+			d.problemCounts[event.Event] = 1
+		} else {
+			d.problemCounts[frontendDiagnosticsProblemCountOther]++
+		}
 
 		d.recentProblems = append(
 			d.recentProblems,
