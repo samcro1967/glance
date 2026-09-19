@@ -424,6 +424,14 @@ func feedItemImageURL(item *gofeed.Item, feed *gofeed.Feed, feedURL string) stri
 	return ""
 }
 
+func validRSSURL(parsed *url.URL) bool {
+	if parsed == nil || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" || parsed.Hostname() == "" {
+		return false
+	}
+
+	return true
+}
+
 func resolveRSSURL(value string, bases ...string) string {
 	parsed, err := url.Parse(strings.TrimSpace(value))
 	if err != nil || parsed.String() == "" {
@@ -431,7 +439,7 @@ func resolveRSSURL(value string, bases ...string) string {
 	}
 
 	if parsed.IsAbs() {
-		if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		if !validRSSURL(parsed) {
 			return ""
 		}
 
@@ -440,15 +448,17 @@ func resolveRSSURL(value string, bases ...string) string {
 
 	for _, base := range bases {
 		parsedBase, err := url.Parse(base)
-		if err != nil || !parsedBase.IsAbs() {
+		if err != nil || !parsedBase.IsAbs() || !validRSSURL(parsedBase) {
 			continue
 		}
 
-		if parsedBase.Host == "" || (parsedBase.Scheme != "http" && parsedBase.Scheme != "https") {
+		resolved := parsedBase.ResolveReference(parsed)
+		resolved, err = url.Parse(resolved.String())
+		if err != nil || !validRSSURL(resolved) {
 			continue
 		}
 
-		return parsedBase.ResolveReference(parsed).String()
+		return resolved.String()
 	}
 
 	return ""

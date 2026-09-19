@@ -173,6 +173,8 @@ Concurrency-sensitive behavior is validated with Go's race detector. During stab
 
 Goroutine lifecycle regression protection additionally uses `go.uber.org/goleak` to detect unexpected background work that survives test completion. Package-wide leak verification complements rather than replaces the race detector and existing scheduler and failure/recovery soak tests: the race detector identifies unsafe concurrent memory access, soak tests detect workload-driven goroutine growth, and goleak identifies goroutines that outlive their intended ownership boundary. Targeted leak assertions cover high-risk lifecycle paths including scheduler cancellation, application runtime shutdown, configuration-generation replacement, live-update termination, shared keyed-resource and RSS fetch completion after caller cancellation, graceful HTTP server shutdown, and profiling-listener reconciliation. The package-wide check explicitly closes idle connections owned by the process-global shared HTTP transports before final leak verification so normal connection pooling is not misclassified as leaked application work.
 
+Native Go fuzzing provides an additional regression boundary for parsers, codecs, and security-sensitive normalization or policy logic where malformed or unexpected inputs present meaningful risk. Maintained fuzz targets cover OIDC principal decoding, V4 session-token verification, resource-proxy origin normalization and allowlist enforcement, RSS URL resolution, and YAML comment scanning. Fuzzing complements deterministic tests, the race detector, goleak, and soak testing rather than replacing them. Focused fuzzing is available through `make fuzz FUZZ=FuzzName`, while `make fuzz-all` runs the maintained targets sequentially with a bounded per-target duration. Active fuzzing is intentionally not part of the deterministic `make check` or `make validate` release gates; ordinary Go test execution still runs each fuzz target's seed corpus as regression coverage. When fuzzing discovers a production defect, the minimized failure is converted into a deterministic regression case so protection does not depend on a local fuzz cache. The initial fuzzing pass identified and permanently covered inconsistent OIDC principal-length validation and malformed RSS authorities produced during relative URL resolution.
+
 Several production defects were discovered through this process, reproduced with regression tests, and then fixed. Those tests remain in the suite to protect against recurrence.
 
 ## Development and CI validation
@@ -198,6 +200,8 @@ make test
 make test-race
 make test-count COUNT=10
 make test-race-count COUNT=10
+make fuzz FUZZ=FuzzVerifySessionTokenV4 FUZZTIME=30s
+make fuzz-all FUZZTIME=10s
 make build
 make test-instance-fixture-start
 make test-instance-fixture-stop

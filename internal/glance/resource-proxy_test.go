@@ -979,3 +979,55 @@ func TestResourceProxyRouterAppliesSecurityHeaders(t *testing.T) {
 		t.Fatalf("Referrer-Policy = %q, want strict-origin-when-cross-origin", got)
 	}
 }
+
+func FuzzNormalizeResourceProxyOrigin(f *testing.F) {
+	for _, seed := range []string{"", "http://example.test", "HTTP://EXAMPLE.TEST", "http://example.test/", "http://example.test:80", "http://192.0.2.10:8080", "http://[2001:db8::10]:8080", "https://example.test", "http://user:password@example.test", "http://example.test/path", "http://example.test?query=value", "http://example.test#fragment", "http://example.test:not-a-port"} {
+		f.Add(seed)
+	}
+
+	f.Fuzz(func(t *testing.T, configuredOrigin string) {
+		normalized, err := normalizeResourceProxyOrigin(configuredOrigin)
+		if err != nil {
+			return
+		}
+		if normalized == "" {
+			t.Fatal("successful resource proxy origin normalization returned empty origin")
+		}
+		roundTrip, err := normalizeResourceProxyOrigin(normalized)
+		if err != nil {
+			t.Fatalf("normalizing canonical resource proxy origin %q: %v", normalized, err)
+		}
+		if roundTrip != normalized {
+			t.Fatalf("resource proxy origin normalization is not idempotent: first %q second %q", normalized, roundTrip)
+		}
+	})
+}
+
+func FuzzResourceProxyPolicyAllowsURL(f *testing.F) {
+	const configuredOrigin = "http://example.test:8080"
+	policy, err := newResourceProxyPolicy([]string{configuredOrigin})
+	if err != nil {
+		f.Fatalf("creating resource proxy policy: %v", err)
+	}
+
+	for _, seed := range []string{"", "http://example.test:8080/image.jpg", "HTTP://EXAMPLE.TEST:8080/image.jpg?token=secret", "http://example.test:80/image.jpg", "http://other.test:8080/image.jpg", "https://example.test:8080/image.jpg", "http://user:password@example.test:8080/image.jpg", "http://example.test:8080@other.test/image.jpg", "http://example.test:8080.evil.test/image.jpg", "http://[2001:db8::10]:8080/image.jpg"} {
+		f.Add(seed)
+	}
+
+	f.Fuzz(func(t *testing.T, rawURL string) {
+		parsed, err := url.Parse(rawURL)
+		if err != nil {
+			return
+		}
+		if !policy.allowsURL(parsed) {
+			return
+		}
+		origin, err := resourceProxyURLOrigin(parsed)
+		if err != nil {
+			t.Fatalf("allowed resource URL %q has invalid origin: %v", rawURL, err)
+		}
+		if origin != configuredOrigin {
+			t.Fatalf("resource proxy policy allowed URL %q from origin %q outside configured origin %q", rawURL, origin, configuredOrigin)
+		}
+	})
+}
