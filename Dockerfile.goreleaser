@@ -2,8 +2,10 @@ FROM alpine:3.24.1
 
 RUN apk upgrade --no-cache
 
+ARG TARGETPLATFORM
+
 WORKDIR /app
-COPY glance .
+COPY $TARGETPLATFORM/glance .
 
 EXPOSE 8080/tcp
 ENTRYPOINT ["/app/glance", "--config", "/app/config/glance.yml"]
