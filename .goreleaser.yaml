@@ -20,29 +20,13 @@ builds:
     ldflags:
       - -s -w -X github.com/samcro1967/glance/internal/glance.buildVersion={{ .Tag }} -X github.com/samcro1967/glance/internal/glance.buildRevision={{ .FullCommit }}
 
-dockers:
-  - image_templates:
-      - &amd64_image "ghcr.io/{{ .ProjectName }}:{{ .Tag }}-amd64"
-    build_flag_templates:
-      - --platform=linux/amd64
-    goarch: amd64
-    use: buildx
+dockers_v2:
+  - images:
+      - "ghcr.io/{{ .ProjectName }}"
+    tags:
+      - "{{ .Tag }}"
+      - "latest"
     dockerfile: Dockerfile.goreleaser
-
-  - image_templates:
-      - &arm64v8_image "ghcr.io/{{ .ProjectName }}:{{ .Tag }}-arm64"
-    build_flag_templates:
-      - --platform=linux/arm64
-    goarch: arm64
-    use: buildx
-    dockerfile: Dockerfile.goreleaser
-
-docker_manifests:
-  - name_template: "ghcr.io/{{ .ProjectName }}:{{ .Tag }}"
-    image_templates: &multiarch_images
-      - *amd64_image
-      - *arm64v8_image
-
-  - name_template: "ghcr.io/{{ .ProjectName }}:latest"
-    skip_push: false
-    image_templates: *multiarch_images
+    platforms:
+      - linux/amd64
+      - linux/arm64
