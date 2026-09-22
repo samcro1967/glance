@@ -293,6 +293,58 @@ func TestMonitorResourceSendsHeadersAndBasicAuth(t *testing.T) {
 	}
 }
 
+func TestMonitorResourceHonorsParentCancellation(t *testing.T) {
+	requestStarted := make(chan struct{})
+
+	wave3Transport(t, func(request *http.Request) (*http.Response, error) {
+		close(requestStarted)
+		<-request.Context().Done()
+		return nil, request.Context().Err()
+	})
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	type result struct {
+		status siteStatus
+		err    error
+	}
+
+	resultCh := make(chan result, 1)
+	go func() {
+		status, err := fetchMonitorSiteResourceUncached(
+			ctx,
+			&SiteStatusRequest{DefaultURL: "https://example.invalid/cancel"},
+		)
+		resultCh <- result{status: status, err: err}
+	}()
+
+	select {
+	case <-requestStarted:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for monitor request to start")
+	}
+
+	cancel()
+
+	var got result
+	select {
+	case got = <-resultCh:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for canceled monitor request")
+	}
+
+	if got.err != nil {
+		t.Fatalf("unexpected resource error: %v", got.err)
+	}
+	if !errors.Is(got.status.Error, context.Canceled) {
+		t.Fatalf("status error = %v, want context canceled", got.status.Error)
+	}
+	if got.status.TimedOut {
+		t.Fatal("parent cancellation should not be classified as timeout")
+	}
+}
+
 func TestMonitorResourceClassifiesTimeout(t *testing.T) {
 	resetMonitorResourceCache(t)
 
