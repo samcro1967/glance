@@ -2,9 +2,7 @@ package glance
 
 import (
 	"context"
-	"errors"
 	"html/template"
-	"net/http"
 	"slices"
 	"strconv"
 	"time"
@@ -151,60 +149,6 @@ type siteStatus struct {
 	TimedOut     bool
 	ResponseTime time.Duration
 	Error        error
-}
-
-func fetchSiteStatusTask(ctx context.Context, statusRequest *SiteStatusRequest) (siteStatus, error) {
-	var url string
-	if statusRequest.CheckURL != "" {
-		url = statusRequest.CheckURL
-	} else {
-		url = statusRequest.DefaultURL
-	}
-
-	timeout := ternary(statusRequest.Timeout > 0, time.Duration(statusRequest.Timeout), 3*time.Second)
-	requestCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	request, err := http.NewRequestWithContext(requestCtx, http.MethodGet, url, nil)
-	if err != nil {
-		return siteStatus{
-			Error: err,
-		}, nil
-	}
-
-	for key, value := range statusRequest.Headers {
-		request.Header.Set(key, value)
-	}
-
-	if statusRequest.BasicAuth.Username != "" || statusRequest.BasicAuth.Password != "" {
-		request.SetBasicAuth(statusRequest.BasicAuth.Username, statusRequest.BasicAuth.Password)
-	}
-
-	requestSentAt := time.Now()
-	var response *http.Response
-
-	if !statusRequest.AllowInsecure {
-		response, err = defaultHTTPClient.Do(request)
-	} else {
-		response, err = defaultInsecureHTTPClient.Do(request)
-	}
-
-	status := siteStatus{ResponseTime: time.Since(requestSentAt)}
-
-	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			status.TimedOut = true
-		}
-
-		status.Error = err
-		return status, nil
-	}
-
-	defer func() { _ = response.Body.Close() }()
-
-	status.Code = response.StatusCode
-
-	return status, nil
 }
 
 func fetchStatusForSites(ctx context.Context, requests []*SiteStatusRequest) ([]siteStatus, error) {
