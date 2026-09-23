@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"io"
 	"net"
 	"net/http"
 	"runtime"
@@ -308,6 +309,22 @@ func TestRefreshFailureContractMatrix(t *testing.T) {
 		{
 			name:          "network timeout",
 			err:           reliabilityTimeoutError{},
+			wantClass:     refreshFailureTransient,
+			wantRetryable: true,
+			wantContinue:  false,
+			wantError:     true,
+		},
+		{
+			name:          "EOF",
+			err:           fmt.Errorf("wrapped: %w", io.EOF),
+			wantClass:     refreshFailureTransient,
+			wantRetryable: true,
+			wantContinue:  false,
+			wantError:     true,
+		},
+		{
+			name:          "unexpected EOF",
+			err:           fmt.Errorf("wrapped: %w", io.ErrUnexpectedEOF),
 			wantClass:     refreshFailureTransient,
 			wantRetryable: true,
 			wantContinue:  false,
