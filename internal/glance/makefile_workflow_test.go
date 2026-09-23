@@ -133,7 +133,9 @@ func TestMakefileWorkflowFinishTargets(t *testing.T) {
 			fragments: []string{
 				"set -euo pipefail",
 				`branch" != "$(STABLE_BRANCH)"`,
+				`release_tag="$$(git tag --points-at HEAD`,
 				`$(MAKE) release`,
+				`$(MAKE) release-retry`,
 				`$(MAKE) release-watch`,
 				`$(MAKE) release-status`,
 				`$(MAKE) deploy-status`,
@@ -161,6 +163,51 @@ func TestMakefileWorkflowFinishTargets(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestMakefileReleaseRecoveryContract(t *testing.T) {
+	makefile := readRepositoryMakefile(t)
+	retry := makeTargetRecipe(t, makefile, "release-retry")
+
+	requireRecipeFragmentsInOrder(
+		t,
+		retry,
+		"set -euo pipefail",
+		`branch" != "$(STABLE_BRANCH)"`,
+		`git status --porcelain`,
+		`git fetch origin --prune --tags`,
+		`revision="$$(git rev-parse HEAD)"`,
+		`origin_revision="$$(git rev-parse origin/$(STABLE_BRANCH))"`,
+		`release_tag="$$(git tag --points-at HEAD`,
+		`run_id="$$(gh run list`,
+		`.headSha ==`,
+		`$$revision`,
+		`.headBranch ==`,
+		`$$release_tag`,
+		`status="$$(gh run view`,
+		`if [ "$$status" != "completed" ]; then`,
+		`elif [ "$$conclusion" = "success" ]; then`,
+		`gh run rerun "$$run_id"`,
+	)
+
+	if strings.Count(retry, `gh run rerun "$$run_id"`) != 1 {
+		t.Fatal("release-retry must contain exactly one workflow rerun operation")
+	}
+
+	finish := makeTargetRecipe(t, makefile, "release-finish")
+	requireRecipeFragmentsInOrder(
+		t,
+		finish,
+		`release_tag="$$(git tag --points-at HEAD`,
+		`if [ -z "$$release_tag" ]; then`,
+		`$(MAKE) release`,
+		`$(MAKE) release-retry`,
+		`$(MAKE) release-watch`,
+	)
+
+	if strings.Count(finish, "$(MAKE) release-retry") != 1 {
+		t.Fatal("release-finish must contain exactly one recovery invocation")
 	}
 }
 
