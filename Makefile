@@ -6,7 +6,7 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps build goreleaser-check frontend-audit frontend-check validate validate-all test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fuzz fuzz-all fmt-check diff-check staged-check docs-check check coverage vuln image-vuln status staged-diff upstream-status upstream-dev-status branch park push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-nonruntime deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final lint lighthouse performance-check performance
+.PHONY: help deps build goreleaser-check frontend-audit frontend-check validate validate-all test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fuzz fuzz-all fmt-check diff-check staged-check docs-check check coverage vuln image-vuln status staged-diff upstream-status upstream-dev-status branch park push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-retry release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-nonruntime deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final lint lighthouse performance-check performance
 
 COUNT ?= 10
 FUZZTIME ?= 30s
@@ -113,7 +113,7 @@ help:
 	@echo "  Run make workflow-status first, then resume at the failed/incomplete stage."
 	@echo "  make pr-finish [PR=55]        feature -> dev: auto-resolve PR, CI, merge, cleanup, dev image"
 	@echo "  make promote-finish [PR=56]   dev -> main: auto-resolve PR, CI, merge, update/verify main"
-	@echo "  make release-finish           main: validate, tag, push, watch formal release; no deploy"
+	@echo "  make release-finish           main: create or recover, then verify formal release; no deploy"
 	@echo "  make deploy-finish            released main: deploy -> sync main back to dev -> verify"
 	@echo "  make sync-finish [PR=57]      main -> dev: auto-resolve PR, CI, merge, update dev, dev image"
 	@echo "  make workflow-status          Inspect state before choosing a recovery stage"
@@ -262,6 +262,7 @@ help:
 	@echo "  make image-runs               Recent dev image builds"
 	@echo "  make image-watch              Watch dev image for exact current dev SHA"
 	@echo "  make release-runs             Recent formal release workflows"
+	@echo "  make release-retry            Retry failed release for current tagged main SHA"
 	@echo "  make release-watch            Watch release for current tagged main SHA"
 	@echo "  make ci-watch RUN=12345       Watch run; nonzero exit on workflow failure"
 	@echo "  make ci-view RUN=12345        Show workflow result"
@@ -270,7 +271,7 @@ help:
 	@echo "  make release-status           Current upstream/fork release relationship"
 	@echo "  make release-check            Full guarded formal-release validation"
 	@echo "  make release                  Validate, tag, push next formal release"
-	@echo "  make release-finish           Release + watch + status; NEVER deploys"
+	@echo "  make release-finish           Create/recover release + watch + status; NEVER deploys"
 	@echo
 	@echo "PRODUCTION -- EXPLICIT BOUNDARY:"
 	@echo "  make deploy-status            Source/Compose/images/running production"
@@ -1086,6 +1087,61 @@ release-runs:
 		--limit 5 \
 		--json databaseId,headSha,headBranch,status,conclusion,createdAt,displayTitle
 
+release-retry:
+	@set -euo pipefail; \
+	branch="$$(git branch --show-current)"; \
+	if [ "$$branch" != "$(STABLE_BRANCH)" ]; then \
+		echo "Release retry requires branch $(STABLE_BRANCH); current branch is $$branch."; \
+		exit 1; \
+	fi; \
+	if [ -n "$$(git status --porcelain)" ]; then \
+		echo "Release retry requires a clean working tree."; \
+		git status --short; \
+		exit 1; \
+	fi; \
+	echo "Refreshing release references..."; \
+	git fetch origin --prune --tags; \
+	revision="$$(git rev-parse HEAD)"; \
+	origin_revision="$$(git rev-parse origin/$(STABLE_BRANCH))"; \
+	if [ "$$revision" != "$$origin_revision" ]; then \
+		echo "Local $(STABLE_BRANCH) does not match origin/$(STABLE_BRANCH)."; \
+		echo "Local:  $$revision"; \
+		echo "Origin: $$origin_revision"; \
+		exit 1; \
+	fi; \
+	release_tag="$$(git tag --points-at HEAD --list 'v*-$(FORK_RELEASE_ID).r*' --sort=-version:refname | head -1)"; \
+	if [ -z "$$release_tag" ]; then \
+		echo "No formal fork release tag points at current $(STABLE_BRANCH) revision $$revision."; \
+		exit 1; \
+	fi; \
+	echo "=== FIND FORMAL RELEASE RUN ==="; \
+	echo "Release=$$release_tag"; \
+	echo "Revision=$$revision"; \
+	run_id=""; \
+	for i in $$(seq 1 "$(CI_RUN_RETRIES)"); do \
+		run_id="$$(gh run list --repo "$(REPO)" --workflow "$(RELEASE_WORKFLOW)" --limit 20 --json databaseId,headSha,headBranch --jq '.[] | select(.headSha == "'"$$revision"'" and .headBranch == "'"$$release_tag"'") | .databaseId' | head -1)"; \
+		if [ -n "$$run_id" ]; then break; fi; \
+		echo "Matching release run not available yet; retrying ($$i/$(CI_RUN_RETRIES))..."; \
+		sleep "$(CI_RUN_RETRY_DELAY)"; \
+	done; \
+	if [ -z "$$run_id" ]; then \
+		echo "No release run found for $$release_tag at $$revision."; \
+		exit 1; \
+	fi; \
+	echo "Run=$$run_id"; \
+	status="$$(gh run view "$$run_id" --repo "$(REPO)" --json status --jq .status)"; \
+	conclusion="$$(gh run view "$$run_id" --repo "$(REPO)" --json conclusion --jq '.conclusion // ""')"; \
+	echo "Status=$$status"; \
+	echo "Conclusion=$${conclusion:-none}"; \
+	if [ "$$status" != "completed" ]; then \
+		echo "Release workflow is already active; leaving it unchanged."; \
+	elif [ "$$conclusion" = "success" ]; then \
+		echo "Release workflow already completed successfully; no retry required."; \
+	else \
+		echo "Retrying unsuccessful release workflow run $$run_id..."; \
+		gh run rerun "$$run_id" --repo "$(REPO)"; \
+	fi
+
 release-watch:
 	@set -euo pipefail; \
 	branch="$$(git branch --show-current)"; \
@@ -1609,7 +1665,13 @@ release-finish:
 		exit 1; \
 	fi
 	@echo "=== FORMAL RELEASE PIPELINE ==="
-	@$(MAKE) release
+	@release_tag="$$(git tag --points-at HEAD --list 'v*-$(FORK_RELEASE_ID).r*' --sort=-version:refname | head -1)"; \
+	if [ -z "$$release_tag" ]; then \
+		$(MAKE) release; \
+	else \
+		echo "Current $(STABLE_BRANCH) revision is already tagged as $$release_tag; recovering existing formal release."; \
+		$(MAKE) release-retry; \
+	fi
 	@$(MAKE) release-watch
 	@release_tag="$$(git tag --points-at HEAD --list 'v*-$(FORK_RELEASE_ID).r*' --sort=-version:refname | head -1)"; $(MAKE) image-vuln IMAGE="ghcr.io/$(REPO):$$release_tag"
 	@$(MAKE) release-status
