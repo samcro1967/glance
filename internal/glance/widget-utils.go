@@ -161,6 +161,10 @@ func classifyRefreshFailure(err error) refreshFailureClass {
 		}
 	}
 
+	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+		return refreshFailureTransient
+	}
+
 	var netErr net.Error
 	if errors.As(err, &netErr) {
 		return refreshFailureTransient

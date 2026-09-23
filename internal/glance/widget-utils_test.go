@@ -586,6 +586,18 @@ func TestClassifyRefreshFailure(t *testing.T) {
 			retryable: true,
 		},
 		{
+			name:      "EOF",
+			err:       fmt.Errorf("wrapped: %w", io.EOF),
+			wantClass: refreshFailureTransient,
+			retryable: true,
+		},
+		{
+			name:      "unexpected EOF",
+			err:       fmt.Errorf("wrapped: %w", io.ErrUnexpectedEOF),
+			wantClass: refreshFailureTransient,
+			retryable: true,
+		},
+		{
 			name:      "json syntax",
 			err:       fmt.Errorf("decoding JSON response: %w", &json.SyntaxError{Offset: 1}),
 			wantClass: refreshFailureMalformed,
