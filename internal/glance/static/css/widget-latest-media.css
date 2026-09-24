@@ -1,4 +1,0 @@
-.latest-media-item { min-width: 0; }
-.latest-media-poster { width: 4.2rem; height: 6.2rem; object-fit: cover; border-radius: var(--border-radius); }
-.latest-media-meta { display: flex; flex-wrap: wrap; gap: 0.35rem 0.8rem; margin-top: 0.2rem; }
-.latest-media-summary { margin-top: 0.35rem; line-height: 1.35; }
