@@ -107,6 +107,7 @@ Set custom CSS classes for the specific widget instance.
 | [Clock](widgets/clock.md) | Display clocks for configured time zones. |
 | [Analog Clock](widgets/analog-clock.md) | Display time using an analog clock. |
 | [Timer](widgets/timer.md) | Provide an interactive timer. |
+| [Stopwatch](widgets/stopwatch.md) | Measure elapsed time and record laps. |
 
 ### Homelab & monitoring
 
@@ -115,6 +116,11 @@ Set custom CSS classes for the specific widget instance.
 | [Monitor](widgets/monitor.md) | Monitor configured services and endpoints. |
 | [Prometheus](widgets/prometheus.md) | Graph a PromQL range query from a Prometheus-compatible server. |
 | [Docker Containers](widgets/docker-containers.md) | Display Docker container status. |
+| [ARR](widgets/arr.md) | Display upcoming, recent, or missing media from Radarr, Sonarr, or Lidarr. |
+| [Seerr](widgets/seerr.md) | Display discovery, requests, recently added media, or watchlist content from Seerr. |
+| [Latest Media](widgets/latest-media.md) | Display newest library additions from Plex, Jellyfin, Emby, or Navidrome. |
+| [Media History](widgets/media-history.md) | Display Plex playback history or Jellyfin/Emby recently played media. |
+| [Torrenting](widgets/torrenting.md) | Display qBittorrent download and seeding activity. |
 | [DNS Stats](widgets/dns-stats.md) | Display DNS service statistics. |
 | [Server Stats](widgets/server-stats.md) | Display local and remote server statistics. |
 | [ChangeDetection.io](widgets/change-detection.md) | Display ChangeDetection.io watches. |

@@ -91,6 +91,10 @@
     "route": "/date-time-weather",
     "selector": ".visual-fixture-timer"
   },
+  "stopwatch": {
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-stopwatch"
+  },
   "monitor": {
     "route": "/homelab-monitoring",
     "selector": ".visual-fixture-monitor"
@@ -98,6 +102,26 @@
   "docker-containers": {
     "route": "/homelab-monitoring",
     "selector": ".visual-fixture-docker-containers"
+  },
+  "torrenting": {
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-torrenting"
+  },
+  "arr": {
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-arr"
+  },
+  "seerr": {
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-seerr"
+  },
+  "latest-media": {
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-latest-media"
+  },
+  "media-history": {
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-media-history"
   },
   "dns-stats": {
     "route": "/homelab-monitoring",

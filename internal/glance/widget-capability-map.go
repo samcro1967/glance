@@ -192,6 +192,38 @@ var widgetRegistry = map[string]widgetDescriptor{
 			{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 		},
 	},
+	"arr": {
+		constructor: func() widget { return &arrWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+		},
+	},
+	"seerr": {
+		constructor: func() widget { return &seerrWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+		},
+	},
+	"latest-media": {
+		constructor: func() widget { return &latestMediaWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+		},
+	},
+	"media-history": {
+		constructor: func() widget { return &mediaHistoryWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+		},
+	},
 	"prometheus": {
 		constructor: func() widget { return &prometheusWidget{} },
 		capabilities: []widgetCapabilityDefinition{
@@ -212,6 +244,14 @@ var widgetRegistry = map[string]widgetDescriptor{
 			{widgetCapabilityBasicAuth, widgetCapabilityScopeType | widgetCapabilityScopeInstance | widgetCapabilityScopeChild},
 		},
 	},
+	"torrenting": {
+		constructor: func() widget { return &torrentingWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+		},
+	},
 	"docker-containers": {
 		constructor: func() widget { return &dockerContainersWidget{} },
 		capabilities: []widgetCapabilityDefinition{
@@ -227,6 +267,9 @@ var widgetRegistry = map[string]widgetDescriptor{
 	},
 	"timer": {
 		constructor: func() widget { return &timerWidget{} },
+	},
+	"stopwatch": {
+		constructor: func() widget { return &stopwatchWidget{} },
 	},
 	"to-do": {
 		constructor: func() widget { return &todoWidget{} },

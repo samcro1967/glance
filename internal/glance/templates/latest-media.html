@@ -1,0 +1,25 @@
+{{ template "widget-base.html" . }}
+
+{{ define "widget-content" }}
+{{ if .Items }}
+<ul class="list list-gap-10 collapsible-container" data-collapse-after="{{ .CollapseAfter }}">
+    {{ range .Items }}
+    <li class="latest-media-item flex gap-10 items-center thumbnail-parent">
+        {{ if .ImageURL }}<img class="latest-media-poster thumbnail shrink-0" loading="lazy" src="{{ .ImageURL }}" alt="">{{ end }}
+        <div class="min-width-0 grow">
+            <div class="color-highlight size-h4 text-truncate" title="{{ .Title }}">{{ .Title }}</div>
+            {{ if .Subtitle }}<div class="size-h6 color-subdue text-truncate">{{ .Subtitle }}</div>{{ end }}
+            <div class="latest-media-meta size-h6 color-subdue">
+                {{ if .MediaType }}<span>{{ .MediaType }}</span>{{ end }}
+                {{ if .Duration }}<span>{{ .Duration }}</span>{{ end }}
+                {{ if .Date }}<span>{{ .Date }}</span>{{ end }}
+            </div>
+            {{ if .Summary }}<div class="latest-media-summary size-h6 color-subdue text-truncate-2-lines">{{ .Summary }}</div>{{ end }}
+        </div>
+    </li>
+    {{ end }}
+</ul>
+{{ else }}
+<div class="text-center">No recent media available to show.</div>
+{{ end }}
+{{ end }}

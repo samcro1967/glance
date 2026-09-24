@@ -2,8 +2,8 @@
   "layout-composition": ["group", "stack", "status-bar", "split-column"],
   "feeds-content": ["rss", "videos", "hacker-news", "lobsters", "reddit"],
   "search-custom-content": ["search", "bookmarks", "custom-api", "extension", "iframe", "markdown", "html"],
-  "date-time-weather": ["weather", "calendar", "ics-events", "calendar-legacy", "clock", "analog-clock", "timer"],
-  "homelab-monitoring": ["monitor", "docker-containers", "dns-stats", "prometheus", "server-stats", "change-detection"],
+  "date-time-weather": ["weather", "calendar", "ics-events", "calendar-legacy", "clock", "analog-clock", "timer", "stopwatch"],
+  "homelab-monitoring": ["monitor", "docker-containers", "torrenting", "arr", "seerr", "latest-media", "media-history", "dns-stats", "prometheus", "server-stats", "change-detection"],
   "development-releases": ["repository", "releases"],
   "markets-streaming": ["markets", "stocks", "twitch-channels", "twitch-top-games"],
   "utilities": ["to-do", "unit-converter", "calculator"]

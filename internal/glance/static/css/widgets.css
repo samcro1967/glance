@@ -10,6 +10,10 @@
 @import "widget-markets.css";
 @import "widget-monitor.css";
 @import "widget-prometheus.css";
+@import "widget-arr.css";
+@import "widget-seerr.css";
+@import "widget-latest-media.css";
+@import "widget-media-history.css";
 @import "widget-reddit.css";
 @import "widget-releases.css";
 @import "widget-rss.css";
@@ -20,7 +24,9 @@
 @import "widget-videos.css";
 @import "widget-weather.css";
 @import "widget-timer.css";
+@import "widget-stopwatch.css";
 @import "widget-todo.css";
+@import "widget-torrenting.css";
 @import "widget-unit-converter.css";
 @import "widget-calculator.css";
 

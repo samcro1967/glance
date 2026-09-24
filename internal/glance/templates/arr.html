@@ -1,0 +1,28 @@
+{{ template "widget-base.html" . }}
+
+{{ define "widget-content" }}
+{{ if .Items }}
+<ul class="list list-gap-10 collapsible-container" data-collapse-after="{{ .CollapseAfter }}">
+    {{ range .Items }}
+    <li class="arr-item flex gap-10 items-center thumbnail-parent">
+        {{ if .ImageURL }}<img class="arr-poster thumbnail shrink-0" loading="lazy" src="{{ .ImageURL }}" alt="">{{ end }}
+        <div class="min-width-0 grow">
+            <div class="color-highlight size-h4 text-truncate" title="{{ .Title }}">{{ .Title }}</div>
+            {{ if .Subtitle }}<div class="size-h6 color-subdue text-truncate">{{ .Subtitle }}</div>{{ end }}
+            <div class="arr-meta size-h6 color-subdue">
+                {{ if .Status }}<span>{{ .Status }}</span>{{ end }}
+                {{ if .Dates }}
+                    {{ range .Dates }}<span>{{ .Label }}: {{ .Value }}</span>{{ end }}
+                {{ else if .Date }}
+                    <span>{{ .Date }}</span>
+                {{ end }}
+            </div>
+            {{ if .Summary }}<div class="arr-summary size-h6 color-subdue text-truncate-2-lines">{{ .Summary }}</div>{{ end }}
+        </div>
+    </li>
+    {{ end }}
+</ul>
+{{ else }}
+<div class="text-center">No {{ .View }} items available to show.</div>
+{{ end }}
+{{ end }}

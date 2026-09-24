@@ -173,6 +173,36 @@
     "route": "/homelab-monitoring",
     "selector": ".visual-fixture-docker-containers"
   },
+  "widgets/torrenting.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-torrenting"
+  },
+  "widgets/arr.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-arr"
+  },
+  "widgets/seerr.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-seerr"
+  },
+  "widgets/latest-media.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-latest-media"
+  },
+  "widgets/media-history.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-media-history"
+  },
   "widgets/extension.png": {
     "kind": "browser",
     "capture": "element",
@@ -292,6 +322,12 @@
     "capture": "element",
     "route": "/date-time-weather",
     "selector": ".visual-fixture-timer"
+  },
+  "widgets/stopwatch.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-stopwatch"
   },
   "widgets/to-do.png": {
     "kind": "browser",

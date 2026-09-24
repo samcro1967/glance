@@ -257,6 +257,76 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (url.pathname === '/api/v2/torrents/info') {
+    if (req.headers.authorization !== 'Bearer visual-fixture-token') {
+      res.writeHead(401, { 'Content-Type': 'text/plain' });
+      res.end('Unauthorized');
+      return;
+    }
+
+    sendJson(res, [
+      { name: 'Ubuntu Server 26.04', state: 'downloading', progress: 0.64, downloaded: 2748779069, size: 4294967296, eta: 732 },
+      { name: 'Glance Documentation Archive', state: 'stalledUP', progress: 1, downloaded: 734003200, size: 734003200, eta: 8640000 },
+      { name: 'Media Backup', state: 'pausedDL', progress: 0.31, downloaded: 3328599654, size: 10737418240, eta: 8640000 }
+    ]);
+    return;
+  }
+
+  if (url.pathname === '/api/v3/calendar') {
+    if (req.headers['x-api-key'] !== 'visual-fixture-arr-token') {
+      res.writeHead(401, { 'Content-Type': 'text/plain' });
+      res.end('Unauthorized');
+      return;
+    }
+
+    sendJson(res, [
+      { id: 1, title: 'The Long Way Home', year: 2026, overview: 'A deterministic Radarr fixture for visual validation.', monitored: true, hasFile: false, inCinemas: '2026-06-12T00:00:00Z', digitalRelease: '2026-09-27T00:00:00Z', physicalRelease: '2026-10-06T00:00:00Z', images: [] },
+      { id: 2, title: 'Signal Lost', year: 2025, overview: 'Already available in the library.', monitored: true, hasFile: true, digitalRelease: '2026-09-29T00:00:00Z', images: [] },
+      { id: 3, title: 'Northbound', year: 2026, overview: 'An unmonitored release used to exercise normalized state.', monitored: false, hasFile: false, digitalRelease: '2026-10-02T00:00:00Z', images: [] }
+    ]);
+    return;
+  }
+
+  if (url.pathname === '/api/v1/discover/trending') {
+    if (req.headers['x-api-key'] !== 'visual-fixture-seerr-token') {
+      res.writeHead(401, { 'Content-Type': 'text/plain' });
+      res.end('Unauthorized');
+      return;
+    }
+
+    sendJson(res, {
+      page: 1,
+      totalPages: 1,
+      totalResults: 3,
+      results: [
+        { id: 101, mediaType: 'movie', title: 'Northbound', overview: 'A deterministic Seerr movie used for visual validation.', posterPath: '', releaseDate: '2026-10-02' },
+        { id: 102, mediaType: 'tv', name: 'Signal Lost', overview: 'A deterministic Seerr television fixture.', posterPath: '', firstAirDate: '2025-09-29' },
+        { id: 103, mediaType: 'movie', title: 'The Long Way Home', overview: 'Discovery content normalized through the native Seerr widget.', posterPath: '', releaseDate: '2026-06-12' }
+      ]
+    });
+    return;
+  }
+
+  if (url.pathname === '/library/recentlyAdded') {
+    if (req.headers['x-plex-token'] !== 'visual-fixture-media-token') { res.writeHead(401); res.end('Unauthorized'); return; }
+    sendJson(res, { MediaContainer: { Metadata: [
+      { ratingKey: '201', type: 'movie', title: 'Northbound', year: 2026, summary: 'Newest deterministic library addition.', addedAt: 1790899200, duration: 7140000, thumb: '' },
+      { ratingKey: '202', type: 'episode', title: 'The Return', grandparentTitle: 'Signal Lost', parentIndex: 2, index: 4, summary: 'A deterministic television episode.', addedAt: 1790812800, duration: 3120000, thumb: '' },
+      { ratingKey: '203', type: 'movie', title: 'The Long Way Home', year: 2025, summary: 'An older deterministic library addition.', addedAt: 1790726400, duration: 6480000, thumb: '' }
+    ] } });
+    return;
+  }
+
+  if (url.pathname === '/status/sessions/history/all') {
+    if (req.headers['x-plex-token'] !== 'visual-fixture-media-token') { res.writeHead(401); res.end('Unauthorized'); return; }
+    sendJson(res, { MediaContainer: { Metadata: [
+      { ratingKey: '301', type: 'movie', title: 'Northbound', year: 2026, summary: 'Recently watched deterministic movie.', viewedAt: 1790899200, duration: 7140000, thumb: '' },
+      { ratingKey: '302', type: 'episode', title: 'The Return', grandparentTitle: 'Signal Lost', parentIndex: 2, index: 4, summary: 'Recently watched deterministic episode.', viewedAt: 1790812800, duration: 3120000, thumb: '' },
+      { ratingKey: '303', type: 'movie', title: 'The Long Way Home', year: 2025, summary: 'Older deterministic playback.', viewedAt: 1790726400, duration: 6480000, thumb: '' }
+    ] } });
+    return;
+  }
+
   if (url.pathname === '/containers/json') {
     sendJson(res, dockerContainers);
     return;
