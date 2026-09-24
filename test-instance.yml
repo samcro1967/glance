@@ -690,6 +690,14 @@ pages:
             sock-path: http://127.0.0.1:18089
             hide-by-default: false
 
+          - type: torrenting
+            title: Torrents
+            css-class: visual-fixture-torrenting
+            server: http://127.0.0.1:18089
+            api-key: visual-fixture-token
+            collapse-after: 3
+            timeout: 1s
+
           - type: docker-containers
             title: Docker Containers by Compose Project
             css-class: visual-fixture-docker-containers-compose

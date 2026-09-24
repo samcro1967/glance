@@ -212,6 +212,14 @@ var widgetRegistry = map[string]widgetDescriptor{
 			{widgetCapabilityBasicAuth, widgetCapabilityScopeType | widgetCapabilityScopeInstance | widgetCapabilityScopeChild},
 		},
 	},
+	"torrenting": {
+		constructor: func() widget { return &torrentingWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+		},
+	},
 	"docker-containers": {
 		constructor: func() widget { return &dockerContainersWidget{} },
 		capabilities: []widgetCapabilityDefinition{

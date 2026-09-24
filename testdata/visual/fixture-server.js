@@ -257,6 +257,21 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (url.pathname === '/api/v2/torrents/info') {
+    if (req.headers.authorization !== 'Bearer visual-fixture-token') {
+      res.writeHead(401, { 'Content-Type': 'text/plain' });
+      res.end('Unauthorized');
+      return;
+    }
+
+    sendJson(res, [
+      { name: 'Ubuntu Server 26.04', state: 'downloading', progress: 0.64, downloaded: 2748779069, size: 4294967296, eta: 732 },
+      { name: 'Glance Documentation Archive', state: 'stalledUP', progress: 1, downloaded: 734003200, size: 734003200, eta: 8640000 },
+      { name: 'Media Backup', state: 'pausedDL', progress: 0.31, downloaded: 3328599654, size: 10737418240, eta: 8640000 }
+    ]);
+    return;
+  }
+
   if (url.pathname === '/containers/json') {
     sendJson(res, dockerContainers);
     return;

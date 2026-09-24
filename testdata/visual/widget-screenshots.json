@@ -103,6 +103,10 @@
     "route": "/homelab-monitoring",
     "selector": ".visual-fixture-docker-containers"
   },
+  "torrenting": {
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-torrenting"
+  },
   "dns-stats": {
     "route": "/homelab-monitoring",
     "selector": ".visual-fixture-dns-stats"

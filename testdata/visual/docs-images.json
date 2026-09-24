@@ -173,6 +173,12 @@
     "route": "/homelab-monitoring",
     "selector": ".visual-fixture-docker-containers"
   },
+  "widgets/torrenting.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-torrenting"
+  },
   "widgets/extension.png": {
     "kind": "browser",
     "capture": "element",
