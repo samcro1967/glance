@@ -12,8 +12,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"go.uber.org/goleak"
 )
 
 type liveUpdateDeadlineTestWriter struct {
@@ -611,7 +609,7 @@ pages:
 }
 
 func TestLiveUpdatesStopsWhenBrokerCloses(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer verifyNoTestGoroutineLeaks(t)
 
 	app := newGlanceTestApplication(t, `
 pages:

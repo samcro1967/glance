@@ -272,6 +272,21 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (url.pathname === '/api/v3/calendar') {
+    if (req.headers['x-api-key'] !== 'visual-fixture-arr-token') {
+      res.writeHead(401, { 'Content-Type': 'text/plain' });
+      res.end('Unauthorized');
+      return;
+    }
+
+    sendJson(res, [
+      { id: 1, title: 'The Long Way Home', year: 2026, overview: 'A deterministic Radarr fixture for visual validation.', monitored: true, hasFile: false, inCinemas: '2026-06-12T00:00:00Z', digitalRelease: '2026-09-27T00:00:00Z', physicalRelease: '2026-10-06T00:00:00Z', images: [] },
+      { id: 2, title: 'Signal Lost', year: 2025, overview: 'Already available in the library.', monitored: true, hasFile: true, digitalRelease: '2026-09-29T00:00:00Z', images: [] },
+      { id: 3, title: 'Northbound', year: 2026, overview: 'An unmonitored release used to exercise normalized state.', monitored: false, hasFile: false, digitalRelease: '2026-10-02T00:00:00Z', images: [] }
+    ]);
+    return;
+  }
+
   if (url.pathname === '/containers/json') {
     sendJson(res, dockerContainers);
     return;

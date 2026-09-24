@@ -107,6 +107,10 @@
     "route": "/homelab-monitoring",
     "selector": ".visual-fixture-torrenting"
   },
+  "arr": {
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-arr"
+  },
   "dns-stats": {
     "route": "/homelab-monitoring",
     "selector": ".visual-fixture-dns-stats"

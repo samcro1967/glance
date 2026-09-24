@@ -179,6 +179,12 @@
     "route": "/homelab-monitoring",
     "selector": ".visual-fixture-torrenting"
   },
+  "widgets/arr.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-arr"
+  },
   "widgets/extension.png": {
     "kind": "browser",
     "capture": "element",

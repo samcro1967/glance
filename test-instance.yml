@@ -721,6 +721,18 @@ pages:
             url: http://127.0.0.1:18089/
             timeout: 1s
 
+          - type: arr
+            title: ARR Upcoming
+            css-class: visual-fixture-arr
+            service: radarr
+            server: http://127.0.0.1:18089
+            api-key: visual-fixture-arr-token
+            view: upcoming
+            days: 14
+            limit: 3
+            collapse-after: 3
+            timeout: 1s
+
           - type: prometheus
             title: Request Rate
             css-class: visual-fixture-prometheus
