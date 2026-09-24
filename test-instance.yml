@@ -625,6 +625,10 @@ pages:
             id: visual-qa-timer
             hour-format: 12h
 
+          - type: stopwatch
+            title: Stopwatch
+            css-class: visual-fixture-stopwatch
+
       - size: full
         widgets:
           - type: calendar

@@ -107,6 +107,7 @@ Set custom CSS classes for the specific widget instance.
 | [Clock](widgets/clock.md) | Display clocks for configured time zones. |
 | [Analog Clock](widgets/analog-clock.md) | Display time using an analog clock. |
 | [Timer](widgets/timer.md) | Provide an interactive timer. |
+| [Stopwatch](widgets/stopwatch.md) | Measure elapsed time and record laps. |
 
 ### Homelab & monitoring
 

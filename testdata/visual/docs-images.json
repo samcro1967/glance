@@ -293,6 +293,12 @@
     "route": "/date-time-weather",
     "selector": ".visual-fixture-timer"
   },
+  "widgets/stopwatch.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-stopwatch"
+  },
   "widgets/to-do.png": {
     "kind": "browser",
     "capture": "element",

@@ -455,6 +455,21 @@ async function setupTimers() {
     }
 }
 
+async function setupStopwatches(root = document) {
+    const elems = Array.from(root.getElementsByClassName("stopwatch"));
+    if (elems.length === 0) return [];
+
+    const stopwatch = await import('./stopwatch.js');
+    const cleanupCallbacks = [];
+
+    for (const element of elems) {
+        const cleanup = stopwatch.default(element);
+        if (typeof cleanup === "function") cleanupCallbacks.push(cleanup);
+    }
+
+    return cleanupCallbacks;
+}
+
 async function setupTodos() {
     const elems = Array.from(document.getElementsByClassName("todo"));
     if (elems.length == 0) return;
@@ -563,6 +578,9 @@ async function initializeContentRoot(root, diagnostics = false) {
 
     cleanupCallbacks.push(
         ...await runAsyncStage("calendars", () => setupCalendars(root))
+    );
+    cleanupCallbacks.push(
+        ...await runAsyncStage("stopwatches", () => setupStopwatches(root))
     );
     cleanupCallbacks.push(
         ...runStage("carousels", () => setupCarousels(root))

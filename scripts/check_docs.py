@@ -46,6 +46,7 @@ EXPECTED_WIDGET_DOCS = {
     "stack.md",
     "status-bar.md",
     "timer.md",
+    "stopwatch.md",
     "todo.md",
     "twitch-channels.md",
     "twitch-top-games.md",

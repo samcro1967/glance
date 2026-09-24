@@ -228,6 +228,9 @@ var widgetRegistry = map[string]widgetDescriptor{
 	"timer": {
 		constructor: func() widget { return &timerWidget{} },
 	},
+	"stopwatch": {
+		constructor: func() widget { return &stopwatchWidget{} },
+	},
 	"to-do": {
 		constructor: func() widget { return &todoWidget{} },
 	},
