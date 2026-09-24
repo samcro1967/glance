@@ -317,6 +317,16 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (url.pathname === '/status/sessions/history/all') {
+    if (req.headers['x-plex-token'] !== 'visual-fixture-media-token') { res.writeHead(401); res.end('Unauthorized'); return; }
+    sendJson(res, { MediaContainer: { Metadata: [
+      { ratingKey: '301', type: 'movie', title: 'Northbound', year: 2026, summary: 'Recently watched deterministic movie.', viewedAt: 1790899200, duration: 7140000, thumb: '' },
+      { ratingKey: '302', type: 'episode', title: 'The Return', grandparentTitle: 'Signal Lost', parentIndex: 2, index: 4, summary: 'Recently watched deterministic episode.', viewedAt: 1790812800, duration: 3120000, thumb: '' },
+      { ratingKey: '303', type: 'movie', title: 'The Long Way Home', year: 2025, summary: 'Older deterministic playback.', viewedAt: 1790726400, duration: 6480000, thumb: '' }
+    ] } });
+    return;
+  }
+
   if (url.pathname === '/containers/json') {
     sendJson(res, dockerContainers);
     return;

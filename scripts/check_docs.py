@@ -39,6 +39,7 @@ EXPECTED_WIDGET_DOCS = {
     "arr.md",
     "seerr.md",
     "latest-media.md",
+    "media-history.md",
     "torrenting.md",
     "reddit.md",
     "releases.md",

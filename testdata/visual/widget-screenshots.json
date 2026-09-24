@@ -119,6 +119,10 @@
     "route": "/homelab-monitoring",
     "selector": ".visual-fixture-latest-media"
   },
+  "media-history": {
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-media-history"
+  },
   "dns-stats": {
     "route": "/homelab-monitoring",
     "selector": ".visual-fixture-dns-stats"

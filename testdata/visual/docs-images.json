@@ -197,6 +197,12 @@
     "route": "/homelab-monitoring",
     "selector": ".visual-fixture-latest-media"
   },
+  "widgets/media-history.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-media-history"
+  },
   "widgets/extension.png": {
     "kind": "browser",
     "capture": "element",

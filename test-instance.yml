@@ -753,6 +753,16 @@ pages:
             collapse-after: 3
             timeout: 1s
 
+          - type: media-history
+            title: Media History
+            css-class: visual-fixture-media-history
+            service: plex
+            server: http://127.0.0.1:18089
+            api-key: visual-fixture-media-token
+            limit: 3
+            collapse-after: 3
+            timeout: 1s
+
           - type: prometheus
             title: Request Rate
             css-class: visual-fixture-prometheus

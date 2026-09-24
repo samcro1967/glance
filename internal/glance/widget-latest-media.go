@@ -46,6 +46,7 @@ type plexMediaItem struct {
 	Summary          string `json:"summary"`
 	Thumb            string `json:"thumb"`
 	AddedAt          int64  `json:"addedAt"`
+	ViewedAt         int64  `json:"viewedAt"`
 	Duration         int64  `json:"duration"`
 }
 
