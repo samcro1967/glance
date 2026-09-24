@@ -625,6 +625,10 @@ pages:
             id: visual-qa-timer
             hour-format: 12h
 
+          - type: stopwatch
+            title: Stopwatch
+            css-class: visual-fixture-stopwatch
+
       - size: full
         widgets:
           - type: calendar
@@ -686,6 +690,14 @@ pages:
             sock-path: http://127.0.0.1:18089
             hide-by-default: false
 
+          - type: torrenting
+            title: Torrents
+            css-class: visual-fixture-torrenting
+            server: http://127.0.0.1:18089
+            api-key: visual-fixture-token
+            collapse-after: 3
+            timeout: 1s
+
           - type: docker-containers
             title: Docker Containers by Compose Project
             css-class: visual-fixture-docker-containers-compose
@@ -707,6 +719,48 @@ pages:
             css-class: visual-fixture-dns-stats
             service: adguard
             url: http://127.0.0.1:18089/
+            timeout: 1s
+
+          - type: arr
+            title: ARR Upcoming
+            css-class: visual-fixture-arr
+            service: radarr
+            server: http://127.0.0.1:18089
+            api-key: visual-fixture-arr-token
+            view: upcoming
+            days: 14
+            limit: 3
+            collapse-after: 3
+            timeout: 1s
+
+          - type: seerr
+            title: Seerr Trending
+            css-class: visual-fixture-seerr
+            server: http://127.0.0.1:18089
+            api-key: visual-fixture-seerr-token
+            view: trending
+            limit: 3
+            collapse-after: 3
+            timeout: 1s
+
+          - type: latest-media
+            title: Latest Media
+            css-class: visual-fixture-latest-media
+            service: plex
+            server: http://127.0.0.1:18089
+            api-key: visual-fixture-media-token
+            limit: 3
+            collapse-after: 3
+            timeout: 1s
+
+          - type: media-history
+            title: Media History
+            css-class: visual-fixture-media-history
+            service: plex
+            server: http://127.0.0.1:18089
+            api-key: visual-fixture-media-token
+            limit: 3
+            collapse-after: 3
             timeout: 1s
 
           - type: prometheus

@@ -1229,6 +1229,31 @@ async function main() {
 
     await openPage(page, '/date-time-weather', coveragePath);
 
+    const stopwatch = page.locator('.visual-fixture-stopwatch');
+    const stopwatchDisplay = stopwatch.locator('[data-stopwatch-display]');
+    await stopwatch.locator('[data-stopwatch-toggle]').click();
+    await page.waitForTimeout(1100);
+    await stopwatch.locator('[data-stopwatch-lap]').click();
+    await stopwatch.locator('[data-stopwatch-toggle]').click();
+
+    const stopwatchElapsed = (await stopwatchDisplay.textContent())?.trim();
+    if (!stopwatchElapsed || stopwatchElapsed === '0:00:00') {
+      throw new Error(`Stopwatch did not advance: ${stopwatchElapsed}`);
+    }
+
+    const stopwatchLaps = stopwatch.locator('.stopwatch-lap');
+    if (await stopwatchLaps.count() !== 1) {
+      throw new Error('Stopwatch did not record exactly one lap');
+    }
+
+    await stopwatch.locator('[data-stopwatch-reset]').click();
+    if ((await stopwatchDisplay.textContent())?.trim() !== '0:00:00') {
+      throw new Error('Stopwatch reset did not clear elapsed time');
+    }
+    if (await stopwatchLaps.count() !== 0) {
+      throw new Error('Stopwatch reset did not clear laps');
+    }
+
     const timer = page.locator('.visual-fixture-timer');
     await timer.locator('.timer-add').click();
 
@@ -1343,6 +1368,7 @@ async function main() {
       throw new Error('Calendar continuation event did not use full-width layout');
     }
 
+    console.log('PASS stopwatch interaction');
     console.log('PASS timer persistence interaction');
     console.log('PASS calendar month navigation interaction');
     console.log('PASS calendar continuation presentation');

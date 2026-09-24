@@ -6,6 +6,16 @@ import (
 	"go.uber.org/goleak"
 )
 
+var perTestGoleakOptions = []goleak.Option{
+	goleak.IgnoreTopFunction("net/http.(*persistConn).readLoop"),
+	goleak.IgnoreTopFunction("net/http.(*persistConn).writeLoop"),
+}
+
+func verifyNoTestGoroutineLeaks(t *testing.T) {
+	t.Helper()
+	goleak.VerifyNone(t, perTestGoleakOptions...)
+}
+
 type goleakTestMain struct {
 	m *testing.M
 }

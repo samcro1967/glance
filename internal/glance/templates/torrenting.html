@@ -1,0 +1,30 @@
+{{ template "widget-base.html" . }}
+
+{{ define "widget-content" }}
+{{ if .Torrents }}
+<ul class="list list-gap-15 collapsible-container" data-collapse-after="{{ .CollapseAfter }}">
+    {{ range .Torrents }}
+    <li class="torrenting-item">
+        <div class="flex items-center gap-10">
+            <div class="min-width-0 grow">
+                <div class="color-highlight size-h4 text-truncate" title="{{ .Name }}">{{ .Name }}</div>
+                <div class="torrenting-meta size-h6 color-subdue">
+                    <span>{{ .StateLabel }}</span>
+                    <span>{{ .Downloaded }} / {{ .Size }}</span>
+                    {{ if not .Completed }}<span>ETA {{ .ETA }}</span>{{ end }}
+                </div>
+            </div>
+            <div class="torrenting-state shrink-0{{ if .Active }} torrenting-state-active{{ end }}">{{ .ProgressText }}</div>
+        </div>
+        {{ if and (not $.HideProgress) (not .Completed) }}
+        <div class="torrenting-progress" aria-label="{{ .ProgressText }} complete">
+            <div class="torrenting-progress-value" style="width: {{ .ProgressCSS | safeCSS }}"></div>
+        </div>
+        {{ end }}
+    </li>
+    {{ end }}
+</ul>
+{{ else }}
+<div class="text-center">No torrents available to show.</div>
+{{ end }}
+{{ end }}

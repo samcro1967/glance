@@ -7,8 +7,6 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"go.uber.org/goleak"
 )
 
 func TestKeyedResourceCacheCachesValidValue(t *testing.T) {
@@ -215,7 +213,7 @@ func TestKeyedResourceCacheWaitingCallerCanCancel(t *testing.T) {
 }
 
 func TestKeyedResourceCacheLeaderCancellationDoesNotCancelSharedFetch(t *testing.T) {
-	defer goleak.VerifyNone(t)
+	defer verifyNoTestGoroutineLeaks(t)
 
 	cache := newKeyedResourceCache[string, string](time.Hour)
 
