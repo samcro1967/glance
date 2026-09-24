@@ -111,6 +111,10 @@
     "route": "/homelab-monitoring",
     "selector": ".visual-fixture-arr"
   },
+  "seerr": {
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-seerr"
+  },
   "dns-stats": {
     "route": "/homelab-monitoring",
     "selector": ".visual-fixture-dns-stats"

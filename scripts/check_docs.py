@@ -37,6 +37,7 @@ EXPECTED_WIDGET_DOCS = {
     "monitor.md",
     "prometheus.md",
     "arr.md",
+    "seerr.md",
     "torrenting.md",
     "reddit.md",
     "releases.md",

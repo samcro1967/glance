@@ -117,6 +117,7 @@ Set custom CSS classes for the specific widget instance.
 | [Prometheus](widgets/prometheus.md) | Graph a PromQL range query from a Prometheus-compatible server. |
 | [Docker Containers](widgets/docker-containers.md) | Display Docker container status. |
 | [ARR](widgets/arr.md) | Display upcoming, recent, or missing media from Radarr, Sonarr, or Lidarr. |
+| [Seerr](widgets/seerr.md) | Display discovery, requests, recently added media, or watchlist content from Seerr. |
 | [Torrenting](widgets/torrenting.md) | Display qBittorrent download and seeding activity. |
 | [DNS Stats](widgets/dns-stats.md) | Display DNS service statistics. |
 | [Server Stats](widgets/server-stats.md) | Display local and remote server statistics. |

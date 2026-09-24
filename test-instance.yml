@@ -733,6 +733,16 @@ pages:
             collapse-after: 3
             timeout: 1s
 
+          - type: seerr
+            title: Seerr Trending
+            css-class: visual-fixture-seerr
+            server: http://127.0.0.1:18089
+            api-key: visual-fixture-seerr-token
+            view: trending
+            limit: 3
+            collapse-after: 3
+            timeout: 1s
+
           - type: prometheus
             title: Request Rate
             css-class: visual-fixture-prometheus

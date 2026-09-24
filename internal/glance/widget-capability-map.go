@@ -200,6 +200,14 @@ var widgetRegistry = map[string]widgetDescriptor{
 			{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 		},
 	},
+	"seerr": {
+		constructor: func() widget { return &seerrWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+		},
+	},
 	"prometheus": {
 		constructor: func() widget { return &prometheusWidget{} },
 		capabilities: []widgetCapabilityDefinition{

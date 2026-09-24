@@ -287,6 +287,26 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (url.pathname === '/api/v1/discover/trending') {
+    if (req.headers['x-api-key'] !== 'visual-fixture-seerr-token') {
+      res.writeHead(401, { 'Content-Type': 'text/plain' });
+      res.end('Unauthorized');
+      return;
+    }
+
+    sendJson(res, {
+      page: 1,
+      totalPages: 1,
+      totalResults: 3,
+      results: [
+        { id: 101, mediaType: 'movie', title: 'Northbound', overview: 'A deterministic Seerr movie used for visual validation.', posterPath: '', releaseDate: '2026-10-02' },
+        { id: 102, mediaType: 'tv', name: 'Signal Lost', overview: 'A deterministic Seerr television fixture.', posterPath: '', firstAirDate: '2025-09-29' },
+        { id: 103, mediaType: 'movie', title: 'The Long Way Home', overview: 'Discovery content normalized through the native Seerr widget.', posterPath: '', releaseDate: '2026-06-12' }
+      ]
+    });
+    return;
+  }
+
   if (url.pathname === '/containers/json') {
     sendJson(res, dockerContainers);
     return;
