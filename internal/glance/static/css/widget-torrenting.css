@@ -1,22 +1,10 @@
-.torrenting-item {
-    min-width: 0;
-}
-
-.torrenting-meta {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem 1rem;
-    margin-top: 0.25rem;
-}
-
 .torrenting-state {
-    color: var(--color-text-base);
-    font-size: var(--font-size-h5);
+    color: var(--theme-text-color, var(--color-text-base));
     font-variant-numeric: tabular-nums;
 }
 
 .torrenting-state-active {
-    color: var(--color-primary);
+    color: var(--theme-accent-color, var(--color-primary));
 }
 
 .torrenting-progress {
@@ -24,11 +12,11 @@
     margin-top: 0.65rem;
     overflow: hidden;
     border-radius: 999px;
-    background: var(--color-separator);
+    background: var(--theme-control-border-color, var(--color-separator));
 }
 
 .torrenting-progress-value {
     height: 100%;
     border-radius: inherit;
-    background: var(--color-primary);
+    background: var(--theme-accent-color, var(--color-primary));
 }

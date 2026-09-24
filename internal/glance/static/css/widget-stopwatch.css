@@ -11,6 +11,7 @@
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.02em;
     line-height: 1;
+    color: var(--theme-heading-text-color, var(--color-text-highlight));
 }
 
 .stopwatch-controls {
@@ -43,7 +44,7 @@
 }
 
 .stopwatch-lap-number {
-    font-size: var(--font-size-h6);
+    color: var(--theme-muted-text-color, var(--color-text-subdue));
 }
 
 .stopwatch-lap-time {

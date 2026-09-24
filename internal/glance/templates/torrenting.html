@@ -2,13 +2,13 @@
 
 {{ define "widget-content" }}
 {{ if .Torrents }}
-<ul class="list list-gap-15 collapsible-container" data-collapse-after="{{ .CollapseAfter }}">
+<ul class="list glance-list collapsible-container" data-collapse-after="{{ .CollapseAfter }}">
     {{ range .Torrents }}
-    <li class="torrenting-item">
-        <div class="flex items-center gap-10">
+    <li class="glance-list-row">
+        <div class="flex items-center gap-10 glance-list-row-primary">
             <div class="min-width-0 grow">
-                <div class="color-highlight size-h4 text-truncate" title="{{ .Name }}">{{ .Name }}</div>
-                <div class="torrenting-meta size-h6 color-subdue">
+                <div class="size-title-dynamic color-highlight text-truncate" title="{{ .Name }}">{{ .Name }}</div>
+                <div class="list-horizontal-text glance-list-row-meta">
                     <span>{{ .StateLabel }}</span>
                     <span>{{ .Downloaded }} / {{ .Size }}</span>
                     {{ if not .Completed }}<span>ETA {{ .ETA }}</span>{{ end }}
