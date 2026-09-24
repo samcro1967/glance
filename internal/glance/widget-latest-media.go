@@ -206,7 +206,10 @@ func fetchJellyfinLatest(ctx context.Context, widget *latestMediaWidget) ([]medi
 }
 
 func fetchNavidromeLatest(ctx context.Context, widget *latestMediaWidget) ([]mediaItem, error) {
-	values := navidromeAuthValues(widget.Username, widget.Password)
+	values, err := navidromeAuthValues(widget.Username, widget.Password)
+	if err != nil {
+		return nil, err
+	}
 	values.Set("type", "newest")
 	values.Set("size", strconv.Itoa(widget.Limit))
 	endpoint := widget.Server + "/rest/getAlbumList2.view?" + values.Encode()
@@ -237,17 +240,24 @@ func fetchNavidromeLatest(ctx context.Context, widget *latestMediaWidget) ([]med
 		created := parseMediaTime(value.Created)
 		image := ""
 		if value.CoverArt != "" {
-			image = widget.Server + "/rest/getCoverArt.view?" + navidromeCoverValues(widget, value.CoverArt).Encode()
+			coverValues, err := navidromeCoverValues(widget, value.CoverArt)
+			if err != nil {
+				return nil, err
+			}
+			image = widget.Server + "/rest/getCoverArt.view?" + coverValues.Encode()
 		}
 		items = append(items, mediaItem{Title: value.Name, Subtitle: mediaSubtitle(value.Artist, yearText(value.Year)), MediaType: "Album", Date: formatMediaDate(created), ImageURL: image, Duration: formatMediaDuration(time.Duration(value.Duration) * time.Second), SortTime: created})
 	}
 	return items, nil
 }
 
-func navidromeCoverValues(widget *latestMediaWidget, id string) url.Values {
-	values := navidromeAuthValues(widget.Username, widget.Password)
+func navidromeCoverValues(widget *latestMediaWidget, id string) (url.Values, error) {
+	values, err := navidromeAuthValues(widget.Username, widget.Password)
+	if err != nil {
+		return nil, err
+	}
 	values.Set("id", id)
-	return values
+	return values, nil
 }
 func normalizePlexMedia(server, token string, value plexMediaItem, date time.Time) mediaItem {
 	title := value.Title

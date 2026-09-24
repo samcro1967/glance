@@ -2,6 +2,8 @@ package glance
 
 import (
 	"crypto/md5"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -10,6 +12,8 @@ import (
 	"strings"
 	"time"
 )
+
+const navidromeSaltRandomBytes = 16
 
 type mediaServerConfig struct {
 	Service       string
@@ -127,15 +131,19 @@ func mediaSubtitle(parts ...string) string {
 	return strings.Join(filtered, " · ")
 }
 
-func navidromeAuthValues(username, password string) url.Values {
-	// A stable per-request salt is unnecessary for credential secrecy because the
-	// request remains server-side, but a varying salt prevents token reuse.
-	salt := strconv.FormatInt(time.Now().UnixNano(), 36)
+func navidromeAuthValues(username, password string) (url.Values, error) {
+	saltBytes := make([]byte, navidromeSaltRandomBytes)
+	if _, err := rand.Read(saltBytes); err != nil {
+		return nil, fmt.Errorf("generating Navidrome authentication salt: %w", err)
+	}
+	salt := base64.RawURLEncoding.EncodeToString(saltBytes)
+
+	// Subsonic token authentication requires MD5(password + salt).
 	digest := md5.Sum([]byte(password + salt)) // #nosec G401 -- Subsonic API requires MD5 token authentication.
 	return url.Values{
 		"u": {username}, "t": {hex.EncodeToString(digest[:])}, "s": {salt},
 		"v": {"1.16.1"}, "c": {"glance"}, "f": {"json"},
-	}
+	}, nil
 }
 
 func proxyMediaImage(providers *widgetProviders, raw string) string {
