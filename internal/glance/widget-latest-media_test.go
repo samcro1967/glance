@@ -2,6 +2,9 @@ package glance
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -73,6 +76,50 @@ func TestFetchLatestMediaJellyfinUsesToken(t *testing.T) {
 	items, err := fetchLatestMedia(context.Background(), widget)
 	if err != nil || len(items) != 1 || items[0].Title != "Signal Lost" {
 		t.Fatalf("items=%#v err=%v", items, err)
+	}
+}
+
+func TestNavidromeAuthValues(t *testing.T) {
+	first, err := navidromeAuthValues("alice", "secret")
+	if err != nil {
+		t.Fatalf("first auth values: %v", err)
+	}
+	second, err := navidromeAuthValues("alice", "secret")
+	if err != nil {
+		t.Fatalf("second auth values: %v", err)
+	}
+
+	if first.Get("u") != "alice" || first.Get("v") != "1.16.1" || first.Get("c") != "glance" || first.Get("f") != "json" {
+		t.Fatalf("values=%v", first)
+	}
+	salt := first.Get("s")
+	if salt == "" {
+		t.Fatal("salt is empty")
+	}
+	saltBytes, err := base64.RawURLEncoding.DecodeString(salt)
+	if err != nil {
+		t.Fatalf("decoding salt: %v", err)
+	}
+	if len(saltBytes) != navidromeSaltRandomBytes {
+		t.Fatalf("salt bytes=%d", len(saltBytes))
+	}
+	digest := md5.Sum([]byte("secret" + salt))
+	if first.Get("t") != hex.EncodeToString(digest[:]) {
+		t.Fatalf("token=%q", first.Get("t"))
+	}
+	if first.Get("s") == second.Get("s") {
+		t.Fatalf("salt reused: %q", first.Get("s"))
+	}
+}
+
+func TestNavidromeCoverValues(t *testing.T) {
+	widget := &latestMediaWidget{Username: "alice", Password: "secret"}
+	values, err := navidromeCoverValues(widget, "cover-123")
+	if err != nil {
+		t.Fatalf("cover values: %v", err)
+	}
+	if values.Get("id") != "cover-123" || values.Get("u") != "alice" || values.Get("s") == "" || values.Get("t") == "" {
+		t.Fatalf("values=%v", values)
 	}
 }
 
