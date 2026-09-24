@@ -208,6 +208,14 @@ var widgetRegistry = map[string]widgetDescriptor{
 			{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 		},
 	},
+	"latest-media": {
+		constructor: func() widget { return &latestMediaWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+		},
+	},
 	"prometheus": {
 		constructor: func() widget { return &prometheusWidget{} },
 		capabilities: []widgetCapabilityDefinition{

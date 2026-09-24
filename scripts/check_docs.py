@@ -38,6 +38,7 @@ EXPECTED_WIDGET_DOCS = {
     "prometheus.md",
     "arr.md",
     "seerr.md",
+    "latest-media.md",
     "torrenting.md",
     "reddit.md",
     "releases.md",

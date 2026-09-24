@@ -118,6 +118,7 @@ Set custom CSS classes for the specific widget instance.
 | [Docker Containers](widgets/docker-containers.md) | Display Docker container status. |
 | [ARR](widgets/arr.md) | Display upcoming, recent, or missing media from Radarr, Sonarr, or Lidarr. |
 | [Seerr](widgets/seerr.md) | Display discovery, requests, recently added media, or watchlist content from Seerr. |
+| [Latest Media](widgets/latest-media.md) | Display newest library additions from Plex, Jellyfin, Emby, or Navidrome. |
 | [Torrenting](widgets/torrenting.md) | Display qBittorrent download and seeding activity. |
 | [DNS Stats](widgets/dns-stats.md) | Display DNS service statistics. |
 | [Server Stats](widgets/server-stats.md) | Display local and remote server statistics. |
