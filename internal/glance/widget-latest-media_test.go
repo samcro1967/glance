@@ -76,6 +76,18 @@ func TestFetchLatestMediaJellyfinUsesToken(t *testing.T) {
 	}
 }
 
+func TestNormalizePlexSeason(t *testing.T) {
+	item := normalizePlexMedia("https://plex.example", "secret", plexMediaItem{Type: "season", Title: "Season 1", ParentTitle: "Brothers (2026)", Index: 1}, parseMediaTime("2026-09-24T12:00:00Z"))
+	if item.Title != "Brothers (2026)" || item.Subtitle != "Season 1" {
+		t.Fatalf("item=%#v", item)
+	}
+
+	fallback := normalizePlexMedia("https://plex.example", "secret", plexMediaItem{Type: "season", Title: "Season 2"}, parseMediaTime("2026-09-24T12:00:00Z"))
+	if fallback.Title != "Season 2" || fallback.Subtitle != "Season 2" {
+		t.Fatalf("fallback=%#v", fallback)
+	}
+}
+
 func TestNormalizePlexEpisode(t *testing.T) {
 	item := normalizePlexMedia("https://plex.example", "secret", plexMediaItem{Type: "episode", Title: "The Return", GrandparentTitle: "Signal Lost", ParentIndex: 2, Index: 4, Duration: 3120000}, parseMediaTime("2026-09-24T12:00:00Z"))
 	if item.Title != "Signal Lost" || item.Subtitle != "S02E04 · The Return" || item.Duration != "52m" {

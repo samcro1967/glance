@@ -39,6 +39,7 @@ type plexMediaItem struct {
 	RatingKey        string `json:"ratingKey"`
 	Type             string `json:"type"`
 	Title            string `json:"title"`
+	ParentTitle      string `json:"parentTitle"`
 	GrandparentTitle string `json:"grandparentTitle"`
 	ParentIndex      int    `json:"parentIndex"`
 	Index            int    `json:"index"`
@@ -251,7 +252,14 @@ func navidromeCoverValues(widget *latestMediaWidget, id string) url.Values {
 func normalizePlexMedia(server, token string, value plexMediaItem, date time.Time) mediaItem {
 	title := value.Title
 	subtitle := yearText(value.Year)
-	if value.Type == "episode" {
+	switch value.Type {
+	case "season":
+		title = value.ParentTitle
+		if title == "" {
+			title = value.Title
+		}
+		subtitle = value.Title
+	case "episode":
 		title = value.GrandparentTitle
 		if title == "" {
 			title = value.Title
