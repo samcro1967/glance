@@ -2,19 +2,21 @@
 
 {{ define "widget-content" }}
 {{ if .Items }}
-<ul class="list list-gap-10 collapsible-container" data-collapse-after="{{ .CollapseAfter }}">
+<ul class="list glance-list collapsible-container" data-collapse-after="{{ .CollapseAfter }}">
     {{ range .Items }}
-    <li class="media-history-item flex gap-10 items-center thumbnail-parent">
-        {{ if .ImageURL }}<img class="media-history-poster thumbnail shrink-0" loading="lazy" src="{{ .ImageURL }}" alt="">{{ end }}
-        <div class="min-width-0 grow">
-            <div class="color-highlight size-h4 text-truncate" title="{{ .Title }}">{{ .Title }}</div>
-            {{ if .Subtitle }}<div class="size-h6 color-subdue text-truncate">{{ .Subtitle }}</div>{{ end }}
-            <div class="media-history-meta size-h6 color-subdue">
+    <li class="glance-list-row">
+        <div class="flex items-center gap-10 glance-list-row-primary thumbnail-parent">
+            {{ if .ImageURL }}<img class="media-list-poster thumbnail shrink-0" loading="lazy" src="{{ .ImageURL }}" alt="">{{ end }}
+            <div class="min-width-0 grow">
+            <div class="size-title-dynamic color-highlight text-truncate" title="{{ .Title }}">{{ .Title }}</div>
+            {{ if .Subtitle }}<div class="color-subdue text-truncate">{{ .Subtitle }}</div>{{ end }}
+            <div class="list-horizontal-text glance-list-row-meta">
                 {{ if .MediaType }}<span>{{ .MediaType }}</span>{{ end }}
                 {{ if .Duration }}<span>{{ .Duration }}</span>{{ end }}
                 {{ if .Date }}<span>Played {{ .Date }}</span>{{ end }}
             </div>
-            {{ if .Summary }}<div class="media-history-summary size-h6 color-subdue text-truncate-2-lines">{{ .Summary }}</div>{{ end }}
+            {{ if .Summary }}<div class="media-list-summary color-subdue text-truncate-2-lines">{{ .Summary }}</div>{{ end }}
+            </div>
         </div>
     </li>
     {{ end }}
