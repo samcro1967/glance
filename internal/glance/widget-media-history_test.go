@@ -60,8 +60,11 @@ func TestFetchMediaHistoryJellyfinUsesUserAndLastPlayedDate(t *testing.T) {
 		if r.URL.Path != "/Users/user-1/Items" {
 			t.Fatalf("path=%q", r.URL.Path)
 		}
-		if r.Header.Get("X-Emby-Token") != "secret" {
-			t.Fatalf("token=%q", r.Header.Get("X-Emby-Token"))
+		if r.Header.Get("Authorization") != `MediaBrowser Token="secret"` {
+			t.Fatalf("authorization=%q", r.Header.Get("Authorization"))
+		}
+		if r.Header.Get("X-Emby-Token") != "" {
+			t.Fatalf("unexpected Emby token=%q", r.Header.Get("X-Emby-Token"))
 		}
 		_, _ = w.Write([]byte(`{"Items":[{"Id":"a","Name":"Signal Lost","Type":"Series","ProductionYear":2026,"UserData":{"LastPlayedDate":"2026-09-24T12:00:00Z"}},{"Id":"b","Name":"Never Played","Type":"Movie","UserData":{}}]}`))
 	}))
@@ -69,6 +72,24 @@ func TestFetchMediaHistoryJellyfinUsesUserAndLastPlayedDate(t *testing.T) {
 	widget := &mediaHistoryWidget{Service: "jellyfin", Server: server.URL, APIKey: "secret", UserID: "user-1", Limit: 10}
 	items, err := fetchMediaHistory(context.Background(), widget)
 	if err != nil || len(items) != 1 || items[0].Title != "Signal Lost" || items[0].Date == "" {
+		t.Fatalf("items=%#v err=%v", items, err)
+	}
+}
+
+func TestFetchMediaHistoryEmbyUsesEmbyToken(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Emby-Token") != "secret" {
+			t.Fatalf("token=%q", r.Header.Get("X-Emby-Token"))
+		}
+		if r.Header.Get("Authorization") != "" {
+			t.Fatalf("authorization=%q", r.Header.Get("Authorization"))
+		}
+		_, _ = w.Write([]byte(`{"Items":[{"Id":"a","Name":"Northbound","Type":"Movie","UserData":{"LastPlayedDate":"2026-09-24T12:00:00Z"}}]}`))
+	}))
+	defer server.Close()
+	widget := &mediaHistoryWidget{Service: "emby", Server: server.URL, APIKey: "secret", UserID: "user-1", Limit: 10}
+	items, err := fetchMediaHistory(context.Background(), widget)
+	if err != nil || len(items) != 1 || items[0].Title != "Northbound" {
 		t.Fatalf("items=%#v err=%v", items, err)
 	}
 }

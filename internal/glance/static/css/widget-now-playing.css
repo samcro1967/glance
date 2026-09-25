@@ -1,0 +1,16 @@
+.now-playing-state {
+    width: .7rem;
+    height: .7rem;
+    flex: 0 0 .7rem;
+    border-radius: 50%;
+    background: var(--color-text-base-muted);
+}
+
+.now-playing-state-active {
+    background: var(--theme-accent-color, var(--color-primary));
+}
+
+.now-playing-progress {
+    margin-top: .6rem;
+    max-width: 32rem;
+}

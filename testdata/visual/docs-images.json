@@ -542,5 +542,11 @@
     "capture": "element",
     "route": "/homelab-monitoring",
     "selector": ".visual-fixture-docker-containers-compose-grid"
+  },
+  "widgets/now-playing.png": {
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-now-playing",
+    "kind": "browser",
+    "capture": "element"
   }
 }

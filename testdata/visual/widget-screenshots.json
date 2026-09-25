@@ -174,5 +174,9 @@
   "calculator": {
     "route": "/utilities",
     "selector": ".visual-fixture-calculator"
+  },
+  "now-playing": {
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-now-playing"
   }
 }

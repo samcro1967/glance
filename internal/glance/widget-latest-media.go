@@ -155,7 +155,7 @@ func fetchPlexLatest(ctx context.Context, widget *latestMediaWidget) ([]mediaIte
 	if err != nil {
 		return nil, err
 	}
-	request.Header.Set("X-Plex-Token", widget.APIKey)
+	applyMediaServerAuth(request, widget.Service, widget.APIKey)
 	request.Header.Set("Accept", "application/json")
 	response, err := newHTTPClient(widget.Timeout, widget.AllowInsecure).Do(request)
 	if err != nil {
@@ -183,7 +183,7 @@ func fetchJellyfinLatest(ctx context.Context, widget *latestMediaWidget) ([]medi
 	if err != nil {
 		return nil, err
 	}
-	request.Header.Set("X-Emby-Token", widget.APIKey)
+	applyMediaServerAuth(request, widget.Service, widget.APIKey)
 	request.Header.Set("Accept", "application/json")
 	response, err := newHTTPClient(widget.Timeout, widget.AllowInsecure).Do(request)
 	if err != nil {
@@ -240,7 +240,7 @@ func fetchNavidromeLatest(ctx context.Context, widget *latestMediaWidget) ([]med
 		created := parseMediaTime(value.Created)
 		image := ""
 		if value.CoverArt != "" {
-			coverValues, err := navidromeCoverValues(widget, value.CoverArt)
+			coverValues, err := navidromeCoverValues(widget.Username, widget.Password, value.CoverArt)
 			if err != nil {
 				return nil, err
 			}
@@ -251,14 +251,6 @@ func fetchNavidromeLatest(ctx context.Context, widget *latestMediaWidget) ([]med
 	return items, nil
 }
 
-func navidromeCoverValues(widget *latestMediaWidget, id string) (url.Values, error) {
-	values, err := navidromeAuthValues(widget.Username, widget.Password)
-	if err != nil {
-		return nil, err
-	}
-	values.Set("id", id)
-	return values, nil
-}
 func normalizePlexMedia(server, token string, value plexMediaItem, date time.Time) mediaItem {
 	title := value.Title
 	subtitle := yearText(value.Year)
