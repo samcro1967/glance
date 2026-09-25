@@ -64,10 +64,13 @@ func TestFetchLatestMediaPlexUsesTokenAndPreservesStatusError(t *testing.T) {
 	}
 }
 
-func TestFetchLatestMediaJellyfinUsesToken(t *testing.T) {
+func TestFetchLatestMediaJellyfinUsesMediaBrowserAuthorization(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("X-Emby-Token") != "secret" {
-			t.Fatalf("token=%q", r.Header.Get("X-Emby-Token"))
+		if r.Header.Get("Authorization") != `MediaBrowser Token="secret"` {
+			t.Fatalf("authorization=%q", r.Header.Get("Authorization"))
+		}
+		if r.Header.Get("X-Emby-Token") != "" {
+			t.Fatalf("unexpected Emby token=%q", r.Header.Get("X-Emby-Token"))
 		}
 		_, _ = w.Write([]byte(`{"Items":[{"Id":"a","Name":"Signal Lost","Type":"Series","ProductionYear":2026,"DateCreated":"2026-09-24T12:00:00Z"}]}`))
 	}))
@@ -75,6 +78,24 @@ func TestFetchLatestMediaJellyfinUsesToken(t *testing.T) {
 	widget := &latestMediaWidget{Service: "jellyfin", Server: server.URL, APIKey: "secret", Limit: 10}
 	items, err := fetchLatestMedia(context.Background(), widget)
 	if err != nil || len(items) != 1 || items[0].Title != "Signal Lost" {
+		t.Fatalf("items=%#v err=%v", items, err)
+	}
+}
+
+func TestFetchLatestMediaEmbyUsesEmbyToken(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Emby-Token") != "secret" {
+			t.Fatalf("token=%q", r.Header.Get("X-Emby-Token"))
+		}
+		if r.Header.Get("Authorization") != "" {
+			t.Fatalf("authorization=%q", r.Header.Get("Authorization"))
+		}
+		_, _ = w.Write([]byte(`{"Items":[{"Id":"a","Name":"Northbound","Type":"Movie","ProductionYear":2026,"DateCreated":"2026-09-24T12:00:00Z"}]}`))
+	}))
+	defer server.Close()
+	widget := &latestMediaWidget{Service: "emby", Server: server.URL, APIKey: "secret", Limit: 10}
+	items, err := fetchLatestMedia(context.Background(), widget)
+	if err != nil || len(items) != 1 || items[0].Title != "Northbound" {
 		t.Fatalf("items=%#v err=%v", items, err)
 	}
 }
@@ -114,7 +135,7 @@ func TestNavidromeAuthValues(t *testing.T) {
 
 func TestNavidromeCoverValues(t *testing.T) {
 	widget := &latestMediaWidget{Username: "alice", Password: "secret"}
-	values, err := navidromeCoverValues(widget, "cover-123")
+	values, err := navidromeCoverValues(widget.Username, widget.Password, "cover-123")
 	if err != nil {
 		t.Fatalf("cover values: %v", err)
 	}

@@ -317,6 +317,15 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (url.pathname === '/status/sessions') {
+    if (req.headers['x-plex-token'] !== 'visual-fixture-media-token') { res.writeHead(401); res.end('Unauthorized'); return; }
+    sendJson(res, { MediaContainer: { Metadata: [
+      { type: 'episode', title: 'The Return', grandparentTitle: 'Signal Lost', parentTitle: 'Season 2', parentIndex: 2, index: 4, duration: 3120000, viewOffset: 780000, User: { title: 'alex' }, Player: { title: 'Living Room', product: 'Plex Web', state: 'playing' }, Media: [{ Part: [{ decision: 'directplay' }] }] },
+      { type: 'movie', title: 'Northbound', year: 2026, duration: 7140000, viewOffset: 3570000, User: { title: 'sam' }, Player: { title: 'Bedroom TV', product: 'Plex', state: 'paused' }, Media: [{ Part: [{ decision: 'directplay' }] }] }
+    ] } });
+    return;
+  }
+
   if (url.pathname === '/status/sessions/history/all') {
     if (req.headers['x-plex-token'] !== 'visual-fixture-media-token') { res.writeHead(401); res.end('Unauthorized'); return; }
     sendJson(res, { MediaContainer: { Metadata: [

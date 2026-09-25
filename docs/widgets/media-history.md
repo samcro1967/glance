@@ -40,7 +40,7 @@ Navidrome is intentionally not supported by this widget because the Subsonic API
 
 ### Authentication and artwork
 
-Plex uses `X-Plex-Token`; Jellyfin and Emby use `X-Emby-Token`. Credentials remain server-side. Artwork follows the same resource-proxy contract as Latest Media: protected provider artwork URLs are supplied only to Glance's server-side resource proxy, while the browser receives the opaque proxy URL. Add the media server origin to `server.resource-proxy.allowed-origins`.
+Plex uses `X-Plex-Token`; Jellyfin uses `Authorization: MediaBrowser Token="..."`; Emby uses `X-Emby-Token`. Credentials remain server-side. Artwork follows the same resource-proxy contract as Latest Media: protected provider artwork URLs are supplied only to Glance's server-side resource proxy, while the browser receives the opaque proxy URL. Add the media server origin to `server.resource-proxy.allowed-origins`.
 
 ### HTTP behavior
 

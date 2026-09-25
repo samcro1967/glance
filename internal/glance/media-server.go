@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -144,6 +145,26 @@ func navidromeAuthValues(username, password string) (url.Values, error) {
 		"u": {username}, "t": {hex.EncodeToString(digest[:])}, "s": {salt},
 		"v": {"1.16.1"}, "c": {"glance"}, "f": {"json"},
 	}, nil
+}
+
+func applyMediaServerAuth(request *http.Request, service, apiKey string) {
+	switch service {
+	case "plex":
+		request.Header.Set("X-Plex-Token", apiKey)
+	case "jellyfin":
+		request.Header.Set("Authorization", `MediaBrowser Token="`+apiKey+`"`)
+	case "emby":
+		request.Header.Set("X-Emby-Token", apiKey)
+	}
+}
+
+func navidromeCoverValues(username, password, id string) (url.Values, error) {
+	values, err := navidromeAuthValues(username, password)
+	if err != nil {
+		return nil, err
+	}
+	values.Set("id", id)
+	return values, nil
 }
 
 func proxyMediaImage(providers *widgetProviders, raw string) string {
