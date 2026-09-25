@@ -37,7 +37,7 @@ Plex reads `/library/recentlyAdded`. Jellyfin and Emby read `/Items` ordered by 
 
 ### Authentication
 
-Plex uses `X-Plex-Token`. Jellyfin and Emby use `X-Emby-Token`. Navidrome uses Subsonic token authentication derived from `username` and `password`. Credentials remain server-side and are never rendered into the widget HTML.
+Plex uses `X-Plex-Token`. Jellyfin uses `Authorization: MediaBrowser Token="..."`; Emby uses `X-Emby-Token`. Navidrome uses Subsonic token authentication derived from `username` and `password`. Credentials remain server-side and are never rendered into the widget HTML.
 
 ### Artwork and resource proxy
 

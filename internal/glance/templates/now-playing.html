@@ -1,0 +1,36 @@
+{{ template "widget-base.html" . }}
+
+{{ define "widget-content" }}
+{{ if .Items }}
+<ul class="list glance-list now-playing-list">
+    {{ range .Items }}
+    <li class="glance-list-row">
+        <div class="flex items-center gap-10 glance-list-row-primary thumbnail-parent">
+            {{ if and $.ShowThumbnail .ImageURL }}<img class="media-list-poster thumbnail shrink-0" loading="lazy" src="{{ .ImageURL }}" alt="">{{ end }}
+            <div class="min-width-0 grow">
+                <div class="flex items-center gap-7">
+                    <span class="now-playing-state{{ if eq .State "playing" }} now-playing-state-active{{ end }}" title="{{ .State }}"></span>
+                    <div class="size-title-dynamic color-highlight text-truncate" title="{{ .Title }}">{{ .Title }}</div>
+                </div>
+                {{ if .Subtitle }}<div class="color-subdue text-truncate">{{ .Subtitle }}</div>{{ end }}
+                <div class="list-horizontal-text glance-list-row-meta">
+                    {{ if .User }}<span>{{ .User }}</span>{{ end }}
+                    {{ if .MediaType }}<span>{{ .MediaType }}</span>{{ end }}
+                    {{ if .PlayMethod }}<span>{{ .PlayMethod }}</span>{{ end }}
+                    {{ if .Client }}<span>{{ .Client }}{{ if .Device }} · {{ .Device }}{{ end }}</span>{{ else if .Device }}<span>{{ .Device }}</span>{{ end }}
+                    {{ if $.ShowProgressInfoValue }}{{ if .ProgressText }}<span>{{ .ProgressText }}</span>{{ end }}{{ end }}
+                </div>
+                {{ if and $.ShowProgressBar .ProgressText }}
+                <div class="progress-bar glance-progress now-playing-progress" aria-label="{{ .ProgressText }}">
+                    <div class="progress-value glance-progress-value" style="--percent: {{ .ProgressCSS }}"></div>
+                </div>
+                {{ end }}
+            </div>
+        </div>
+    </li>
+    {{ end }}
+</ul>
+{{ else }}
+<div class="text-center">Nothing is playing right now.</div>
+{{ end }}
+{{ end }}

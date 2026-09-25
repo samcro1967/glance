@@ -118,6 +118,10 @@ For regressions, establish the expected behavior, current behavior, and likely c
 
 For broader architectural work, investigate sufficiently to understand existing ownership boundaries and similar implementations before introducing or extending an abstraction. Prefer evidence of duplication, inconsistency, failure risk, or maintainability cost over speculative centralization.
 
+### Adding a new widget
+
+New widgets must follow the repository-specific implementation, presentation, fixture, testing, documentation, and visual-QA contracts described in [Adding a widget](docs/adding-a-widget.md). Use that guide as the implementation checklist while retaining the general contribution requirements in this document.
+
 ## Testing
 
 Behavior changes and defect fixes should include regression coverage when applicable.

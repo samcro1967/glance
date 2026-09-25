@@ -88,7 +88,7 @@ func fetchPlexHistory(ctx context.Context, widget *mediaHistoryWidget) ([]mediaI
 	if err != nil {
 		return nil, err
 	}
-	request.Header.Set("X-Plex-Token", widget.APIKey)
+	applyMediaServerAuth(request, widget.Service, widget.APIKey)
 	request.Header.Set("Accept", "application/json")
 	response, err := newHTTPClient(widget.Timeout, widget.AllowInsecure).Do(request)
 	if err != nil {
@@ -117,7 +117,7 @@ func fetchJellyfinHistory(ctx context.Context, widget *mediaHistoryWidget) ([]me
 	if err != nil {
 		return nil, err
 	}
-	request.Header.Set("X-Emby-Token", widget.APIKey)
+	applyMediaServerAuth(request, widget.Service, widget.APIKey)
 	request.Header.Set("Accept", "application/json")
 	response, err := newHTTPClient(widget.Timeout, widget.AllowInsecure).Do(request)
 	if err != nil {

@@ -224,6 +224,13 @@ var widgetRegistry = map[string]widgetDescriptor{
 			{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 		},
 	},
+	"now-playing": {
+		constructor: func() widget { return &nowPlayingWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityAllowInsecure, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+		},
+	},
 	"prometheus": {
 		constructor: func() widget { return &prometheusWidget{} },
 		capabilities: []widgetCapabilityDefinition{
