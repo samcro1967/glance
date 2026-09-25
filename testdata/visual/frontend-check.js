@@ -777,6 +777,44 @@ async function main() {
       throw new Error('Canonical group fixture does not contain at least two tabs and panels');
     }
 
+    const groupScrollGeometry = await group.locator('.widget-group-header').evaluate(header => {
+      const tabList = header.querySelector('.widget-header');
+      const tabs = Array.from(tabList.querySelectorAll('[role="tab"]'));
+      const originalWidths = tabs.map(tab => tab.style.width);
+
+      for (const tab of tabs) {
+        tab.style.width = `${header.clientWidth}px`;
+      }
+
+      const initial = {
+        clientWidth: header.clientWidth,
+        scrollWidth: header.scrollWidth,
+        overflowX: getComputedStyle(header).overflowX
+      };
+
+      header.scrollLeft = header.scrollWidth;
+      const scrollLeft = header.scrollLeft;
+
+      tabs.forEach((tab, index) => {
+        tab.style.width = originalWidths[index];
+      });
+      header.scrollLeft = 0;
+
+      return { ...initial, scrollLeft };
+    });
+
+    if (
+      groupScrollGeometry.overflowX !== 'auto' ||
+      groupScrollGeometry.scrollWidth <= groupScrollGeometry.clientWidth ||
+      groupScrollGeometry.scrollLeft <= 0
+    ) {
+      throw new Error(
+        `Widget group tabs are not horizontally scrollable: overflow=${groupScrollGeometry.overflowX} client=${groupScrollGeometry.clientWidth}px scroll=${groupScrollGeometry.scrollWidth}px scrollLeft=${groupScrollGeometry.scrollLeft}px`
+      );
+    }
+
+    console.log('PASS widget group horizontal tab scrolling');
+
     const firstTab = groupTabs.nth(0);
     const secondTab = groupTabs.nth(1);
     const firstPanel = groupPanels.nth(0);
