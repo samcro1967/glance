@@ -16,7 +16,14 @@ type groupWidget struct {
 
 func (widget *groupWidget) initialize() error {
 	widget.withError(nil)
-	widget.HideHeader = true
+
+	// Standalone groups may use their shared widget title as a visible section
+	// heading. Untitled groups retain the historical headerless presentation,
+	// while a parent container can still suppress a nested group header before
+	// the nested group is initialized.
+	if widget.Title == "" {
+		widget.HideHeader = true
+	}
 
 	for i := range widget.Widgets {
 		widget.Widgets[i].setHideHeader(true)

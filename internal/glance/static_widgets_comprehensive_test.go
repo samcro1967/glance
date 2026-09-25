@@ -422,6 +422,61 @@ func TestComprehensiveContainerEmptyLifecycle(t *testing.T) {
 	}
 }
 
+func TestComprehensiveGroupOptionalHeader(t *testing.T) {
+	t.Run("titled standalone group renders shared header", func(t *testing.T) {
+		group := &groupWidget{
+			widgetBase: widgetBase{
+				Type:  "group",
+				Title: "Media",
+			},
+		}
+
+		if err := group.initialize(); err != nil {
+			t.Fatal(err)
+		}
+		if group.HideHeader {
+			t.Fatal("titled standalone group should show its header")
+		}
+		if rendered := string(group.Render()); !strings.Contains(rendered, ">Media</h2>") {
+			t.Fatalf("titled standalone group missing header: %s", rendered)
+		}
+	})
+
+	t.Run("untitled standalone group preserves headerless presentation", func(t *testing.T) {
+		group := &groupWidget{widgetBase: widgetBase{Type: "group"}}
+
+		if err := group.initialize(); err != nil {
+			t.Fatal(err)
+		}
+		if !group.HideHeader {
+			t.Fatal("untitled standalone group should remain headerless")
+		}
+		if rendered := string(group.Render()); strings.Contains(rendered, "<div class=\"widget-header\">") {
+			t.Fatalf("untitled standalone group unexpectedly rendered a header: %s", rendered)
+		}
+	})
+
+	t.Run("parent suppression keeps nested group title tab-only", func(t *testing.T) {
+		nested := &groupWidget{
+			widgetBase: widgetBase{
+				Type:  "group",
+				Title: "Recipes",
+			},
+		}
+		nested.setHideHeader(true)
+
+		if err := nested.initialize(); err != nil {
+			t.Fatal(err)
+		}
+		if !nested.HideHeader {
+			t.Fatal("nested group should preserve parent header suppression")
+		}
+		if rendered := string(nested.Render()); strings.Contains(rendered, ">Recipes</h2>") {
+			t.Fatalf("nested group rendered its title as a duplicate header: %s", rendered)
+		}
+	})
+}
+
 func TestComprehensiveGroupTitleIcons(t *testing.T) {
 	child := &markdownWidget{Source: "Test", widgetBase: widgetBase{Type: "markdown", Title: "News", TitleURL: "https://example.com", Icon: newCustomIconField("auto-invert https://example.com/news.svg")}}
 	group := &groupWidget{widgetBase: widgetBase{Type: "group"}, containerWidgetBase: containerWidgetBase{Widgets: widgets{child}}}
