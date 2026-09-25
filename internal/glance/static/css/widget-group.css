@@ -5,6 +5,12 @@
     border: 0;
 }
 
+/* The group owns horizontal scrolling; do not let the generic widget-header
+ * clipping rule hide tabs before they reach this scroll container. */
+.widget-group-header > .widget-header {
+    overflow: visible;
+}
+
 .widget-group-title {
     flex-shrink: 0;
 }
