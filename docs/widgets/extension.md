@@ -40,7 +40,7 @@ All widgets also support the [shared widget properties](../widgets.md#shared-pro
 Extension endpoints can control widget presentation with response headers including `Widget-Title`, `Widget-Title-URL`, `Widget-Content-Type`, and `Widget-Content-Frameless`. See the [extension development guide](../extensions.md) for the complete producer-side contract.
 
 ### `url`
-The URL of the extension. **Note that the query gets stripped from this URL and the one defined by `parameters` gets used instead.**
+The absolute HTTP or HTTPS URL of the extension. Userinfo and URL fragments are not allowed. If `parameters` is configured, those values replace any query string already present in `url`.
 
 ### `fallback-content-type`
 Optionally specify the fallback content type of the extension if the URL does not return a valid `Widget-Content-Type` header. Currently the only supported value for this property is `html`.
@@ -63,14 +63,14 @@ headers:
 Optional HTTP Basic Authentication credentials for the extension request.
 
 ### `allow-potentially-dangerous-html`
-Whether to allow the extension to display HTML.
+Whether to trust the extension endpoint to return raw HTML that is rendered directly inside the Glance page.
 
 > [!WARNING]
 >
-> There's a reason this property is scary-sounding. It's intended to be used by developers who are comfortable with developing and using their own extensions. Do not enable it if you have no idea what it means or if you're not **absolutely sure** that the extension URL you're using is safe.
+> Enabling this grants the extension same-page HTML trust, not just formatting permission. Only enable it for endpoints you fully trust and control or have independently verified.
 
 ### `parameters`
-A list of keys and values that will be sent to the extension as query parameters.
+A list of keys and values that will be sent to the extension as query parameters. When present, these parameters replace any query string already included in `url`. Avoid putting secrets in query parameters because URLs may be recorded by upstream servers or proxies; prefer `headers` or `basic-auth` for credentials.
 
 
 ---

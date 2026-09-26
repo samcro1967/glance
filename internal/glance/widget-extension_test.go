@@ -324,3 +324,161 @@ func TestExtensionWidgetHTTPStatusFailurePreservesLastKnownGoodContent(t *testin
 		)
 	}
 }
+
+func TestExtensionWidgetRejectsInvalidEndpointURLs(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+	}{
+		{name: "relative", url: "/extension"},
+		{name: "unsupported scheme", url: "file:///tmp/extension"},
+		{name: "userinfo", url: "https://user:pass@example.com/extension"},
+		{name: "fragment", url: "https://example.com/extension#fragment"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			widget := &extensionWidget{URL: test.url}
+			if err := widget.initialize(); err == nil {
+				t.Fatalf("initialize() accepted invalid URL %q", test.url)
+			}
+		})
+	}
+}
+
+func TestFetchExtensionRejectsUnsafeTitleURL(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(extensionHeaderTitleURL, "javascript:alert(1)")
+		_, _ = w.Write([]byte("extension"))
+	}))
+	defer server.Close()
+
+	_, err := fetchExtension(context.Background(), extensionRequestOptions{URL: server.URL})
+	if err == nil {
+		t.Fatal("expected unsafe Widget-Title-URL to be rejected")
+	}
+	if !errors.Is(err, errNoContent) {
+		t.Fatalf("errNoContent identity was not preserved: %v", err)
+	}
+}
+
+func TestFetchExtensionAllowsRelativeAndHTTPTitleURLs(t *testing.T) {
+	for _, titleURL := range []string{"/details", "https://example.com/details"} {
+		t.Run(titleURL, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set(extensionHeaderTitleURL, titleURL)
+				_, _ = w.Write([]byte("extension"))
+			}))
+			defer server.Close()
+
+			extension, err := fetchExtension(context.Background(), extensionRequestOptions{URL: server.URL})
+			if err != nil {
+				t.Fatalf("fetchExtension() error = %v", err)
+			}
+			if extension.TitleURL != titleURL {
+				t.Fatalf("TitleURL = %q, want %q", extension.TitleURL, titleURL)
+			}
+		})
+	}
+}
+
+func TestFetchExtensionBlocksCredentialedCrossOriginRedirect(t *testing.T) {
+	var targetRequests atomic.Int32
+	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		targetRequests.Add(1)
+		_, _ = w.Write([]byte("unexpected"))
+	}))
+	defer target.Close()
+
+	source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, target.URL, http.StatusFound)
+	}))
+	defer source.Close()
+
+	_, err := fetchExtension(context.Background(), extensionRequestOptions{
+		URL:     source.URL,
+		Headers: map[string]string{"X-API-Key": "secret"},
+	})
+	if err == nil {
+		t.Fatal("expected credentialed cross-origin redirect to be rejected")
+	}
+	if !errors.Is(err, errExtensionCrossOriginRedirectWithCredentials) {
+		t.Fatalf("redirect error identity was not preserved: %v", err)
+	}
+	if targetRequests.Load() != 0 {
+		t.Fatalf("redirect target received %d requests, want 0", targetRequests.Load())
+	}
+}
+
+func TestFetchExtensionAllowsCredentialedSameOriginRedirect(t *testing.T) {
+	const apiKey = "secret"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/start" {
+			http.Redirect(w, r, "/final", http.StatusFound)
+			return
+		}
+		if got := r.Header.Get("X-API-Key"); got != apiKey {
+			t.Fatalf("X-API-Key = %q, want %q", got, apiKey)
+		}
+		_, _ = w.Write([]byte("extension"))
+	}))
+	defer server.Close()
+
+	if _, err := fetchExtension(context.Background(), extensionRequestOptions{
+		URL:     server.URL + "/start",
+		Headers: map[string]string{"X-API-Key": apiKey},
+	}); err != nil {
+		t.Fatalf("fetchExtension() error = %v", err)
+	}
+}
+
+func TestExtensionWidgetRemoteMetadataCanChangeAcrossRefreshes(t *testing.T) {
+	var responseNumber atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if responseNumber.Add(1) == 1 {
+			w.Header().Set(extensionHeaderTitle, "First")
+			w.Header().Set(extensionHeaderTitleURL, "/first")
+		} else {
+			w.Header().Set(extensionHeaderTitle, "Second")
+			w.Header().Set(extensionHeaderTitleURL, "/second")
+		}
+		_, _ = w.Write([]byte("extension"))
+	}))
+	defer server.Close()
+
+	widget := &extensionWidget{URL: server.URL}
+	if err := widget.initialize(); err != nil {
+		t.Fatalf("initialize extension widget: %v", err)
+	}
+
+	widget.update(context.Background())
+	if widget.Title != "First" || widget.TitleURL != "/first" {
+		t.Fatalf("first metadata = %q %q", widget.Title, widget.TitleURL)
+	}
+
+	widget.update(context.Background())
+	if widget.Title != "Second" || widget.TitleURL != "/second" {
+		t.Fatalf("second metadata = %q %q", widget.Title, widget.TitleURL)
+	}
+}
+
+func TestExtensionWidgetConfiguredMetadataTakesPrecedence(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(extensionHeaderTitle, "Remote")
+		w.Header().Set(extensionHeaderTitleURL, "/remote")
+		_, _ = w.Write([]byte("extension"))
+	}))
+	defer server.Close()
+
+	widget := &extensionWidget{URL: server.URL}
+	widget.Title = "Configured"
+	widget.TitleURL = "https://example.com/configured"
+	if err := widget.initialize(); err != nil {
+		t.Fatalf("initialize extension widget: %v", err)
+	}
+
+	widget.update(context.Background())
+	if widget.Title != "Configured" || widget.TitleURL != "https://example.com/configured" {
+		t.Fatalf("configured metadata was replaced: %q %q", widget.Title, widget.TitleURL)
+	}
+}

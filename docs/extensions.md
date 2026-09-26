@@ -29,7 +29,7 @@ If you know how to setup an HTTP server and a bit of HTML and CSS you're ready t
 Used to specify the title of the widget. If not provided, the widget's title will be "Extension".
 
 ### `Widget-Title-URL`
-Used to specify the URL that will be opened when the widget's title is clicked. If the user has specified a `title-url` in their config, it will take precedence over this header.
+Used to specify the URL that will be opened when the widget's title is clicked. Absolute values must use HTTP or HTTPS; relative URLs are also supported. Unsafe schemes and protocol-relative URLs are rejected. If the user has specified a `title-url` in their config (including through widget defaults), it takes precedence over this header. Extension-provided title metadata may change on later refreshes.
 
 ### `Widget-Content-Type`
 Used to specify the content type that will be returned by the extension. If not provided, the content will be shown as plain text.
@@ -44,7 +44,9 @@ When set to `true`, the widget's content will be displayed without the default b
 > Currently, `html` is the only supported content type. The long-term goal is to have generic content types such as `videos`, `forum-posts`, `markets`, `streams`, etc. which will be returned in JSON format and displayed by Glance using existing styles and functionality, allowing extension developers to achieve a native look while only focusing on providing data from their preferred source.
 
 ### `html`
-Displays the content as HTML. This requires the user to have the `allow-potentially-dangerous-html` property set to `true`, otherwise the content will be shown as plain text.
+Displays the content as HTML. This requires the user to have the `allow-potentially-dangerous-html` property set to `true`, otherwise the content will be shown as plain text. Enabling the option means the Glance administrator trusts the extension endpoint to provide raw HTML inside the Glance page context; it is not merely a formatting toggle.
+
+Extension requests may include headers or Basic Authentication. When credentials or custom headers are configured, Glance follows redirects only when the redirect remains on the same origin (scheme, host, and effective port). This prevents extension credentials from being forwarded to another origin. Public extension requests without configured credentials retain normal HTTP redirect behavior.
 
 
 #### Using existing classes and functionality
