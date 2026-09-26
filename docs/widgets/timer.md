@@ -36,7 +36,9 @@ This widget also supports the [shared widget properties](../widgets.md#shared-pr
 
 ### `id`
 
-The ID used to store the timers in the browser's local storage. Timer widgets with the same ID share the same timers when viewed in the same browser profile. Specify different IDs for independent timer lists.
+The ID used to scope the timer list. By default, timers are stored in the browser's local storage, and Timer widgets with the same ID share the same timers in that browser profile. Specify different IDs for independent timer lists.
+
+When authenticated [server-side personal state](../configuration.md#personal-state) is enabled, the same ID scopes the user's server-side timer list instead. Existing valid browser-local timers are migrated the first time no server value exists for that user and ID.
 
 ### `hour-format`
 

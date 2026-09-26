@@ -1,21 +1,17 @@
 import { elem, fragment } from "./templating.js";
 import { verticallyReorderable } from "./todo.js";
+import { createPersonalState } from "./personal-state.js";
 
 const trashIconSvg = `<svg fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
   <path fill-rule="evenodd" d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 .75.75V4h-3v-.75ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5a.75.75 0 0 1 .786-.711Z" clip-rule="evenodd" />
 </svg>`;
 
-export default function(element) {
-    element.swapWith(Timer(element.dataset.timerId, element.dataset.hourFormat));
-}
+export default async function(element) {
+    const id = element.dataset.timerId;
+    const state = createPersonalState("timer", id);
+    const initialTimers = await state.load([], Array.isArray);
 
-function loadFromLocalStorage(id) {
-    try {
-        const data = JSON.parse(localStorage.getItem(`timer-${id}`) || "[]");
-        return Array.isArray(data) ? data : [];
-    } catch {
-        return [];
-    }
+    element.swapWith(Timer(element.dataset.hourFormat, state, initialTimers));
 }
 
 function newTimerId() {
@@ -36,10 +32,6 @@ function ensureTimerIds(timers) {
     }
 
     return changed;
-}
-
-function saveToLocalStorage(id, data) {
-    localStorage.setItem(`timer-${id}`, JSON.stringify(data));
 }
 
 function targetDate(timer) {
@@ -101,10 +93,10 @@ function formatRemaining(timer, now = new Date()) {
     return past ? `${value} ago` : value;
 }
 
-function Timer(id, hourFormat) {
-    let timers = loadFromLocalStorage(id);
+function Timer(hourFormat, state, initialTimers) {
+    let timers = initialTimers;
     if (ensureTimerIds(timers))
-        saveToLocalStorage(id, timers);
+        state.save(timers);
 
     let items;
     let reorderable;
@@ -116,7 +108,7 @@ function Timer(id, hourFormat) {
     let editingId = null;
     let isDragging = false;
 
-    const save = () => saveToLocalStorage(id, timers);
+    const save = () => state.save(timers);
 
     const updateCountdowns = () => {
         const now = new Date();

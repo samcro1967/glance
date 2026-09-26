@@ -66,6 +66,7 @@ type application struct {
 	frontendDiagnostics      *frontendRuntimeDiagnostics
 	trustedProxyPrefixes     []netip.Prefix
 	resourceProxy            *resourceProxy
+	personalState            *personalStateStore
 
 	RequiresAuth           bool
 	authSecretKey          []byte
@@ -223,6 +224,13 @@ func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime) (*appli
 		app.oidc, err = newOIDCRuntime(config.Auth.OIDC, reusableOIDC)
 		if err != nil {
 			return nil, err
+		}
+	}
+
+	if config.Server.PersonalState.Enabled {
+		app.personalState, err = newPersonalStateStore(config.Server.PersonalState.Path)
+		if err != nil {
+			return nil, fmt.Errorf("initializing personal state store: %w", err)
 		}
 	}
 
@@ -1105,6 +1113,11 @@ func (a *application) router() http.Handler {
 
 	if !a.Config.Theme.DisablePicker {
 		mux.HandleFunc("POST /api/set-theme/{key}", a.handleThemeChangeRequest)
+	}
+
+	if a.personalState != nil {
+		mux.HandleFunc("GET /api/personal-state/{namespace}/{id}", a.handlePersonalStateGetRequest)
+		mux.HandleFunc("POST /api/personal-state/{namespace}/{id}", a.handlePersonalStatePostRequest)
 	}
 
 	mux.HandleFunc("GET /api/widgets/{widget}/content/{$}", a.handleWidgetContentRequest)

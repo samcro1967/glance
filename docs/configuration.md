@@ -543,6 +543,7 @@ server:
 | trusted-proxies | list | no | |
 | base-url | string | no | |
 | assets-path | string | no |  |
+| personal-state | object | no | disabled |
 | resource-proxy | object | no | disabled |
 | frontend-diagnostics | boolean | no | false |
 
@@ -551,6 +552,28 @@ The address which the server will listen on. Setting it to `localhost` means tha
 
 #### `port`
 A number between 1 and 65,535, so long as that port isn't already used by anything else. Changing this property while Glance is running requires a manual restart; an automatic configuration reload that changes it is rejected while the existing application continues running.
+
+#### `personal-state`
+
+Optionally stores supported user-specific widget state on the Glance server instead of only in the browser. This is disabled by default and requires authentication so state can be isolated by the authenticated user identity.
+
+```yaml
+server:
+  personal-state:
+    enabled: true
+    path: /app/data/personal-state.json
+```
+
+| Name | Type | Required | Default |
+| ---- | ---- | -------- | ------- |
+| enabled | boolean | no | false |
+| path | string | when enabled | |
+
+The `path` must be absolute. Glance creates the parent directory when the first state write occurs and writes the state file atomically with private file permissions. If an existing state file is malformed or uses an unsupported format version, startup or configuration reload is rejected instead of discarding the stored state. When running Glance in a container, place this path on a persistent writable volume if the state should survive container replacement.
+
+When enabled, the To-do and Timer widgets use authenticated server-side state. On first use, if no server value exists for a widget, Glance migrates valid state from that browser profile's existing local storage and removes the local copy only after the server write succeeds. After migration, server state is authoritative. Disabling this feature restores the existing browser-local behavior.
+
+Personal state is keyed by authenticated identity, widget type, and widget `id`; raw usernames or OIDC principals are not used as on-disk keys.
 
 #### `proxied`
 Set to `true` if you're using a reverse proxy in front of Glance. This will make Glance use the `X-Forwarded-*` headers to determine the original request details.
