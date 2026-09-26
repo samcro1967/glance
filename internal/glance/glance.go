@@ -53,18 +53,19 @@ type application struct {
 	releaseStatus  releaseStatusCache
 	parsedManifest []byte
 
-	slugToPage           map[string]*page
-	slugToDashboard      map[string]*dashboard
-	dashboards           []*dashboard
-	defaultDashboard     *dashboard
-	widgetByID           map[uint64]widget
-	refreshWidgets       []widget
-	liveUpdates          *liveUpdateBroker
-	configDiagnostics    *configRuntimeDiagnostics
-	profilingDiagnostics *profilingRuntimeDiagnostics
-	frontendDiagnostics  *frontendRuntimeDiagnostics
-	trustedProxyPrefixes []netip.Prefix
-	resourceProxy        *resourceProxy
+	slugToPage               map[string]*page
+	slugToDashboard          map[string]*dashboard
+	dashboards               []*dashboard
+	defaultDashboard         *dashboard
+	widgetByID               map[uint64]widget
+	refreshWidgets           []widget
+	widgetReloadFingerprints map[widget]widgetReloadFingerprint
+	liveUpdates              *liveUpdateBroker
+	configDiagnostics        *configRuntimeDiagnostics
+	profilingDiagnostics     *profilingRuntimeDiagnostics
+	frontendDiagnostics      *frontendRuntimeDiagnostics
+	trustedProxyPrefixes     []netip.Prefix
+	resourceProxy            *resourceProxy
 
 	RequiresAuth           bool
 	authSecretKey          []byte
@@ -526,6 +527,10 @@ func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime) (*appli
 	app.refreshWidgets = collectRefreshWidgets(refreshSources)
 	for _, widget := range app.refreshWidgets {
 		app.widgetByID[widget.GetID()] = widget
+	}
+	app.widgetReloadFingerprints, err = captureWidgetReloadFingerprints(app.refreshWidgets)
+	if err != nil {
+		return nil, fmt.Errorf("capturing widget reload fingerprints: %w", err)
 	}
 
 	config.Server.BaseURL = strings.TrimRight(config.Server.BaseURL, "/")
