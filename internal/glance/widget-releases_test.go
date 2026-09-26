@@ -94,6 +94,10 @@ func TestReleasesWidgetInitializeAssignsProviderTokens(t *testing.T) {
 				source:     releaseSourceCodeberg,
 			},
 			{
+				Repository: "example/container",
+				source:     releaseSourceGHCR,
+			},
+			{
 				Repository: "example/docker",
 				source:     releaseSourceDockerHub,
 			},
@@ -130,7 +134,11 @@ func TestReleasesWidgetInitializeAssignsProviderTokens(t *testing.T) {
 		t.Fatal("Codeberg repository unexpectedly received a token")
 	}
 
-	if widget.Repositories[3].token != nil {
+	if widget.Repositories[3].token == nil || *widget.Repositories[3].token != "github-token" {
+		t.Fatal("GHCR repository did not receive the GitHub token")
+	}
+
+	if widget.Repositories[4].token != nil {
 		t.Fatal("Docker Hub repository unexpectedly received a token")
 	}
 }
@@ -252,6 +260,12 @@ func TestReleaseRequestUnmarshalPreservesSupportedSources(t *testing.T) {
 			value:      "dockerhub:example/project",
 			wantSource: releaseSourceDockerHub,
 			wantRepo:   "example/project",
+		},
+		{
+			name:       "GHCR",
+			value:      "ghcr:example/project:dev",
+			wantSource: releaseSourceGHCR,
+			wantRepo:   "example/project:dev",
 		},
 		{
 			name:       "Codeberg",
@@ -465,6 +479,11 @@ func TestReleaseRequestCustomBaseURL(t *testing.T) {
 			wantErr: "base-url is not supported for dockerhub repositories",
 		},
 		{
+			name:    "ghcr rejects custom origin",
+			yaml:    "repository: ghcr:owner/project\nbase-url: https://ghcr.example.com\n",
+			wantErr: "base-url is not supported for ghcr repositories",
+		},
+		{
 			name:    "rejects relative URL",
 			yaml:    "repository: gitlab:owner/project\nbase-url: gitlab.example.com\n",
 			wantErr: "base-url must be an absolute http or https URL",
@@ -504,6 +523,58 @@ func TestReleaseRequestCustomBaseURL(t *testing.T) {
 				t.Fatalf("base URL = %q, want %q", request.BaseURL, test.wantBase)
 			}
 		})
+	}
+}
+
+func TestParseGHCRRepository(t *testing.T) {
+	tests := []struct {
+		value       string
+		wantOwner   string
+		wantPackage string
+		wantTag     string
+		wantErr     bool
+	}{
+		{value: "samcro1967/glance", wantOwner: "samcro1967", wantPackage: "glance"},
+		{value: "samcro1967/glance:dev", wantOwner: "samcro1967", wantPackage: "glance", wantTag: "dev"},
+		{value: "example/nested/image:latest", wantOwner: "example", wantPackage: "nested/image", wantTag: "latest"},
+		{value: "missing-owner", wantErr: true},
+		{value: "owner/image:", wantErr: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.value, func(t *testing.T) {
+			owner, packageName, tag, err := parseGHCRRepository(test.value)
+			if test.wantErr {
+				if err == nil {
+					t.Fatal("expected validation error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("parse GHCR repository: %v", err)
+			}
+			if owner != test.wantOwner || packageName != test.wantPackage || tag != test.wantTag {
+				t.Fatalf("parsed = %q %q %q, want %q %q %q", owner, packageName, tag, test.wantOwner, test.wantPackage, test.wantTag)
+			}
+		})
+	}
+}
+
+func TestGHCRPackageVersionsURL(t *testing.T) {
+	if got := ghcrPackageVersionsURL("example", "nested/image", true); got != "https://api.github.com/orgs/example/packages/container/nested%2Fimage/versions?per_page=100" {
+		t.Fatalf("organization URL = %q", got)
+	}
+	if got := ghcrPackageVersionsURL("example", "image", false); got != "https://api.github.com/users/example/packages/container/image/versions?per_page=100" {
+		t.Fatalf("user URL = %q", got)
+	}
+}
+
+func TestReleaseSourceIconNameUsesGitHubForGHCR(t *testing.T) {
+	if got := releaseSourceIconName(releaseSourceGHCR); got != "github" {
+		t.Fatalf("GHCR icon = %q, want github", got)
+	}
+	if got := releaseSourceIconName(releaseSourceDockerHub); got != "dockerhub" {
+		t.Fatalf("Docker Hub icon = %q, want dockerhub", got)
 	}
 }
 
