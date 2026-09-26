@@ -6,7 +6,7 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps build goreleaser-check frontend-audit frontend-check validate validate-all test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fuzz fuzz-all fmt-check diff-check staged-check docs-check check coverage vuln image-vuln status staged-diff upstream-status upstream-dev-status branch park push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-retry release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-nonruntime deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final lint lighthouse performance-check performance
+.PHONY: help deps build goreleaser-check frontend-audit frontend-unit frontend-check validate validate-all test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fuzz fuzz-all fmt-check diff-check staged-check docs-check check coverage vuln image-vuln status staged-diff upstream-status upstream-dev-status branch park push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-retry release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-nonruntime deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final lint lighthouse performance-check performance
 
 COUNT ?= 10
 FUZZTIME ?= 30s
@@ -224,6 +224,7 @@ help:
 	@echo "  make staged-check             Staged whitespace validation"
 	@echo "  make docs-check               Validate documentation contracts"
 	@echo "  make frontend-audit           Audit frontend architecture contracts"
+	@echo "  make frontend-unit            Run targeted frontend JavaScript unit tests"
 	@echo "  make frontend-check           Run frontend regression checks"
 	@echo "  make frontend-coverage        Run frontend JavaScript execution coverage"
 	@echo "  make check                    Tests + race + build + format + whitespace + docs + lint + frontend audit"
@@ -351,7 +352,7 @@ staged-check:
 docs-check:
 	python3 scripts/check_docs.py
 
-check: test test-race build fmt-check diff-check staged-check docs-check lint frontend-audit
+check: test test-race build fmt-check diff-check staged-check docs-check lint frontend-audit frontend-unit
 
 lint:
 	docker run --rm -v "$(CURDIR):/app" -w /app golangci/golangci-lint:$(GOLANGCI_LINT_VERSION) golangci-lint run ./...
@@ -2860,11 +2861,15 @@ test-container-stop:
 # Frontend validation and visual QA
 # -----------------------------------------------------------------------------
 
-.PHONY: frontend-audit frontend-check frontend-coverage visual-check visual-screenshots visual-docs visual-docs-promote visual-all
+.PHONY: frontend-audit frontend-unit frontend-check frontend-coverage visual-check visual-screenshots visual-docs visual-docs-promote visual-all
 
 frontend-audit:
 	@echo "=== FRONTEND ARCHITECTURE AUDIT ==="
 	@python3 scripts/audit_frontend.py
+
+frontend-unit:
+	@echo "=== FRONTEND UNIT TESTS ==="
+	@node --test testdata/visual/personal-state.test.mjs
 
 frontend-check:
 	@echo "=== FRONTEND REGRESSION CHECK ==="

@@ -111,6 +111,79 @@ func TestPriorityGithubPrereleaseEmptyResponseIsRejected(t *testing.T) {
 	}
 }
 
+func TestPriorityGHCRPackageVersionsSelectNewestTaggedVersion(t *testing.T) {
+	token := "secret"
+	usePriorityTransport(t, func(r *http.Request) (*http.Response, error) {
+		if r.URL.EscapedPath() != "/orgs/example/packages/container/project/versions" {
+			t.Fatalf("path = %q", r.URL.EscapedPath())
+		}
+		if r.URL.Query().Get("per_page") != "100" {
+			t.Fatalf("per_page = %q, want 100", r.URL.Query().Get("per_page"))
+		}
+		if r.Header.Get("Authorization") != "Bearer secret" {
+			t.Fatalf("Authorization = %q", r.Header.Get("Authorization"))
+		}
+		return priorityJSONResponse(r, `[
+			{"updated_at":"2026-08-29T12:00:00Z","html_url":"https://github.com/example/project/pkgs/container/project/1","metadata":{"container":{"tags":["latest"]}}},
+			{"updated_at":"2026-08-30T12:00:00Z","html_url":"https://github.com/example/project/pkgs/container/project/2","metadata":{"container":{"tags":["dev"]}}},
+			{"updated_at":"2026-08-31T12:00:00Z","html_url":"https://github.com/example/project/pkgs/container/project/3","metadata":{"container":{"tags":[]}}}
+		]`), nil
+	})
+
+	got, err := fetchLatestGHCRRelease(context.Background(), &releaseRequest{Repository: "example/project", source: releaseSourceGHCR, token: &token})
+	if err != nil {
+		t.Fatalf("fetch GHCR release: %v", err)
+	}
+	if got.Source != releaseSourceGHCR || got.Name != "example/project" || got.Version != "dev" {
+		t.Fatalf("release = %#v", got)
+	}
+	if got.TimeReleased != time.Date(2026, 8, 30, 12, 0, 0, 0, time.UTC) {
+		t.Fatalf("release time = %v", got.TimeReleased)
+	}
+}
+
+func TestPriorityGHCRExactTagAndUserFallback(t *testing.T) {
+	requests := 0
+	usePriorityTransport(t, func(r *http.Request) (*http.Response, error) {
+		requests++
+		switch r.URL.EscapedPath() {
+		case "/orgs/octocat/packages/container/image/versions":
+			return &http.Response{StatusCode: http.StatusNotFound, Status: "404 Not Found", Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{}`)), Request: r}, nil
+		case "/users/octocat/packages/container/image/versions":
+			return priorityJSONResponse(r, `[
+				{"updated_at":"2026-08-30T12:00:00Z","html_url":"https://github.com/users/octocat/packages/container/image/1","metadata":{"container":{"tags":["latest","stable"]}}}
+			]`), nil
+		default:
+			t.Fatalf("unexpected path %q", r.URL.EscapedPath())
+			return nil, nil
+		}
+	})
+
+	got, err := fetchLatestGHCRRelease(context.Background(), &releaseRequest{Repository: "octocat/image:stable", source: releaseSourceGHCR})
+	if err != nil {
+		t.Fatalf("fetch GHCR exact tag: %v", err)
+	}
+	if requests != 2 {
+		t.Fatalf("requests = %d, want 2", requests)
+	}
+	if got.Version != "stable" || got.Name != "octocat/image" {
+		t.Fatalf("release = %#v", got)
+	}
+}
+
+func TestPriorityGHCRMissingTagIsRejected(t *testing.T) {
+	usePriorityTransport(t, func(r *http.Request) (*http.Response, error) {
+		return priorityJSONResponse(r, `[{"updated_at":"2026-08-30T12:00:00Z","metadata":{"container":{"tags":["latest"]}}}]`), nil
+	})
+	got, err := fetchLatestGHCRRelease(context.Background(), &releaseRequest{Repository: "example/project:dev", source: releaseSourceGHCR})
+	if err == nil || !strings.Contains(err.Error(), `tag "dev" not found`) {
+		t.Fatalf("error = %v", err)
+	}
+	if got != nil {
+		t.Fatalf("release = %#v, want nil", got)
+	}
+}
+
 func TestPriorityDockerHubOfficialAndSpecificTagResponses(t *testing.T) {
 	tests := []struct{ repo, path, body, name, version string }{
 		{"alpine", "/v2/namespaces/library/repositories/alpine/tags", `{"results":[{"name":"3.22","tag_last_pushed":"2026-08-30T12:00:00Z"}]}`, "alpine", "3.22"},

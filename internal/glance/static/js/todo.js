@@ -1,15 +1,18 @@
 import { elem, fragment } from "./templating.js";
 import { animateReposition } from "./animations.js";
 import { clamp, Vec2, toggleableEvents, throttledDebounce } from "./utils.js";
+import { createPersonalState } from "./personal-state.js";
 
 const trashIconSvg = `<svg fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
   <path fill-rule="evenodd" d="M5 3.25V4H2.75a.75.75 0 0 0 0 1.5h.3l.815 8.15A1.5 1.5 0 0 0 5.357 15h5.285a1.5 1.5 0 0 0 1.493-1.35l.815-8.15h.3a.75.75 0 0 0 0-1.5H11v-.75A2.25 2.25 0 0 0 8.75 1h-1.5A2.25 2.25 0 0 0 5 3.25Zm2.25-.75a.75.75 0 0 0-.75.75V4h3v-.75a.75.75 0 0 0-.75-.75h-1.5ZM6.05 6a.75.75 0 0 1 .787.713l.275 5.5a.75.75 0 0 1-1.498.075l-.275-5.5A.75.75 0 0 1 6.05 6Zm3.9 0a.75.75 0 0 1 .712.787l-.275 5.5a.75.75 0 0 1-1.498-.075l.275-5.5a.75.75 0 0 1 .786-.711Z" clip-rule="evenodd" />
 </svg>`;
 
-export default function(element) {
-    element.swapWith(
-        Todo(element.dataset.todoId)
-    )
+export default async function(element) {
+    const id = element.dataset.todoId;
+    const state = createPersonalState("todo", id);
+    const initialItems = await state.load([], Array.isArray);
+
+    element.swapWith(Todo(state, initialItems));
 }
 
 function itemAnim(height, entrance = true) {
@@ -35,14 +38,6 @@ function inputMarginAnim(entrance = true) {
         ],
         options: { duration: 200, easing: "ease", fill: "forwards" }
     }
-}
-
-function loadFromLocalStorage(id) {
-    return JSON.parse(localStorage.getItem(`todo-${id}`) || "[]");
-}
-
-function saveToLocalStorage(id, data) {
-    localStorage.setItem(`todo-${id}`, JSON.stringify(data));
 }
 
 function Item(unserialize = {}, onUpdate, onDelete, onEscape, onDragStart) {
@@ -101,7 +96,7 @@ function Item(unserialize = {}, onUpdate, onDelete, onEscape, onDragStart) {
     });
 }
 
-function Todo(id) {
+function Todo(state, initialItems) {
     let items, input, inputArea, inputContainer, lastAddedItem;
     let queuedForRemoval = 0;
     let reorderable;
@@ -116,9 +111,7 @@ function Todo(id) {
     const saveItems = () => {
         if (isDragging) return;
 
-        saveToLocalStorage(
-            id, items.children.map(item => item.component.serialize())
-        );
+        state.save(items.children.map(item => item.component.serialize()));
     };
 
     const onItemRepositioned = () => saveItems();
@@ -182,7 +175,7 @@ function Todo(id) {
     items = elem()
         .classes("todo-items")
         .append(
-            ...loadFromLocalStorage(id).map(data => newItem(data))
+            ...initialItems.map(data => newItem(data))
         );
 
     return fragment().append(

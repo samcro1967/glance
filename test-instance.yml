@@ -1684,13 +1684,18 @@ pages:
             timeout: 1s
             allow-potentially-dangerous-html: true
 
+          - type: extension
+            title: Native Extension
+            url: http://127.0.0.1:18089/visual-test-extension-presentation
+            timeout: 1s
+
           - type: markdown
             title: Native Presentation
             source: |
               ## Extension integration
 
-              Extensions can return HTML that reuses Glance's native
-              presentation primitives and follows the active theme.
+              Extensions can return presentation-v1 JSON that Glance renders with
+              native presentation primitives and the active theme.
 
 
   - name: Custom API Monitoring

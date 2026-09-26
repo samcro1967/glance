@@ -135,9 +135,27 @@ func (g *runtimeGeneration) reload(
 
 	candidateApp.configDiagnostics = diagnostics
 	candidateApp.profilingDiagnostics = profilingDiagnostics
+
+	if g.runtime != nil && g.runtime.app != nil &&
+		g.runtime.app.personalState != nil &&
+		candidateApp.personalState != nil &&
+		g.runtime.app.personalState.path == candidateApp.personalState.path {
+		candidateApp.personalState = g.runtime.app.personalState
+	}
+
+	var reusePlan widgetReloadReusePlan
+	if g.runtime != nil && g.runtime.app != nil {
+		reusePlan, err = prepareWidgetReloadReusePlan(g.runtime.app, candidateApp)
+		if err != nil {
+			return nil, fmt.Errorf("preparing widget state reuse: %w", err)
+		}
+	}
+
+	candidateApp.applyWidgetReloadReusePlan(reusePlan)
 	candidateRuntime := candidateApp.startRuntime()
 
 	previousRuntime := g.runtime
+
 	server.swap(candidateRuntime.handler)
 	server.setActiveApplication(candidateApp)
 	g.runtime = candidateRuntime

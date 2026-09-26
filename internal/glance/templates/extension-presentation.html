@@ -1,0 +1,28 @@
+{{ if .PresentationJSON }}<script type="application/json" data-glance-presentation-config>{{ .PresentationJSON }}</script>{{ end }}
+<div class="flex flex-column gap-15">
+{{ range .Blocks }}
+    {{ if eq .Type "text" }}
+        <div{{ if eq .Style "secondary" }} class="glance-secondary"{{ else if eq .Style "muted" }} class="glance-muted"{{ end }}>{{ .Text }}</div>
+    {{ else if eq .Type "metrics" }}
+        <div class="glance-metrics">{{ range .Items }}<div class="glance-metric"><div class="glance-metric-value">{{ .Value }}</div><div class="glance-metric-label">{{ .Label }}</div></div>{{ end }}</div>
+    {{ else if eq .Type "badge" }}
+        <div><span class="glance-badge">{{ .Text }}</span></div>
+    {{ else if eq .Type "status" }}
+        <div><span class="glance-status glance-status-{{ .Variant }}">{{ .Text }}</span></div>
+    {{ else if eq .Type "key-values" }}
+        <div class="glance-key-values">{{ range .Items }}<div class="glance-key-value"><span class="glance-key">{{ .Label }}</span><span class="glance-value">{{ .Value }}</span></div>{{ end }}</div>
+    {{ else if eq .Type "progress" }}
+        <div>{{ if .Label }}<div class="flex justify-between margin-bottom-5"><span>{{ .Label }}</span>{{ if .Text }}<span class="color-subdue">{{ .Text }}</span>{{ end }}</div>{{ end }}<div class="glance-progress"><div class="glance-progress-value" style="--percent: {{ .Percent }}"></div></div></div>
+    {{ else if eq .Type "state" }}
+        <div class="glance-state glance-state-{{ .Variant }}">{{ .Text }}</div>
+    {{ else if eq .Type "list" }}
+        <ul class="list glance-list">{{ range .Items }}<li class="glance-list-row"><div class="glance-list-row-primary">{{ if .URL }}<a href="{{ .URL | safeURL }}" target="_blank" rel="noreferrer">{{ .Title }}</a>{{ else }}{{ .Title }}{{ end }}</div>{{ if .Meta }}<div class="glance-list-row-meta">{{ .Meta }}</div>{{ end }}</li>{{ end }}</ul>
+    {{ else if eq .Type "cards" }}
+        <div class="glance-grid">{{ range .Items }}<div class="glance-card"><div class="color-highlight">{{ .Title }}</div>{{ if .Text }}<div class="glance-secondary margin-top-5">{{ .Text }}</div>{{ end }}{{ if .Status }}<div class="margin-top-10"><span class="glance-status glance-status-{{ .Status.Variant }}">{{ .Status.Text }}</span></div>{{ end }}</div>{{ end }}</div>
+    {{ else if eq .Type "table" }}
+        <table class="glance-table" data-glance-table="{{ .TableName }}"><thead><tr>{{ range .Columns }}<th data-column="{{ .Key }}">{{ .Label }}</th>{{ end }}</tr></thead><tbody>{{ range .Rows }}<tr>{{ range .Cells }}<td>{{ .Value }}</td>{{ end }}</tr>{{ end }}</tbody></table>
+    {{ else if eq .Type "chart" }}
+        <div class="glance-chart" data-glance-chart="{{ .ChartName }}"><script type="application/json">{{ .ChartData }}</script></div>
+    {{ end }}
+{{ end }}
+</div>

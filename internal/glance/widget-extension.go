@@ -8,6 +8,7 @@ import (
 	"html/template"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -30,17 +31,22 @@ type extensionWidget struct {
 	AllowHtml  bool          `yaml:"allow-potentially-dangerous-html"`
 	Extension  extension     `yaml:"-"`
 	cachedHTML template.HTML `yaml:"-"`
+
+	titleConfigured    bool `yaml:"-"`
+	titleURLConfigured bool `yaml:"-"`
 }
 
 func (widget *extensionWidget) initialize() error {
+	widget.titleConfigured = widget.Title != ""
+	widget.titleURLConfigured = widget.TitleURL != ""
 	widget.withTitle(extensionWidgetDefaultTitle).withCacheDuration(time.Minute * 30)
 
 	if widget.URL == "" {
 		return errors.New("URL is required")
 	}
 
-	if _, err := url.Parse(widget.URL); err != nil {
-		return fmt.Errorf("parsing URL: %v", err)
+	if _, err := validateExtensionEndpointURL(widget.URL); err != nil {
+		return err
 	}
 
 	return nil
@@ -65,11 +71,14 @@ func (widget *extensionWidget) update(ctx context.Context) {
 
 	widget.Extension = extension
 
-	if widget.Title == extensionWidgetDefaultTitle && extension.Title != "" {
-		widget.Title = extension.Title
+	if !widget.titleConfigured {
+		widget.Title = extensionWidgetDefaultTitle
+		if extension.Title != "" {
+			widget.Title = extension.Title
+		}
 	}
 
-	if widget.TitleURL == "" && extension.TitleURL != "" {
+	if !widget.titleURLConfigured {
 		widget.TitleURL = extension.TitleURL
 	}
 
@@ -84,11 +93,13 @@ type extensionType int
 
 const (
 	extensionContentHTML extensionType = iota
+	extensionContentPresentationV1
 	extensionContentUnknown
 )
 
 var extensionStringToType = map[string]extensionType{
-	"html": extensionContentHTML,
+	"html":            extensionContentHTML,
+	"presentation-v1": extensionContentPresentationV1,
 }
 
 const (
@@ -97,6 +108,100 @@ const (
 	extensionHeaderContentType      = "Widget-Content-Type"
 	extensionHeaderContentFrameless = "Widget-Content-Frameless"
 )
+
+var errExtensionCrossOriginRedirectWithCredentials = errors.New("extension cross-origin redirect with credentials is not allowed")
+
+func validateExtensionEndpointURL(rawURL string) (*url.URL, error) {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return nil, fmt.Errorf("parsing URL: %w", err)
+	}
+
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return nil, errors.New("URL must use http or https")
+	}
+	if parsed.Host == "" {
+		return nil, errors.New("URL must include a host")
+	}
+	if parsed.User != nil {
+		return nil, errors.New("URL must not include userinfo; use basic-auth instead")
+	}
+	if parsed.Fragment != "" {
+		return nil, errors.New("URL must not include a fragment")
+	}
+
+	return parsed, nil
+}
+
+func validateExtensionTitleURL(rawURL string) (string, error) {
+	if rawURL == "" {
+		return "", nil
+	}
+
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return "", fmt.Errorf("parsing Widget-Title-URL: %w", err)
+	}
+
+	if parsed.User != nil {
+		return "", errors.New("Widget-Title-URL must not include userinfo")
+	}
+	if parsed.IsAbs() {
+		if parsed.Scheme != "http" && parsed.Scheme != "https" {
+			return "", errors.New("Widget-Title-URL must use http or https")
+		}
+		if parsed.Host == "" {
+			return "", errors.New("Widget-Title-URL must include a host")
+		}
+		return rawURL, nil
+	}
+	if parsed.Host != "" {
+		return "", errors.New("Widget-Title-URL must not be protocol-relative")
+	}
+
+	return rawURL, nil
+}
+
+func extensionURLPort(parsed *url.URL) string {
+	if port := parsed.Port(); port != "" {
+		return port
+	}
+	if parsed.Scheme == "http" {
+		return "80"
+	}
+	if parsed.Scheme == "https" {
+		return "443"
+	}
+	return ""
+}
+
+func extensionURLsShareOrigin(first, second *url.URL) bool {
+	return strings.EqualFold(first.Scheme, second.Scheme) &&
+		strings.EqualFold(first.Hostname(), second.Hostname()) &&
+		extensionURLPort(first) == extensionURLPort(second)
+}
+
+func extensionRequestHasCredentials(options extensionRequestOptions) bool {
+	return options.BasicAuthUsername != "" ||
+		options.BasicAuthPassword != "" ||
+		len(options.Headers) > 0
+}
+
+func configureExtensionRedirectPolicy(client *http.Client, original *url.URL, options extensionRequestOptions) {
+	if !extensionRequestHasCredentials(options) {
+		return
+	}
+
+	client.CheckRedirect = func(request *http.Request, via []*http.Request) error {
+		if len(via) >= 10 {
+			return errors.New("extension stopped after 10 redirects")
+		}
+		if !extensionURLsShareOrigin(original, request.URL) {
+			return errExtensionCrossOriginRedirectWithCredentials
+		}
+		return nil
+	}
+}
 
 type extensionRequestOptions struct {
 	URL                 string               `yaml:"url"`
@@ -118,16 +223,25 @@ type extension struct {
 }
 
 func convertExtensionContent(options extensionRequestOptions, content []byte, contentType extensionType) template.HTML {
+	converted, _ := convertExtensionContentValidated(options, content, contentType)
+	return converted
+}
+
+func convertExtensionContentValidated(options extensionRequestOptions, content []byte, contentType extensionType) (template.HTML, error) {
 	switch contentType {
 	case extensionContentHTML:
 		if options.AllowHtml {
-			return template.HTML(content)
+			return template.HTML(content), nil
 		}
-
-		fallthrough
-	default:
-		return template.HTML("<pre>" + html.EscapeString(string(content)) + "</pre>")
+	case extensionContentPresentationV1:
+		presentation, err := renderExtensionPresentation(content)
+		if err != nil {
+			return "", fmt.Errorf("invalid presentation-v1 content: %w", err)
+		}
+		return presentation, nil
 	}
+
+	return template.HTML("<pre>" + html.EscapeString(string(content)) + "</pre>"), nil
 }
 
 func fetchExtension(ctx context.Context, options extensionRequestOptions) (extension, error) {
@@ -149,6 +263,7 @@ func fetchExtension(ctx context.Context, options extensionRequestOptions) (exten
 	}
 
 	client := newHTTPClient(options.Timeout, options.AllowInsecure)
+	configureExtensionRedirectPolicy(client, request.URL, options)
 
 	response, err := client.Do(request)
 	if err != nil {
@@ -173,16 +288,20 @@ func fetchExtension(ctx context.Context, options extensionRequestOptions) (exten
 		)
 	}
 
-	extension := extension{}
+	result := extension{}
 
 	if response.Header.Get(extensionHeaderTitle) == "" {
-		extension.Title = "Extension"
+		result.Title = "Extension"
 	} else {
-		extension.Title = response.Header.Get(extensionHeaderTitle)
+		result.Title = response.Header.Get(extensionHeaderTitle)
 	}
 
 	if response.Header.Get(extensionHeaderTitleURL) != "" {
-		extension.TitleURL = response.Header.Get(extensionHeaderTitleURL)
+		titleURL, err := validateExtensionTitleURL(response.Header.Get(extensionHeaderTitleURL))
+		if err != nil {
+			return extension{}, fmt.Errorf("%w: invalid %s header: %w", errNoContent, extensionHeaderTitleURL, err)
+		}
+		result.TitleURL = titleURL
 	}
 
 	contentType, ok := extensionStringToType[response.Header.Get(extensionHeaderContentType)]
@@ -196,12 +315,16 @@ func fetchExtension(ctx context.Context, options extensionRequestOptions) (exten
 	}
 
 	if stringToBool(response.Header.Get(extensionHeaderContentFrameless)) {
-		extension.Frameless = true
+		result.Frameless = true
 	}
 
-	extension.Content = convertExtensionContent(options, body, contentType)
+	content, err := convertExtensionContentValidated(options, body, contentType)
+	if err != nil {
+		return extension{}, fmt.Errorf("%w: %w", errNoContent, err)
+	}
+	result.Content = content
 
-	return extension, nil
+	return result, nil
 }
 
 func (widget *extensionWidget) setDefaultHeaders(value map[string]string) {
