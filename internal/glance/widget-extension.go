@@ -93,11 +93,13 @@ type extensionType int
 
 const (
 	extensionContentHTML extensionType = iota
+	extensionContentPresentationV1
 	extensionContentUnknown
 )
 
 var extensionStringToType = map[string]extensionType{
-	"html": extensionContentHTML,
+	"html":            extensionContentHTML,
+	"presentation-v1": extensionContentPresentationV1,
 }
 
 const (
@@ -221,16 +223,25 @@ type extension struct {
 }
 
 func convertExtensionContent(options extensionRequestOptions, content []byte, contentType extensionType) template.HTML {
+	converted, _ := convertExtensionContentValidated(options, content, contentType)
+	return converted
+}
+
+func convertExtensionContentValidated(options extensionRequestOptions, content []byte, contentType extensionType) (template.HTML, error) {
 	switch contentType {
 	case extensionContentHTML:
 		if options.AllowHtml {
-			return template.HTML(content)
+			return template.HTML(content), nil
 		}
-
-		fallthrough
-	default:
-		return template.HTML("<pre>" + html.EscapeString(string(content)) + "</pre>")
+	case extensionContentPresentationV1:
+		presentation, err := renderExtensionPresentation(content)
+		if err != nil {
+			return "", fmt.Errorf("invalid presentation-v1 content: %w", err)
+		}
+		return presentation, nil
 	}
+
+	return template.HTML("<pre>" + html.EscapeString(string(content)) + "</pre>"), nil
 }
 
 func fetchExtension(ctx context.Context, options extensionRequestOptions) (extension, error) {
@@ -307,7 +318,11 @@ func fetchExtension(ctx context.Context, options extensionRequestOptions) (exten
 		result.Frameless = true
 	}
 
-	result.Content = convertExtensionContent(options, body, contentType)
+	content, err := convertExtensionContentValidated(options, body, contentType)
+	if err != nil {
+		return extension{}, fmt.Errorf("%w: %w", errNoContent, err)
+	}
+	result.Content = content
 
 	return result, nil
 }

@@ -37,13 +37,13 @@ All widgets also support the [shared widget properties](../widgets.md#shared-pro
 
 ## Response metadata
 
-Extension endpoints can control widget presentation with response headers including `Widget-Title`, `Widget-Title-URL`, `Widget-Content-Type`, and `Widget-Content-Frameless`. See the [extension development guide](../extensions.md) for the complete producer-side contract.
+Extension endpoints can control widget presentation with response headers including `Widget-Title`, `Widget-Title-URL`, `Widget-Content-Type`, and `Widget-Content-Frameless`. `Widget-Content-Type: presentation-v1` enables strictly validated JSON rendered with native Glance presentation primitives without granting raw HTML trust. See the [extension development guide](../extensions.md) for the complete producer-side contract.
 
 ### `url`
 The absolute HTTP or HTTPS URL of the extension. Userinfo and URL fragments are not allowed. If `parameters` is configured, those values replace any query string already present in `url`.
 
 ### `fallback-content-type`
-Optionally specify the fallback content type of the extension if the URL does not return a valid `Widget-Content-Type` header. Currently the only supported value for this property is `html`.
+Optionally specify the fallback content type of the extension if the URL does not return a valid `Widget-Content-Type` header. Supported values are `html` and `presentation-v1`.
 
 ### `timeout`
 The maximum time to wait for the extension request.

@@ -1,5 +1,5 @@
 export function getPresentationConfig(element) {
-    const widget = element.closest(".widget-type-custom-api");
+    const widget = element.closest(".widget");
     const script = widget?.querySelector(
         ":scope > .widget-content > script[data-glance-presentation-config]"
     );
