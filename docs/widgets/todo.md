@@ -33,7 +33,9 @@ This widget also supports the [shared widget properties](../widgets.md#shared-pr
 
 ### `id`
 
-The ID of the todo list. If you want to have multiple todo lists, you must specify a different ID for each one. The ID is used to store the tasks in the browser's local storage. This means that if you have multiple todo lists with the same ID, they will share the same tasks.
+The ID of the todo list. If you want to have multiple todo lists, you must specify a different ID for each one. By default, the ID is used to store tasks in the browser's local storage, so todo widgets with the same ID share the same tasks in that browser profile.
+
+When authenticated [server-side personal state](../configuration.md#personal-state) is enabled, the same ID scopes the user's server-side todo list instead. Existing valid browser-local tasks are migrated the first time no server value exists for that user and ID.
 
 ## Keyboard shortcuts
 | Keys | Action | Condition |

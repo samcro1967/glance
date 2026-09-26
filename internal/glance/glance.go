@@ -53,18 +53,20 @@ type application struct {
 	releaseStatus  releaseStatusCache
 	parsedManifest []byte
 
-	slugToPage           map[string]*page
-	slugToDashboard      map[string]*dashboard
-	dashboards           []*dashboard
-	defaultDashboard     *dashboard
-	widgetByID           map[uint64]widget
-	refreshWidgets       []widget
-	liveUpdates          *liveUpdateBroker
-	configDiagnostics    *configRuntimeDiagnostics
-	profilingDiagnostics *profilingRuntimeDiagnostics
-	frontendDiagnostics  *frontendRuntimeDiagnostics
-	trustedProxyPrefixes []netip.Prefix
-	resourceProxy        *resourceProxy
+	slugToPage               map[string]*page
+	slugToDashboard          map[string]*dashboard
+	dashboards               []*dashboard
+	defaultDashboard         *dashboard
+	widgetByID               map[uint64]widget
+	refreshWidgets           []widget
+	widgetReloadFingerprints map[widget]widgetReloadFingerprint
+	liveUpdates              *liveUpdateBroker
+	configDiagnostics        *configRuntimeDiagnostics
+	profilingDiagnostics     *profilingRuntimeDiagnostics
+	frontendDiagnostics      *frontendRuntimeDiagnostics
+	trustedProxyPrefixes     []netip.Prefix
+	resourceProxy            *resourceProxy
+	personalState            *personalStateStore
 
 	RequiresAuth           bool
 	authSecretKey          []byte
@@ -222,6 +224,13 @@ func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime) (*appli
 		app.oidc, err = newOIDCRuntime(config.Auth.OIDC, reusableOIDC)
 		if err != nil {
 			return nil, err
+		}
+	}
+
+	if config.Server.PersonalState.Enabled {
+		app.personalState, err = newPersonalStateStore(config.Server.PersonalState.Path)
+		if err != nil {
+			return nil, fmt.Errorf("initializing personal state store: %w", err)
 		}
 	}
 
@@ -526,6 +535,10 @@ func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime) (*appli
 	app.refreshWidgets = collectRefreshWidgets(refreshSources)
 	for _, widget := range app.refreshWidgets {
 		app.widgetByID[widget.GetID()] = widget
+	}
+	app.widgetReloadFingerprints, err = captureWidgetReloadFingerprints(app.refreshWidgets)
+	if err != nil {
+		return nil, fmt.Errorf("capturing widget reload fingerprints: %w", err)
 	}
 
 	config.Server.BaseURL = strings.TrimRight(config.Server.BaseURL, "/")
@@ -1100,6 +1113,11 @@ func (a *application) router() http.Handler {
 
 	if !a.Config.Theme.DisablePicker {
 		mux.HandleFunc("POST /api/set-theme/{key}", a.handleThemeChangeRequest)
+	}
+
+	if a.personalState != nil {
+		mux.HandleFunc("GET /api/personal-state/{namespace}/{id}", a.handlePersonalStateGetRequest)
+		mux.HandleFunc("POST /api/personal-state/{namespace}/{id}", a.handlePersonalStatePostRequest)
 	}
 
 	mux.HandleFunc("GET /api/widgets/{widget}/content/{$}", a.handleWidgetContentRequest)

@@ -451,7 +451,7 @@ async function setupTimers() {
     const timer = await import('./timer.js');
 
     for (let i = 0; i < elems.length; i++) {
-        timer.default(elems[i]);
+        await timer.default(elems[i]);
     }
 }
 
@@ -477,7 +477,7 @@ async function setupTodos() {
     const todo = await import ('./todo.js');
 
     for (let i = 0; i < elems.length; i++){
-        todo.default(elems[i]);
+        await todo.default(elems[i]);
     }
 }
 

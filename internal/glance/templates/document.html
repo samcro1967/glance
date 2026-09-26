@@ -10,6 +10,7 @@
         theme: "{{ .Request.Theme.Key }}",
         createdAt: {{ .App.CreatedAt.Unix }},
         frontendDiagnostics: {{ .App.Config.Server.FrontendDiagnostics }},
+        personalStateEnabled: {{ .App.Config.Server.PersonalState.Enabled }},
     };
     </script>
     <title>{{ block "document-title" . }}{{ end }}</title>

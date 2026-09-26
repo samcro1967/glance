@@ -42,7 +42,11 @@ type config struct {
 		AssetsPath          string   `yaml:"assets-path"`
 		BaseURL             string   `yaml:"base-url"`
 		FrontendDiagnostics bool     `yaml:"frontend-diagnostics"`
-		ResourceProxy       struct {
+		PersonalState       struct {
+			Enabled bool   `yaml:"enabled"`
+			Path    string `yaml:"path"`
+		} `yaml:"personal-state"`
+		ResourceProxy struct {
 			AllowedOrigins []string `yaml:"allowed-origins"`
 		} `yaml:"resource-proxy"`
 	} `yaml:"server"`
@@ -173,6 +177,8 @@ type configSemanticSources struct {
 	analyticsEndpoint    int
 	root                 int
 	server               int
+	personalState        int
+	personalStatePath    int
 	assetsPath           int
 	auth                 int
 	authUsers            int
@@ -1170,6 +1176,12 @@ func parseConfigSemanticSources(contents []byte) (*configSemanticSources, error)
 		if key, value := yamlMappingValue(server, "assets-path"); value != nil {
 			sources.assetsPath = key.Line
 		}
+		if key, personalState := yamlMappingValue(server, "personal-state"); personalState != nil {
+			sources.personalState = key.Line
+			if key, value := yamlMappingValue(personalState, "path"); value != nil {
+				sources.personalStatePath = key.Line
+			}
+		}
 	}
 
 	if key, analytics := yamlMappingValue(root, "analytics"); analytics != nil {
@@ -1731,6 +1743,24 @@ func isConfigStateValidWithSources(
 
 	if err := validateAuthorizationConfig(config, parsed, sources); err != nil {
 		return err
+	}
+
+	if config.Server.PersonalState.Enabled {
+		line := rootLine
+		pathLine := rootLine
+		if sources != nil {
+			line = semanticSourceLine(sources.personalState, sources.server, rootLine)
+			pathLine = semanticSourceLine(sources.personalStatePath, line)
+		}
+		if len(config.Auth.Users) == 0 && !config.Auth.OIDC.configured() {
+			return diagnostic(line, errors.New("server personal-state requires authentication"))
+		}
+		if strings.TrimSpace(config.Server.PersonalState.Path) == "" {
+			return diagnostic(pathLine, errors.New("server personal-state path is required when enabled"))
+		}
+		if !filepath.IsAbs(config.Server.PersonalState.Path) {
+			return diagnostic(pathLine, errors.New("server personal-state path must be absolute"))
+		}
 	}
 
 	if config.Server.AssetsPath != "" {

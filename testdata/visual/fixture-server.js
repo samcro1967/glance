@@ -159,6 +159,24 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (url.pathname === '/visual-test-extension-presentation') {
+    res.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Widget-Title': 'Native Extension',
+      'Widget-Content-Type': 'presentation-v1'
+    });
+    res.end(JSON.stringify({
+      blocks: [
+        { type: 'metrics', items: [{ label: 'REQUESTS', value: '12,402' }, { label: 'LATENCY', value: '42 ms' }] },
+        { type: 'status', text: 'Healthy', variant: 'positive' },
+        { type: 'progress', label: 'Storage', value: 67, text: '67%' },
+        { type: 'table', columns: [{ key: 'service', label: 'Service' }, { key: 'latency', label: 'Latency', type: 'number', priority: 1 }], rows: [{ service: 'Dashboard', latency: 12 }, { service: 'Fixture API', latency: 7 }] },
+        { type: 'chart', 'chart-type': 'line', data: { labels: ['Mon', 'Tue', 'Wed', 'Thu'], series: [{ label: 'CPU', values: [42, 55, 48, 61] }] } }
+      ]
+    }));
+    return;
+  }
+
   if (url.pathname === '/visual-test-extension') {
     res.writeHead(200, {
       'Content-Type': 'text/html; charset=utf-8',

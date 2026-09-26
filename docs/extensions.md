@@ -29,7 +29,7 @@ If you know how to setup an HTTP server and a bit of HTML and CSS you're ready t
 Used to specify the title of the widget. If not provided, the widget's title will be "Extension".
 
 ### `Widget-Title-URL`
-Used to specify the URL that will be opened when the widget's title is clicked. If the user has specified a `title-url` in their config, it will take precedence over this header.
+Used to specify the URL that will be opened when the widget's title is clicked. Absolute values must use HTTP or HTTPS; relative URLs are also supported. Unsafe schemes and protocol-relative URLs are rejected. If the user has specified a `title-url` in their config (including through widget defaults), it takes precedence over this header. Extension-provided title metadata may change on later refreshes.
 
 ### `Widget-Content-Type`
 Used to specify the content type that will be returned by the extension. If not provided, the content will be shown as plain text.
@@ -39,12 +39,49 @@ When set to `true`, the widget's content will be displayed without the default b
 
 ## Content Types
 
-> [!NOTE]
->
-> Currently, `html` is the only supported content type. The long-term goal is to have generic content types such as `videos`, `forum-posts`, `markets`, `streams`, etc. which will be returned in JSON format and displayed by Glance using existing styles and functionality, allowing extension developers to achieve a native look while only focusing on providing data from their preferred source.
+Glance supports two Extension content modes:
+
+- `html` for trusted raw HTML supplied by the Extension.
+- `presentation-v1` for strictly validated JSON that Glance renders with native presentation primitives.
+
+### `presentation-v1`
+`presentation-v1` is the preferred mode when an Extension can describe its content declaratively. The response body is JSON with a top-level `blocks` array. Glance rejects unknown fields, unsupported block types, invalid enum values, unsafe links, malformed table/chart data, and other schema violations before replacing the last-known-good Extension content.
+
+```http
+Widget-Content-Type: presentation-v1
+Content-Type: application/json
+```
+
+```json
+{
+  "blocks": [
+    {
+      "type": "metrics",
+      "items": [
+        { "label": "Requests", "value": "12,402" },
+        { "label": "Latency", "value": "42 ms" }
+      ]
+    },
+    { "type": "status", "text": "Healthy", "variant": "positive" },
+    { "type": "progress", "label": "Storage", "value": 67, "text": "67%" }
+  ]
+}
+```
+
+Supported v1 blocks are `text`, `metrics`, `badge`, `status`, `key-values`, `progress`, `state`, `list`, `cards`, `table`, and `chart`. Text is always escaped; producers cannot supply HTML, CSS classes, JavaScript, event handlers, or arbitrary Chart.js/DataTables configuration through this mode. Glance owns the markup, styling, accessibility, responsive behavior, and frontend initialization.
+
+`status.variant` accepts `positive`, `negative`, `warning`, or `neutral`. `state.variant` accepts `empty`, `warning`, `error`, or `degraded`. `progress.value` must be between `0` and `100`. List URLs may be relative or absolute HTTP/HTTPS URLs and are validated using the same rules as `Widget-Title-URL`.
+
+Tables define an ordered `columns` array and scalar `rows`. Column `type` accepts `text`, `number`, or `date`; `priority` controls responsive priority. Optional table properties are `responsive`, `sortable`, `search`, `pagination`, and `page-size`.
+
+Charts use `chart-type` values `line`, `area`, `bar`, `pie`, `doughnut`, `sparkline`, or `gauge`, plus optional `height`, `legend`, `min`, `max`, `unit`, and `stacked` properties. Line/area/bar data uses `labels` plus `series`; pie/doughnut uses `labels` plus `values`; sparkline uses `values`; gauge uses `value` and optional `label`.
+
+`presentation-v1` does not require `allow-potentially-dangerous-html` because Extension HTML is never inserted into the page.
 
 ### `html`
-Displays the content as HTML. This requires the user to have the `allow-potentially-dangerous-html` property set to `true`, otherwise the content will be shown as plain text.
+Displays the content as HTML. This requires the user to have the `allow-potentially-dangerous-html` property set to `true`, otherwise the content will be shown as plain text. Enabling the option means the Glance administrator trusts the extension endpoint to provide raw HTML inside the Glance page context; it is not merely a formatting toggle.
+
+Extension requests may include headers or Basic Authentication. When credentials or custom headers are configured, Glance follows redirects only when the redirect remains on the same origin (scheme, host, and effective port). This prevents extension credentials from being forwarded to another origin. Public extension requests without configured credentials retain normal HTTP redirect behavior.
 
 
 #### Using existing classes and functionality

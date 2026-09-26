@@ -2,7 +2,7 @@
 
 [Widgets](../widgets.md) · [Configuration](../configuration.md) · [Glance README](../../README.md)
 
-Display a list of latest releases for specific repositories on Github, GitLab, Codeberg or Docker Hub.
+Display a list of latest releases for specific repositories on GitHub, GitLab, Codeberg, Docker Hub or GitHub Container Registry (GHCR).
 
 Example:
 ## Quick start
@@ -18,6 +18,7 @@ Example:
     - codeberg:redict/redict
     - gitlab:fdroid/fdroidclient
     - dockerhub:gotify/server
+    - ghcr:samcro1967/glance:latest
 ```
 
 Preview:
@@ -38,12 +39,13 @@ This widget also supports the [shared widget properties](../widgets.md#shared-pr
 | collapse-after | integer | no | 5 |
 
 ### `repositories`
-A list of repositores to fetch the latest release for. Only the name/repo is required, not the full URL. A prefix can be specified for repositories hosted elsewhere such as GitLab, Codeberg and Docker Hub. Example:
+A list of repositories to fetch the latest release for. Only the name/repo is required, not the full URL. A prefix can be specified for repositories hosted elsewhere such as GitLab, Codeberg, Docker Hub and GHCR. Example:
 
 ```yaml
 repositories:
   - gitlab:inkscape/inkscape
   - dockerhub:grafana/grafana
+  - ghcr:samcro1967/glance
   - codeberg:redict/redict
 ```
 
@@ -76,6 +78,17 @@ repositories:
   - dockerhub:nginx:stable-alpine
 ```
 
+GHCR images use the `ghcr:` prefix and require an owner plus image name. Without a tag, Glance selects the newest tagged package version returned by GitHub Packages. You can also track an exact tag:
+
+```yaml
+repositories:
+  - ghcr:samcro1967/glance
+  - ghcr:samcro1967/glance:latest
+  - ghcr:samcro1967/glance:dev
+```
+
+GHCR package requests require GitHub authentication. Configure `token` with a GitHub token that can read packages; a classic personal access token requires the `read:packages` scope.
+
 To include prereleases you can specify the repository as an object and use the `include-prereleases` property:
 
 **Note: This feature is currently only available for GitHub repositories.**
@@ -89,10 +102,10 @@ repositories:
 ```
 
 ### `show-source-icon`
-Shows an icon of the source (GitHub/GitLab/Codeberg/Docker Hub) next to the repository name when set to `true`.
+Shows an icon of the source (GitHub/GitLab/Codeberg/Docker Hub/GHCR) next to the repository name when set to `true`. GHCR uses the GitHub source icon.
 
 ### `token`
-Without authentication Github allows for up to 60 requests per hour. You can easily exceed this limit and start seeing errors if you're tracking lots of repositories or your cache time is low. To circumvent this you can [create a read only token from your Github account](https://github.com/settings/personal-access-tokens/new) and provide it here.
+Without authentication GitHub allows for up to 60 requests per hour. You can easily exceed this limit and start seeing errors if you're tracking lots of repositories or your cache time is low. The same token is also used for GHCR package requests. To circumvent GitHub API rate limits you can [create a read only token from your GitHub account](https://github.com/settings/personal-access-tokens/new) and provide it here. For private GHCR packages, the token must be able to read the package; classic personal access tokens require the `read:packages` scope.
 
 You can also specify the value for this token through an ENV variable using the syntax `${GITHUB_TOKEN}` where `GITHUB_TOKEN` is the name of the variable that holds the token. If you've installed Glance through docker you can specify the token in your docker-compose:
 

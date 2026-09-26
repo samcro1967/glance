@@ -41,7 +41,7 @@ func (widget *releasesWidget) initialize() error {
 	for i := range widget.Repositories {
 		r := widget.Repositories[i]
 
-		if r.source == releaseSourceGithub && widget.Token != "" {
+		if (r.source == releaseSourceGithub || r.source == releaseSourceGHCR) && widget.Token != "" {
 			r.token = &widget.Token
 		} else if r.source == releaseSourceGitlab && widget.GitLabToken != "" {
 			r.token = &widget.GitLabToken
@@ -63,7 +63,7 @@ func (widget *releasesWidget) update(ctx context.Context) {
 	}
 
 	for i := range releases {
-		releases[i].SourceIconURL = widget.Providers.assetResolver("icons/" + string(releases[i].Source) + ".svg")
+		releases[i].SourceIconURL = widget.Providers.assetResolver("icons/" + releaseSourceIconName(releases[i].Source) + ".svg")
 	}
 
 	widget.Releases = releases
@@ -79,8 +79,16 @@ const (
 	releaseSourceCodeberg  releaseSource = "codeberg"
 	releaseSourceGithub    releaseSource = "github"
 	releaseSourceGitlab    releaseSource = "gitlab"
+	releaseSourceGHCR      releaseSource = "ghcr"
 	releaseSourceDockerHub releaseSource = "dockerhub"
 )
+
+func releaseSourceIconName(source releaseSource) string {
+	if source == releaseSourceGHCR {
+		return string(releaseSourceGithub)
+	}
+	return string(source)
+}
 
 type appRelease struct {
 	Source        releaseSource
@@ -141,6 +149,8 @@ func (r *releaseRequest) UnmarshalYAML(node *yaml.Node) error {
 			r.source = releaseSourceGithub
 		case string(releaseSourceGitlab):
 			r.source = releaseSourceGitlab
+		case string(releaseSourceGHCR):
+			r.source = releaseSourceGHCR
 		case string(releaseSourceDockerHub):
 			r.source = releaseSourceDockerHub
 		case string(releaseSourceCodeberg):
@@ -255,6 +265,8 @@ func fetchLatestReleaseTask(ctx context.Context, request *releaseRequest) (*appR
 		return fetchLatestGithubRelease(ctx, request)
 	case releaseSourceGitlab:
 		return fetchLatestGitLabRelease(ctx, request)
+	case releaseSourceGHCR:
+		return fetchLatestGHCRRelease(ctx, request)
 	case releaseSourceDockerHub:
 		return fetchLatestDockerHubRelease(ctx, request)
 	}
@@ -315,6 +327,108 @@ func fetchLatestGithubRelease(ctx context.Context, request *releaseRequest) (*ap
 		NotesUrl:     response.HtmlUrl,
 		TimeReleased: parseRFC3339Time(response.PublishedAt),
 		Downvotes:    response.Reactions.Downvotes,
+	}, nil
+}
+
+type ghcrPackageVersionResponse struct {
+	UpdatedAt string `json:"updated_at"`
+	HTMLURL   string `json:"html_url"`
+	Metadata  struct {
+		Container struct {
+			Tags []string `json:"tags"`
+		} `json:"container"`
+	} `json:"metadata"`
+}
+
+func parseGHCRRepository(repository string) (owner string, packageName string, tag string, err error) {
+	slash := strings.Index(repository, "/")
+	if slash <= 0 || slash == len(repository)-1 {
+		return "", "", "", fmt.Errorf("invalid GHCR repository name: %s", repository)
+	}
+
+	owner = repository[:slash]
+	packageName = repository[slash+1:]
+	if colon := strings.LastIndex(packageName, ":"); colon >= 0 {
+		tag = packageName[colon+1:]
+		packageName = packageName[:colon]
+	}
+
+	if strings.TrimSpace(owner) == "" || strings.TrimSpace(packageName) == "" || (strings.Contains(repository, ":") && tag == "") {
+		return "", "", "", fmt.Errorf("invalid GHCR repository name: %s", repository)
+	}
+
+	return owner, packageName, tag, nil
+}
+
+func ghcrPackageVersionsURL(owner string, packageName string, organization bool) string {
+	owner = url.PathEscape(owner)
+	packageName = url.PathEscape(packageName)
+	if organization {
+		return fmt.Sprintf("https://api.github.com/orgs/%s/packages/container/%s/versions?per_page=100", owner, packageName)
+	}
+	return fmt.Sprintf("https://api.github.com/users/%s/packages/container/%s/versions?per_page=100", owner, packageName)
+}
+
+func fetchGHCRPackageVersions(ctx context.Context, requestURL string, token *string) ([]ghcrPackageVersionResponse, error) {
+	httpRequest, err := http.NewRequestWithContext(ctx, "GET", requestURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	if token != nil {
+		httpRequest.Header.Add("Authorization", "Bearer "+*token)
+	}
+	return decodeJsonFromRequest[[]ghcrPackageVersionResponse](defaultHTTPClient, httpRequest)
+}
+
+func fetchLatestGHCRRelease(ctx context.Context, request *releaseRequest) (*appRelease, error) {
+	owner, packageName, requestedTag, err := parseGHCRRepository(request.Repository)
+	if err != nil {
+		return nil, err
+	}
+
+	versions, err := fetchGHCRPackageVersions(ctx, ghcrPackageVersionsURL(owner, packageName, true), request.token)
+	if err != nil {
+		var statusErr *httpStatusError
+		if !errors.As(err, &statusErr) || statusErr.StatusCode != http.StatusNotFound {
+			return nil, err
+		}
+		versions, err = fetchGHCRPackageVersions(ctx, ghcrPackageVersionsURL(owner, packageName, false), request.token)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var selected *ghcrPackageVersionResponse
+	selectedTag := ""
+	for i := range versions {
+		version := &versions[i]
+		for _, candidateTag := range version.Metadata.Container.Tags {
+			if requestedTag != "" && candidateTag != requestedTag {
+				continue
+			}
+			if selected == nil || parseRFC3339Time(version.UpdatedAt).After(parseRFC3339Time(selected.UpdatedAt)) {
+				selected = version
+				selectedTag = candidateTag
+			}
+			if requestedTag != "" {
+				break
+			}
+		}
+	}
+
+	if selected == nil {
+		if requestedTag != "" {
+			return nil, fmt.Errorf("tag %q not found for GHCR repository %s/%s", requestedTag, owner, packageName)
+		}
+		return nil, fmt.Errorf("no tagged versions found for GHCR repository %s/%s", owner, packageName)
+	}
+
+	return &appRelease{
+		Source:       releaseSourceGHCR,
+		Name:         owner + "/" + packageName,
+		Version:      selectedTag,
+		NotesUrl:     selected.HTMLURL,
+		TimeReleased: parseRFC3339Time(selected.UpdatedAt),
 	}, nil
 }
 
