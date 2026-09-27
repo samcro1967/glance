@@ -19,8 +19,23 @@ func (widget *containerWidgetBase) childWidgets() widgets {
 
 func (widget *containerWidgetBase) _initializeWidgets() error {
 	for i := range widget.Widgets {
-		if err := widget.Widgets[i].initialize(); err != nil {
-			return formatWidgetInitError(err, widget.Widgets[i])
+		candidate := widget.Widgets[i]
+		if _, invalid := candidate.(*invalidConfiguredWidget); invalid {
+			continue
+		}
+
+		if err := candidate.initialize(); err != nil {
+			formatted := formatWidgetInitError(err, candidate)
+			generatedLine := 0
+			if base, ok := widgetBaseOf(candidate); ok {
+				generatedLine = base.configLine
+			}
+			widget.Widgets[i] = newInvalidConfiguredWidget(
+				candidate,
+				candidate.GetType(),
+				generatedLine,
+				formatted,
+			)
 		}
 	}
 

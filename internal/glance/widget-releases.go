@@ -126,7 +126,7 @@ func (r *releaseRequest) UnmarshalYAML(node *yaml.Node) error {
 
 	if err := node.Decode(&repository); err != nil {
 		if err := node.Decode(alias); err != nil {
-			return fmt.Errorf("could not umarshal repository into string or struct: %v", err)
+			return fmt.Errorf("could not umarshal repository into string or struct: %w", err)
 		}
 	}
 

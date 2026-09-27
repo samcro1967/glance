@@ -112,6 +112,10 @@ func collectRefreshWidgets(source widgets) []widget {
 
 	var collect func(widget)
 	collect = func(candidate widget) {
+		if _, invalid := candidate.(*invalidConfiguredWidget); invalid {
+			return
+		}
+
 		if container, ok := candidate.(widgetContainer); ok {
 			for _, child := range container.childWidgets() {
 				collect(child)
@@ -185,7 +189,7 @@ func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime) (*appli
 	if authConfigured {
 		secretBytes, err := base64.StdEncoding.DecodeString(config.Auth.SecretKey)
 		if err != nil {
-			return nil, fmt.Errorf("decoding secret-key: %v", err)
+			return nil, fmt.Errorf("decoding secret-key: %w", err)
 		}
 
 		app.RequiresAuth = true
@@ -200,7 +204,7 @@ func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime) (*appli
 			user := config.Auth.Users[username]
 			usernameHash, err := computeUsernameHash(username, app.authSecretKey)
 			if err != nil {
-				return nil, fmt.Errorf("computing username hash for user %s: %v", username, err)
+				return nil, fmt.Errorf("computing username hash for user %s: %w", username, err)
 			}
 			app.usernameHashToUsername[string(usernameHash)] = username
 
@@ -210,7 +214,7 @@ func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime) (*appli
 			} else {
 				hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 				if err != nil {
-					return nil, fmt.Errorf("hashing password for user %s: %v", username, err)
+					return nil, fmt.Errorf("hashing password for user %s: %w", username, err)
 				}
 
 				user.Password = ""
@@ -390,7 +394,7 @@ func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime) (*appli
 
 		builtInThemes, err := newOrderedYAMLMap(themeKeys, themeProps)
 		if err != nil {
-			return nil, fmt.Errorf("creating built-in themes: %v", err)
+			return nil, fmt.Errorf("creating built-in themes: %w", err)
 		}
 		config.Theme.Presets = *builtInThemes.Merge(&config.Theme.Presets)
 
@@ -402,7 +406,7 @@ func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime) (*appli
 				properties.Name = themeDisplayName(key)
 			}
 			if err := properties.init(); err != nil {
-				return nil, fmt.Errorf("initializing preset theme %s: %v", key, err)
+				return nil, fmt.Errorf("initializing preset theme %s: %w", key, err)
 			}
 		}
 	}
@@ -412,7 +416,7 @@ func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime) (*appli
 		config.Theme.Name = themeDisplayName(config.Theme.Key)
 	}
 	if err := config.Theme.init(); err != nil {
-		return nil, fmt.Errorf("initializing default theme: %v", err)
+		return nil, fmt.Errorf("initializing default theme: %w", err)
 	}
 
 	//
@@ -580,7 +584,7 @@ func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime) (*appli
 
 	manifest, err := executeTemplateToString(manifestTemplate, templateData{App: app})
 	if err != nil {
-		return nil, fmt.Errorf("parsing manifest.json: %v", err)
+		return nil, fmt.Errorf("parsing manifest.json: %w", err)
 	}
 	app.parsedManifest = []byte(manifest)
 

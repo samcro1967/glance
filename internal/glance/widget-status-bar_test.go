@@ -147,7 +147,7 @@ func TestStatusBarWidgetSupportedChildren(t *testing.T) {
 	}
 }
 
-func TestStatusBarWidgetPropagatesChildInitializationError(t *testing.T) {
+func TestStatusBarWidgetIsolatesChildInitializationError(t *testing.T) {
 	child := &weatherWidget{}
 	child.Type = "weather"
 
@@ -158,12 +158,19 @@ func TestStatusBarWidgetPropagatesChildInitializationError(t *testing.T) {
 	}
 	widget.Type = "status-bar"
 
-	err := widget.initialize()
-	if err == nil {
-		t.Fatal("initialize() error = nil, want child initialization error")
+	if err := widget.initialize(); err != nil {
+		t.Fatalf("initialize() error = %v, want nil", err)
 	}
-	if !strings.Contains(err.Error(), "weather widget: location is required") {
-		t.Errorf("initialize() error = %q", err.Error())
+	if len(widget.Widgets) != 1 {
+		t.Fatalf("child count = %d, want 1", len(widget.Widgets))
+	}
+
+	invalid, ok := widget.Widgets[0].(*invalidConfiguredWidget)
+	if !ok {
+		t.Fatalf("child type = %T, want *invalidConfiguredWidget", widget.Widgets[0])
+	}
+	if invalid.Error == nil || !strings.Contains(invalid.Error.Error(), "weather widget: location is required") {
+		t.Fatalf("invalid child error = %v", invalid.Error)
 	}
 }
 

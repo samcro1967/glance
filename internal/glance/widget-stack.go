@@ -19,6 +19,9 @@ func (widget *stackWidget) initialize() error {
 	widget.HideHeader = true
 
 	for i := range widget.Widgets {
+		if _, invalid := widget.Widgets[i].(*invalidConfiguredWidget); invalid {
+			continue
+		}
 
 		if widget.Widgets[i].GetType() == "stack" {
 			return errors.New("nested stacks are not supported")

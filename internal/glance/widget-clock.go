@@ -34,7 +34,7 @@ func (widget *clockWidget) initialize() error {
 		}
 
 		if _, err := time.LoadLocation(widget.Timezones[t].Timezone); err != nil {
-			return fmt.Errorf("invalid timezone '%s': %v", widget.Timezones[t].Timezone, err)
+			return fmt.Errorf("invalid timezone '%s': %w", widget.Timezones[t].Timezone, err)
 		}
 	}
 

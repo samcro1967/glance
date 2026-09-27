@@ -101,7 +101,7 @@ func (widget *serverStatsWidget) update(ctx context.Context) {
 			serv.IsReachable = true
 
 			if len(errs) > 0 {
-				recordPartial(fmt.Errorf("collecting local server stats: %v", errs[0]))
+				recordPartial(fmt.Errorf("collecting local server stats: %w", errs[0]))
 			} else {
 				recordSuccess()
 			}

@@ -464,6 +464,140 @@ pages:
 	}
 }
 
+func TestRecoverableConfigurationConstructsRunnableServer(t *testing.T) {
+	parsed := &parsedYAMLConfig{Contents: []byte(`
+server:
+  host: 127.0.0.1
+analytics:
+  provider: goatcounter
+  endpoint: not-a-valid-endpoint
+pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets:
+          - type: clock
+          - type: weather
+`)}
+
+	config, err := newConfigFromParsedYAML(parsed)
+	if err != nil {
+		t.Fatalf("newConfigFromParsedYAML() error = %v", err)
+	}
+	if len(config.recoverableErrors) != 2 {
+		t.Fatalf("recoverable errors = %d, want 2", len(config.recoverableErrors))
+	}
+
+	// Port zero asks the OS for an ephemeral listener and lets this test exercise
+	// the same application/server construction boundary used during cold starts.
+	config.Server.Port = 0
+	app, err := newApplication(config)
+	if err != nil {
+		t.Fatalf("newApplication() error = %v", err)
+	}
+
+	server, err := newProcessServer("127.0.0.1", 0, app.router())
+	if err != nil {
+		t.Fatalf("newProcessServer() error = %v", err)
+	}
+	server.setActiveApplication(app)
+
+	runtime := app.startRuntime()
+	defer runtime.stop()
+
+	serveDone := make(chan error, 1)
+	go func() {
+		serveDone <- server.serve()
+	}()
+
+	client := &http.Client{Timeout: time.Second}
+	response, err := client.Get("http://" + server.listener.Addr().String() + "/api/healthz")
+	if err != nil {
+		_ = server.shutdown()
+		t.Fatalf("health request: %v", err)
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		_ = server.shutdown()
+		t.Fatalf("health status = %d, want %d", response.StatusCode, http.StatusOK)
+	}
+
+	if err := server.shutdown(); err != nil {
+		t.Fatalf("server shutdown: %v", err)
+	}
+	select {
+	case err := <-serveDone:
+		if err != nil {
+			t.Fatalf("server serve returned error: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("server did not stop")
+	}
+}
+
+func TestRuntimeGenerationAcceptsRecoverableCandidate(t *testing.T) {
+	oldWidget := newServerLifecycleTestWidget()
+	oldApp := newServerLifecycleTestApplication(t, 0, oldWidget)
+	diagnostics := newConfigRuntimeDiagnostics("glance.yml")
+	oldApp.configDiagnostics = diagnostics
+
+	server, err := newProcessServer("127.0.0.1", 0, oldApp.router())
+	if err != nil {
+		t.Fatalf("create process server: %v", err)
+	}
+	defer func() { _ = server.shutdown() }()
+	server.setActiveApplication(oldApp)
+
+	oldRuntime := oldApp.startRuntime()
+	defer oldRuntime.stop()
+
+	candidate, err := newConfigFromParsedYAML(&parsedYAMLConfig{Contents: []byte(`
+server:
+  host: 127.0.0.1
+  port: 0
+branding:
+  app-name: Reloaded Glance
+pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets:
+          - type: clock
+          - type: weather
+`)})
+	if err != nil {
+		t.Fatalf("candidate config error = %v", err)
+	}
+	if len(candidate.recoverableErrors) != 1 {
+		t.Fatalf("candidate recoverable errors = %d, want 1", len(candidate.recoverableErrors))
+	}
+
+	generation := &runtimeGeneration{
+		runtime: oldRuntime,
+		config:  &oldApp.Config,
+	}
+	previousRuntime, err := generation.reload(server, candidate, diagnostics, nil)
+	if err != nil {
+		t.Fatalf("reload recoverable candidate: %v", err)
+	}
+	defer previousRuntime.stop()
+	defer generation.runtime.stop()
+
+	active := server.activeApplication.Load()
+	if active == nil || active == oldApp {
+		t.Fatal("recoverable candidate did not replace active application")
+	}
+	if active.Config.Branding.AppName != "Reloaded Glance" {
+		t.Fatalf("active app name = %q, want Reloaded Glance", active.Config.Branding.AppName)
+	}
+
+	select {
+	case <-oldWidget.cancelled:
+		t.Fatal("accepted recoverable reload retired previous runtime before caller commit")
+	default:
+	}
+}
+
 func TestRuntimeGenerationApplicationFailurePreservesCurrentGeneration(t *testing.T) {
 	oldWidget := newServerLifecycleTestWidget()
 	oldApp := newServerLifecycleTestApplication(t, 0, oldWidget)

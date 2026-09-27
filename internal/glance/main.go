@@ -40,8 +40,13 @@ func Main() int {
 			return 1
 		}
 
-		if _, err := newConfigFromParsedYAML(parsed); err != nil {
+		validatedConfig, err := newConfigFromParsedYAML(parsed)
+		if err != nil {
 			printConfigValidationError(err)
+			return 1
+		}
+		if len(validatedConfig.recoverableErrors) > 0 {
+			printRecoverableConfigValidationErrors(validatedConfig.recoverableErrors)
 			return 1
 		}
 	case cliIntentConfigPrint:
@@ -89,6 +94,34 @@ func Main() int {
 	}
 
 	return 0
+}
+
+func printRecoverableConfigValidationErrors(issues []error) {
+	fmt.Println("Configuration contains recoverable errors:")
+	for _, issue := range issues {
+		var diagnostic *configDiagnostic
+		if errors.As(issue, &diagnostic) {
+			location := diagnostic.File
+			if diagnostic.Line > 0 {
+				location = fmt.Sprintf("%s:%d", location, diagnostic.Line)
+			}
+			if location != "" {
+				fmt.Printf("  - %s: %s\n", location, diagnostic.Message)
+				continue
+			}
+		}
+		fmt.Printf("  - %v\n", issue)
+	}
+}
+
+func logRecoverableConfigErrors(issues []error) {
+	for _, issue := range issues {
+		logConfigDiagnostic(
+			slog.LevelWarn,
+			"Recoverable configuration error; continuing with degraded configuration",
+			issue,
+		)
+	}
 }
 
 func printConfigValidationError(err error) {
@@ -154,6 +187,7 @@ func serveApp(configPath string) error {
 	if err != nil {
 		return fmt.Errorf("validating config file: %w", err)
 	}
+	logRecoverableConfigErrors(initialConfig.recoverableErrors)
 
 	initialApp, err := newApplication(initialConfig)
 	if err != nil {
@@ -228,6 +262,7 @@ func serveApp(configPath string) error {
 			)
 			return
 		}
+		logRecoverableConfigErrors(candidateConfig.recoverableErrors)
 
 		previousRuntime, err := generation.reload(server, candidateConfig, configDiagnostics, profilingDiagnostics)
 		if err != nil {
@@ -245,6 +280,18 @@ func serveApp(configPath string) error {
 	}
 
 	onErr := func(err error) {
+		var reloadErr *configWatcherReloadError
+		if errors.As(err, &reloadErr) {
+			configDiagnostics.recordReloadAttempt(time.Now())
+			configDiagnostics.recordReloadRejected(err)
+			logConfigDiagnostic(
+				slog.LevelWarn,
+				"Configuration reload rejected before validation; keeping existing application",
+				err,
+			)
+			return
+		}
+
 		slog.Error("Error watching configuration files", "error", err)
 	}
 

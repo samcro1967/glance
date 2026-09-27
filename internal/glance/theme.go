@@ -838,26 +838,6 @@ func (t *themeProperties) validate(path string) error {
 	return nil
 }
 
-func validateConfiguredThemes(config *config) error {
-	if err := config.Theme.themeProperties.validate("theme"); err != nil {
-		return err
-	}
-
-	for key, properties := range config.Theme.Presets.Items() {
-		if err := properties.validate("theme.presets." + key); err != nil {
-			return err
-		}
-	}
-
-	for i := range config.Pages {
-		if err := config.Pages[i].Theme.validate(fmt.Sprintf("pages[%d].theme", i)); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func resolveTheme(base *themeProperties, pageOverride *themeProperties) (*themeProperties, error) {
 	if base == nil {
 		return nil, fmt.Errorf("base theme is nil")
@@ -874,7 +854,7 @@ func resolveTheme(base *themeProperties, pageOverride *themeProperties) (*themeP
 	resolved.BackgroundColorAsHex = ""
 
 	if err := resolved.init(); err != nil {
-		return nil, fmt.Errorf("initializing resolved theme: %v", err)
+		return nil, fmt.Errorf("initializing resolved theme: %w", err)
 	}
 
 	return &resolved, nil
@@ -1084,13 +1064,13 @@ func (t *themeProperties) WidgetBlurCSS() string {
 func (t *themeProperties) init() error {
 	css, err := executeTemplateToString(themeStyleTemplate, t)
 	if err != nil {
-		return fmt.Errorf("compiling theme style: %v", err)
+		return fmt.Errorf("compiling theme style: %w", err)
 	}
 	t.CSS = template.CSS(whitespaceAtBeginningOfLinePattern.ReplaceAllString(css, ""))
 
 	previewHTML, err := executeTemplateToString(themePresetPreviewTemplate, t)
 	if err != nil {
-		return fmt.Errorf("compiling theme preview: %v", err)
+		return fmt.Errorf("compiling theme preview: %w", err)
 	}
 	t.PreviewHTML = template.HTML(previewHTML)
 

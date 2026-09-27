@@ -24,7 +24,7 @@ func (widget *iframeWidget) initialize() error {
 	}
 
 	if _, err := url.Parse(widget.Source); err != nil {
-		return fmt.Errorf("parsing URL: %v", err)
+		return fmt.Errorf("parsing URL: %w", err)
 	}
 
 	if widget.Height == 50 {

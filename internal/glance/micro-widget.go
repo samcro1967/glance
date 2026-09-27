@@ -20,6 +20,24 @@ type dynamicMicroWidget interface {
 
 type microWidgets []microWidget
 
+// invalidConfiguredMicroWidget preserves a footer slot when one micro-widget
+// has invalid configuration. Footer micro-widgets are independent presentation
+// units, so one invalid item must not reject otherwise valid dashboard content.
+type invalidConfiguredMicroWidget struct {
+	Position    int
+	Type        string
+	configLine  int
+	ConfigError error
+}
+
+func (m *invalidConfiguredMicroWidget) GetPosition() int {
+	return m.Position
+}
+
+func (m *invalidConfiguredMicroWidget) GetType() string {
+	return "config-error"
+}
+
 const (
 	defaultFooterMicroWidgetsPerSide = 5
 	maxFooterMicroWidgetsPerSide     = 10
@@ -113,20 +131,39 @@ func (widgets *microWidgets) UnmarshalYAML(node *yaml.Node) error {
 
 	for _, itemNode := range nodes {
 		meta := struct {
-			Type string `yaml:"type"`
+			Type     string `yaml:"type"`
+			Position int    `yaml:"position"`
 		}{}
 
 		if err := itemNode.Decode(&meta); err != nil {
-			return err
+			decoded = append(decoded, &invalidConfiguredMicroWidget{
+				Position:    meta.Position,
+				Type:        meta.Type,
+				configLine:  widgetConfigErrorLine(err, itemNode.Line),
+				ConfigError: err,
+			})
+			continue
 		}
 
 		micro, err := newMicroWidget(meta.Type)
 		if err != nil {
-			return fmt.Errorf("line %d: %w", itemNode.Line, err)
+			decoded = append(decoded, &invalidConfiguredMicroWidget{
+				Position:    meta.Position,
+				Type:        meta.Type,
+				configLine:  itemNode.Line,
+				ConfigError: fmt.Errorf("%s micro-widget: %w", meta.Type, err),
+			})
+			continue
 		}
 
 		if err := itemNode.Decode(micro); err != nil {
-			return err
+			decoded = append(decoded, &invalidConfiguredMicroWidget{
+				Position:    meta.Position,
+				Type:        meta.Type,
+				configLine:  widgetConfigErrorLine(err, itemNode.Line),
+				ConfigError: err,
+			})
+			continue
 		}
 
 		decoded = append(decoded, micro)
@@ -144,6 +181,10 @@ func validateMicroWidgetPositions(widgets microWidgets, maxPerSide int) error {
 	seen := make(map[int]struct{}, len(widgets))
 
 	for _, micro := range widgets {
+		if _, invalid := micro.(*invalidConfiguredMicroWidget); invalid {
+			continue
+		}
+
 		position := micro.GetPosition()
 
 		if position < 1 || position > maxPerSide {

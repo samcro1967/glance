@@ -359,7 +359,7 @@ func fetchOpenMeteoPlaceFromName(ctx context.Context, location string) (*openMet
 
 	loc, err := time.LoadLocation(place.Timezone)
 	if err != nil {
-		return nil, fmt.Errorf("loading location: %v", err)
+		return nil, fmt.Errorf("loading location: %w", err)
 	}
 
 	place.location = loc

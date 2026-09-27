@@ -153,7 +153,7 @@ func (widget *customAPIWidget) initialize() error {
 	widget.withTitle("Custom API").withCacheDuration(1 * time.Hour)
 
 	if err := widget.CustomAPIRequest.initialize(); err != nil {
-		return fmt.Errorf("initializing primary request: %v", err)
+		return fmt.Errorf("initializing primary request: %w", err)
 	}
 
 	if widget.statusBarCompactMode {
@@ -181,7 +181,7 @@ func (widget *customAPIWidget) initialize() error {
 
 	for key := range widget.Subrequests {
 		if err := widget.Subrequests[key].initialize(); err != nil {
-			return fmt.Errorf("initializing subrequest %q: %v", key, err)
+			return fmt.Errorf("initializing subrequest %q: %w", key, err)
 		}
 	}
 
@@ -461,7 +461,7 @@ func (req *CustomAPIRequest) initialize() error {
 		case "json":
 			encoded, err := json.Marshal(req.Body)
 			if err != nil {
-				return fmt.Errorf("marshaling body: %v", err)
+				return fmt.Errorf("marshaling body: %w", err)
 			}
 
 			req.bodyReader = bytes.NewReader(encoded)
