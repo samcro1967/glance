@@ -919,3 +919,67 @@ func TestRuntimeDiagnosticsReportFrontendDisabled(t *testing.T) {
 		t.Fatalf("disabled frontend diagnostics unexpectedly include recent frontend problems:\n%s", report)
 	}
 }
+
+func TestRuntimeDiagnosticsIncludeLiveUpdateBrokerState(t *testing.T) {
+	app := newGlanceTestApplication(t, `
+pages:
+  - name: Home
+    columns:
+      - size: full
+`)
+
+	subscription, unsubscribe := app.liveUpdates.subscribe(nil)
+	defer unsubscribe()
+	app.liveUpdates.publish(42)
+	app.liveUpdates.publish(42)
+	app.liveUpdates.publishDiagnosticCommand(frontendDiagnosticCommand{ID: 1, Command: "runtime_state"})
+
+	response := app.runtimeDiagnosticsResponse()
+	if response.LiveUpdates.ActiveSubscribers != 1 {
+		t.Fatalf("active subscribers = %d, want 1", response.LiveUpdates.ActiveSubscribers)
+	}
+	if response.LiveUpdates.WidgetPublishes != 2 || response.LiveUpdates.WidgetCoalesced != 1 {
+		t.Fatalf("live update diagnostics = %#v", response.LiveUpdates)
+	}
+	if response.LiveUpdates.DiagnosticCommandsPublished != 1 {
+		t.Fatalf("diagnostic commands published = %d, want 1", response.LiveUpdates.DiagnosticCommandsPublished)
+	}
+	_ = subscription.takePending()
+}
+
+func TestRuntimeDiagnosticsReportShowsLiveUpdateState(t *testing.T) {
+	response := runtimeDiagnosticsResponse{
+		GeneratedAt: time.Now(),
+		LiveUpdates: liveUpdateBrokerDiagnosticsResponse{
+			ActiveSubscribers:           2,
+			Subscriptions:               5,
+			Unsubscriptions:             3,
+			WidgetPublishes:             12,
+			WidgetSubscriberMatches:     20,
+			WidgetCoalesced:             4,
+			DiagnosticCommandsPublished: 6,
+			DiagnosticCommandEnqueues:   9,
+			DiagnosticCommandDrops:      2,
+		},
+	}
+
+	report := formatRuntimeDiagnosticsReport(
+		response,
+		runtimeDiagnosticsReportIdentity{},
+		false,
+		frontendRuntimeDiagnosticsSnapshot{},
+	)
+
+	for _, want := range []string{
+		"LIVE UPDATES",
+		"Active subscribers:           2",
+		"Subscriptions opened/closed:  5 / 3",
+		"Widget publishes/subscriber matches:  12 / 20",
+		"Widget notifications coalesced: 4",
+		"Diagnostic command queue drops: 2",
+	} {
+		if !strings.Contains(report, want) {
+			t.Fatalf("report missing %q:\n%s", want, report)
+		}
+	}
+}

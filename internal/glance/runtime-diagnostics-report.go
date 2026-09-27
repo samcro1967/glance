@@ -122,6 +122,17 @@ func formatRuntimeDiagnosticsReport(
 	fmt.Fprintf(&report, "Lock skips:   %d\n", response.TotalLockSkips)
 
 	fmt.Fprintln(&report)
+	fmt.Fprintln(&report, "LIVE UPDATES")
+	fmt.Fprintln(&report, "------------")
+	fmt.Fprintf(&report, "Active subscribers:           %d\n", response.LiveUpdates.ActiveSubscribers)
+	fmt.Fprintf(&report, "Subscriptions opened/closed:  %d / %d\n", response.LiveUpdates.Subscriptions, response.LiveUpdates.Unsubscriptions)
+	fmt.Fprintf(&report, "Widget publishes/subscriber matches:  %d / %d\n", response.LiveUpdates.WidgetPublishes, response.LiveUpdates.WidgetSubscriberMatches)
+	fmt.Fprintf(&report, "Widget notifications coalesced: %d\n", response.LiveUpdates.WidgetCoalesced)
+	fmt.Fprintf(&report, "Diagnostic commands published/enqueued: %d / %d\n", response.LiveUpdates.DiagnosticCommandsPublished, response.LiveUpdates.DiagnosticCommandEnqueues)
+	fmt.Fprintf(&report, "Diagnostic command queue drops: %d\n", response.LiveUpdates.DiagnosticCommandDrops)
+	fmt.Fprintf(&report, "Broker closed:                %s\n", diagnosticsReportYesNo(response.LiveUpdates.Closed))
+
+	fmt.Fprintln(&report)
 	fmt.Fprintln(&report, "OUTBOUND HTTP")
 	fmt.Fprintln(&report, "-------------")
 	fmt.Fprintf(&report, "Started:          %s\n", formatDiagnosticsReportTime(response.OutboundHTTP.StartedAt))

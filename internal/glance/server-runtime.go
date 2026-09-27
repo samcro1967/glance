@@ -51,41 +51,56 @@ func (h *swappableHandler) swap(handler http.Handler) {
 }
 
 type applicationRuntime struct {
-	app      *application
-	handler  http.Handler
-	cancel   context.CancelFunc
-	wg       sync.WaitGroup
-	stopOnce sync.Once
+	app       *application
+	handler   http.Handler
+	ctx       context.Context
+	cancel    context.CancelFunc
+	wg        sync.WaitGroup
+	startOnce sync.Once
+	stopOnce  sync.Once
+}
+
+func (a *application) newRuntime() *applicationRuntime {
+	ctx, cancel := context.WithCancel(context.Background())
+	return &applicationRuntime{
+		app:     a,
+		handler: a.router(),
+		ctx:     ctx,
+		cancel:  cancel,
+	}
+}
+
+func (r *applicationRuntime) start() {
+	if r == nil {
+		return
+	}
+
+	r.startOnce.Do(func() {
+		r.wg.Add(1)
+		go func() {
+			defer r.wg.Done()
+			runWidgetRefreshScheduler(
+				r.ctx,
+				r.app.refreshWidgets,
+				widgetRefreshScanInterval,
+				widgetRefreshConcurrency,
+				r.app.liveUpdates,
+			)
+		}()
+
+		if r.app.shouldCheckForkReleaseStatus() {
+			r.wg.Add(1)
+			go func() {
+				defer r.wg.Done()
+				runForkReleaseStatusChecker(r.ctx, r.app.Version, &r.app.releaseStatus)
+			}()
+		}
+	})
 }
 
 func (a *application) startRuntime() *applicationRuntime {
-	ctx, cancel := context.WithCancel(context.Background())
-	runtime := &applicationRuntime{
-		app:     a,
-		handler: a.router(),
-		cancel:  cancel,
-	}
-
-	runtime.wg.Add(1)
-	go func() {
-		defer runtime.wg.Done()
-		runWidgetRefreshScheduler(
-			ctx,
-			a.refreshWidgets,
-			widgetRefreshScanInterval,
-			widgetRefreshConcurrency,
-			a.liveUpdates,
-		)
-	}()
-
-	if a.shouldCheckForkReleaseStatus() {
-		runtime.wg.Add(1)
-		go func() {
-			defer runtime.wg.Done()
-			runForkReleaseStatusChecker(ctx, a.Version, &a.releaseStatus)
-		}()
-	}
-
+	runtime := a.newRuntime()
+	runtime.start()
 	return runtime
 }
 
@@ -152,7 +167,11 @@ func (g *runtimeGeneration) reload(
 	}
 
 	candidateApp.applyWidgetReloadReusePlan(reusePlan)
-	candidateRuntime := candidateApp.startRuntime()
+	// Prepare the candidate runtime without starting background work. The caller
+	// retires the previous runtime after accepting the generation, then starts
+	// this runtime. This gives reused widgets exactly one scheduler owner during
+	// the reload handoff while still allowing the HTTP handler to switch first.
+	candidateRuntime := candidateApp.newRuntime()
 
 	previousRuntime := g.runtime
 
@@ -163,6 +182,15 @@ func (g *runtimeGeneration) reload(
 	server.reconcileProfiling(candidateApp.Config.Server.FrontendDiagnostics)
 
 	return previousRuntime, nil
+}
+
+func (g *runtimeGeneration) completeReload(previousRuntime *applicationRuntime) {
+	if previousRuntime != nil {
+		previousRuntime.stop()
+	}
+	if g != nil && g.runtime != nil {
+		g.runtime.start()
+	}
 }
 
 type processServer struct {
