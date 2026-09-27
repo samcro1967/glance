@@ -25,6 +25,19 @@ type frontendDiagnosticCommand struct {
 	Command string `json:"command"`
 }
 
+type liveUpdateBrokerDiagnosticsSnapshot struct {
+	ActiveSubscribers           int
+	Subscriptions               uint64
+	Unsubscriptions             uint64
+	WidgetPublishes             uint64
+	WidgetSubscriberMatches     uint64
+	WidgetCoalesced             uint64
+	DiagnosticCommandsPublished uint64
+	DiagnosticCommandEnqueues   uint64
+	DiagnosticCommandDrops      uint64
+	Closed                      bool
+}
+
 type liveUpdateSubscription struct {
 	mu                 sync.Mutex
 	pending            map[uint64]struct{}
@@ -42,39 +55,43 @@ func newLiveUpdateSubscription(widgetIDs map[uint64]struct{}) *liveUpdateSubscri
 	}
 }
 
-func (s *liveUpdateSubscription) publish(widgetID uint64) {
+func (s *liveUpdateSubscription) publish(widgetID uint64) (accepted bool, coalesced bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if s.closed {
-		return
+		return false, false
 	}
 
 	if s.widgetIDs != nil {
 		if _, interested := s.widgetIDs[widgetID]; !interested {
-			return
+			return false, false
 		}
 	}
 
+	_, coalesced = s.pending[widgetID]
 	s.pending[widgetID] = struct{}{}
 
 	select {
 	case s.ready <- struct{}{}:
 	default:
 	}
+
+	return true, coalesced
 }
 
 func (s *liveUpdateSubscription) publishDiagnosticCommand(
 	command frontendDiagnosticCommand,
-) {
+) (accepted bool, dropped bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if s.closed {
-		return
+		return false, false
 	}
 
 	if len(s.diagnosticCommands) >= frontendDiagnosticCommandQueueLimit {
+		dropped = true
 		copy(s.diagnosticCommands, s.diagnosticCommands[1:])
 		s.diagnosticCommands = s.diagnosticCommands[:frontendDiagnosticCommandQueueLimit-1]
 	}
@@ -85,6 +102,8 @@ func (s *liveUpdateSubscription) publishDiagnosticCommand(
 	case s.ready <- struct{}{}:
 	default:
 	}
+
+	return true, dropped
 }
 
 func (s *liveUpdateSubscription) takeDiagnosticCommands() []frontendDiagnosticCommand {
@@ -137,6 +156,15 @@ type liveUpdateBroker struct {
 	mu          sync.Mutex
 	subscribers map[*liveUpdateSubscription]struct{}
 	closed      bool
+
+	subscriptions               uint64
+	unsubscriptions             uint64
+	widgetPublishes             uint64
+	widgetSubscriberMatches     uint64
+	widgetCoalesced             uint64
+	diagnosticCommandsPublished uint64
+	diagnosticCommandEnqueues   uint64
+	diagnosticCommandDrops      uint64
 }
 
 func newLiveUpdateBroker() *liveUpdateBroker {
@@ -156,13 +184,17 @@ func (b *liveUpdateBroker) subscribe(widgetIDs map[uint64]struct{}) (*liveUpdate
 	}
 
 	b.subscribers[subscription] = struct{}{}
+	b.subscriptions++
 	b.mu.Unlock()
 
 	var once sync.Once
 	unsubscribe := func() {
 		once.Do(func() {
 			b.mu.Lock()
-			delete(b.subscribers, subscription)
+			if _, exists := b.subscribers[subscription]; exists {
+				delete(b.subscribers, subscription)
+				b.unsubscriptions++
+			}
 			b.mu.Unlock()
 
 			subscription.close()
@@ -180,8 +212,15 @@ func (b *liveUpdateBroker) publish(widgetID uint64) {
 		return
 	}
 
+	b.widgetPublishes++
 	for subscriber := range b.subscribers {
-		subscriber.publish(widgetID)
+		accepted, coalesced := subscriber.publish(widgetID)
+		if accepted {
+			b.widgetSubscriberMatches++
+		}
+		if coalesced {
+			b.widgetCoalesced++
+		}
 	}
 }
 
@@ -195,8 +234,37 @@ func (b *liveUpdateBroker) publishDiagnosticCommand(
 		return
 	}
 
+	b.diagnosticCommandsPublished++
 	for subscriber := range b.subscribers {
-		subscriber.publishDiagnosticCommand(command)
+		accepted, dropped := subscriber.publishDiagnosticCommand(command)
+		if accepted {
+			b.diagnosticCommandEnqueues++
+		}
+		if dropped {
+			b.diagnosticCommandDrops++
+		}
+	}
+}
+
+func (b *liveUpdateBroker) snapshot() liveUpdateBrokerDiagnosticsSnapshot {
+	if b == nil {
+		return liveUpdateBrokerDiagnosticsSnapshot{}
+	}
+
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return liveUpdateBrokerDiagnosticsSnapshot{
+		ActiveSubscribers:           len(b.subscribers),
+		Subscriptions:               b.subscriptions,
+		Unsubscriptions:             b.unsubscriptions,
+		WidgetPublishes:             b.widgetPublishes,
+		WidgetSubscriberMatches:     b.widgetSubscriberMatches,
+		WidgetCoalesced:             b.widgetCoalesced,
+		DiagnosticCommandsPublished: b.diagnosticCommandsPublished,
+		DiagnosticCommandEnqueues:   b.diagnosticCommandEnqueues,
+		DiagnosticCommandDrops:      b.diagnosticCommandDrops,
+		Closed:                      b.closed,
 	}
 }
 
@@ -213,6 +281,7 @@ func (b *liveUpdateBroker) close() {
 	for subscriber := range b.subscribers {
 		subscriber.close()
 		delete(b.subscribers, subscriber)
+		b.unsubscriptions++
 	}
 }
 

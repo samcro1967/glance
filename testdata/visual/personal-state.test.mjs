@@ -36,7 +36,17 @@ function response(status, value) {
 }
 
 async function loadModule() {
-    const source = await fs.readFile(modulePath, "utf8");
+    let source = await fs.readFile(modulePath, "utf8");
+    const diagnosticsSource = `
+        export function frontendDiagnosticError(event, error) {
+            globalThis.__personalStateDiagnosticEvents.push({
+                event,
+                detail: error instanceof Error ? error.name + ": " + error.message : String(error),
+            });
+        }
+    `;
+    const diagnosticsURL = `data:text/javascript;base64,${Buffer.from(diagnosticsSource).toString("base64")}`;
+    source = source.replace("./diagnostics.js", diagnosticsURL);
     const encoded = Buffer.from(source).toString("base64");
     return import(`data:text/javascript;base64,${encoded}`);
 }
@@ -49,7 +59,9 @@ async function withEnvironment(
     const previousLocalStorage = globalThis.localStorage;
     const previousFetch = globalThis.fetch;
     const previousConsoleError = console.error;
+    const previousDiagnosticEvents = globalThis.__personalStateDiagnosticEvents;
     const errors = [];
+    const diagnosticEvents = [];
 
     globalThis.pageData = {
         baseURL,
@@ -60,6 +72,7 @@ async function withEnvironment(
         throw new Error("unexpected fetch");
     });
     console.error = (...args) => errors.push(args);
+    globalThis.__personalStateDiagnosticEvents = diagnosticEvents;
 
     try {
         const module = await loadModule();
@@ -67,12 +80,14 @@ async function withEnvironment(
             createPersonalState: module.createPersonalState,
             localStorage: globalThis.localStorage,
             errors,
+            diagnosticEvents,
         });
     } finally {
         globalThis.pageData = previousPageData;
         globalThis.localStorage = previousLocalStorage;
         globalThis.fetch = previousFetch;
         console.error = previousConsoleError;
+        globalThis.__personalStateDiagnosticEvents = previousDiagnosticEvents;
     }
 }
 
@@ -99,6 +114,24 @@ test("disabled mode keeps existing localStorage behavior", async () => {
                 localStorage.getItem("timer-important-dates"),
                 JSON.stringify([{ title: "New Year" }]),
             );
+        },
+    );
+});
+
+test("invalid local state emits shared frontend diagnostics", async () => {
+    await withEnvironment(
+        {
+            enabled: false,
+            storage: { "todo-home": "{broken" },
+        },
+        async ({ createPersonalState, diagnosticEvents }) => {
+            const state = createPersonalState("todo", "home");
+            const loaded = await state.load([], Array.isArray);
+
+            assert.deepEqual(loaded, []);
+            assert.deepEqual(diagnosticEvents.map(event => event.event), [
+                "personal_state_local_parse_error",
+            ]);
         },
     );
 });
@@ -175,13 +208,16 @@ test("failed migration retains local state", async () => {
                 return response(500);
             },
         },
-        async ({ createPersonalState, localStorage, errors }) => {
+        async ({ createPersonalState, localStorage, errors, diagnosticEvents }) => {
             const state = createPersonalState("todo", "home");
             const loaded = await state.load([], Array.isArray);
 
             assert.deepEqual(loaded, [{ text: "keep me" }]);
             assert.equal(localStorage.getItem("todo-home"), localValue);
             assert.equal(errors.length, 1);
+            assert.deepEqual(diagnosticEvents.map(event => event.event), [
+                "personal_state_load_error",
+            ]);
         },
     );
 });
@@ -199,13 +235,16 @@ test("non-404 server read failure falls back without attempting migration", asyn
                 return response(401);
             },
         },
-        async ({ createPersonalState, errors }) => {
+        async ({ createPersonalState, errors, diagnosticEvents }) => {
             const state = createPersonalState("todo", "home");
             const loaded = await state.load([], Array.isArray);
 
             assert.deepEqual(loaded, [{ text: "local" }]);
             assert.equal(requestCount, 1);
             assert.equal(errors.length, 1);
+            assert.deepEqual(diagnosticEvents.map(event => event.event), [
+                "personal_state_load_error",
+            ]);
         },
     );
 });
@@ -218,12 +257,15 @@ test("invalid server state shape falls back to local state", async () => {
             },
             fetchImpl: async () => response(200, { not: "an array" }),
         },
-        async ({ createPersonalState, errors }) => {
+        async ({ createPersonalState, errors, diagnosticEvents }) => {
             const state = createPersonalState("timer", "important-dates");
             const loaded = await state.load([], Array.isArray);
 
             assert.deepEqual(loaded, [{ title: "local" }]);
             assert.equal(errors.length, 1);
+            assert.deepEqual(diagnosticEvents.map(event => event.event), [
+                "personal_state_load_error",
+            ]);
         },
     );
 });
@@ -275,7 +317,7 @@ test("failed queued save does not prevent a later save", async () => {
                 return response(bodies.length === 1 ? 500 : 204);
             },
         },
-        async ({ createPersonalState, errors }) => {
+        async ({ createPersonalState, errors, diagnosticEvents }) => {
             const state = createPersonalState("todo", "queue");
 
             state.save([{ text: "first" }]);
@@ -289,6 +331,9 @@ test("failed queued save does not prevent a later save", async () => {
                 JSON.stringify([{ text: "second" }]),
             ]);
             assert.equal(errors.length, 1);
+            assert.deepEqual(diagnosticEvents.map(event => event.event), [
+                "personal_state_save_error",
+            ]);
         },
     );
 });

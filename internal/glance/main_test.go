@@ -3,6 +3,7 @@ package glance
 import (
 	"context"
 	"encoding/json"
+	"html/template"
 	"io"
 	"net"
 	"net/http"
@@ -171,6 +172,47 @@ func TestProcessServerSwapDoesNotRebindListener(t *testing.T) {
 	}
 }
 
+type runtimeHandoffTestWidget struct {
+	widgetBase
+
+	started       chan int
+	active        atomic.Int32
+	maxConcurrent atomic.Int32
+	attempts      atomic.Int32
+}
+
+func newRuntimeHandoffTestWidget() *runtimeHandoffTestWidget {
+	widget := &runtimeHandoffTestWidget{
+		started: make(chan int, 4),
+	}
+	widget.Type = "runtime-handoff-test"
+	widget.withCacheDuration(time.Hour)
+	return widget
+}
+
+func (widget *runtimeHandoffTestWidget) initialize() error {
+	return nil
+}
+
+func (widget *runtimeHandoffTestWidget) update(ctx context.Context) {
+	attempt := int(widget.attempts.Add(1))
+	active := widget.active.Add(1)
+	for {
+		maximum := widget.maxConcurrent.Load()
+		if active <= maximum || widget.maxConcurrent.CompareAndSwap(maximum, active) {
+			break
+		}
+	}
+
+	widget.started <- attempt
+	<-ctx.Done()
+	widget.active.Add(-1)
+}
+
+func (widget *runtimeHandoffTestWidget) Render() template.HTML {
+	return ""
+}
+
 func TestApplicationRuntimeStopCancelsScheduler(t *testing.T) {
 	defer verifyNoTestGoroutineLeaks(t)
 
@@ -191,6 +233,65 @@ func TestApplicationRuntimeStopCancelsScheduler(t *testing.T) {
 	case <-widget.cancelled:
 	case <-time.After(time.Second):
 		t.Fatal("runtime stop did not cancel widget refresh scheduler")
+	}
+}
+
+func TestApplicationRuntimePreparationDoesNotStartScheduler(t *testing.T) {
+	defer verifyNoTestGoroutineLeaks(t)
+
+	widget := newServerLifecycleTestWidget()
+	app := newServerLifecycleTestApplication(t, 0, widget)
+	runtime := app.newRuntime()
+	defer runtime.stop()
+
+	select {
+	case <-widget.started:
+		t.Fatal("prepared runtime started widget scheduler before activation")
+	case <-time.After(25 * time.Millisecond):
+	}
+
+	runtime.start()
+	select {
+	case <-widget.started:
+	case <-time.After(time.Second):
+		t.Fatal("activated runtime did not start widget scheduler")
+	}
+}
+
+func TestRuntimeGenerationCompleteReloadSerializesSharedWidgetSchedulerOwnership(t *testing.T) {
+	defer verifyNoTestGoroutineLeaks(t)
+
+	widget := newRuntimeHandoffTestWidget()
+	oldApp := newServerLifecycleTestApplication(t, 0, widget)
+	oldRuntime := oldApp.startRuntime()
+
+	select {
+	case attempt := <-widget.started:
+		if attempt != 1 {
+			t.Fatalf("old runtime refresh attempt = %d, want 1", attempt)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("old runtime scheduler did not start shared widget refresh")
+	}
+
+	candidateApp := newServerLifecycleTestApplication(t, 0, widget)
+	candidateRuntime := candidateApp.newRuntime()
+	generation := &runtimeGeneration{runtime: candidateRuntime}
+	defer candidateRuntime.stop()
+
+	generation.completeReload(oldRuntime)
+
+	select {
+	case attempt := <-widget.started:
+		if attempt != 2 {
+			t.Fatalf("candidate runtime refresh attempt = %d, want 2", attempt)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("candidate runtime scheduler did not refresh shared widget after handoff")
+	}
+
+	if maximum := widget.maxConcurrent.Load(); maximum != 1 {
+		t.Fatalf("maximum concurrent shared-widget refreshes = %d, want 1", maximum)
 	}
 }
 
@@ -455,7 +556,7 @@ pages:
 	default:
 	}
 
-	previousRuntime.stop()
+	generation.completeReload(previousRuntime)
 
 	select {
 	case <-oldWidget.cancelled:
@@ -596,6 +697,8 @@ pages:
 		t.Fatal("accepted recoverable reload retired previous runtime before caller commit")
 	default:
 	}
+
+	generation.completeReload(previousRuntime)
 }
 
 func TestRuntimeGenerationApplicationFailurePreservesCurrentGeneration(t *testing.T) {

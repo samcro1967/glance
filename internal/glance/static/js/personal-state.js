@@ -1,3 +1,5 @@
+import { frontendDiagnosticError } from "./diagnostics.js";
+
 function localStorageKey(namespace, id) {
     return `${namespace}-${id}`;
 }
@@ -12,6 +14,7 @@ function readLocalValue(key, fallback, validate) {
         return { found: true, value, raw };
     } catch (error) {
         console.error(`Failed to parse local ${key} state`, error);
+        frontendDiagnosticError("personal_state_local_parse_error", error);
         return { found: false, value: fallback, raw: null };
     }
 }
@@ -65,6 +68,7 @@ export function createPersonalState(namespace, id) {
                 return local.value;
             } catch (error) {
                 console.error(`Failed to load server-side ${namespace} state`, error);
+                frontendDiagnosticError("personal_state_load_error", error);
                 return local.value;
             }
         },
@@ -80,6 +84,7 @@ export function createPersonalState(namespace, id) {
                 .then(() => putPersonalState(endpoint, serialized))
                 .catch(error => {
                     console.error(`Failed to save server-side ${namespace} state`, error);
+                    frontendDiagnosticError("personal_state_save_error", error);
                 });
         },
     };
