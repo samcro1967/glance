@@ -64,6 +64,7 @@ Whether to hide the swap usage.
 | Name | Type | Required | Default |
 | ---- | ---- | -------- | ------- |
 | hide-mountpoints-by-default | boolean | no | false |
+| mountpoint-order | string | no | usage |
 | mountpoints | map\[string\]object | no |  |
 
 #### `cpu-temp-sensor`
@@ -85,6 +86,31 @@ If set to `true` you'll have to manually make each mountpoint visible by adding 
 ```
 
 This is useful if you're running Glance inside of a container which usually mounts a lot of irrelevant filesystems.
+
+#### `mountpoint-order`
+Controls the order in which mountpoints are displayed. Possible values are:
+
+- `usage` — highest disk usage first. This is the default and preserves the existing behavior.
+- `name` — alphabetical by the displayed mountpoint name. If no custom name is configured, the mountpoint path is used.
+- `path` — alphabetical by mountpoint path.
+
+The selected order applies consistently to the disk percentage shown in the widget, the combined disk progress bar, and the mountpoint popover.
+
+Example:
+
+```yaml
+- type: server-stats
+  servers:
+    - type: local
+      mountpoint-order: name
+      mountpoints:
+        "/mnt/disk1":
+          name: Disk 1
+        "/mnt/disk2":
+          name: Disk 2
+        "/mnt/cache":
+          name: Cache
+```
 
 #### `mountpoints`
 A map of mountpoints to display disk usage for. The key is the path to the mountpoint and the value is an object with optional properties. For remote servers, these settings filter and rename mountpoints reported by the remote agent; they cannot add paths that the agent did not report. Example:

@@ -74,9 +74,16 @@ type MountpointInfo struct {
 	UsedPercent uint8  `json:"used_percent"`
 }
 
+const (
+	MountpointOrderUsage = "usage"
+	MountpointOrderName  = "name"
+	MountpointOrderPath  = "path"
+)
+
 type SystemInfoRequest struct {
 	CPUTempSensor            string                       `yaml:"cpu-temp-sensor"`
 	HideMountpointsByDefault bool                         `yaml:"hide-mountpoints-by-default"`
+	MountpointOrder          string                       `yaml:"mountpoint-order"`
 	Mountpoints              map[string]MointpointRequest `yaml:"mountpoints"`
 }
 
@@ -293,9 +300,7 @@ func Collect(req *SystemInfoRequest) (*SystemInfo, []error) {
 		addMountpointInfo(mountpoint, mpReq)
 	}
 
-	sort.Slice(info.Mountpoints, func(a, b int) bool {
-		return info.Mountpoints[a].UsedPercent > info.Mountpoints[b].UsedPercent
-	})
+	sortMountpoints(info.Mountpoints, req.MountpointOrder)
 
 	return info, errs
 }
@@ -330,6 +335,44 @@ var physicalFilesystemTypes = map[string]bool{
 
 func isPhysicalFilesystemType(fstype string) bool {
 	return physicalFilesystemTypes[fstype]
+}
+
+// sortMountpoints applies the configured presentation order to collected mountpoints.
+// Empty or unknown values deliberately fall back to usage ordering so callers outside
+// normal widget configuration retain the historical behavior. Path is used as a
+// deterministic tie-breaker because configured mountpoints originate from a Go map.
+func sortMountpoints(mountpoints []MountpointInfo, order string) {
+	effectiveName := func(mountpoint MountpointInfo) string {
+		if mountpoint.Name != "" {
+			return mountpoint.Name
+		}
+
+		return mountpoint.Path
+	}
+
+	sort.Slice(mountpoints, func(i, j int) bool {
+		left := mountpoints[i]
+		right := mountpoints[j]
+
+		switch order {
+		case MountpointOrderName:
+			leftName := effectiveName(left)
+			rightName := effectiveName(right)
+			if leftName != rightName {
+				return leftName < rightName
+			}
+		case MountpointOrderPath:
+			if left.Path != right.Path {
+				return left.Path < right.Path
+			}
+		default:
+			if left.UsedPercent != right.UsedPercent {
+				return left.UsedPercent > right.UsedPercent
+			}
+		}
+
+		return left.Path < right.Path
+	})
 }
 
 func inferCPUTempSensor(sensors []sensors.TemperatureStat) *sensors.TemperatureStat {
@@ -376,9 +419,7 @@ func (req *SystemInfoRequest) Filter(info *SystemInfo) {
 		filtered = append(filtered, mountpoint)
 	}
 
-	sort.Slice(filtered, func(i, j int) bool {
-		return filtered[i].UsedPercent > filtered[j].UsedPercent
-	})
+	sortMountpoints(filtered, req.MountpointOrder)
 
 	info.Mountpoints = filtered
 }
