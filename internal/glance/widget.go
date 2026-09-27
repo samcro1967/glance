@@ -45,6 +45,85 @@ func newWidget(widgetType string) (widget, error) {
 
 type widgets []widget
 
+// invalidConfiguredWidget preserves the layout position of a widget whose
+// YAML is structurally valid but whose widget-specific configuration cannot
+// be decoded or initialized. The runtime renders the normal widget error
+// presentation while valid sibling widgets continue to load.
+type invalidConfiguredWidget struct {
+	widgetBase
+	configError error
+}
+
+func newInvalidConfiguredWidget(candidate widget, widgetType string, generatedLine int, err error) *invalidConfiguredWidget {
+	invalid := &invalidConfiguredWidget{configError: err}
+	invalid.Type = widgetType
+	invalid.ContentAvailable = false
+	invalid.Error = err
+	invalid.configLine = generatedLine
+	invalid.OpenLinksInNewTab = true
+
+	if candidate != nil {
+		if base, ok := widgetBaseOf(candidate); ok {
+			// Copy only configuration/presentation state. widgetBase also owns
+			// mutexes and runtime telemetry, which must never be copied.
+			invalid.ID = base.ID
+			invalid.Type = base.Type
+			invalid.Title = base.Title
+			invalid.Icon = base.Icon
+			invalid.TitleURL = base.TitleURL
+			invalid.HideHeader = base.HideHeader
+			invalid.CSSClass = base.CSSClass
+			invalid.OpenLinksInNewTab = base.OpenLinksInNewTab
+			invalid.configuredFields = base.configuredFields
+			invalid.WIP = base.WIP
+			invalid.ContentAvailable = false
+			invalid.Error = err
+			invalid.configLine = generatedLine
+		}
+	}
+
+	if invalid.Type == "" {
+		invalid.Type = "config-error"
+	}
+	if invalid.ID == 0 {
+		invalid.ID = widgetIDCounter.Add(1)
+	}
+
+	return invalid
+}
+
+func (w *invalidConfiguredWidget) Render() template.HTML {
+	return w.renderTemplate(w, widgetErrorFallbackTemplate)
+}
+
+func (w *invalidConfiguredWidget) initialize() error {
+	return nil
+}
+
+func (w *invalidConfiguredWidget) requiresUpdate(*time.Time) bool {
+	return false
+}
+
+func widgetConfigErrorLine(err error, fallback int) int {
+	if err == nil {
+		return fallback
+	}
+
+	if typeErr, ok := err.(*yaml.TypeError); ok {
+		for _, message := range typeErr.Errors {
+			if line, _, ok := parseYAMLLinePrefix(message); ok {
+				return line
+			}
+		}
+	}
+
+	if line, _, ok := parseYAMLLinePrefix(err.Error()); ok {
+		return line
+	}
+
+	return fallback
+}
+
 func (w *widgets) UnmarshalYAML(node *yaml.Node) error {
 	var nodes []yaml.Node
 
@@ -58,23 +137,27 @@ func (w *widgets) UnmarshalYAML(node *yaml.Node) error {
 		}{}
 
 		if err := node.Decode(&meta); err != nil {
-			return err
+			*w = append(*w, newInvalidConfiguredWidget(nil, "", widgetConfigErrorLine(err, node.Line), err))
+			continue
 		}
 
-		widget, err := newWidget(meta.Type)
+		candidate, err := newWidget(meta.Type)
 		if err != nil {
-			return fmt.Errorf("line %d: %w", node.Line, err)
+			*w = append(*w, newInvalidConfiguredWidget(nil, meta.Type, node.Line, err))
+			continue
 		}
 
-		if err = node.Decode(widget); err != nil {
-			return err
+		if err = node.Decode(candidate); err != nil {
+			*w = append(*w, newInvalidConfiguredWidget(candidate, meta.Type, widgetConfigErrorLine(err, node.Line), err))
+			continue
 		}
 
-		if base, ok := widgetBaseOf(widget); ok {
+		if base, ok := widgetBaseOf(candidate); ok {
 			base.configuredFields = yamlMappingFields(&node)
+			base.configLine = node.Line
 		}
 
-		*w = append(*w, widget)
+		*w = append(*w, candidate)
 	}
 
 	return nil
@@ -238,6 +321,7 @@ type widgetBase struct {
 	OpenLinksInNewTab   bool                 `yaml:"-"`
 	ContentAvailable    bool                 `yaml:"-"`
 	configuredFields    yamlConfiguredFields `yaml:"-"`
+	configLine          int                  `yaml:"-"`
 	WIP                 bool                 `yaml:"-"`
 	Error               error                `yaml:"-"`
 	Notice              error                `yaml:"-"`

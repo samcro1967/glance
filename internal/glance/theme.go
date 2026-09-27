@@ -838,26 +838,6 @@ func (t *themeProperties) validate(path string) error {
 	return nil
 }
 
-func validateConfiguredThemes(config *config) error {
-	if err := config.Theme.themeProperties.validate("theme"); err != nil {
-		return err
-	}
-
-	for key, properties := range config.Theme.Presets.Items() {
-		if err := properties.validate("theme.presets." + key); err != nil {
-			return err
-		}
-	}
-
-	for i := range config.Pages {
-		if err := config.Pages[i].Theme.validate(fmt.Sprintf("pages[%d].theme", i)); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func resolveTheme(base *themeProperties, pageOverride *themeProperties) (*themeProperties, error) {
 	if base == nil {
 		return nil, fmt.Errorf("base theme is nil")

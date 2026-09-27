@@ -43,14 +43,14 @@ Automatic config reload is supported, meaning that you can make changes to the c
 
 > [!NOTE]
 >
-> If you attempt to start Glance with an invalid config it will exit with an error outright. If you successfully started Glance with a valid config and then made changes to it which result in an error, you'll see that error in the console and Glance will continue to run with the old configuration. You can then continue to make changes and when there are no errors the new configuration will be loaded.
+> Glance distinguishes recoverable item-level configuration errors from structural, routing, security, persistence, and process-level failures. Recoverable errors in widgets, footer micro-widgets, analytics, themes, widget defaults, and the optional custom assets path are reported with source information where available while Glance continues with the remaining valid configuration or a safe fallback. The `config:validate` command remains strict and returns a failure for these errors so they are not silently accepted during validation. Malformed YAML, unresolved includes or configuration variables, invalid routing/authentication/authorization configuration, personal-state failures, and listener-defining server failures remain fatal during startup. During automatic reload, unrecoverable candidate configurations are rejected and the currently running application generation continues serving requests.
 
 > [!CAUTION]
 >
 > Reloading the configuration file clears your cached data, meaning that you have to request the data anew each time you do this. This can lead to rate limiting for some APIs if you do it too frequently. Having a cache that persists between reloads will be added in the future.
 
 ### Environment variables
-Inserting environment variables is supported anywhere in the config. This is done via the `${ENV_VAR}` syntax. Attempting to use an environment variable that doesn't exist will result in an error and Glance will either not start or load your new config on save. Example:
+Inserting environment variables is supported anywhere in the config. This is done via the `${ENV_VAR}` syntax. Attempting to use an environment variable that does not exist is an unrecoverable configuration error: Glance will not start from that configuration, and an automatic reload will reject the candidate while the current application continues running. Example:
 
 ```yaml
 server:
@@ -155,7 +155,7 @@ pages:
 
 The `$include` directive can be used anywhere in the config file, not just in the `pages` property, however it must be on its own line and have the appropriate indentation.
 
-If you encounter YAML parsing errors when using the `$include` directive, the reported line numbers will likely be incorrect. This is because the inclusion of files is done before the YAML is parsed, as YAML itself does not support file inclusion. To help with debugging in cases like this, you can use the `config:print` command and pipe it into `less -N` to see the full config file with includes resolved and line numbers added:
+Glance preserves source-file mappings while expanding `$include` directives and reports the original included filename and line for supported source-aware configuration diagnostics. Raw YAML parser failures or errors that cannot be mapped to a semantic configuration location may still be easier to inspect in the fully expanded document. In those cases, use the `config:print` command and pipe it into `less -N`:
 
 ```sh
 glance --config /path/to/glance.yml config:print | less -N
@@ -172,6 +172,8 @@ This assumes that the config you want to print is in your current working direct
 ### Widget defaults
 
 The optional top-level `widget-defaults` property lets you define shared widget settings once and inherit them across the dashboard. Existing configurations do not need to use `widget-defaults`; when it is omitted, existing widget syntax and built-in behavior remain unchanged.
+
+Invalid global widget defaults are reported as recoverable configuration errors and the global defaults block is ignored for that application generation. Invalid type-specific defaults are isolated to the affected widget type so other valid defaults and explicit widget configuration remain active. `config:validate` remains strict and reports these errors instead of treating the configuration as valid.
 
 Defaults can be defined globally and refined for a particular widget type:
 
@@ -591,7 +593,7 @@ The base URL that Glance is hosted under. No need to specify this unless you're 
 > In Caddy you can do this using [`handle_path`](https://caddyserver.com/docs/caddyfile/directives/handle_path) or [`uri strip_prefix`](https://caddyserver.com/docs/caddyfile/directives/uri).
 
 #### `assets-path`
-The path to a directory that will be served by the server under the `/assets/` path. This is handy for widgets like the Monitor where you have to specify an icon URL and you want to self host all the icons rather than pointing to an external source.
+The path to a directory that will be served by the server under the `/assets/` path. This is handy for widgets like the Monitor where you have to specify an icon URL and you want to self host all the icons rather than pointing to an external source. If a configured assets path is unavailable or is not a directory, Glance reports a recoverable configuration error, disables the custom assets path for that application generation, and continues serving the remaining dashboard. `config:validate` remains strict and reports the configuration as invalid.
 
 #### `resource-proxy`
 
@@ -681,7 +683,7 @@ The `endpoint` is the origin of the GoatCounter site and may use HTTP or HTTPS, 
 
 Analytics is loaded only on normal dashboard page documents. Dashboard navigation uses normal document loads, so GoatCounter's standard page-load tracking is sufficient; widget refreshes, live widget updates, page-content requests, and SSE activity do not create analytics pageviews.
 
-Analytics is strictly noncritical to Glance operation. The provider script is loaded asynchronously in the browser, so an unavailable analytics service, blocked request, browser extension, or deployment policy does not prevent the dashboard from rendering or operating. Glance does not proxy analytics requests, send them through its widget lifecycle, or require an analytics API key.
+Analytics is strictly noncritical to Glance operation. Invalid analytics configuration is reported as a recoverable configuration error and analytics is disabled for that application generation; `config:validate` still reports the configuration as invalid. The provider script is loaded asynchronously in the browser, so an unavailable analytics service, blocked request, browser extension, or deployment policy does not prevent the dashboard from rendering or operating. Glance does not proxy analytics requests, send them through its widget lifecycle, or require an analytics API key.
 
 If your deployment applies a Content Security Policy, allow the configured analytics origin in the directives required for its script and collection requests, typically `script-src` and `connect-src`. Glance does not weaken or generate deployment-specific CSP rules for analytics, and enabling analytics does not require `unsafe-inline`.
 

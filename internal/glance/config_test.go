@@ -214,14 +214,21 @@ func TestAnalyticsSemanticDiagnosticSource(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			_, err = newConfigFromParsedYAML(parsed)
-			if err == nil {
-				t.Fatal("expected analytics configuration error")
+			config, err := newConfigFromParsedYAML(parsed)
+			if err != nil {
+				t.Fatalf("newConfigFromParsedYAML() error = %v", err)
+			}
+			if config.Analytics.configured() {
+				t.Fatal("invalid analytics configuration remained enabled")
+			}
+			if len(config.recoverableErrors) != 1 {
+				t.Fatalf("recoverable errors = %d, want 1", len(config.recoverableErrors))
 			}
 
+			issue := config.recoverableErrors[0]
 			var diagnostic *configDiagnostic
-			if !errors.As(err, &diagnostic) {
-				t.Fatalf("error type = %T, want *configDiagnostic: %v", err, err)
+			if !errors.As(issue, &diagnostic) {
+				t.Fatalf("recoverable error type = %T, want *configDiagnostic: %v", issue, issue)
 			}
 
 			wantFile := absConfigTestPath(t, mainPath)
@@ -237,7 +244,7 @@ func TestAnalyticsSemanticDiagnosticSource(t *testing.T) {
 			if diagnostic.cause == nil {
 				t.Fatal("diagnostic cause is nil")
 			}
-			if !errors.Is(err, diagnostic.cause) {
+			if !errors.Is(issue, diagnostic.cause) {
 				t.Error("diagnostic does not unwrap to its analytics cause")
 			}
 		})
@@ -860,14 +867,26 @@ func TestWidgetCacheCronDiagnosticSource(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = newConfigFromParsedYAML(parsed)
-	if err == nil {
-		t.Fatal("expected cache-cron configuration error")
+	config, err := newConfigFromParsedYAML(parsed)
+	if err != nil {
+		t.Fatalf("newConfigFromParsedYAML() error = %v", err)
+	}
+	if len(config.recoverableErrors) != 1 {
+		t.Fatalf("recoverable errors = %d, want 1", len(config.recoverableErrors))
 	}
 
+	configured := config.Pages[0].Columns[0].Widgets
+	if len(configured) != 1 {
+		t.Fatalf("widget count = %d, want 1", len(configured))
+	}
+	if _, ok := configured[0].(*invalidConfiguredWidget); !ok {
+		t.Fatalf("widget type = %T, want *invalidConfiguredWidget", configured[0])
+	}
+
+	issue := config.recoverableErrors[0]
 	var diagnostic *configDiagnostic
-	if !errors.As(err, &diagnostic) {
-		t.Fatalf("error type = %T, want *configDiagnostic: %v", err, err)
+	if !errors.As(issue, &diagnostic) {
+		t.Fatalf("recoverable error type = %T, want *configDiagnostic: %v", issue, issue)
 	}
 
 	if want := absConfigTestPath(t, path); diagnostic.File != want {
@@ -882,7 +901,7 @@ func TestWidgetCacheCronDiagnosticSource(t *testing.T) {
 	if diagnostic.cause == nil {
 		t.Fatal("diagnostic cause is nil")
 	}
-	if !errors.Is(err, diagnostic.cause) {
+	if !errors.Is(issue, diagnostic.cause) {
 		t.Error("diagnostic does not unwrap to its cache-cron cause")
 	}
 }
@@ -1732,14 +1751,21 @@ func TestNewConfigFromParsedYAMLSemanticServerAssetsPathDiagnostic(t *testing.T)
 		t.Fatal(err)
 	}
 
-	_, err = newConfigFromParsedYAML(parsed)
-	if err == nil {
-		t.Fatal("expected assets-path configuration error")
+	config, err := newConfigFromParsedYAML(parsed)
+	if err != nil {
+		t.Fatalf("newConfigFromParsedYAML() error = %v", err)
+	}
+	if config.Server.AssetsPath != "" {
+		t.Fatalf("assets path = %q, want disabled", config.Server.AssetsPath)
+	}
+	if len(config.recoverableErrors) != 1 {
+		t.Fatalf("recoverable errors = %d, want 1", len(config.recoverableErrors))
 	}
 
+	issue := config.recoverableErrors[0]
 	var diagnostic *configDiagnostic
-	if !errors.As(err, &diagnostic) {
-		t.Fatalf("error type = %T, want *configDiagnostic: %v", err, err)
+	if !errors.As(issue, &diagnostic) {
+		t.Fatalf("recoverable error type = %T, want *configDiagnostic: %v", issue, issue)
 	}
 	if diagnostic.File != absConfigTestPath(t, mainPath) {
 		t.Errorf("diagnostic file = %q", diagnostic.File)
@@ -1747,8 +1773,123 @@ func TestNewConfigFromParsedYAMLSemanticServerAssetsPathDiagnostic(t *testing.T)
 	if diagnostic.Line != 2 {
 		t.Errorf("diagnostic line = %d, want 2", diagnostic.Line)
 	}
-	if want := "assets directory does not exist: " + missingAssetsPath; diagnostic.Message != want {
-		t.Errorf("diagnostic message = %q, want %q", diagnostic.Message, want)
+	if !strings.Contains(diagnostic.Message, "assets directory is unavailable") {
+		t.Errorf("diagnostic message = %q, want unavailable assets directory", diagnostic.Message)
+	}
+}
+
+func TestRecoverableThemeConfigurationKeepsApplicationConfig(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "glance.yml")
+	writeConfigTestFile(t, path, `theme:
+  density: impossible
+  presets:
+    valid:
+      density: compact
+    broken:
+      density: impossible
+pages:
+  - name: Home
+    theme:
+      density: impossible
+    columns:
+      - size: full
+`)
+
+	parsed, err := parseYAMLIncludesWithSources(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config, err := newConfigFromParsedYAML(parsed)
+	if err != nil {
+		t.Fatalf("newConfigFromParsedYAML() error = %v", err)
+	}
+	if len(config.recoverableErrors) != 3 {
+		t.Fatalf("recoverable errors = %d, want 3", len(config.recoverableErrors))
+	}
+	if config.Theme.Density != "" {
+		t.Fatalf("global theme density = %q, want fallback", config.Theme.Density)
+	}
+	if _, exists := config.Theme.Presets.Get("broken"); exists {
+		t.Fatal("invalid theme preset was retained")
+	}
+	if _, exists := config.Theme.Presets.Get("valid"); !exists {
+		t.Fatal("valid theme preset was removed")
+	}
+	if config.Pages[0].Theme.Density != "" {
+		t.Fatalf("page theme density = %q, want fallback", config.Pages[0].Theme.Density)
+	}
+}
+
+func TestRecoverableWidgetDefaultsKeepValidDefaults(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "glance.yml")
+	writeConfigTestFile(t, path, `widget-defaults:
+  global:
+    limit: 5
+  types:
+    rss:
+      cache: 20m
+    unknown:
+      cache: 10m
+pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets:
+          - type: rss
+            feeds:
+              - url: https://example.com/feed.xml
+`)
+
+	parsed, err := parseYAMLIncludesWithSources(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config, err := newConfigFromParsedYAML(parsed)
+	if err != nil {
+		t.Fatalf("newConfigFromParsedYAML() error = %v", err)
+	}
+	if len(config.recoverableErrors) != 2 {
+		t.Fatalf("recoverable errors = %d, want 2", len(config.recoverableErrors))
+	}
+	if config.WidgetDefaults.Global.Limit != nil {
+		t.Fatal("invalid global widget defaults were retained")
+	}
+	if _, exists := config.WidgetDefaults.Types["unknown"]; exists {
+		t.Fatal("invalid type widget defaults were retained")
+	}
+	if _, exists := config.WidgetDefaults.Types["rss"]; !exists {
+		t.Fatal("valid RSS widget defaults were removed")
+	}
+}
+
+func TestAuthPasswordTooLongReportsSource(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "glance.yml")
+	secret, err := makeAuthSecretKey(AUTH_SECRET_KEY_LENGTH)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeConfigTestFile(t, path, "auth:\n  secret-key: "+secret+"\n  users:\n    admin:\n      password: "+strings.Repeat("x", 73)+"\npages:\n  - name: Home\n    columns:\n      - size: full\n")
+
+	parsed, err := parseYAMLIncludesWithSources(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = newConfigFromParsedYAML(parsed)
+	if err == nil {
+		t.Fatal("expected password length configuration error")
+	}
+	var diagnostic *configDiagnostic
+	if !errors.As(err, &diagnostic) {
+		t.Fatalf("error type = %T, want *configDiagnostic: %v", err, err)
+	}
+	if diagnostic.Line != 4 {
+		t.Fatalf("diagnostic line = %d, want user line 4", diagnostic.Line)
+	}
+	if !strings.Contains(diagnostic.Message, "must be at most 72 bytes") {
+		t.Fatalf("diagnostic message = %q", diagnostic.Message)
 	}
 }
 
@@ -2031,7 +2172,7 @@ func TestNewConfigFromParsedYAMLWidgetInitializationDiagnostics(t *testing.T) {
 			},
 			wantFile:    "glance.yml",
 			wantLine:    8,
-			wantMessage: "group widget: weather widget: location is required",
+			wantMessage: "weather widget: location is required",
 		},
 		{
 			name: "nested included container child",
@@ -2042,7 +2183,7 @@ func TestNewConfigFromParsedYAMLWidgetInitializationDiagnostics(t *testing.T) {
 			},
 			wantFile:    "children.yml",
 			wantLine:    1,
-			wantMessage: "group widget: weather widget: location is required",
+			wantMessage: "weather widget: location is required",
 		},
 	}
 
@@ -2058,14 +2199,18 @@ func TestNewConfigFromParsedYAMLWidgetInitializationDiagnostics(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			_, err = newConfigFromParsedYAML(parsed)
-			if err == nil {
-				t.Fatal("expected widget initialization error")
+			config, err := newConfigFromParsedYAML(parsed)
+			if err != nil {
+				t.Fatalf("newConfigFromParsedYAML() error = %v, want recoverable widget issue", err)
 			}
+			if len(config.recoverableErrors) != 1 {
+				t.Fatalf("recoverable errors = %d, want 1", len(config.recoverableErrors))
+			}
+			issue := config.recoverableErrors[0]
 
 			var diagnostic *configDiagnostic
-			if !errors.As(err, &diagnostic) {
-				t.Fatalf("error type = %T, want *configDiagnostic: %v", err, err)
+			if !errors.As(issue, &diagnostic) {
+				t.Fatalf("error type = %T, want *configDiagnostic: %v", issue, issue)
 			}
 
 			wantFile := absConfigTestPath(t, filepath.Join(dir, tt.wantFile))
@@ -2080,8 +2225,8 @@ func TestNewConfigFromParsedYAMLWidgetInitializationDiagnostics(t *testing.T) {
 			}
 
 			var initErr *widgetInitError
-			if !errors.As(err, &initErr) {
-				t.Fatalf("diagnostic does not unwrap to *widgetInitError: %v", err)
+			if !errors.As(issue, &initErr) {
+				t.Fatalf("diagnostic does not unwrap to *widgetInitError: %v", issue)
 			}
 			if initErr.widget == nil {
 				t.Fatal("widget initialization error has no failing widget")
@@ -2157,7 +2302,7 @@ func TestNewConfigFromParsedYAMLCustomAPITemplateDiagnostics(t *testing.T) {
 			},
 			wantFile:    "template.yml",
 			wantLine:    2,
-			wantMessage: `group widget: custom-api widget: parsing template: template: :2: function "doesNotExist" not defined`,
+			wantMessage: `custom-api widget: parsing template: template: :2: function "doesNotExist" not defined`,
 		},
 	}
 
@@ -2173,14 +2318,18 @@ func TestNewConfigFromParsedYAMLCustomAPITemplateDiagnostics(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			_, err = newConfigFromParsedYAML(parsed)
-			if err == nil {
-				t.Fatal("expected custom API template initialization error")
+			config, err := newConfigFromParsedYAML(parsed)
+			if err != nil {
+				t.Fatalf("newConfigFromParsedYAML() error = %v, want recoverable widget issue", err)
 			}
+			if len(config.recoverableErrors) != 1 {
+				t.Fatalf("recoverable errors = %d, want 1", len(config.recoverableErrors))
+			}
+			issue := config.recoverableErrors[0]
 
 			var diagnostic *configDiagnostic
-			if !errors.As(err, &diagnostic) {
-				t.Fatalf("error type = %T, want *configDiagnostic: %v", err, err)
+			if !errors.As(issue, &diagnostic) {
+				t.Fatalf("error type = %T, want *configDiagnostic: %v", issue, issue)
 			}
 
 			wantFile := absConfigTestPath(t, filepath.Join(dir, tt.wantFile))
@@ -2195,8 +2344,8 @@ func TestNewConfigFromParsedYAMLCustomAPITemplateDiagnostics(t *testing.T) {
 			}
 
 			var initErr *widgetInitError
-			if !errors.As(err, &initErr) {
-				t.Fatalf("diagnostic does not unwrap to *widgetInitError: %v", err)
+			if !errors.As(issue, &initErr) {
+				t.Fatalf("diagnostic does not unwrap to *widgetInitError: %v", issue)
 			}
 			if initErr.widget == nil {
 				t.Fatal("widget initialization error has no failing widget")
@@ -2210,8 +2359,8 @@ func TestNewConfigFromParsedYAMLCustomAPITemplateDiagnostics(t *testing.T) {
 			}
 
 			var templateErr *customAPITemplateParseError
-			if !errors.As(err, &templateErr) {
-				t.Fatalf("diagnostic does not unwrap to *customAPITemplateParseError: %v", err)
+			if !errors.As(issue, &templateErr) {
+				t.Fatalf("diagnostic does not unwrap to *customAPITemplateParseError: %v", issue)
 			}
 			if templateErr.line < 1 {
 				t.Errorf("template parse error line = %d, want positive line", templateErr.line)
@@ -2265,14 +2414,26 @@ func TestNewConfigFromParsedYAMLCustomAPITemplateNonLiteralFallback(t *testing.T
 				t.Fatal(err)
 			}
 
-			_, err = newConfigFromParsedYAML(parsed)
-			if err == nil {
-				t.Fatal("expected custom API template initialization error")
+			config, err := newConfigFromParsedYAML(parsed)
+			if err != nil {
+				t.Fatalf("newConfigFromParsedYAML() error = %v", err)
+			}
+			if len(config.recoverableErrors) != 1 {
+				t.Fatalf("recoverable errors = %d, want 1", len(config.recoverableErrors))
 			}
 
+			configured := config.Pages[0].Columns[0].Widgets
+			if len(configured) != 1 {
+				t.Fatalf("widget count = %d, want 1", len(configured))
+			}
+			if _, ok := configured[0].(*invalidConfiguredWidget); !ok {
+				t.Fatalf("widget type = %T, want *invalidConfiguredWidget", configured[0])
+			}
+
+			issue := config.recoverableErrors[0]
 			var diagnostic *configDiagnostic
-			if !errors.As(err, &diagnostic) {
-				t.Fatalf("error type = %T, want *configDiagnostic: %v", err, err)
+			if !errors.As(issue, &diagnostic) {
+				t.Fatalf("recoverable error type = %T, want *configDiagnostic: %v", issue, issue)
 			}
 
 			wantFile := absConfigTestPath(t, mainPath)
@@ -2284,8 +2445,8 @@ func TestNewConfigFromParsedYAMLCustomAPITemplateNonLiteralFallback(t *testing.T
 			}
 
 			var templateErr *customAPITemplateParseError
-			if !errors.As(err, &templateErr) {
-				t.Fatalf("diagnostic does not unwrap to *customAPITemplateParseError: %v", err)
+			if !errors.As(issue, &templateErr) {
+				t.Fatalf("diagnostic does not unwrap to *customAPITemplateParseError: %v", issue)
 			}
 			if templateErr.line < 1 {
 				t.Errorf("template parse error line = %d, want positive line", templateErr.line)
@@ -2385,14 +2546,18 @@ func TestNewConfigFromParsedYAMLUnknownWidgetTypeDiagnostic(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = newConfigFromParsedYAML(parsed)
-	if err == nil {
-		t.Fatal("expected unknown widget type error")
+	config, err := newConfigFromParsedYAML(parsed)
+	if err != nil {
+		t.Fatalf("newConfigFromParsedYAML() error = %v, want recoverable widget issue", err)
 	}
+	if len(config.recoverableErrors) != 1 {
+		t.Fatalf("recoverable errors = %d, want 1", len(config.recoverableErrors))
+	}
+	issue := config.recoverableErrors[0]
 
 	var diagnostic *configDiagnostic
-	if !errors.As(err, &diagnostic) {
-		t.Fatalf("error type = %T, want *configDiagnostic: %v", err, err)
+	if !errors.As(issue, &diagnostic) {
+		t.Fatalf("error type = %T, want *configDiagnostic: %v", issue, issue)
 	}
 	if want := absConfigTestPath(t, widgetPath); diagnostic.File != want {
 		t.Errorf("diagnostic file = %q, want %q", diagnostic.File, want)
@@ -2864,5 +3029,232 @@ func TestFrontendDiagnosticsConfigEnabled(t *testing.T) {
 
 	if !config.Server.FrontendDiagnostics {
 		t.Fatal("frontend diagnostics disabled, want enabled")
+	}
+}
+
+func TestNewConfigFromParsedYAMLKeepsValidWidgetSiblings(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "glance.yml")
+
+	writeConfigTestFile(t, mainPath, "pages:\n  - name: Home\n    columns:\n      - size: full\n        widgets:\n          - type: clock\n          - type: weather\n          - type: clock\n")
+
+	parsed, err := parseYAMLIncludesWithSources(mainPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	config, err := newConfigFromParsedYAML(parsed)
+	if err != nil {
+		t.Fatalf("newConfigFromParsedYAML() error = %v", err)
+	}
+	if len(config.recoverableErrors) != 1 {
+		t.Fatalf("recoverable errors = %d, want 1", len(config.recoverableErrors))
+	}
+
+	configured := config.Pages[0].Columns[0].Widgets
+	if len(configured) != 3 {
+		t.Fatalf("widget count = %d, want 3", len(configured))
+	}
+	if _, invalid := configured[0].(*invalidConfiguredWidget); invalid {
+		t.Fatal("first valid widget was replaced")
+	}
+	invalid, ok := configured[1].(*invalidConfiguredWidget)
+	if !ok {
+		t.Fatalf("second widget type = %T, want *invalidConfiguredWidget", configured[1])
+	}
+	if _, invalidThird := configured[2].(*invalidConfiguredWidget); invalidThird {
+		t.Fatal("third valid widget was replaced")
+	}
+
+	var diagnostic *configDiagnostic
+	if !errors.As(config.recoverableErrors[0], &diagnostic) {
+		t.Fatalf("recoverable error type = %T, want *configDiagnostic", config.recoverableErrors[0])
+	}
+	if diagnostic.Line != 7 {
+		t.Fatalf("diagnostic line = %d, want 7", diagnostic.Line)
+	}
+	if !strings.Contains(string(invalid.Render()), "weather widget: location is required") {
+		t.Fatalf("invalid widget render does not contain configuration error: %s", invalid.Render())
+	}
+}
+
+func TestNewConfigFromParsedYAMLKeepsNestedWidgetSiblings(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "glance.yml")
+
+	writeConfigTestFile(t, mainPath, "pages:\n  - name: Home\n    columns:\n      - size: full\n        widgets:\n          - type: group\n            widgets:\n              - type: clock\n              - type: weather\n              - type: clock\n")
+
+	parsed, err := parseYAMLIncludesWithSources(mainPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	config, err := newConfigFromParsedYAML(parsed)
+	if err != nil {
+		t.Fatalf("newConfigFromParsedYAML() error = %v", err)
+	}
+	if len(config.recoverableErrors) != 1 {
+		t.Fatalf("recoverable errors = %d, want 1", len(config.recoverableErrors))
+	}
+
+	group, ok := config.Pages[0].Columns[0].Widgets[0].(*groupWidget)
+	if !ok {
+		t.Fatalf("top-level widget type = %T, want *groupWidget", config.Pages[0].Columns[0].Widgets[0])
+	}
+	if len(group.Widgets) != 3 {
+		t.Fatalf("group child count = %d, want 3", len(group.Widgets))
+	}
+	if _, invalid := group.Widgets[1].(*invalidConfiguredWidget); !invalid {
+		t.Fatalf("middle child type = %T, want *invalidConfiguredWidget", group.Widgets[1])
+	}
+	if _, invalid := group.Widgets[0].(*invalidConfiguredWidget); invalid {
+		t.Fatal("first nested valid widget was replaced")
+	}
+	if _, invalid := group.Widgets[2].(*invalidConfiguredWidget); invalid {
+		t.Fatal("third nested valid widget was replaced")
+	}
+}
+
+func TestConfigFilesWatcherReportsCandidateParseFailureAsReloadError(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "glance.yml")
+	widgetsPath := filepath.Join(dir, "widgets.yml")
+
+	writeConfigTestFile(t, mainPath, "pages:\n  - name: Home\n    columns:\n      - size: full\n        widgets:\n          $include: widgets.yml\n")
+	writeConfigTestFile(t, widgetsPath, "- type: clock\n")
+
+	parsed, err := parseYAMLIncludesWithSources(mainPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	changed := make(chan struct{}, 1)
+	watcherErr := make(chan error, 1)
+	stop, err := configFilesWatcherWithSources(
+		mainPath,
+		parsed,
+		func(newParsed *parsedYAMLConfig) { changed <- struct{}{} },
+		func(err error) { watcherErr <- err },
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := stop(); err != nil {
+			t.Errorf("stopping watcher: %v", err)
+		}
+	}()
+
+	if err := os.Remove(widgetsPath); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case err := <-watcherErr:
+		var reloadErr *configWatcherReloadError
+		if !errors.As(err, &reloadErr) {
+			t.Fatalf("watcher error type = %T, want *configWatcherReloadError: %v", err, err)
+		}
+	case <-changed:
+		t.Fatal("watcher delivered unresolved include as a configuration change")
+	case <-time.After(3 * time.Second):
+		t.Fatal("timed out waiting for unresolved include reload error")
+	}
+}
+
+func TestNewConfigFromParsedYAMLKeepsValidFooterMicroWidgetSiblings(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "glance.yml")
+
+	writeConfigTestFile(t, mainPath, "footer-micro-widgets:\n  left:\n    - type: bookmark\n      position: 1\n      title: Valid\n      url: https://example.com\n    - type: weather\n      position: 2\n    - type: clock\n      position: 3\npages:\n  - name: Home\n    columns:\n      - size: full\n")
+
+	parsed, err := parseYAMLIncludesWithSources(mainPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	config, err := newConfigFromParsedYAML(parsed)
+	if err != nil {
+		t.Fatalf("newConfigFromParsedYAML() error = %v", err)
+	}
+	if len(config.recoverableErrors) != 1 {
+		t.Fatalf("recoverable errors = %d, want 1", len(config.recoverableErrors))
+	}
+	if len(config.FooterMicroWidgets.Left) != 3 {
+		t.Fatalf("left micro-widget count = %d, want 3", len(config.FooterMicroWidgets.Left))
+	}
+	if _, ok := config.FooterMicroWidgets.Left[0].(*microBookmark); !ok {
+		t.Fatalf("left[0] type = %T, want *microBookmark", config.FooterMicroWidgets.Left[0])
+	}
+	invalid, ok := config.FooterMicroWidgets.Left[1].(*invalidConfiguredMicroWidget)
+	if !ok {
+		t.Fatalf("left[1] type = %T, want *invalidConfiguredMicroWidget", config.FooterMicroWidgets.Left[1])
+	}
+	if invalid.ConfigError == nil || !strings.Contains(invalid.ConfigError.Error(), "weather micro-widget: location is required") {
+		t.Fatalf("invalid micro-widget error = %v", invalid.ConfigError)
+	}
+	if _, ok := config.FooterMicroWidgets.Left[2].(*microClock); !ok {
+		t.Fatalf("left[2] type = %T, want *microClock", config.FooterMicroWidgets.Left[2])
+	}
+
+	var diagnostic *configDiagnostic
+	if !errors.As(config.recoverableErrors[0], &diagnostic) {
+		t.Fatalf("recoverable error type = %T, want *configDiagnostic", config.recoverableErrors[0])
+	}
+	if diagnostic.Line != 7 {
+		t.Fatalf("diagnostic line = %d, want 7", diagnostic.Line)
+	}
+}
+
+func TestNewConfigFromParsedYAMLReportsAuthSecretSource(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "glance.yml")
+
+	writeConfigTestFile(t, mainPath, "auth:\n  secret-key: not-base64!\n  users:\n    admin:\n      password: example\npages:\n  - name: Home\n    columns:\n      - size: full\n")
+
+	parsed, err := parseYAMLIncludesWithSources(mainPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = newConfigFromParsedYAML(parsed)
+	if err == nil {
+		t.Fatal("newConfigFromParsedYAML() error = nil, want auth secret error")
+	}
+
+	var diagnostic *configDiagnostic
+	if !errors.As(err, &diagnostic) {
+		t.Fatalf("error type = %T, want *configDiagnostic", err)
+	}
+	if diagnostic.File != mainPath || diagnostic.Line != 2 {
+		t.Fatalf("diagnostic location = %s:%d, want %s:2", diagnostic.File, diagnostic.Line, mainPath)
+	}
+	if !strings.Contains(diagnostic.Message, "decoding secret-key") {
+		t.Fatalf("diagnostic message = %q, want decoding secret-key", diagnostic.Message)
+	}
+}
+
+func TestNewConfigFromParsedYAMLReportsReservedPageSlugSource(t *testing.T) {
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "glance.yml")
+
+	writeConfigTestFile(t, mainPath, "pages:\n  - name: Home\n    slug: login\n    columns:\n      - size: full\n")
+
+	parsed, err := parseYAMLIncludesWithSources(mainPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = newConfigFromParsedYAML(parsed)
+	if err == nil {
+		t.Fatal("newConfigFromParsedYAML() error = nil, want reserved page slug error")
+	}
+
+	var diagnostic *configDiagnostic
+	if !errors.As(err, &diagnostic) {
+		t.Fatalf("error type = %T, want *configDiagnostic", err)
+	}
+	if diagnostic.File != mainPath || diagnostic.Line != 3 {
+		t.Fatalf("diagnostic location = %s:%d, want %s:3", diagnostic.File, diagnostic.Line, mainPath)
 	}
 }

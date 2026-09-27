@@ -172,7 +172,13 @@ footer-micro-widgets:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := newConfigFromYAML([]byte(tt.yaml))
+			configYAML := tt.yaml + `
+pages:
+  - name: Home
+    columns:
+      - size: full
+`
+			_, err := newConfigFromYAML([]byte(configYAML))
 			if err == nil {
 				t.Fatalf("newConfigFromYAML() succeeded, want error containing %q", tt.wantErr)
 			}
@@ -373,6 +379,10 @@ footer-micro-widgets:
     - type: clock
       position: 1
       hour-format: 13h
+pages:
+  - name: Home
+    columns:
+      - size: full
 `))
 
 	if err == nil {
@@ -392,6 +402,10 @@ footer-micro-widgets:
     - type: clock
       position: 1
       timezone: Invalid/Nowhere
+pages:
+  - name: Home
+    columns:
+      - size: full
 `))
 
 	if err == nil {
@@ -535,7 +549,13 @@ func TestMicroLinkOptionsAndValidation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.wantErr != "" {
-				_, err := newConfigFromYAML([]byte(tt.yaml))
+				configYAML := tt.yaml + `
+pages:
+  - name: Home
+    columns:
+      - size: full
+`
+				_, err := newConfigFromYAML([]byte(configYAML))
 				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
 					t.Fatalf("error = %v, want error containing %q", err, tt.wantErr)
 				}

@@ -436,10 +436,26 @@ func applyWidgetDefaultsTree(
 		return summary, nil
 	}
 
-	for _, child := range container.childWidgets() {
+	children := container.childWidgets()
+	for i := range children {
+		child := children[i]
+		if _, invalid := child.(*invalidConfiguredWidget); invalid {
+			continue
+		}
+
 		childSummary, err := applyWidgetDefaultsTree(child, defaults)
 		if err != nil {
-			return widgetDefaultsLogSummary{}, err
+			generatedLine := 0
+			if base, ok := widgetBaseOf(child); ok {
+				generatedLine = base.configLine
+			}
+			children[i] = newInvalidConfiguredWidget(
+				child,
+				child.GetType(),
+				generatedLine,
+				err,
+			)
+			continue
 		}
 		summary.add(childSummary)
 	}

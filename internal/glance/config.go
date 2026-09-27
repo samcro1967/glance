@@ -88,6 +88,12 @@ type config struct {
 	WidgetDefaults     widgetDefaultsConfig             `yaml:"widget-defaults"`
 	Pages              []page                           `yaml:"pages"`
 	Dashboards         orderedYAMLMap[string, []string] `yaml:"dashboards"`
+
+	// recoverableErrors contains widget-local and micro-widget-local configuration
+	// failures that do not prevent the rest of the application from being constructed. The
+	// serve path logs them, while config:validate still treats them as invalid
+	// configuration so administrators do not lose validation coverage.
+	recoverableErrors []error `yaml:"-"`
 }
 
 type user struct {
@@ -171,6 +177,29 @@ type configDiagnostic struct {
 	cause   error
 }
 
+// configWatcherReloadError marks a watcher callback failure that occurred
+// while constructing a candidate configuration after a filesystem change.
+// The currently active application remains valid, but runtime diagnostics
+// should record the failed reload attempt rather than treating it as an
+// unrelated watcher transport error.
+type configWatcherReloadError struct {
+	cause error
+}
+
+func (e *configWatcherReloadError) Error() string {
+	if e == nil || e.cause == nil {
+		return "configuration reload failed"
+	}
+	return fmt.Sprintf("parsing changed configuration: %v", e.cause)
+}
+
+func (e *configWatcherReloadError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.cause
+}
+
 type configSemanticSources struct {
 	analytics            int
 	analyticsProvider    int
@@ -181,6 +210,7 @@ type configSemanticSources struct {
 	personalStatePath    int
 	assetsPath           int
 	auth                 int
+	authSecret           int
 	authUsers            int
 	users                map[string]int
 	authGroups           int
@@ -195,6 +225,14 @@ type configSemanticSources struct {
 	authOIDCRedirect     int
 	dashboards           int
 	dashboard            map[string]int
+	widgetDefaults       int
+	widgetDefaultsGlobal int
+	widgetDefaultType    map[string]int
+	theme                int
+	themePresets         int
+	themePreset          map[string]int
+	footerMicroLeft      []int
+	footerMicroRight     []int
 	pages                int
 	page                 []configPageSemanticSources
 }
@@ -202,8 +240,10 @@ type configSemanticSources struct {
 type configPageSemanticSources struct {
 	line                   int
 	name                   int
+	slug                   int
 	width                  int
 	desktopNavigationWidth int
+	theme                  int
 	headWidgets            []configWidgetSemanticSources
 	bottomWidgets          []configWidgetSemanticSources
 	columns                int
@@ -332,18 +372,47 @@ func configDiagnosticFromYAMLError(parsed *parsedYAMLConfig, err error) error {
 }
 
 func newConfigFromYAML(contents []byte) (*config, error) {
-	return newConfigFromParsedYAML(&parsedYAMLConfig{Contents: contents})
+	config, err := newConfigFromParsedYAML(&parsedYAMLConfig{Contents: contents})
+	if err != nil {
+		return nil, err
+	}
+
+	// Keep this test/helper entrypoint strict. Runtime loading uses
+	// newConfigFromParsedYAML directly so it can preserve valid widgets while
+	// surfacing widget-local failures as recoverable configuration issues.
+	if len(config.recoverableErrors) > 0 {
+		return nil, config.recoverableErrors[0]
+	}
+
+	return config, nil
 }
 
-func normalizeAndValidateCompiledConfig(config *config) error {
+func normalizeAndValidateCompiledConfigWithSources(
+	config *config,
+	parsed *parsedYAMLConfig,
+	sources *configSemanticSources,
+) error {
+	diagnostic := func(line int, err error) error {
+		return semanticConfigDiagnostic(parsed, line, err)
+	}
+
+	rootLine := 0
+	if sources != nil {
+		rootLine = sources.root
+	}
 	if len(config.Auth.Users) > 0 || config.Auth.OIDC.configured() {
+		secretLine := rootLine
+		if sources != nil {
+			secretLine = semanticSourceLine(sources.authSecret, sources.auth, rootLine)
+		}
+
 		secretBytes, err := base64.StdEncoding.DecodeString(config.Auth.SecretKey)
 		if err != nil {
-			return fmt.Errorf("decoding secret-key: %v", err)
+			return diagnostic(secretLine, fmt.Errorf("decoding secret-key: %v", err))
 		}
 
 		if len(secretBytes) != AUTH_SECRET_KEY_LENGTH {
-			return fmt.Errorf("secret-key must be exactly %d bytes", AUTH_SECRET_KEY_LENGTH)
+			return diagnostic(secretLine, fmt.Errorf("secret-key must be exactly %d bytes", AUTH_SECRET_KEY_LENGTH))
 		}
 	}
 
@@ -357,7 +426,11 @@ func normalizeAndValidateCompiledConfig(config *config) error {
 		}
 
 		if slices.Contains(reservedPageSlugs, page.Slug) {
-			return fmt.Errorf("page slug %q is reserved", page.Slug)
+			line := rootLine
+			if sources != nil && p < len(sources.page) {
+				line = semanticSourceLine(sources.page[p].slug, sources.page[p].line, sources.pages, rootLine)
+			}
+			return diagnostic(line, fmt.Errorf("page slug %q is reserved", page.Slug))
 		}
 
 		pageSlugs[page.Slug] = struct{}{}
@@ -379,17 +452,22 @@ func normalizeAndValidateCompiledConfig(config *config) error {
 
 	for dashboardName, referencedPageSlugs := range config.Dashboards.Items() {
 		dashboardSlug := titleToSlug(dashboardName)
+		dashboardLine := rootLine
+		if sources != nil {
+			dashboardLine = semanticSourceLine(sources.dashboard[dashboardName], sources.dashboards, rootLine)
+		}
+
 		if dashboardSlug == "" {
-			return fmt.Errorf("dashboard %q has an invalid slug", dashboardName)
+			return diagnostic(dashboardLine, fmt.Errorf("dashboard %q has an invalid slug", dashboardName))
 		}
 
 		if dashboardName != "Default" && slices.Contains(reservedDashboardSlugs, dashboardSlug) {
-			return fmt.Errorf("dashboard slug %q is reserved", dashboardSlug)
+			return diagnostic(dashboardLine, fmt.Errorf("dashboard slug %q is reserved", dashboardSlug))
 		}
 
 		if dashboardName != "Default" {
 			if _, exists := acceptedDashboardSlugs[dashboardSlug]; exists {
-				return fmt.Errorf("dashboard slug %q is duplicated", dashboardSlug)
+				return diagnostic(dashboardLine, fmt.Errorf("dashboard slug %q is duplicated", dashboardSlug))
 			}
 
 			// Preserve the existing runtime behavior: a dashboard whose slug
@@ -404,10 +482,13 @@ func normalizeAndValidateCompiledConfig(config *config) error {
 
 		for _, pageSlug := range referencedPageSlugs {
 			if _, exists := pageSlugs[pageSlug]; !exists {
-				return fmt.Errorf(
-					"dashboard %q references unknown page slug %q",
-					dashboardName,
-					pageSlug,
+				return diagnostic(
+					dashboardLine,
+					fmt.Errorf(
+						"dashboard %q references unknown page slug %q",
+						dashboardName,
+						pageSlug,
+					),
 				)
 			}
 		}
@@ -434,18 +515,15 @@ func newConfigFromParsedYAML(parsed *parsedYAMLConfig) (*config, error) {
 		return nil, configDiagnosticFromYAMLError(parsed, err)
 	}
 
-	if err = validateConfiguredThemes(config); err != nil {
-		return nil, err
-	}
-
 	semanticSources, err := parseConfigSemanticSources(contents)
 	if err != nil {
 		return nil, configDiagnosticFromYAMLError(parsed, err)
 	}
 
-	if err = validateWidgetDefaults(config.WidgetDefaults); err != nil {
-		return nil, err
-	}
+	recoverConfiguredThemeErrors(config, parsed, semanticSources)
+	recoverWidgetDefaultErrors(config, parsed, semanticSources)
+	recoverAnalyticsError(config, parsed, semanticSources)
+	recoverAssetsPathError(config, parsed, semanticSources)
 
 	if err = isConfigStateValidWithSources(config, parsed, semanticSources); err != nil {
 		return nil, err
@@ -453,81 +531,85 @@ func newConfigFromParsedYAML(parsed *parsedYAMLConfig) (*config, error) {
 
 	defaultsLogSummary := widgetDefaultsLogSummary{}
 
-	for _, candidate := range config.FooterMicroWidgets.Left {
-		if dynamic, ok := candidate.(dynamicMicroWidget); ok {
-			if err := dynamic.initialize(); err != nil {
-				return nil, fmt.Errorf("%s micro-widget: %w", dynamic.GetType(), err)
-			}
-		}
-	}
+	config.FooterMicroWidgets.Left = initializeConfiguredMicroWidgets(
+		config.FooterMicroWidgets.Left,
+		semanticSources.footerMicroLeft,
+	)
+	config.FooterMicroWidgets.Right = initializeConfiguredMicroWidgets(
+		config.FooterMicroWidgets.Right,
+		semanticSources.footerMicroRight,
+	)
+	resolveInvalidMicroWidgetDiagnostics(
+		parsed,
+		config.FooterMicroWidgets.Left,
+		&config.recoverableErrors,
+	)
+	resolveInvalidMicroWidgetDiagnostics(
+		parsed,
+		config.FooterMicroWidgets.Right,
+		&config.recoverableErrors,
+	)
 
-	for _, candidate := range config.FooterMicroWidgets.Right {
-		if dynamic, ok := candidate.(dynamicMicroWidget); ok {
-			if err := dynamic.initialize(); err != nil {
-				return nil, fmt.Errorf("%s micro-widget: %w", dynamic.GetType(), err)
+	for p := range config.Pages {
+		for w := range config.Pages[p].HeadWidgets {
+			candidate := config.Pages[p].HeadWidgets[w]
+			defaultsSummary, initialized := initializeConfiguredWidget(candidate, config.WidgetDefaults)
+			config.Pages[p].HeadWidgets[w] = initialized
+			defaultsLogSummary.add(defaultsSummary)
+		}
+
+		for w := range config.Pages[p].BottomWidgets {
+			candidate := config.Pages[p].BottomWidgets[w]
+			defaultsSummary, initialized := initializeConfiguredWidget(candidate, config.WidgetDefaults)
+			config.Pages[p].BottomWidgets[w] = initialized
+			defaultsLogSummary.add(defaultsSummary)
+		}
+
+		for c := range config.Pages[p].Columns {
+			for w := range config.Pages[p].Columns[c].Widgets {
+				candidate := config.Pages[p].Columns[c].Widgets[w]
+				defaultsSummary, initialized := initializeConfiguredWidget(candidate, config.WidgetDefaults)
+				config.Pages[p].Columns[c].Widgets[w] = initialized
+				defaultsLogSummary.add(defaultsSummary)
 			}
 		}
 	}
 
 	for p := range config.Pages {
 		var pageSource configPageSemanticSources
-		if semanticSources != nil && p < len(semanticSources.page) {
+		if p < len(semanticSources.page) {
 			pageSource = semanticSources.page[p]
 		}
 
-		for w := range config.Pages[p].HeadWidgets {
-			candidate := config.Pages[p].HeadWidgets[w]
-			defaultsSummary, err := initializeConfiguredWidget(
-				candidate,
-				config.WidgetDefaults,
-				parsed,
-				widgetSourceAt(pageSource.headWidgets, w),
-			)
-			if err != nil {
-				return nil, err
-			}
-			defaultsLogSummary.add(defaultsSummary)
-		}
-
-		for w := range config.Pages[p].BottomWidgets {
-			candidate := config.Pages[p].BottomWidgets[w]
-			defaultsSummary, err := initializeConfiguredWidget(
-				candidate,
-				config.WidgetDefaults,
-				parsed,
-				widgetSourceAt(pageSource.bottomWidgets, w),
-			)
-			if err != nil {
-				return nil, err
-			}
-			defaultsLogSummary.add(defaultsSummary)
-		}
-
+		resolveInvalidWidgetDiagnostics(
+			parsed,
+			config.Pages[p].HeadWidgets,
+			pageSource.headWidgets,
+			&config.recoverableErrors,
+		)
+		resolveInvalidWidgetDiagnostics(
+			parsed,
+			config.Pages[p].BottomWidgets,
+			pageSource.bottomWidgets,
+			&config.recoverableErrors,
+		)
 		for c := range config.Pages[p].Columns {
 			var columnSource configColumnSemanticSources
 			if c < len(pageSource.column) {
 				columnSource = pageSource.column[c]
 			}
-
-			for w := range config.Pages[p].Columns[c].Widgets {
-				candidate := config.Pages[p].Columns[c].Widgets[w]
-				defaultsSummary, err := initializeConfiguredWidget(
-					candidate,
-					config.WidgetDefaults,
-					parsed,
-					widgetSourceAt(columnSource.widgets, w),
-				)
-				if err != nil {
-					return nil, err
-				}
-				defaultsLogSummary.add(defaultsSummary)
-			}
+			resolveInvalidWidgetDiagnostics(
+				parsed,
+				config.Pages[p].Columns[c].Widgets,
+				columnSource.widgets,
+				&config.recoverableErrors,
+			)
 		}
 	}
 
 	logWidgetDefaultsConfigured(config.WidgetDefaults, defaultsLogSummary)
 
-	if err := normalizeAndValidateCompiledConfig(config); err != nil {
+	if err := normalizeAndValidateCompiledConfigWithSources(config, parsed, semanticSources); err != nil {
 		return nil, err
 	}
 
@@ -755,33 +837,294 @@ func findWidgetSemanticSource(
 	return configWidgetSemanticSources{}, false
 }
 
+func appendRecoverableConfigError(config *config, parsed *parsedYAMLConfig, generatedLine int, err error) {
+	if err == nil {
+		return
+	}
+	config.recoverableErrors = append(
+		config.recoverableErrors,
+		semanticConfigDiagnostic(parsed, generatedLine, err),
+	)
+}
+
+func recoverConfiguredThemeErrors(config *config, parsed *parsedYAMLConfig, sources *configSemanticSources) {
+	rootLine := 0
+	if sources != nil {
+		rootLine = sources.root
+	}
+
+	if err := config.Theme.themeProperties.validate("theme"); err != nil {
+		line := rootLine
+		if sources != nil {
+			line = semanticSourceLine(sources.theme, rootLine)
+		}
+		appendRecoverableConfigError(config, parsed, line, err)
+		config.Theme.themeProperties = themeProperties{}
+	}
+
+	validKeys := make([]string, 0, len(config.Theme.Presets.keys))
+	for _, key := range config.Theme.Presets.keys {
+		properties, exists := config.Theme.Presets.data[key]
+		if !exists || properties == nil {
+			continue
+		}
+		if err := properties.validate("theme.presets." + key); err != nil {
+			line := rootLine
+			if sources != nil {
+				line = semanticSourceLine(sources.themePreset[key], sources.themePresets, sources.theme, rootLine)
+			}
+			appendRecoverableConfigError(config, parsed, line, err)
+			delete(config.Theme.Presets.data, key)
+			continue
+		}
+		validKeys = append(validKeys, key)
+	}
+	config.Theme.Presets.keys = validKeys
+
+	for i := range config.Pages {
+		if err := config.Pages[i].Theme.validate(fmt.Sprintf("pages[%d].theme", i)); err != nil {
+			line := rootLine
+			if sources != nil && i < len(sources.page) {
+				line = semanticSourceLine(sources.page[i].theme, sources.page[i].line, sources.pages, rootLine)
+			}
+			appendRecoverableConfigError(config, parsed, line, err)
+			config.Pages[i].Theme = themeProperties{}
+		}
+	}
+}
+
+func recoverWidgetDefaultErrors(config *config, parsed *parsedYAMLConfig, sources *configSemanticSources) {
+	rootLine := 0
+	if sources != nil {
+		rootLine = sources.root
+	}
+
+	globalOnly := widgetDefaultsConfig{Global: config.WidgetDefaults.Global}
+	if err := validateWidgetDefaults(globalOnly); err != nil {
+		line := rootLine
+		if sources != nil {
+			line = semanticSourceLine(sources.widgetDefaultsGlobal, sources.widgetDefaults, rootLine)
+		}
+		appendRecoverableConfigError(config, parsed, line, err)
+		config.WidgetDefaults.Global = widgetDefaultValues{}
+	}
+
+	for widgetType, values := range config.WidgetDefaults.Types {
+		typeOnly := widgetDefaultsConfig{Types: map[string]widgetDefaultValues{widgetType: values}}
+		if err := validateWidgetDefaults(typeOnly); err != nil {
+			line := rootLine
+			if sources != nil {
+				line = semanticSourceLine(sources.widgetDefaultType[widgetType], sources.widgetDefaults, rootLine)
+			}
+			appendRecoverableConfigError(config, parsed, line, err)
+			delete(config.WidgetDefaults.Types, widgetType)
+		}
+	}
+}
+
+func recoverAnalyticsError(config *config, parsed *parsedYAMLConfig, sources *configSemanticSources) {
+	if !config.Analytics.configured() {
+		return
+	}
+
+	rootLine := 0
+	analyticsLine := 0
+	providerLine := 0
+	endpointLine := 0
+	if sources != nil {
+		rootLine = sources.root
+		analyticsLine = semanticSourceLine(sources.analytics, rootLine)
+		providerLine = semanticSourceLine(sources.analyticsProvider, analyticsLine, rootLine)
+		endpointLine = semanticSourceLine(sources.analyticsEndpoint, analyticsLine, rootLine)
+	}
+
+	provider := strings.ToLower(strings.TrimSpace(config.Analytics.Provider))
+	var line int
+	var err error
+	switch {
+	case provider == "":
+		line = providerLine
+		err = errors.New("analytics provider must be set")
+	case provider != analyticsProviderGoatCounter:
+		line = providerLine
+		err = fmt.Errorf("unsupported analytics provider %q", config.Analytics.Provider)
+	case strings.TrimSpace(config.Analytics.Endpoint) == "":
+		line = endpointLine
+		err = errors.New("analytics endpoint must be set")
+	default:
+		var normalized string
+		normalized, err = normalizeAnalyticsEndpoint(config.Analytics.Endpoint)
+		if err == nil {
+			config.Analytics.Provider = provider
+			config.Analytics.Endpoint = normalized
+			return
+		}
+		line = endpointLine
+		err = fmt.Errorf("analytics endpoint %w", err)
+	}
+
+	appendRecoverableConfigError(config, parsed, line, err)
+	config.Analytics = analyticsConfig{}
+}
+
+func recoverAssetsPathError(config *config, parsed *parsedYAMLConfig, sources *configSemanticSources) {
+	if config.Server.AssetsPath == "" {
+		return
+	}
+
+	info, err := os.Stat(config.Server.AssetsPath)
+	if err == nil && info.IsDir() {
+		return
+	}
+
+	line := 0
+	if sources != nil {
+		line = semanticSourceLine(sources.assetsPath, sources.server, sources.root)
+	}
+
+	if err != nil {
+		appendRecoverableConfigError(
+			config,
+			parsed,
+			line,
+			fmt.Errorf("assets directory is unavailable: %s: %w", config.Server.AssetsPath, err),
+		)
+	} else {
+		appendRecoverableConfigError(
+			config,
+			parsed,
+			line,
+			fmt.Errorf("assets path is not a directory: %s", config.Server.AssetsPath),
+		)
+	}
+	config.Server.AssetsPath = ""
+}
+
+func initializeConfiguredMicroWidgets(items microWidgets, sourceLines []int) microWidgets {
+	for i, candidate := range items {
+		if _, invalid := candidate.(*invalidConfiguredMicroWidget); invalid {
+			continue
+		}
+
+		dynamic, ok := candidate.(dynamicMicroWidget)
+		if !ok {
+			continue
+		}
+
+		if err := dynamic.initialize(); err != nil {
+			generatedLine := 0
+			if i < len(sourceLines) {
+				generatedLine = sourceLines[i]
+			}
+			items[i] = &invalidConfiguredMicroWidget{
+				Position:    candidate.GetPosition(),
+				Type:        candidate.GetType(),
+				configLine:  generatedLine,
+				ConfigError: fmt.Errorf("%s micro-widget: %w", candidate.GetType(), err),
+			}
+		}
+	}
+
+	return items
+}
+
+func resolveInvalidMicroWidgetDiagnostics(
+	parsed *parsedYAMLConfig,
+	items microWidgets,
+	issues *[]error,
+) {
+	for _, candidate := range items {
+		invalid, ok := candidate.(*invalidConfiguredMicroWidget)
+		if !ok || invalid.ConfigError == nil {
+			continue
+		}
+
+		diagnostic := semanticConfigDiagnostic(parsed, invalid.configLine, invalid.ConfigError)
+		invalid.ConfigError = diagnostic
+		*issues = append(*issues, diagnostic)
+	}
+}
+
 func initializeConfiguredWidget(
 	candidate widget,
 	defaults widgetDefaultsConfig,
-	parsed *parsedYAMLConfig,
-	source configWidgetSemanticSources,
-) (widgetDefaultsLogSummary, error) {
+) (widgetDefaultsLogSummary, widget) {
+	if _, invalid := candidate.(*invalidConfiguredWidget); invalid {
+		return widgetDefaultsLogSummary{}, candidate
+	}
+
 	defaultsSummary, err := applyWidgetDefaultsTree(candidate, defaults)
 	if err != nil {
-		return widgetDefaultsLogSummary{}, widgetInitializationDiagnostic(
-			parsed,
-			err,
+		generatedLine := 0
+		if base, ok := widgetBaseOf(candidate); ok {
+			generatedLine = base.configLine
+		}
+		return widgetDefaultsLogSummary{}, newInvalidConfiguredWidget(
 			candidate,
-			source,
+			candidate.GetType(),
+			generatedLine,
+			err,
 		)
 	}
 
 	if err := candidate.initialize(); err != nil {
 		formatted := formatWidgetInitError(err, candidate)
-		return widgetDefaultsLogSummary{}, widgetInitializationDiagnostic(
-			parsed,
-			formatted,
+		generatedLine := 0
+		if base, ok := widgetBaseOf(candidate); ok {
+			generatedLine = base.configLine
+		}
+		return widgetDefaultsLogSummary{}, newInvalidConfiguredWidget(
 			candidate,
-			source,
+			candidate.GetType(),
+			generatedLine,
+			formatted,
 		)
 	}
 
-	return defaultsSummary, nil
+	return defaultsSummary, candidate
+}
+
+func resolveInvalidWidgetDiagnostics(
+	parsed *parsedYAMLConfig,
+	widgetList widgets,
+	sources []configWidgetSemanticSources,
+	issues *[]error,
+) {
+	for i := range widgetList {
+		candidate := widgetList[i]
+		source := widgetSourceAt(sources, i)
+
+		if invalid, ok := candidate.(*invalidConfiguredWidget); ok {
+			generatedLine := source.line
+			if generatedLine == 0 {
+				generatedLine = invalid.configLine
+			}
+
+			var templateErr *customAPITemplateParseError
+			if errors.As(invalid.configError, &templateErr) &&
+				templateErr.line > 0 &&
+				source.template > 0 {
+				generatedLine = source.template + templateErr.line
+			}
+
+			diagnostic := semanticConfigDiagnostic(parsed, generatedLine, invalid.configError)
+			invalid.Error = diagnostic
+			*issues = append(*issues, diagnostic)
+			continue
+		}
+
+		container, ok := candidate.(widgetContainer)
+		if !ok {
+			continue
+		}
+
+		resolveInvalidWidgetDiagnostics(
+			parsed,
+			container.childWidgets(),
+			source.widgets,
+			issues,
+		)
+	}
 }
 
 func widgetInitializationDiagnostic(
@@ -978,7 +1321,7 @@ func configFilesWatcherWithSources(
 
 		currentParsed, err := parseYAMLIncludesWithSources(mainFilePath)
 		if err != nil {
-			onErr(fmt.Errorf("parsing main file contents for comparison: %w", err))
+			onErr(&configWatcherReloadError{cause: err})
 			return
 		}
 
@@ -1160,6 +1503,8 @@ func parseConfigSemanticSources(contents []byte) (*configSemanticSources, error)
 	sources := &configSemanticSources{
 		users:               make(map[string]int),
 		authGroup:           make(map[string]int),
+		widgetDefaultType:   make(map[string]int),
+		themePreset:         make(map[string]int),
 		authAccessDashboard: make(map[string]int),
 		dashboard:           make(map[string]int),
 	}
@@ -1196,6 +1541,9 @@ func parseConfigSemanticSources(contents []byte) (*configSemanticSources, error)
 
 	if key, auth := yamlMappingValue(root, "auth"); auth != nil {
 		sources.auth = key.Line
+		if key, value := yamlMappingValue(auth, "secret-key"); value != nil {
+			sources.authSecret = key.Line
+		}
 		if usersKey, users := yamlMappingValue(auth, "users"); users != nil {
 			sources.authUsers = usersKey.Line
 			if users.Kind == yaml.MappingNode {
@@ -1243,6 +1591,47 @@ func parseConfigSemanticSources(contents []byte) (*configSemanticSources, error)
 		}
 	}
 
+	if key, widgetDefaults := yamlMappingValue(root, "widget-defaults"); widgetDefaults != nil {
+		sources.widgetDefaults = key.Line
+		if globalKey, global := yamlMappingValue(widgetDefaults, "global"); global != nil {
+			sources.widgetDefaultsGlobal = globalKey.Line
+		}
+		if _, types := yamlMappingValue(widgetDefaults, "types"); types != nil && types.Kind == yaml.MappingNode {
+			for i := 0; i+1 < len(types.Content); i += 2 {
+				keyNode := types.Content[i]
+				sources.widgetDefaultType[keyNode.Value] = keyNode.Line
+			}
+		}
+	}
+
+	if key, theme := yamlMappingValue(root, "theme"); theme != nil {
+		sources.theme = key.Line
+		if presetsKey, presets := yamlMappingValue(theme, "presets"); presets != nil {
+			sources.themePresets = presetsKey.Line
+			if presets.Kind == yaml.MappingNode {
+				for i := 0; i+1 < len(presets.Content); i += 2 {
+					keyNode := presets.Content[i]
+					sources.themePreset[keyNode.Value] = keyNode.Line
+				}
+			}
+		}
+	}
+
+	if _, footer := yamlMappingValue(root, "footer-micro-widgets"); footer != nil {
+		if _, left := yamlMappingValue(footer, "left"); left != nil && left.Kind == yaml.SequenceNode {
+			sources.footerMicroLeft = make([]int, 0, len(left.Content))
+			for _, item := range left.Content {
+				sources.footerMicroLeft = append(sources.footerMicroLeft, item.Line)
+			}
+		}
+		if _, right := yamlMappingValue(footer, "right"); right != nil && right.Kind == yaml.SequenceNode {
+			sources.footerMicroRight = make([]int, 0, len(right.Content))
+			for _, item := range right.Content {
+				sources.footerMicroRight = append(sources.footerMicroRight, item.Line)
+			}
+		}
+	}
+
 	if key, dashboards := yamlMappingValue(root, "dashboards"); dashboards != nil {
 		sources.dashboards = key.Line
 		if dashboards.Kind == yaml.MappingNode {
@@ -1263,11 +1652,17 @@ func parseConfigSemanticSources(contents []byte) (*configSemanticSources, error)
 				if key, value := yamlMappingValue(pageNode, "name"); value != nil {
 					pageSource.name = key.Line
 				}
+				if key, value := yamlMappingValue(pageNode, "slug"); value != nil {
+					pageSource.slug = key.Line
+				}
 				if key, value := yamlMappingValue(pageNode, "width"); value != nil {
 					pageSource.width = key.Line
 				}
 				if key, value := yamlMappingValue(pageNode, "desktop-navigation-width"); value != nil {
 					pageSource.desktopNavigationWidth = key.Line
+				}
+				if key, pageTheme := yamlMappingValue(pageNode, "theme"); pageTheme != nil {
+					pageSource.theme = key.Line
 				}
 				if _, headWidgets := yamlMappingValue(pageNode, "head-widgets"); headWidgets != nil {
 					pageSource.headWidgets = parseWidgetSemanticSources(headWidgets)
@@ -1573,42 +1968,6 @@ func isConfigStateValidWithSources(
 		}
 	}
 
-	if config.Analytics.configured() {
-		analyticsLine := rootLine
-		if sources != nil {
-			analyticsLine = semanticSourceLine(sources.analytics, rootLine)
-		}
-
-		providerLine := analyticsLine
-		if sources != nil {
-			providerLine = semanticSourceLine(sources.analyticsProvider, sources.analytics, rootLine)
-		}
-
-		provider := strings.ToLower(strings.TrimSpace(config.Analytics.Provider))
-		if provider == "" {
-			return diagnostic(providerLine, fmt.Errorf("analytics provider must be set"))
-		}
-		if provider != analyticsProviderGoatCounter {
-			return diagnostic(providerLine, fmt.Errorf("unsupported analytics provider %q", config.Analytics.Provider))
-		}
-
-		endpointLine := analyticsLine
-		if sources != nil {
-			endpointLine = semanticSourceLine(sources.analyticsEndpoint, sources.analytics, rootLine)
-		}
-		if strings.TrimSpace(config.Analytics.Endpoint) == "" {
-			return diagnostic(endpointLine, fmt.Errorf("analytics endpoint must be set"))
-		}
-
-		normalizedEndpoint, err := normalizeAnalyticsEndpoint(config.Analytics.Endpoint)
-		if err != nil {
-			return diagnostic(endpointLine, fmt.Errorf("analytics endpoint %w", err))
-		}
-
-		config.Analytics.Provider = provider
-		config.Analytics.Endpoint = normalizedEndpoint
-	}
-
 	if len(config.Server.ResourceProxy.AllowedOrigins) > 0 {
 		seenOrigins := make(map[string]struct{}, len(config.Server.ResourceProxy.AllowedOrigins))
 		for _, configuredOrigin := range config.Server.ResourceProxy.AllowedOrigins {
@@ -1738,6 +2097,8 @@ func isConfigStateValidWithSources(
 			}
 		} else if len(user.Password) < 6 {
 			return diagnostic(line, fmt.Errorf("the password for %s must be at least 6 characters", username))
+		} else if len([]byte(user.Password)) > 72 {
+			return diagnostic(line, fmt.Errorf("the password for %s must be at most 72 bytes", username))
 		}
 	}
 
@@ -1760,16 +2121,6 @@ func isConfigStateValidWithSources(
 		}
 		if !filepath.IsAbs(config.Server.PersonalState.Path) {
 			return diagnostic(pathLine, errors.New("server personal-state path must be absolute"))
-		}
-	}
-
-	if config.Server.AssetsPath != "" {
-		if _, err := os.Stat(config.Server.AssetsPath); os.IsNotExist(err) {
-			line := rootLine
-			if sources != nil {
-				line = semanticSourceLine(sources.assetsPath, sources.server, rootLine)
-			}
-			return diagnostic(line, fmt.Errorf("assets directory does not exist: %s", config.Server.AssetsPath))
 		}
 	}
 

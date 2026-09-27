@@ -827,9 +827,13 @@ dedicated selectors.
 Native theme values are validated when configuration is loaded.
 
 Invalid HSL ranges, unsupported enum values, invalid opacity values,
-unsafe background-image paths, and other invalid native theme values
-cause a configuration error rather than being inserted into generated
-CSS.
+unsafe background-image paths, and other invalid native theme values are
+never inserted into generated CSS. At runtime these are recoverable
+configuration errors: an invalid global theme falls back to the built-in
+default, an invalid named preset is omitted while other presets remain
+available, and an invalid page theme override is ignored so the page
+inherits the valid base theme. `config:validate` remains strict and reports
+these errors as invalid configuration.
 
 This keeps native configuration bounded and predictable while leaving
 unrestricted advanced presentation to `custom-css-file`.

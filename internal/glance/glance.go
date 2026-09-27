@@ -112,6 +112,10 @@ func collectRefreshWidgets(source widgets) []widget {
 
 	var collect func(widget)
 	collect = func(candidate widget) {
+		if _, invalid := candidate.(*invalidConfiguredWidget); invalid {
+			return
+		}
+
 		if container, ok := candidate.(widgetContainer); ok {
 			for _, child := range container.childWidgets() {
 				collect(child)
