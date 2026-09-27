@@ -286,7 +286,10 @@ func (b *liveUpdateBroker) close() {
 }
 
 func (a *application) handleLiveUpdatesRequest(w http.ResponseWriter, r *http.Request) {
-	if a.handleUnauthorizedResponse(w, r, showUnauthorizedJSON) {
+	session, authenticated := a.authorizeSession(w, r)
+	if !authenticated {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"error": "Unauthorized"}`))
 		return
 	}
 
@@ -345,17 +348,31 @@ func (a *application) handleLiveUpdatesRequest(w http.ResponseWriter, r *http.Re
 	w.Header().Set("X-Accel-Buffering", "no")
 
 	var widgetIDs map[uint64]struct{}
-	if requestedWidgetIDs, filtered := r.URL.Query()["widget"]; filtered {
-		widgetIDs = make(map[uint64]struct{}, len(requestedWidgetIDs))
-		for _, value := range requestedWidgetIDs {
-			widgetID, err := strconv.ParseUint(value, 10, 64)
-			if err != nil {
-				continue
+	requestedWidgetIDs, filtered := r.URL.Query()["widget"]
+	if filtered || a.authorization.Enabled() {
+		capacity := len(requestedWidgetIDs)
+		if !filtered {
+			capacity = len(a.widgetByID)
+		}
+		widgetIDs = make(map[uint64]struct{}, capacity)
+
+		if filtered {
+			for _, value := range requestedWidgetIDs {
+				widgetID, err := strconv.ParseUint(value, 10, 64)
+				if err != nil {
+					continue
+				}
+				if _, exists := a.widgetByID[widgetID]; !exists || !a.canAccessWidget(session.AuthorizationIdentity, widgetID) {
+					continue
+				}
+				widgetIDs[widgetID] = struct{}{}
 			}
-			if _, exists := a.widgetByID[widgetID]; !exists {
-				continue
+		} else {
+			for widgetID := range a.widgetByID {
+				if a.canAccessWidget(session.AuthorizationIdentity, widgetID) {
+					widgetIDs[widgetID] = struct{}{}
+				}
 			}
-			widgetIDs[widgetID] = struct{}{}
 		}
 	}
 
