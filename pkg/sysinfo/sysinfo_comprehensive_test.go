@@ -96,6 +96,77 @@ func TestPhysicalFilesystemType(t *testing.T) {
 	}
 }
 
+func TestSortMountpoints(t *testing.T) {
+	tests := []struct {
+		name  string
+		order string
+		want  []string
+	}{
+		{
+			name:  "default usage",
+			order: "",
+			want:  []string{"/mnt/archive", "/mnt/data", "/"},
+		},
+		{
+			name:  "explicit usage",
+			order: MountpointOrderUsage,
+			want:  []string{"/mnt/archive", "/mnt/data", "/"},
+		},
+		{
+			name:  "name with path fallback",
+			order: MountpointOrderName,
+			want:  []string{"/mnt/archive", "/mnt/data", "/"},
+		},
+		{
+			name:  "path",
+			order: MountpointOrderPath,
+			want:  []string{"/", "/mnt/archive", "/mnt/data"},
+		},
+		{
+			name:  "unknown falls back to usage",
+			order: "unknown",
+			want:  []string{"/mnt/archive", "/mnt/data", "/"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mountpoints := []MountpointInfo{
+				{Path: "/", Name: "Root", UsedPercent: 40},
+				{Path: "/mnt/data", Name: "Data", UsedPercent: 80},
+				{Path: "/mnt/archive", UsedPercent: 80},
+			}
+
+			sortMountpoints(mountpoints, tt.order)
+
+			for i, wantPath := range tt.want {
+				if mountpoints[i].Path != wantPath {
+					t.Fatalf(
+						"mountpoint %d path = %q, want %q; all = %#v",
+						i,
+						mountpoints[i].Path,
+						wantPath,
+						mountpoints,
+					)
+				}
+			}
+		})
+	}
+}
+
+func TestSortMountpointsNameUsesPathTieBreaker(t *testing.T) {
+	mountpoints := []MountpointInfo{
+		{Path: "/mnt/z", Name: "Data", UsedPercent: 10},
+		{Path: "/mnt/a", Name: "Data", UsedPercent: 90},
+	}
+
+	sortMountpoints(mountpoints, MountpointOrderName)
+
+	if mountpoints[0].Path != "/mnt/a" || mountpoints[1].Path != "/mnt/z" {
+		t.Fatalf("mountpoints = %#v, want path tie-break order", mountpoints)
+	}
+}
+
 func boolPointer(value bool) *bool {
 	return &value
 }
@@ -141,6 +212,64 @@ func TestSystemInfoRequestFilterMountpoints(t *testing.T) {
 
 	if info.Mountpoints[1].Path != "/" {
 		t.Fatalf("second mountpoint path = %q, want %q", info.Mountpoints[1].Path, "/")
+	}
+}
+
+func TestSystemInfoRequestFilterAppliesConfiguredMountpointOrder(t *testing.T) {
+	tests := []struct {
+		name  string
+		order string
+		want  []string
+	}{
+		{
+			name:  "name",
+			order: MountpointOrderName,
+			want:  []string{"/mnt/cache", "/mnt/disk1", "/mnt/disk2"},
+		},
+		{
+			name:  "path",
+			order: MountpointOrderPath,
+			want:  []string{"/mnt/cache", "/mnt/disk1", "/mnt/disk2"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			info := &SystemInfo{
+				Mountpoints: []MountpointInfo{
+					{Path: "/mnt/disk2", Name: "/mnt/disk2", UsedPercent: 90},
+					{Path: "/mnt/cache", Name: "/mnt/cache", UsedPercent: 70},
+					{Path: "/mnt/disk1", Name: "/mnt/disk1", UsedPercent: 50},
+				},
+			}
+
+			request := &SystemInfoRequest{
+				MountpointOrder: tt.order,
+				Mountpoints: map[string]MointpointRequest{
+					"/mnt/disk1": {Name: "Disk 1"},
+					"/mnt/disk2": {Name: "Disk 2"},
+					"/mnt/cache": {Name: "Cache"},
+				},
+			}
+
+			request.Filter(info)
+
+			for i, wantPath := range tt.want {
+				if info.Mountpoints[i].Path != wantPath {
+					t.Fatalf(
+						"mountpoint %d path = %q, want %q; all = %#v",
+						i,
+						info.Mountpoints[i].Path,
+						wantPath,
+						info.Mountpoints,
+					)
+				}
+			}
+
+			if info.Mountpoints[1].Name != "Disk 1" {
+				t.Fatalf("renamed mountpoint name = %q, want %q", info.Mountpoints[1].Name, "Disk 1")
+			}
+		})
 	}
 }
 

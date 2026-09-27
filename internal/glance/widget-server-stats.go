@@ -31,10 +31,28 @@ func (widget *serverStatsWidget) initialize() error {
 	}
 
 	for i := range widget.Servers {
-		widget.Servers[i].URL = strings.TrimRight(widget.Servers[i].URL, "/")
+		server := &widget.Servers[i]
+		server.URL = strings.TrimRight(server.URL, "/")
 
-		if widget.Servers[i].Timeout == 0 {
-			widget.Servers[i].Timeout = durationField(3 * time.Second)
+		if server.Timeout == 0 {
+			server.Timeout = durationField(3 * time.Second)
+		}
+
+		mountpointOrder := ""
+		if server.SystemInfoRequest != nil {
+			mountpointOrder = server.MountpointOrder
+		}
+
+		switch mountpointOrder {
+		case "", sysinfo.MountpointOrderUsage, sysinfo.MountpointOrderName, sysinfo.MountpointOrderPath:
+		default:
+			return fmt.Errorf(
+				"server %d mountpoint-order must be one of: %s, %s, %s",
+				i+1,
+				sysinfo.MountpointOrderUsage,
+				sysinfo.MountpointOrderName,
+				sysinfo.MountpointOrderPath,
+			)
 		}
 	}
 
