@@ -854,7 +854,7 @@ func resolveTheme(base *themeProperties, pageOverride *themeProperties) (*themeP
 	resolved.BackgroundColorAsHex = ""
 
 	if err := resolved.init(); err != nil {
-		return nil, fmt.Errorf("initializing resolved theme: %v", err)
+		return nil, fmt.Errorf("initializing resolved theme: %w", err)
 	}
 
 	return &resolved, nil
@@ -1064,13 +1064,13 @@ func (t *themeProperties) WidgetBlurCSS() string {
 func (t *themeProperties) init() error {
 	css, err := executeTemplateToString(themeStyleTemplate, t)
 	if err != nil {
-		return fmt.Errorf("compiling theme style: %v", err)
+		return fmt.Errorf("compiling theme style: %w", err)
 	}
 	t.CSS = template.CSS(whitespaceAtBeginningOfLinePattern.ReplaceAllString(css, ""))
 
 	previewHTML, err := executeTemplateToString(themePresetPreviewTemplate, t)
 	if err != nil {
-		return fmt.Errorf("compiling theme preview: %v", err)
+		return fmt.Errorf("compiling theme preview: %w", err)
 	}
 	t.PreviewHTML = template.HTML(previewHTML)
 

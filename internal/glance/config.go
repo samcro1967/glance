@@ -408,7 +408,7 @@ func normalizeAndValidateCompiledConfigWithSources(
 
 		secretBytes, err := base64.StdEncoding.DecodeString(config.Auth.SecretKey)
 		if err != nil {
-			return diagnostic(secretLine, fmt.Errorf("decoding secret-key: %v", err))
+			return diagnostic(secretLine, fmt.Errorf("decoding secret-key: %w", err))
 		}
 
 		if len(secretBytes) != AUTH_SECRET_KEY_LENGTH {
@@ -756,7 +756,7 @@ func parseConfigVariableOfType(variableType, variableName string) (string, bool,
 		secretPath := filepath.Join("/run/secrets", variableName)
 		secret, err := os.ReadFile(secretPath)
 		if err != nil {
-			return "", false, fmt.Errorf("reading secret file: %v", err)
+			return "", false, fmt.Errorf("reading secret file: %w", err)
 		}
 
 		return strings.TrimSpace(string(secret)), false, nil
@@ -776,7 +776,7 @@ func parseConfigVariableOfType(variableType, variableName string) (string, bool,
 
 		fileContents, err := os.ReadFile(filePath)
 		if err != nil {
-			return "", false, fmt.Errorf("readFileFromEnv: reading file from %s: %v", variableName, err)
+			return "", false, fmt.Errorf("readFileFromEnv: reading file from %s: %w", variableName, err)
 		}
 
 		return strings.TrimSpace(string(fileContents)), false, nil
@@ -2326,7 +2326,7 @@ func (om *orderedYAMLMap[K, V]) UnmarshalYAML(node *yaml.Node) error {
 
 		var key K
 		if err := keyNode.Decode(&key); err != nil {
-			return fmt.Errorf("orderedMap: decoding key: %v", err)
+			return fmt.Errorf("orderedMap: decoding key: %w", err)
 		}
 
 		if _, ok := om.data[key]; ok {
@@ -2335,7 +2335,7 @@ func (om *orderedYAMLMap[K, V]) UnmarshalYAML(node *yaml.Node) error {
 
 		var value V
 		if err := valueNode.Decode(&value); err != nil {
-			return fmt.Errorf("orderedMap: decoding value: %v", err)
+			return fmt.Errorf("orderedMap: decoding value: %w", err)
 		}
 
 		(*om).keys[i/2] = key

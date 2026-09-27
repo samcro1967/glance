@@ -1,6 +1,7 @@
 package glance
 
 import (
+	"encoding/base64"
 	"errors"
 	"os"
 	"path/filepath"
@@ -3231,6 +3232,11 @@ func TestNewConfigFromParsedYAMLReportsAuthSecretSource(t *testing.T) {
 	}
 	if !strings.Contains(diagnostic.Message, "decoding secret-key") {
 		t.Fatalf("diagnostic message = %q, want decoding secret-key", diagnostic.Message)
+	}
+
+	var decodeErr base64.CorruptInputError
+	if !errors.As(err, &decodeErr) {
+		t.Fatalf("error chain does not preserve base64 decode error: %T %v", err, err)
 	}
 }
 

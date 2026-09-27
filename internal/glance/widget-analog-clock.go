@@ -42,7 +42,7 @@ func (widget *analogClockWidget) initialize() error {
 		}
 
 		if _, err := time.LoadLocation(timezone.Timezone); err != nil {
-			return fmt.Errorf("invalid timezone '%s': %v", timezone.Timezone, err)
+			return fmt.Errorf("invalid timezone '%s': %w", timezone.Timezone, err)
 		}
 	}
 
