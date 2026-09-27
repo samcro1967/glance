@@ -463,7 +463,14 @@ func (a *application) handleRuntimeDiagnosticsRequest(
 	w http.ResponseWriter,
 	r *http.Request,
 ) {
-	if a.handleUnauthorizedResponse(w, r, showUnauthorizedJSON) {
+	session, authenticated := a.authorizeSession(w, r)
+	if !authenticated {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"error": "Unauthorized"}`))
+		return
+	}
+	if !a.canAccessOperatorDiagnostics(session.AuthorizationIdentity) {
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 

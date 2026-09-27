@@ -2572,3 +2572,63 @@ func FuzzVerifySessionTokenV4(f *testing.F) {
 		}
 	})
 }
+
+func TestResolveAuthenticatedSessionV4OIDCRechecksAllowedUsers(t *testing.T) {
+	app := newAuthTestApplication(t)
+	app.oidc = &oidcRuntime{issuer: "https://issuer.example.test"}
+	app.Config.Auth.OIDC.AllowedUsers = []string{"user@example.test"}
+
+	principal, err := encodeOIDCPrincipal(app.oidc.issuer, "subject-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, err := generateSessionTokenV4(
+		authMethodOIDC,
+		principal,
+		"User",
+		"user@example.test",
+		app.authSecretKey,
+		time.Now(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.AddCookie(&http.Cookie{Name: AUTH_SESSION_COOKIE_NAME, Value: token})
+	if _, authorized := app.resolveAuthenticatedSession(request, time.Now()); !authorized {
+		t.Fatal("allowed OIDC identity was rejected")
+	}
+
+	app.Config.Auth.OIDC.AllowedUsers = []string{"other@example.test"}
+	if _, authorized := app.resolveAuthenticatedSession(request, time.Now()); authorized {
+		t.Fatal("removed OIDC allowed-user retained an active session")
+	}
+}
+
+func TestResolveAuthenticatedSessionLegacyOIDCRejectedWhenAllowedUsersConfigured(t *testing.T) {
+	app := newAuthTestApplication(t)
+	app.oidc = &oidcRuntime{issuer: "https://issuer.example.test"}
+	app.Config.Auth.OIDC.AllowedUsers = []string{"user@example.test"}
+
+	principal, err := encodeOIDCPrincipal(app.oidc.issuer, "subject-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, err := generateSessionTokenV3(
+		authMethodOIDC,
+		principal,
+		"User",
+		app.authSecretKey,
+		time.Now(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.AddCookie(&http.Cookie{Name: AUTH_SESSION_COOKIE_NAME, Value: token})
+	if _, authorized := app.resolveAuthenticatedSession(request, time.Now()); authorized {
+		t.Fatal("legacy OIDC session without authorization identity bypassed allowed-users")
+	}
+}

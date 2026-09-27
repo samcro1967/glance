@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 const (
@@ -22,6 +23,7 @@ const (
 )
 
 var errPersonalStateNotFound = errors.New("personal state not found")
+var errPersonalStateCorrupt = errors.New("personal state file is corrupt")
 
 type personalStateDocument struct {
 	Version int                                              `json:"version"`
@@ -51,10 +53,10 @@ func newPersonalStateStore(path string) (*personalStateStore, error) {
 		return nil, fmt.Errorf("reading personal state file: %w", err)
 	}
 	if len(contents) == 0 {
-		return nil, errors.New("personal state file is empty")
+		return nil, fmt.Errorf("%w: file is empty", errPersonalStateCorrupt)
 	}
 	if err := json.Unmarshal(contents, &store.data); err != nil {
-		return nil, fmt.Errorf("decoding personal state file: %w", err)
+		return nil, fmt.Errorf("%w: decoding personal state file: %v", errPersonalStateCorrupt, err)
 	}
 	if store.data.Version != personalStateDocumentVersion {
 		return nil, fmt.Errorf("unsupported personal state version %d", store.data.Version)
@@ -171,7 +173,27 @@ func writePersonalStateDocumentAtomic(path string, document personalStateDocumen
 		_ = os.Remove(temporaryPath)
 		return fmt.Errorf("replacing personal state file: %w", err)
 	}
+
+	directory, err := os.Open(dir)
+	if err != nil {
+		return fmt.Errorf("opening personal state directory for sync: %w", err)
+	}
+	if err := directory.Sync(); err != nil {
+		_ = directory.Close()
+		return fmt.Errorf("syncing personal state directory: %w", err)
+	}
+	if err := directory.Close(); err != nil {
+		return fmt.Errorf("closing personal state directory: %w", err)
+	}
 	return nil
+}
+
+func quarantinePersonalStateFile(path string) (string, error) {
+	quarantinedPath := path + ".corrupt-" + time.Now().UTC().Format("20060102T150405.000000000Z")
+	if err := os.Rename(path, quarantinedPath); err != nil {
+		return "", err
+	}
+	return quarantinedPath, nil
 }
 
 func validatePersonalStateKey(namespace, id string) error {

@@ -200,3 +200,45 @@ func TestWidgetReloadReuseSkipsWidgetsWithoutFingerprint(t *testing.T) {
 		}
 	})
 }
+
+func TestWidgetReloadFingerprintIncludesEffectiveNewTabDefault(t *testing.T) {
+	first := &rssWidget{widgetBase: widgetBase{Type: "rss", OpenLinksInNewTab: false}}
+	second := &rssWidget{widgetBase: widgetBase{Type: "rss", OpenLinksInNewTab: true}}
+
+	firstFingerprint, err := calculateWidgetReloadFingerprint(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondFingerprint, err := calculateWidgetReloadFingerprint(second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if firstFingerprint == secondFingerprint {
+		t.Fatal("effective new-tab default did not change widget reload fingerprint")
+	}
+}
+
+func TestWidgetReloadFingerprintIncludesDockerDefaultNewTab(t *testing.T) {
+	firstValue := false
+	secondValue := true
+	first := &dockerContainersWidget{
+		widgetBase:    widgetBase{Type: "docker-containers"},
+		DefaultNewTab: &firstValue,
+	}
+	second := &dockerContainersWidget{
+		widgetBase:    widgetBase{Type: "docker-containers"},
+		DefaultNewTab: &secondValue,
+	}
+
+	firstFingerprint, err := calculateWidgetReloadFingerprint(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondFingerprint, err := calculateWidgetReloadFingerprint(second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if firstFingerprint == secondFingerprint {
+		t.Fatal("docker new-tab default did not change widget reload fingerprint")
+	}
+}

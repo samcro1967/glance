@@ -1,6 +1,7 @@
 package glance
 
 import (
+	"container/list"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
@@ -46,6 +47,7 @@ func normalizeResourceProxyOrigin(configuredOrigin string) (string, error) {
 }
 
 const resourceProxyIDRandomBytes = 32
+const resourceProxyRegistryLimit = 8192
 
 const resourceProxyResponseBodyLimit int64 = 10 * 1024 * 1024
 
@@ -214,9 +216,11 @@ type resourceProxy struct {
 	policy *resourceProxyPolicy
 	client *http.Client
 
-	mu    sync.RWMutex
-	byID  map[string]string
-	byURL map[string]string
+	mu                   sync.Mutex
+	byID                 map[string]string
+	byURL                map[string]string
+	registrationOrder    *list.List
+	registrationElements map[string]*list.Element
 }
 
 func newResourceProxy(configuredOrigins []string) (*resourceProxy, error) {
@@ -226,10 +230,12 @@ func newResourceProxy(configuredOrigins []string) (*resourceProxy, error) {
 	}
 
 	return &resourceProxy{
-		policy: policy,
-		client: newResourceProxyHTTPClient(policy),
-		byID:   make(map[string]string),
-		byURL:  make(map[string]string),
+		policy:               policy,
+		client:               newResourceProxyHTTPClient(policy),
+		byID:                 make(map[string]string),
+		byURL:                make(map[string]string),
+		registrationOrder:    list.New(),
+		registrationElements: make(map[string]*list.Element),
 	}, nil
 }
 
@@ -263,7 +269,21 @@ func (p *resourceProxy) register(rawURL string) (string, error) {
 	defer p.mu.Unlock()
 
 	if id, exists := p.byURL[rawURL]; exists {
+		p.touchURLLocked(rawURL)
 		return id, nil
+	}
+
+	if len(p.byID) >= resourceProxyRegistryLimit {
+		oldest := p.registrationOrder.Front()
+		if oldest != nil {
+			evictedURL := oldest.Value.(string)
+			p.registrationOrder.Remove(oldest)
+			delete(p.registrationElements, evictedURL)
+			if evictedID, exists := p.byURL[evictedURL]; exists {
+				delete(p.byURL, evictedURL)
+				delete(p.byID, evictedID)
+			}
+		}
 	}
 
 	for {
@@ -277,7 +297,14 @@ func (p *resourceProxy) register(rawURL string) (string, error) {
 
 		p.byID[id] = rawURL
 		p.byURL[rawURL] = id
+		p.registrationElements[rawURL] = p.registrationOrder.PushBack(rawURL)
 		return id, nil
+	}
+}
+
+func (p *resourceProxy) touchURLLocked(rawURL string) {
+	if element, exists := p.registrationElements[rawURL]; exists {
+		p.registrationOrder.MoveToBack(element)
 	}
 }
 
@@ -286,10 +313,13 @@ func (p *resourceProxy) lookup(id string) (string, bool) {
 		return "", false
 	}
 
-	p.mu.RLock()
-	defer p.mu.RUnlock()
+	p.mu.Lock()
+	defer p.mu.Unlock()
 
 	rawURL, exists := p.byID[id]
+	if exists {
+		p.touchURLLocked(rawURL)
+	}
 	return rawURL, exists
 }
 
