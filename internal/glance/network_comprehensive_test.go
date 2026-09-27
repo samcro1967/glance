@@ -22,11 +22,17 @@ func TestComprehensiveExtensionInitializeAndContent(t *testing.T) {
 		t.Fatalf("defaults not applied: %#v", w)
 	}
 
-	escaped := convertExtensionContent(extensionRequestOptions{}, []byte("<b>x</b>"), extensionContentHTML)
+	escaped, err := convertExtensionContentValidated(extensionRequestOptions{}, []byte("<b>x</b>"), extensionContentHTML)
+	if err != nil {
+		t.Fatalf("convert escaped extension content: %v", err)
+	}
 	if string(escaped) != "<pre>&lt;b&gt;x&lt;/b&gt;</pre>" {
 		t.Fatalf("escaped=%q", escaped)
 	}
-	raw := convertExtensionContent(extensionRequestOptions{AllowHtml: true}, []byte("<b>x</b>"), extensionContentHTML)
+	raw, err := convertExtensionContentValidated(extensionRequestOptions{AllowHtml: true}, []byte("<b>x</b>"), extensionContentHTML)
+	if err != nil {
+		t.Fatalf("convert raw extension content: %v", err)
+	}
 	if string(raw) != "<b>x</b>" {
 		t.Fatalf("raw=%q", raw)
 	}

@@ -222,11 +222,6 @@ type extension struct {
 	Frameless bool
 }
 
-func convertExtensionContent(options extensionRequestOptions, content []byte, contentType extensionType) template.HTML {
-	converted, _ := convertExtensionContentValidated(options, content, contentType)
-	return converted
-}
-
 func convertExtensionContentValidated(options extensionRequestOptions, content []byte, contentType extensionType) (template.HTML, error) {
 	switch contentType {
 	case extensionContentHTML:

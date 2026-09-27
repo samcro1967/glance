@@ -309,6 +309,14 @@ func TestRemainingValueDiagnosticHTTPHelpers(t *testing.T) {
 	); err == nil {
 		t.Fatal("expected status mismatch")
 	}
+
+	if _, err := testHttpRequest(
+		http.MethodGet,
+		"://bad",
+		http.StatusOK,
+	); err == nil || !strings.Contains(err.Error(), "creating diagnostic HTTP request") {
+		t.Fatalf("malformed URL error = %v, want diagnostic request construction error", err)
+	}
 }
 
 func TestRemainingValueDNSLifecycleAndRender(t *testing.T) {

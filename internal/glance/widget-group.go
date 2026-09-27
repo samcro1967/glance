@@ -28,6 +28,10 @@ func (widget *groupWidget) initialize() error {
 	for i := range widget.Widgets {
 		widget.Widgets[i].setHideHeader(true)
 
+		if _, invalid := widget.Widgets[i].(*invalidConfiguredWidget); invalid {
+			continue
+		}
+
 		if widget.Widgets[i].GetType() == "split-column" {
 			return errors.New("split columns inside of groups are not supported")
 		}

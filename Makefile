@@ -2311,6 +2311,7 @@ test-prod-config-refresh:
 		echo "Runtime reference does not have a usable /app/config bind mount."; \
 		exit 1; \
 	fi; \
+	cp -a "$$config_source"/. "$$config_override"/; \
 	overlay_args=(); \
 	if [ -n "$(TEST_PROD_CONFIG_APPEND_FILE)" ]; then \
 		overlay_args+=(--overlay "$(TEST_PROD_CONFIG_APPEND_FILE)"); \

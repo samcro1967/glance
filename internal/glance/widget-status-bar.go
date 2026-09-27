@@ -78,6 +78,10 @@ func (widget *statusBarWidget) initialize() error {
 	}
 
 	for i := range widget.Widgets {
+		if _, invalid := widget.Widgets[i].(*invalidConfiguredWidget); invalid {
+			continue
+		}
+
 		switch widget.Widgets[i].GetType() {
 		case "weather", "markets", "rss", "custom-api":
 		default:
@@ -111,6 +115,13 @@ func (widget *statusBarWidget) CompactItems() []statusBarCompactItem {
 
 	for i := range widget.Widgets {
 		switch child := widget.Widgets[i].(type) {
+		case *invalidConfiguredWidget:
+			items = append(items, statusBarCompactItem{
+				Kind:       "error",
+				Error:      child.Error,
+				ErrorTitle: child.Title,
+			})
+
 		case *weatherWidget:
 			if child.Weather == nil || child.Place == nil {
 				if child.Error != nil {

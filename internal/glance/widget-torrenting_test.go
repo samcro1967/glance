@@ -101,6 +101,36 @@ func TestFetchQBittorrentSessionLoginAndSingleRetry(t *testing.T) {
 	}
 }
 
+func TestFetchQBittorrentPreservesLoginHTTPStatusError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v2/torrents/info":
+			w.WriteHeader(http.StatusForbidden)
+		case "/api/v2/auth/login":
+			w.WriteHeader(http.StatusBadGateway)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	_, err := fetchQBittorrent(
+		context.Background(),
+		mustQBittorrentTestClient(t),
+		qBittorrentRequestOptions{
+			Server:   server.URL,
+			Endpoint: server.URL + "/api/v2/torrents/info",
+			Username: "glance",
+			Password: "password",
+		},
+	)
+
+	var statusErr *httpStatusError
+	if !errors.As(err, &statusErr) || statusErr.StatusCode != http.StatusBadGateway {
+		t.Fatalf("error = %T %v, want login HTTP %d", err, err, http.StatusBadGateway)
+	}
+}
+
 func TestFetchQBittorrentPreservesHTTPStatusError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadGateway)

@@ -34,7 +34,7 @@ func (m *microClock) UnmarshalYAML(unmarshal func(any) error) error {
 
 	if m.Timezone != "" {
 		if _, err := time.LoadLocation(m.Timezone); err != nil {
-			return fmt.Errorf("invalid timezone %q: %v", m.Timezone, err)
+			return fmt.Errorf("invalid timezone %q: %w", m.Timezone, err)
 		}
 	}
 

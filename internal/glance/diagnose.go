@@ -161,7 +161,10 @@ func testHttpRequestWithHeaders(method, url string, headers map[string]string, e
 	ctx, cancel := context.WithTimeout(context.Background(), httpTestRequestTimeout)
 	defer cancel()
 
-	request, _ := http.NewRequestWithContext(ctx, method, url, nil)
+	request, err := http.NewRequestWithContext(ctx, method, url, nil)
+	if err != nil {
+		return "", fmt.Errorf("creating diagnostic HTTP request: %w", err)
+	}
 	for key, value := range headers {
 		request.Header.Add(key, value)
 	}
