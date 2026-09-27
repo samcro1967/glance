@@ -360,3 +360,51 @@ func TestLiveUpdateSubscriptionFilterDoesNotBlockDiagnosticCommands(t *testing.T
 		t.Fatalf("unexpected diagnostic command: %#v", commands[0])
 	}
 }
+
+func TestLiveUpdateBrokerDiagnosticsTrackLifecycleAndCoalescing(t *testing.T) {
+	broker := newLiveUpdateBroker()
+	subscription, unsubscribe := broker.subscribe(nil)
+
+	broker.publish(42)
+	broker.publish(42)
+
+	snapshot := broker.snapshot()
+	if snapshot.ActiveSubscribers != 1 || snapshot.Subscriptions != 1 {
+		t.Fatalf("subscription snapshot = %#v", snapshot)
+	}
+	if snapshot.WidgetPublishes != 2 || snapshot.WidgetSubscriberMatches != 2 || snapshot.WidgetCoalesced != 1 {
+		t.Fatalf("widget publish snapshot = %#v", snapshot)
+	}
+
+	if pending := subscription.takePending(); len(pending) != 1 || pending[0] != 42 {
+		t.Fatalf("pending widget updates = %v, want [42]", pending)
+	}
+
+	unsubscribe()
+	snapshot = broker.snapshot()
+	if snapshot.ActiveSubscribers != 0 || snapshot.Unsubscriptions != 1 {
+		t.Fatalf("unsubscribe snapshot = %#v", snapshot)
+	}
+}
+
+func TestLiveUpdateBrokerDiagnosticsTrackDiagnosticCommandDrops(t *testing.T) {
+	broker := newLiveUpdateBroker()
+	_, unsubscribe := broker.subscribe(nil)
+	defer unsubscribe()
+
+	for i := uint64(1); i <= frontendDiagnosticCommandQueueLimit+3; i++ {
+		broker.publishDiagnosticCommand(frontendDiagnosticCommand{
+			ID:      i,
+			Command: "runtime_state",
+		})
+	}
+
+	snapshot := broker.snapshot()
+	want := uint64(frontendDiagnosticCommandQueueLimit + 3)
+	if snapshot.DiagnosticCommandsPublished != want || snapshot.DiagnosticCommandEnqueues != want {
+		t.Fatalf("diagnostic command snapshot = %#v", snapshot)
+	}
+	if snapshot.DiagnosticCommandDrops != 3 {
+		t.Fatalf("diagnostic command drops = %d, want 3", snapshot.DiagnosticCommandDrops)
+	}
+}

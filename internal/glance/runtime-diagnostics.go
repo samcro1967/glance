@@ -119,6 +119,37 @@ type runtimeDiagnosticsResponse struct {
 	Profiling         profilingRuntimeDiagnosticsResponse    `json:"profiling"`
 	OutboundHTTP      outboundHTTPRuntimeDiagnosticsResponse `json:"outbound_http"`
 	Rendering         renderRuntimeDiagnosticsResponse       `json:"rendering"`
+	LiveUpdates       liveUpdateBrokerDiagnosticsResponse    `json:"live_updates"`
+}
+
+type liveUpdateBrokerDiagnosticsResponse struct {
+	ActiveSubscribers           int    `json:"active_subscribers"`
+	Subscriptions               uint64 `json:"subscriptions"`
+	Unsubscriptions             uint64 `json:"unsubscriptions"`
+	WidgetPublishes             uint64 `json:"widget_publishes"`
+	WidgetSubscriberMatches     uint64 `json:"widget_subscriber_matches"`
+	WidgetCoalesced             uint64 `json:"widget_coalesced"`
+	DiagnosticCommandsPublished uint64 `json:"diagnostic_commands_published"`
+	DiagnosticCommandEnqueues   uint64 `json:"diagnostic_command_enqueues"`
+	DiagnosticCommandDrops      uint64 `json:"diagnostic_command_drops"`
+	Closed                      bool   `json:"closed"`
+}
+
+func liveUpdateBrokerDiagnosticsResponseFromSnapshot(
+	snapshot liveUpdateBrokerDiagnosticsSnapshot,
+) liveUpdateBrokerDiagnosticsResponse {
+	return liveUpdateBrokerDiagnosticsResponse{
+		ActiveSubscribers:           snapshot.ActiveSubscribers,
+		Subscriptions:               snapshot.Subscriptions,
+		Unsubscriptions:             snapshot.Unsubscriptions,
+		WidgetPublishes:             snapshot.WidgetPublishes,
+		WidgetSubscriberMatches:     snapshot.WidgetSubscriberMatches,
+		WidgetCoalesced:             snapshot.WidgetCoalesced,
+		DiagnosticCommandsPublished: snapshot.DiagnosticCommandsPublished,
+		DiagnosticCommandEnqueues:   snapshot.DiagnosticCommandEnqueues,
+		DiagnosticCommandDrops:      snapshot.DiagnosticCommandDrops,
+		Closed:                      snapshot.Closed,
+	}
 }
 
 type outboundHTTPRuntimeDiagnosticsResponse struct {
@@ -409,6 +440,10 @@ func (a *application) runtimeDiagnosticsResponse() runtimeDiagnosticsResponse {
 
 	response.Rendering = renderRuntimeDiagnosticsResponseFromSnapshot(
 		renderDiagnostics.snapshot(),
+	)
+
+	response.LiveUpdates = liveUpdateBrokerDiagnosticsResponseFromSnapshot(
+		a.liveUpdates.snapshot(),
 	)
 
 	if a.profilingDiagnostics != nil {

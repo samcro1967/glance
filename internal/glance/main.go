@@ -276,7 +276,7 @@ func serveApp(configPath string) error {
 
 		configDiagnostics.recordReloadAccepted(time.Now())
 		slog.Info("Configuration reload accepted")
-		previousRuntime.stop()
+		generation.completeReload(previousRuntime)
 	}
 
 	onErr := func(err error) {
