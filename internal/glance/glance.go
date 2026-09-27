@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net"
@@ -58,6 +59,8 @@ type application struct {
 	dashboards               []*dashboard
 	defaultDashboard         *dashboard
 	widgetByID               map[uint64]widget
+	widgetPages              map[uint64][]*page
+	globalWidgetIDs          map[uint64]struct{}
 	refreshWidgets           []widget
 	widgetReloadFingerprints map[widget]widgetReloadFingerprint
 	liveUpdates              *liveUpdateBroker
@@ -152,6 +155,8 @@ func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime) (*appli
 		slugToPage:          make(map[string]*page),
 		slugToDashboard:     make(map[string]*dashboard),
 		widgetByID:          make(map[uint64]widget),
+		widgetPages:         make(map[uint64][]*page),
+		globalWidgetIDs:     make(map[uint64]struct{}),
 		liveUpdates:         newLiveUpdateBroker(),
 		frontendDiagnostics: newFrontendRuntimeDiagnostics(),
 	}
@@ -233,6 +238,14 @@ func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime) (*appli
 
 	if config.Server.PersonalState.Enabled {
 		app.personalState, err = newPersonalStateStore(config.Server.PersonalState.Path)
+		if err != nil && errors.Is(err, errPersonalStateCorrupt) {
+			quarantinedPath, quarantineErr := quarantinePersonalStateFile(config.Server.PersonalState.Path)
+			if quarantineErr != nil {
+				return nil, fmt.Errorf("quarantining corrupt personal state store: %w", quarantineErr)
+			}
+			slog.Warn("Personal state file was corrupt; starting with empty state", "path", config.Server.PersonalState.Path, "quarantined_path", quarantinedPath, "error", err)
+			app.personalState, err = newPersonalStateStore(config.Server.PersonalState.Path)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("initializing personal state store: %w", err)
 		}
@@ -525,16 +538,28 @@ func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime) (*appli
 
 	refreshSources := make(widgets, 0)
 	refreshSources = append(refreshSources, footerDynamicWidgets...)
+	for _, candidate := range collectRefreshWidgets(footerDynamicWidgets) {
+		app.globalWidgetIDs[candidate.GetID()] = struct{}{}
+	}
+
+	recordPageWidgets := func(page *page, source widgets) {
+		for _, candidate := range collectRefreshWidgets(source) {
+			app.widgetPages[candidate.GetID()] = append(app.widgetPages[candidate.GetID()], page)
+		}
+	}
 
 	for p := range config.Pages {
 		page := &config.Pages[p]
 		refreshSources = append(refreshSources, page.HeadWidgets...)
+		recordPageWidgets(page, page.HeadWidgets)
 
 		for c := range page.Columns {
 			refreshSources = append(refreshSources, page.Columns[c].Widgets...)
+			recordPageWidgets(page, page.Columns[c].Widgets)
 		}
 
 		refreshSources = append(refreshSources, page.BottomWidgets...)
+		recordPageWidgets(page, page.BottomWidgets)
 	}
 	app.refreshWidgets = collectRefreshWidgets(refreshSources)
 	for _, widget := range app.refreshWidgets {
@@ -1023,8 +1048,30 @@ func (a *application) renderNotFound(
 	_, _ = w.Write(responseBytes.Bytes())
 }
 
+func (a *application) canAccessWidget(identity string, widgetID uint64) bool {
+	if a == nil || a.authorization == nil || !a.authorization.Enabled() {
+		return true
+	}
+	if _, global := a.globalWidgetIDs[widgetID]; global {
+		return true
+	}
+	for _, page := range a.widgetPages[widgetID] {
+		if a.authorization.canAccessPage(identity, page) {
+			return true
+		}
+	}
+	return false
+}
+
+func (a *application) canAccessOperatorDiagnostics(identity string) bool {
+	return a.authorization.canAccessAllDashboards(identity, a.dashboards)
+}
+
 func (a *application) handleWidgetContentRequest(w http.ResponseWriter, r *http.Request) {
-	if a.handleUnauthorizedResponse(w, r, showUnauthorizedJSON) {
+	session, authenticated := a.authorizeSession(w, r)
+	if !authenticated {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"error": "Unauthorized"}`))
 		return
 	}
 
@@ -1035,7 +1082,7 @@ func (a *application) handleWidgetContentRequest(w http.ResponseWriter, r *http.
 	}
 
 	widget, exists := a.widgetByID[widgetID]
-	if !exists {
+	if !exists || !a.canAccessWidget(session.AuthorizationIdentity, widgetID) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}

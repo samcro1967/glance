@@ -323,3 +323,53 @@ func TestAuthorizationPolicyNilTargetsFailClosedWhenEnabled(t *testing.T) {
 		t.Fatal("enabled policy allowed nil page")
 	}
 }
+
+func TestAuthorizationPolicyCanAccessAllDashboards(t *testing.T) {
+	dashboards, _, _ := newAuthorizationPolicyTestTopology()
+	policy := newAuthorizationPolicy(
+		nil,
+		authAccessConfig{Dashboards: map[string]authDashboardAccessConfig{
+			"Default":  {Users: []string{"operator", "limited"}},
+			"Admin":    {Users: []string{"operator"}},
+			"Personal": {Users: []string{"operator"}},
+		}},
+		dashboards,
+	)
+
+	if !policy.canAccessAllDashboards("operator", dashboards) {
+		t.Fatal("operator with access to every dashboard was denied")
+	}
+	if policy.canAccessAllDashboards("limited", dashboards) {
+		t.Fatal("limited identity was granted operator-wide dashboard access")
+	}
+}
+
+func TestApplicationWidgetAuthorizationUsesContainingPages(t *testing.T) {
+	dashboards, _, pages := newAuthorizationPolicyTestTopology()
+	policy := newAuthorizationPolicy(
+		nil,
+		authAccessConfig{Dashboards: map[string]authDashboardAccessConfig{
+			"Default": {Users: []string{"family-user"}},
+			"Admin":   {Users: []string{"admin-user"}},
+		}},
+		dashboards,
+	)
+	app := &application{
+		authorization: policy,
+		widgetPages: map[uint64][]*page{
+			1: {pages["home"]},
+			2: {pages["monitoring"]},
+		},
+		globalWidgetIDs: map[uint64]struct{}{3: {}},
+	}
+
+	if !app.canAccessWidget("family-user", 1) {
+		t.Fatal("identity denied widget on authorized page")
+	}
+	if app.canAccessWidget("family-user", 2) {
+		t.Fatal("identity allowed widget on unauthorized page")
+	}
+	if !app.canAccessWidget("family-user", 3) {
+		t.Fatal("identity denied global footer widget")
+	}
+}

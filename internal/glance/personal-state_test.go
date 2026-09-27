@@ -204,3 +204,50 @@ func TestPersonalStateKeyValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestNewApplicationQuarantinesCorruptPersonalState(t *testing.T) {
+	statePath := filepath.Join(t.TempDir(), "personal-state.json")
+	if err := os.WriteFile(statePath, []byte("not-json"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	secret, err := makeAuthSecretKey(AUTH_SECRET_KEY_LENGTH)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config, err := newConfigFromYAML([]byte(
+		"server:\n" +
+			"  personal-state:\n" +
+			"    enabled: true\n" +
+			"    path: " + statePath + "\n" +
+			"auth:\n" +
+			"  secret-key: " + secret + "\n" +
+			"  users:\n" +
+			"    test-user:\n" +
+			"      password: test-password\n" +
+			"pages:\n" +
+			"  - name: Home\n" +
+			"    columns:\n" +
+			"      - size: full\n" +
+			"        widgets: []\n",
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	app, err := newApplication(config)
+	if err != nil {
+		t.Fatalf("newApplication() error = %v", err)
+	}
+	if app.personalState == nil {
+		t.Fatal("personal state store was not recovered")
+	}
+	if _, err := os.Stat(statePath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("active state path after recovery = %v, want not exist until first write", err)
+	}
+	matches, err := filepath.Glob(statePath + ".corrupt-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("quarantined files = %v, want exactly one", matches)
+	}
+}

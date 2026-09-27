@@ -3,6 +3,7 @@ package glance
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -1030,4 +1031,36 @@ func FuzzResourceProxyPolicyAllowsURL(f *testing.F) {
 			t.Fatalf("resource proxy policy allowed URL %q from origin %q outside configured origin %q", rawURL, origin, configuredOrigin)
 		}
 	})
+}
+
+func TestResourceProxyRegistryIsBoundedAndRetainsRecentlyUsedEntry(t *testing.T) {
+	proxy, err := newResourceProxy([]string{"http://example.test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	firstURL := "http://example.test/image-0.jpg"
+	firstID, err := proxy.register(firstURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 1; i < resourceProxyRegistryLimit; i++ {
+		if _, err := proxy.register(fmt.Sprintf("http://example.test/image-%d.jpg", i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, ok := proxy.lookup(firstID); !ok {
+		t.Fatal("recently touched entry unexpectedly missing before eviction")
+	}
+
+	if _, err := proxy.register("http://example.test/image-overflow.jpg"); err != nil {
+		t.Fatal(err)
+	}
+	if len(proxy.byID) != resourceProxyRegistryLimit || len(proxy.byURL) != resourceProxyRegistryLimit {
+		t.Fatalf("registry size = %d/%d, want %d", len(proxy.byID), len(proxy.byURL), resourceProxyRegistryLimit)
+	}
+	if _, ok := proxy.lookup(firstID); !ok {
+		t.Fatal("recently used entry was evicted instead of least-recently-used entry")
+	}
 }

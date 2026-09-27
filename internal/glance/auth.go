@@ -14,6 +14,7 @@ import (
 	mathrand "math/rand/v2"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -971,6 +972,25 @@ type authenticatedSession struct {
 	Version               byte
 }
 
+func (a *application) oidcAuthorizationIdentityAllowed(identity string) bool {
+	if len(a.Config.Auth.OIDC.AllowedUsers) == 0 {
+		return true
+	}
+
+	normalized := strings.ToLower(strings.TrimSpace(identity))
+	if normalized == "" {
+		return false
+	}
+
+	for _, allowedUser := range a.Config.Auth.OIDC.AllowedUsers {
+		if normalized == strings.ToLower(strings.TrimSpace(allowedUser)) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (a *application) resolveAuthenticatedSession(
 	r *http.Request,
 	now time.Time,
@@ -1006,6 +1026,9 @@ func (a *application) resolveAuthenticatedSession(
 			if err != nil || principal.Issuer != a.oidc.issuer {
 				return session, false
 			}
+			if !a.oidcAuthorizationIdentityAllowed(verified.AuthorizationIdentity) {
+				return session, false
+			}
 
 		default:
 			return session, false
@@ -1039,6 +1062,9 @@ func (a *application) resolveAuthenticatedSession(
 
 			principal, err := decodeOIDCPrincipal(verified.Principal)
 			if err != nil || principal.Issuer != a.oidc.issuer {
+				return session, false
+			}
+			if !a.oidcAuthorizationIdentityAllowed("") {
 				return session, false
 			}
 
@@ -1079,6 +1105,9 @@ func (a *application) resolveAuthenticatedSession(
 
 			principal, err := decodeOIDCPrincipal(verified.Principal)
 			if err != nil || principal.Issuer != a.oidc.issuer {
+				return session, false
+			}
+			if !a.oidcAuthorizationIdentityAllowed("") {
 				return session, false
 			}
 

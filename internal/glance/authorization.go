@@ -109,6 +109,26 @@ func (p *authorizationPolicy) canAccessPage(
 	return false
 }
 
+func (p *authorizationPolicy) canAccessAllDashboards(
+	identity string,
+	dashboards []*dashboard,
+) bool {
+	if p == nil || !p.enabled {
+		return true
+	}
+	if identity == "" {
+		return false
+	}
+
+	for _, dashboard := range dashboards {
+		if !p.canAccessDashboard(identity, dashboard) {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (p *authorizationPolicy) authorizedDashboards(
 	identity string,
 	dashboards []*dashboard,

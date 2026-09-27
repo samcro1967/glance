@@ -18,7 +18,28 @@ func calculateWidgetReloadFingerprint(candidate widget) (widgetReloadFingerprint
 		return widgetReloadFingerprint{}, fmt.Errorf("serializing %s widget configuration: %w", candidate.GetType(), err)
 	}
 
-	return widgetReloadFingerprint(sha256.Sum256(serialized)), nil
+	effective := struct {
+		Serialized          []byte
+		OpenLinksInNewTab   bool
+		DockerDefaultNewTab *bool
+	}{
+		Serialized: serialized,
+	}
+
+	if base, ok := widgetBaseOf(candidate); ok {
+		effective.OpenLinksInNewTab = base.OpenLinksInNewTab
+	}
+	if dockerWidget, ok := candidate.(*dockerContainersWidget); ok && dockerWidget.DefaultNewTab != nil {
+		value := *dockerWidget.DefaultNewTab
+		effective.DockerDefaultNewTab = &value
+	}
+
+	effectiveSerialized, err := yaml.Marshal(effective)
+	if err != nil {
+		return widgetReloadFingerprint{}, fmt.Errorf("serializing %s widget effective configuration: %w", candidate.GetType(), err)
+	}
+
+	return widgetReloadFingerprint(sha256.Sum256(effectiveSerialized)), nil
 }
 
 func captureWidgetReloadFingerprints(source []widget) (map[widget]widgetReloadFingerprint, error) {
@@ -136,30 +157,34 @@ func (a *application) applyWidgetReloadReusePlan(plan widgetReloadReusePlan) {
 	}
 
 	a.widgetByID = make(map[uint64]widget)
+	a.widgetPages = make(map[uint64][]*page)
+	a.globalWidgetIDs = make(map[uint64]struct{})
 	refreshSources := make(widgets, 0)
 	footerDynamicWidgets := a.Config.FooterMicroWidgets.dynamicWidgets()
-	for _, candidate := range footerDynamicWidgets {
+	for _, candidate := range collectRefreshWidgets(footerDynamicWidgets) {
 		a.widgetByID[candidate.GetID()] = candidate
+		a.globalWidgetIDs[candidate.GetID()] = struct{}{}
 	}
 	refreshSources = append(refreshSources, footerDynamicWidgets...)
 
+	recordPageWidgets := func(page *page, source widgets) {
+		for _, candidate := range collectRefreshWidgets(source) {
+			a.widgetByID[candidate.GetID()] = candidate
+			a.widgetPages[candidate.GetID()] = append(a.widgetPages[candidate.GetID()], page)
+		}
+	}
+
 	for p := range a.Config.Pages {
 		page := &a.Config.Pages[p]
-		for _, candidate := range page.HeadWidgets {
-			a.widgetByID[candidate.GetID()] = candidate
-		}
+		recordPageWidgets(page, page.HeadWidgets)
 		refreshSources = append(refreshSources, page.HeadWidgets...)
 
 		for c := range page.Columns {
-			for _, candidate := range page.Columns[c].Widgets {
-				a.widgetByID[candidate.GetID()] = candidate
-			}
+			recordPageWidgets(page, page.Columns[c].Widgets)
 			refreshSources = append(refreshSources, page.Columns[c].Widgets...)
 		}
 
-		for _, candidate := range page.BottomWidgets {
-			a.widgetByID[candidate.GetID()] = candidate
-		}
+		recordPageWidgets(page, page.BottomWidgets)
 		refreshSources = append(refreshSources, page.BottomWidgets...)
 	}
 
