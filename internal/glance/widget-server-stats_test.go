@@ -5,9 +5,65 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/samcro1967/glance/pkg/sysinfo"
 )
+
+func TestServerStatsWidgetInitializeMountpointOrder(t *testing.T) {
+	tests := []struct {
+		name    string
+		order   string
+		wantErr string
+	}{
+		{name: "omitted"},
+		{name: "usage", order: sysinfo.MountpointOrderUsage},
+		{name: "name", order: sysinfo.MountpointOrderName},
+		{name: "path", order: sysinfo.MountpointOrderPath},
+		{
+			name:    "invalid",
+			order:   "invalid",
+			wantErr: "server 1 mountpoint-order must be one of: usage, name, path",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var infoRequest *sysinfo.SystemInfoRequest
+			if tt.order != "" {
+				infoRequest = &sysinfo.SystemInfoRequest{
+					MountpointOrder: tt.order,
+				}
+			}
+
+			widget := &serverStatsWidget{
+				Servers: []serverStatsRequest{
+					{
+						SystemInfoRequest: infoRequest,
+						Type:              "local",
+					},
+				},
+			}
+
+			err := widget.initialize()
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("initialize() error = %v, want nil", err)
+				}
+				return
+			}
+
+			if err == nil {
+				t.Fatalf("initialize() error = nil, want %q", tt.wantErr)
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("initialize() error = %q, want substring %q", err, tt.wantErr)
+			}
+		})
+	}
+}
 
 func TestFetchRemoteServerInfoCancellation(t *testing.T) {
 	requestStarted := make(chan struct{})
