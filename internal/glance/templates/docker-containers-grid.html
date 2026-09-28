@@ -23,7 +23,7 @@
     <div class="glance-card glance-app-card docker-container docker-container-grid-card" data-popover-type="html" data-popover-position="above" data-popover-offset="0.25" data-popover-margin="0.1rem" data-popover-max-width="400px">
         <div class="docker-container-grid-content">
         <div class="shrink-0 docker-container-grid-popover" aria-hidden="true">
-            <img class="docker-container-icon{{ if .Icon.AutoInvert }} flat-icon{{ end }}" src="{{ .Icon.URL }}" alt="" loading="lazy">
+            <img class="docker-container-icon{{ if .Icon.AutoInvert }} flat-icon{{ end }}" src="{{ .Icon.RenderURL }}" alt="" loading="lazy">
             <div class="docker-container-grid-popover-content" data-popover-html>
                 <div class="color-highlight text-truncate block">{{ .Image }}</div>
                 <div>{{ .StateText }}</div>

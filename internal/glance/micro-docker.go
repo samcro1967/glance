@@ -65,6 +65,7 @@ func (m *microDocker) update(ctx context.Context) {
 		return
 	}
 
+	containers.resolveResourceProxy(m.Providers)
 	m.Containers = containers
 	m.Selected = nil
 	m.OKCount = 0

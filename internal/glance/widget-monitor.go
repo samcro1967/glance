@@ -49,6 +49,17 @@ type monitorWidget struct {
 	HasFailing      bool          `yaml:"-"`
 }
 
+func (widget *monitorWidget) setProviders(providers *widgetProviders) {
+	widget.widgetBase.setProviders(providers)
+	if providers == nil {
+		return
+	}
+
+	for index := range widget.Sites {
+		widget.Sites[index].Icon.resolveResourceProxy(providers.resourceProxyURL)
+	}
+}
+
 func (widget *monitorWidget) initialize() error {
 	widget.withTitle("Monitor").withCacheDuration(5 * time.Minute)
 

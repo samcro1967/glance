@@ -21,8 +21,8 @@
 {{ end }}
 
 {{ define "site" }}
-{{ if .Icon.URL }}
-<img class="monitor-site-icon{{ if .Icon.AutoInvert }} flat-icon{{ end }}" src="{{ .Icon.URL }}" alt="" loading="lazy">
+{{ if .Icon.RenderURL }}
+<img class="monitor-site-icon{{ if .Icon.AutoInvert }} flat-icon{{ end }}" src="{{ .Icon.RenderURL }}" alt="" loading="lazy">
 {{ end }}
 <div class="monitor-grid-content min-width-0">
     <div class="size-h3 color-highlight text-truncate">{{ .Title }}</div>

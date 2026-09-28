@@ -20,6 +20,17 @@ func (m *microMonitor) GetPosition() int {
 	return m.Position
 }
 
+func (m *microMonitor) setProviders(providers *widgetProviders) {
+	m.widgetBase.setProviders(providers)
+	if providers == nil {
+		return
+	}
+
+	for index := range m.Sites {
+		m.Sites[index].Icon.resolveResourceProxy(providers.resourceProxyURL)
+	}
+}
+
 func (m *microMonitor) initialize() error {
 	m.withCacheDuration(5 * time.Minute)
 
