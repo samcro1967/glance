@@ -11,7 +11,7 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
             </svg>
             {{- else if .ThumbnailUrl }}
-            {{ if .ThumbnailLink }}<a href="{{ .ThumbnailLink | safeURL }}"{{ if $.OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }}>{{ end }}<img class="forum-post-list-thumbnail thumbnail" src="{{ .ThumbnailUrl }}" alt="" loading="lazy">{{ if .ThumbnailLink }}</a>{{ end }}
+            {{ if .ThumbnailLink }}<a href="{{ .ThumbnailLink | safeExternalURL }}"{{ if $.OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }}>{{ end }}<img class="forum-post-list-thumbnail thumbnail" src="{{ .ThumbnailUrl }}" alt="" loading="lazy">{{ if .ThumbnailLink }}</a>{{ end }}
             {{- else if .TargetUrl }}
             <svg class="forum-post-list-thumbnail hide-on-mobile" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="-9 -8 40 40" stroke-width="1.5" stroke="var(--color-text-subdue)">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
@@ -23,7 +23,7 @@
             {{- end }}
             {{- end }}
             <div class="grow min-width-0">
-                <a href="{{ .DiscussionUrl | safeURL }}" class="size-title-dynamic color-primary-if-not-visited"{{ if $.OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }}>{{ .Title }}</a>
+                <a href="{{ .DiscussionUrl | safeExternalURL }}" class="size-title-dynamic color-primary-if-not-visited"{{ if $.OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }}>{{ .Title }}</a>
                 {{- if .Tags }}
                 <div class="inline-block forum-post-tags-container">
                     <ul class="attachments">
@@ -36,7 +36,7 @@
                 <ul class="list-horizontal-text glance-list-row-meta flex-nowrap text-compact">
                     <li {{ dynamicRelativeTimeAttrs .TimePosted }}></li>
                     <li class="shrink-0">{{ .Score | formatApproxNumber }} points</li>
-                    <li class="shrink-0{{ if .TargetUrl | safeURL }} forum-post-autohide{{ end }}">{{ .CommentCount | formatApproxNumber }} comments</li>
+                    <li class="shrink-0{{ if .TargetUrl | safeExternalURL }} forum-post-autohide{{ end }}">{{ .CommentCount | formatApproxNumber }} comments</li>
                     {{- if .TargetUrl }}
                     <li class="min-width-0"><a class="visited-indicator text-truncate block" href="{{ .TargetUrl }}"{{ if $.OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }}>{{ .TargetUrlDomain }}</a></li>
                     {{- end }}

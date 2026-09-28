@@ -69,6 +69,7 @@ type application struct {
 	frontendDiagnostics      *frontendRuntimeDiagnostics
 	trustedProxyPrefixes     []netip.Prefix
 	resourceProxy            *resourceProxy
+	widgetProviders          *widgetProviders
 	personalState            *personalStateStore
 
 	RequiresAuth           bool
@@ -442,6 +443,15 @@ func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime) (*appli
 		assetResolver:    app.StaticAssetPath,
 		resourceProxyURL: app.resolveResourceProxyURL,
 	}
+	app.widgetProviders = providers
+
+	for _, side := range []microWidgets{config.FooterMicroWidgets.Left, config.FooterMicroWidgets.Right} {
+		for _, micro := range side {
+			if bookmark, ok := micro.(*microBookmark); ok {
+				bookmark.Icon.resolveResourceProxy(providers.resourceProxyURL)
+			}
+		}
+	}
 
 	footerDynamicWidgets := config.FooterMicroWidgets.dynamicWidgets()
 	for _, widget := range footerDynamicWidgets {
@@ -452,6 +462,7 @@ func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime) (*appli
 
 	for p := range config.Pages {
 		page := &config.Pages[p]
+		page.Icon.resolveResourceProxy(providers.resourceProxyURL)
 		page.PrimaryColumnIndex = -1
 
 		app.slugToPage[page.Slug] = page
@@ -703,6 +714,12 @@ func (a *application) populateTemplateRequestData(data *templateRequestData, r *
 	data.ThemeChoices = choices
 }
 
+func (a *application) setAuthenticatedDynamicResponseHeaders(w http.ResponseWriter) {
+	if a != nil && a.RequiresAuth {
+		w.Header().Set("Cache-Control", "private, no-store")
+	}
+}
+
 func (a *application) renderPage(
 	w http.ResponseWriter,
 	r *http.Request,
@@ -712,6 +729,8 @@ func (a *application) renderPage(
 	dashboard *dashboard,
 	dashboardPath string,
 ) {
+	a.setAuthenticatedDynamicResponseHeaders(w)
+
 	data := templateData{
 		App:             a,
 		Page:            page,
@@ -920,6 +939,7 @@ func (a *application) handlePageContentRequest(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	a.setAuthenticatedDynamicResponseHeaders(w)
 	pageData := templateData{
 		Page: page,
 	}
@@ -955,6 +975,15 @@ func remoteAddressOfRequest(r *http.Request) string {
 	return strings.Trim(r.RemoteAddr, "[]")
 }
 
+func (a *application) addressIsTrustedProxy(address netip.Addr) bool {
+	for _, prefix := range a.trustedProxyPrefixes {
+		if prefix.Contains(address) {
+			return true
+		}
+	}
+	return false
+}
+
 func (a *application) requestIsFromTrustedProxy(r *http.Request) bool {
 	if !a.Config.Server.Proxied {
 		return false
@@ -965,17 +994,7 @@ func (a *application) requestIsFromTrustedProxy(r *http.Request) bool {
 	}
 
 	remoteAddr, err := netip.ParseAddr(remoteAddressOfRequest(r))
-	if err != nil {
-		return false
-	}
-
-	for _, prefix := range a.trustedProxyPrefixes {
-		if prefix.Contains(remoteAddr) {
-			return true
-		}
-	}
-
-	return false
+	return err == nil && a.addressIsTrustedProxy(remoteAddr)
 }
 
 func (a *application) requestIsSecure(r *http.Request) bool {
@@ -999,13 +1018,33 @@ func (a *application) addressOfRequest(r *http.Request) string {
 		return remoteAddr
 	}
 
-	ips := strings.Split(forwardedFor, ",")
-	lastIP := strings.TrimSpace(ips[len(ips)-1])
-	if lastIP == "" {
-		return remoteAddr
+	forwarded := strings.Split(forwardedFor, ",")
+	if len(a.trustedProxyPrefixes) == 0 {
+		lastIP := strings.TrimSpace(forwarded[len(forwarded)-1])
+		if lastIP == "" {
+			return remoteAddr
+		}
+		return lastIP
 	}
 
-	return lastIP
+	chain := append(forwarded, remoteAddr)
+	var leftmost string
+	for index := len(chain) - 1; index >= 0; index-- {
+		candidate := strings.Trim(strings.TrimSpace(chain[index]), "[]")
+		address, err := netip.ParseAddr(candidate)
+		if err != nil {
+			return remoteAddr
+		}
+		leftmost = address.String()
+		if !a.addressIsTrustedProxy(address) {
+			return leftmost
+		}
+	}
+
+	if leftmost != "" {
+		return leftmost
+	}
+	return remoteAddr
 }
 
 func (a *application) renderNotFound(
@@ -1016,6 +1055,8 @@ func (a *application) renderNotFound(
 	dashboard *dashboard,
 	dashboardPath string,
 ) {
+	a.setAuthenticatedDynamicResponseHeaders(w)
+
 	data := templateData{
 		App:             a,
 		NavigationPages: navigationPages,
@@ -1087,6 +1128,7 @@ func (a *application) handleWidgetContentRequest(w http.ResponseWriter, r *http.
 		return
 	}
 
+	a.setAuthenticatedDynamicResponseHeaders(w)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write([]byte(renderWidget(widget)))
 }

@@ -62,6 +62,7 @@ func (widget *dockerContainersWidget) update(ctx context.Context) {
 		return
 	}
 
+	containers.resolveResourceProxy(widget.Providers)
 	containers.sortByStateIconThenName()
 	widget.Groups = nil
 	if widget.GroupBy == dockerContainerGroupByComposeProject {
@@ -154,6 +155,16 @@ type dockerContainerGroup struct {
 }
 
 type dockerContainerList []dockerContainer
+
+func (containers dockerContainerList) resolveResourceProxy(providers *widgetProviders) {
+	if providers == nil {
+		return
+	}
+
+	for index := range containers {
+		containers[index].Icon.resolveResourceProxy(providers.resourceProxyURL)
+	}
+}
 
 func (containers dockerContainerList) sortByStateIconThenName() {
 	p := &dockerContainerStateIconPriorities

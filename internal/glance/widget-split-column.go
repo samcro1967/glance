@@ -33,6 +33,7 @@ func (widget *splitColumnWidget) update(ctx context.Context) {
 }
 
 func (widget *splitColumnWidget) setProviders(providers *widgetProviders) {
+	widget.widgetBase.setProviders(providers)
 	widget.containerWidgetBase._setProviders(providers)
 }
 

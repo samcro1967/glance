@@ -60,8 +60,9 @@ func prepareWidgetReloadReusePlan(previous, candidate *application) (widgetReloa
 		return plan, nil
 	}
 
-	// Reused widgets retain their existing provider closures. Only reuse them
-	// when the application-level inputs to those providers are unchanged.
+	// Provider inputs participate in runtime behavior and generated URLs. Keep
+	// reuse conservative when those inputs change; reused widgets are rebound to
+	// the candidate generation providers when the plan is applied.
 	if previous.Config.Server.BaseURL != candidate.Config.Server.BaseURL ||
 		!reflect.DeepEqual(
 			previous.Config.Server.ResourceProxy.AllowedOrigins,
@@ -141,18 +142,33 @@ func (a *application) applyWidgetReloadReusePlan(plan widgetReloadReusePlan) {
 	replaceMicroWidgets(a.Config.FooterMicroWidgets.Left)
 	replaceMicroWidgets(a.Config.FooterMicroWidgets.Right)
 
+	if a.widgetProviders != nil {
+		for _, dynamic := range a.Config.FooterMicroWidgets.dynamicWidgets() {
+			dynamic.setProviders(a.widgetProviders)
+		}
+	}
+
 	for p := range a.Config.Pages {
 		page := &a.Config.Pages[p]
 		for i := range page.HeadWidgets {
 			page.HeadWidgets[i] = replaceReloadWidget(page.HeadWidgets[i], plan)
+			if a.widgetProviders != nil {
+				page.HeadWidgets[i].setProviders(a.widgetProviders)
+			}
 		}
 		for c := range page.Columns {
 			for i := range page.Columns[c].Widgets {
 				page.Columns[c].Widgets[i] = replaceReloadWidget(page.Columns[c].Widgets[i], plan)
+				if a.widgetProviders != nil {
+					page.Columns[c].Widgets[i].setProviders(a.widgetProviders)
+				}
 			}
 		}
 		for i := range page.BottomWidgets {
 			page.BottomWidgets[i] = replaceReloadWidget(page.BottomWidgets[i], plan)
+			if a.widgetProviders != nil {
+				page.BottomWidgets[i].setProviders(a.widgetProviders)
+			}
 		}
 	}
 

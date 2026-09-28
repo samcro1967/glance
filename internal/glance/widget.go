@@ -434,6 +434,25 @@ func (w *widgetBase) getWidgetBase() *widgetBase {
 
 func (w *widgetBase) setProviders(providers *widgetProviders) {
 	w.Providers = providers
+	if providers != nil {
+		w.Icon.resolveResourceProxy(providers.resourceProxyURL)
+	}
+}
+
+func (w *widgetBase) resolveResourceProxyImageURL(rawURL string) string {
+	if rawURL == "" || w.Providers == nil || w.Providers.resourceProxyURL == nil {
+		return rawURL
+	}
+
+	resolved, err := w.Providers.resourceProxyURL(rawURL)
+	if err != nil {
+		// Keep a failed proxy registration out of rendered HTML so an HTTPS
+		// dashboard does not fall back to a mixed-content request.
+		slog.Warn("Image resource proxy registration failed", "widget_id", w.ID, "type", w.Type, "error", err)
+		return ""
+	}
+
+	return resolved
 }
 
 func (w *widgetBase) renderTemplate(data any, t *template.Template) template.HTML {

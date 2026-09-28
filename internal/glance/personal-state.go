@@ -17,13 +17,16 @@ import (
 )
 
 const (
-	personalStateDocumentVersion = 1
-	personalStateMaxPayloadBytes = 256 * 1024
-	personalStateMaxIDLength     = 128
+	personalStateDocumentVersion        = 1
+	personalStateMaxPayloadBytes        = 256 * 1024
+	personalStateMaxIDLength            = 128
+	personalStateMaxEntriesPerNamespace = 512
+	personalStateMaxDocumentBytes       = 8 * 1024 * 1024
 )
 
 var errPersonalStateNotFound = errors.New("personal state not found")
 var errPersonalStateCorrupt = errors.New("personal state file is corrupt")
+var errPersonalStateCapacityExceeded = errors.New("personal state capacity exceeded")
 
 type personalStateDocument struct {
 	Version int                                              `json:"version"`
@@ -122,7 +125,19 @@ func (s *personalStateStore) put(identity, namespace, id string, value json.RawM
 	if next.Users[identityKey][namespace] == nil {
 		next.Users[identityKey][namespace] = make(map[string]json.RawMessage)
 	}
-	next.Users[identityKey][namespace][id] = append(json.RawMessage(nil), value...)
+	entries := next.Users[identityKey][namespace]
+	if _, exists := entries[id]; !exists && len(entries) >= personalStateMaxEntriesPerNamespace {
+		return fmt.Errorf("%w: namespace entry limit reached", errPersonalStateCapacityExceeded)
+	}
+	entries[id] = append(json.RawMessage(nil), value...)
+
+	encoded, err := json.Marshal(next)
+	if err != nil {
+		return fmt.Errorf("encoding personal state for capacity check: %w", err)
+	}
+	if len(encoded) > personalStateMaxDocumentBytes {
+		return fmt.Errorf("%w: document size limit reached", errPersonalStateCapacityExceeded)
+	}
 
 	if err := writePersonalStateDocumentAtomic(s.path, next); err != nil {
 		return err
@@ -282,6 +297,10 @@ func (a *application) handlePersonalStatePostRequest(w http.ResponseWriter, r *h
 	}
 
 	if err := a.personalState.put(session.AuthorizationIdentity, namespace, id, json.RawMessage(body)); err != nil {
+		if errors.Is(err, errPersonalStateCapacityExceeded) {
+			http.Error(w, "personal state capacity exceeded", http.StatusRequestEntityTooLarge)
+			return
+		}
 		slog.Error("Personal state write failed", "namespace", namespace, "id", id, "error", err)
 		writeInternalServerError(w, "Failed to persist personal state", err)
 		return

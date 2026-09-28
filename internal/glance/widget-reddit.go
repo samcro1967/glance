@@ -2,6 +2,7 @@ package glance
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
 	"errors"
 	"fmt"
@@ -213,7 +214,7 @@ func (widget *redditWidget) fetchSubredditPosts(ctx context.Context) (forumPostL
 		requestURL = strings.ReplaceAll(widget.RequestURLTemplate, "{REQUEST-URL}", requestURL)
 	} else if widget.Proxy.client != nil {
 		client = widget.Proxy.client
-		loidRoute = "proxy:" + widget.Proxy.URL
+		loidRoute = redditProxyRouteIdentity(widget.Proxy.URL)
 	}
 
 	request, err := http.NewRequestWithContext(ctx, "GET", requestURL, nil)
@@ -392,9 +393,12 @@ func parseRedditChallengeForm(body []byte) (string, string, string, error) {
 // to the flow that obtains the cookie required to access the .json endpoints.
 // Direct requests and distinct proxies use separate cookies so the challenge and
 // subsequent Reddit requests remain on the same network route.
+const redditLoidRouteStateLimit = 128
+
 type redditLoidRouteState struct {
 	mu         sync.Mutex
 	lastUpdate time.Time
+	lastAccess time.Time
 	loid       string
 }
 
@@ -405,18 +409,45 @@ var redditLoidRoutes = struct {
 	states: make(map[string]*redditLoidRouteState),
 }
 
+func redditProxyRouteIdentity(proxyURL string) string {
+	sum := sha256.Sum256([]byte(proxyURL))
+	return fmt.Sprintf("proxy:%x", sum[:16])
+}
+
+func redditLoidRouteStateFor(route string) *redditLoidRouteState {
+	now := time.Now()
+
+	redditLoidRoutes.Lock()
+	defer redditLoidRoutes.Unlock()
+
+	if state := redditLoidRoutes.states[route]; state != nil {
+		state.lastAccess = now
+		return state
+	}
+
+	if len(redditLoidRoutes.states) >= redditLoidRouteStateLimit {
+		var oldestRoute string
+		var oldestAccess time.Time
+		for candidateRoute, state := range redditLoidRoutes.states {
+			if oldestRoute == "" || state.lastAccess.Before(oldestAccess) {
+				oldestRoute = candidateRoute
+				oldestAccess = state.lastAccess
+			}
+		}
+		delete(redditLoidRoutes.states, oldestRoute)
+	}
+
+	state := &redditLoidRouteState{lastAccess: now}
+	redditLoidRoutes.states[route] = state
+	return state
+}
+
 var getRedditLoidCookie = func(
 	ctx context.Context,
 	route string,
 	client requestDoer,
 ) (string, error) {
-	redditLoidRoutes.Lock()
-	state := redditLoidRoutes.states[route]
-	if state == nil {
-		state = &redditLoidRouteState{}
-		redditLoidRoutes.states[route] = state
-	}
-	redditLoidRoutes.Unlock()
+	state := redditLoidRouteStateFor(route)
 
 	state.mu.Lock()
 	defer state.mu.Unlock()

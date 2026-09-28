@@ -49,6 +49,7 @@ func (widget *groupWidget) update(ctx context.Context) {
 }
 
 func (widget *groupWidget) setProviders(providers *widgetProviders) {
+	widget.widgetBase.setProviders(providers)
 	widget.containerWidgetBase._setProviders(providers)
 }
 

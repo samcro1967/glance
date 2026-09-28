@@ -2,6 +2,7 @@ package glance
 
 import (
 	"bytes"
+	"container/list"
 	"context"
 	"encoding/json"
 	"errors"
@@ -867,21 +868,63 @@ func customAPIDoMathOp[T int | float64](a, b T, op string) T {
 	return 0
 }
 
+const customAPIRegexpCacheCapacity = 256
+
+type customAPIRegexpCacheEntry struct {
+	pattern string
+	regex   *regexp.Regexp
+}
+
+type customAPIRegexpCache struct {
+	mu      sync.Mutex
+	entries map[string]*list.Element
+	order   *list.List
+}
+
+func newCustomAPIRegexpCache() *customAPIRegexpCache {
+	return &customAPIRegexpCache{
+		entries: make(map[string]*list.Element),
+		order:   list.New(),
+	}
+}
+
+func (c *customAPIRegexpCache) get(pattern string) *regexp.Regexp {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if element := c.entries[pattern]; element != nil {
+		c.order.MoveToFront(element)
+		return element.Value.(*customAPIRegexpCacheEntry).regex
+	}
+
+	regex := regexp.MustCompile(pattern)
+	element := c.order.PushFront(&customAPIRegexpCacheEntry{
+		pattern: pattern,
+		regex:   regex,
+	})
+	c.entries[pattern] = element
+
+	if c.order.Len() > customAPIRegexpCacheCapacity {
+		oldest := c.order.Back()
+		entry := oldest.Value.(*customAPIRegexpCacheEntry)
+		delete(c.entries, entry.pattern)
+		c.order.Remove(oldest)
+	}
+
+	return regex
+}
+
+func (c *customAPIRegexpCache) len() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.order.Len()
+}
+
 var customAPITemplateFuncs = func() template.FuncMap {
-	var regexpCacheMu sync.Mutex
-	var regexpCache = make(map[string]*regexp.Regexp)
+	regexpCache := newCustomAPIRegexpCache()
 
 	getCachedRegexp := func(pattern string) *regexp.Regexp {
-		regexpCacheMu.Lock()
-		defer regexpCacheMu.Unlock()
-
-		regex, exists := regexpCache[pattern]
-		if !exists {
-			regex = regexp.MustCompile(pattern)
-			regexpCache[pattern] = regex
-		}
-
-		return regex
+		return regexpCache.get(pattern)
 	}
 
 	doMathOpWithAny := func(a, b any, op string) any {

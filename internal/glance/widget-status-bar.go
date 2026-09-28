@@ -103,6 +103,7 @@ func (widget *statusBarWidget) update(ctx context.Context) {
 }
 
 func (widget *statusBarWidget) setProviders(providers *widgetProviders) {
+	widget.widgetBase.setProviders(providers)
 	widget.containerWidgetBase._setProviders(providers)
 }
 
@@ -208,10 +209,10 @@ func (widget *statusBarWidget) CompactItems() []statusBarCompactItem {
 					Notice:            child.Notice,
 					URL:               item.URL,
 					OpenLinksInNewTab: widget.OpenLinksInNewTab,
-					Icon1:             item.Icon1,
+					Icon1:             child.resolveResourceProxyImageURL(item.Icon1),
 					Line1:             item.Line1,
 					Line2:             item.Line2,
-					Icon2:             item.Icon2,
+					Icon2:             child.resolveResourceProxyImageURL(item.Icon2),
 				})
 			}
 

@@ -50,6 +50,19 @@ type bookmarksWidget struct {
 	Groups     []bookmarkGroup `yaml:"groups"`
 }
 
+func (widget *bookmarksWidget) setProviders(providers *widgetProviders) {
+	widget.widgetBase.setProviders(providers)
+	if providers == nil {
+		return
+	}
+
+	for groupIndex := range widget.Groups {
+		for linkIndex := range widget.Groups[groupIndex].Links {
+			widget.Groups[groupIndex].Links[linkIndex].Icon.resolveResourceProxy(providers.resourceProxyURL)
+		}
+	}
+}
+
 func (widget *bookmarksWidget) initialize() error {
 	widget.withTitle("Bookmarks").withError(nil)
 

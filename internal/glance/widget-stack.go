@@ -44,6 +44,7 @@ func (widget *stackWidget) update(ctx context.Context) {
 }
 
 func (widget *stackWidget) setProviders(providers *widgetProviders) {
+	widget.widgetBase.setProviders(providers)
 	widget.containerWidgetBase._setProviders(providers)
 }
 

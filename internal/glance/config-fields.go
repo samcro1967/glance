@@ -3,6 +3,7 @@ package glance
 import (
 	"fmt"
 	"html/template"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -131,6 +132,9 @@ func (d *durationField) UnmarshalYAML(node *yaml.Node) error {
 type customIconField struct {
 	URL        template.URL
 	AutoInvert bool
+
+	renderURL         template.URL
+	renderURLResolved bool
 }
 
 func newCustomIconField(value string) customIconField {
@@ -188,6 +192,37 @@ func (i *customIconField) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
+func (i customIconField) RenderURL() template.URL {
+	if i.renderURLResolved {
+		return i.renderURL
+	}
+	return i.URL
+}
+
+func (i *customIconField) resolveResourceProxy(resolver func(string) (string, error)) {
+	if i == nil {
+		return
+	}
+
+	i.renderURL = ""
+	i.renderURLResolved = false
+	if i.URL == "" || resolver == nil {
+		return
+	}
+
+	resolved, err := resolver(string(i.URL))
+	i.renderURLResolved = true
+	if err != nil {
+		// Do not fall back to the original URL after a proxy registration failure.
+		// An HTTP icon rendered directly into an HTTPS dashboard would create a
+		// browser mixed-content error, and the raw URL may contain credentials.
+		slog.Warn("Configured image resource proxy registration failed", "error", err)
+		return
+	}
+
+	i.renderURL = template.URL(resolved)
+}
+
 type proxyOptionsField struct {
 	URL           string        `yaml:"url"`
 	AllowInsecure bool          `yaml:"allow-insecure"`
@@ -214,6 +249,7 @@ func (p *proxyOptionsField) UnmarshalYAML(node *yaml.Node) error {
 		proxyURL = p.URL
 	}
 
+	p.URL = proxyURL
 	return p.initializeClient(proxyURL)
 }
 
