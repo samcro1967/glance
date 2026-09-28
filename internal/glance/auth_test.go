@@ -2227,7 +2227,7 @@ func TestHandleLogoutRequest(t *testing.T) {
 	app.Config.Server.BaseURL = "/glance"
 
 	req := httptest.NewRequest(
-		http.MethodGet,
+		http.MethodPost,
 		"/glance/logout",
 		nil,
 	)

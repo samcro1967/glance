@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -439,12 +440,50 @@ func (w *widgetBase) setProviders(providers *widgetProviders) {
 	}
 }
 
-func (w *widgetBase) resolveResourceProxyImageURL(rawURL string) string {
-	if rawURL == "" || w.Providers == nil || w.Providers.resourceProxyURL == nil {
-		return rawURL
+func resolveBrowserImageURL(rawURL string, resolver func(string) (string, error)) (string, error) {
+	rawURL = strings.TrimSpace(rawURL)
+	if rawURL == "" {
+		return "", nil
 	}
 
-	resolved, err := w.Providers.resourceProxyURL(rawURL)
+	parsed, err := url.Parse(rawURL)
+	if err != nil || parsed.User != nil {
+		return "", nil
+	}
+
+	switch strings.ToLower(parsed.Scheme) {
+	case "":
+		if strings.HasPrefix(rawURL, "//") {
+			return "", nil
+		}
+		return rawURL, nil
+	case "https":
+		return rawURL, nil
+	case "http":
+		if resolver == nil {
+			return "", nil
+		}
+
+		resolved, err := resolver(rawURL)
+		if err != nil {
+			return "", err
+		}
+		if resolved == rawURL {
+			return "", nil
+		}
+		return resolved, nil
+	default:
+		return "", nil
+	}
+}
+
+func (w *widgetBase) resolveResourceProxyImageURL(rawURL string) string {
+	var resolver func(string) (string, error)
+	if w.Providers != nil {
+		resolver = w.Providers.resourceProxyURL
+	}
+
+	resolved, err := resolveBrowserImageURL(rawURL, resolver)
 	if err != nil {
 		// Keep a failed proxy registration out of rendered HTML so an HTTPS
 		// dashboard does not fall back to a mixed-content request.

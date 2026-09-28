@@ -45,6 +45,10 @@ func (widget *twitchGamesWidget) update(ctx context.Context) {
 		return
 	}
 
+	for i := range categories {
+		categories[i].AvatarUrl = widget.resolveResourceProxyImageURL(categories[i].AvatarUrl)
+	}
+
 	widget.Categories = categories
 }
 

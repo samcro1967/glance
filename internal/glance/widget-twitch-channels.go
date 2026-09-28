@@ -45,6 +45,10 @@ func (widget *twitchChannelsWidget) update(ctx context.Context) {
 		return
 	}
 
+	for i := range channels {
+		channels[i].AvatarUrl = widget.resolveResourceProxyImageURL(channels[i].AvatarUrl)
+	}
+
 	if widget.SortBy == "viewers" {
 		channels.sortByViewers()
 	} else if widget.SortBy == "live" {
