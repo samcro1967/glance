@@ -86,6 +86,10 @@ func (widget *rssWidget) update(ctx context.Context) {
 		return
 	}
 
+	for i := range items {
+		items[i].ImageURL = widget.resolveResourceProxyImageURL(items[i].ImageURL)
+	}
+
 	if !widget.PreserveOrder {
 		items.sortByNewest()
 	}

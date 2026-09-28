@@ -210,7 +210,7 @@ func (i *customIconField) resolveResourceProxy(resolver func(string) (string, er
 		return
 	}
 
-	resolved, err := resolver(string(i.URL))
+	resolved, err := resolveBrowserImageURL(string(i.URL), resolver)
 	i.renderURLResolved = true
 	if err != nil {
 		// Do not fall back to the original URL after a proxy registration failure.

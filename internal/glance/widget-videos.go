@@ -81,7 +81,12 @@ func (w *videosWidget) update(ctx context.Context) {
 		videos = videos[:w.Limit]
 	}
 
-	w.Videos = videos
+	resolvedVideos := append(videoList(nil), videos...)
+	for i := range resolvedVideos {
+		resolvedVideos[i].ThumbnailUrl = w.resolveResourceProxyImageURL(resolvedVideos[i].ThumbnailUrl)
+	}
+
+	w.Videos = resolvedVideos
 }
 
 func (w *videosWidget) Render() template.HTML {
