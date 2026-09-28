@@ -2,6 +2,7 @@ package glance
 
 import (
 	"html/template"
+	"strings"
 	"testing"
 	"time"
 )
@@ -25,6 +26,7 @@ pages:
             sites:
               - title: Example
                 url: https://example.com
+                icon: http://example.test/icon.png
 `)
 }
 
@@ -69,6 +71,19 @@ func TestWidgetReloadReusePreservesUnchangedWidgetInstanceAndRuntimeState(t *tes
 	}
 	if reusedBase.refreshAttempts != 7 {
 		t.Fatalf("reused widget refresh attempts = %d, want 7", reusedBase.refreshAttempts)
+	}
+	if reusedBase.Providers != candidate.widgetProviders {
+		t.Fatal("reused widget retained providers from previous application generation")
+	}
+
+	monitor := candidate.refreshWidgets[0].(*monitorWidget)
+	renderURL := string(monitor.Sites[0].Icon.RenderURL())
+	const prefix = "/glance/api/resource-proxy/"
+	if !strings.HasPrefix(renderURL, prefix) {
+		t.Fatalf("reused widget icon render URL = %q, want candidate resource proxy URL", renderURL)
+	}
+	if _, exists := candidate.resourceProxy.lookup(strings.TrimPrefix(renderURL, prefix)); !exists {
+		t.Fatal("reused widget icon was not registered with candidate resource proxy")
 	}
 }
 

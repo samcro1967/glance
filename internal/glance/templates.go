@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"html/template"
 	"math"
+	"net/url"
 	"strconv"
+	"strings"
 
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
@@ -23,6 +25,7 @@ var globalTemplateFunctions = template.FuncMap{
 	"safeURL": func(str string) template.URL {
 		return template.URL(str)
 	},
+	"safeExternalURL": safeExternalURL,
 	"safeHTML": func(str string) template.HTML {
 		return template.HTML(str)
 	},
@@ -90,4 +93,29 @@ func formatApproxNumber(count int) string {
 
 func dynamicRelativeTimeAttrs(t interface{ Unix() int64 }) template.HTMLAttr {
 	return template.HTMLAttr(`data-dynamic-relative-time="` + strconv.FormatInt(t.Unix(), 10) + `"`)
+}
+
+func safeExternalURL(raw string) string {
+	value := strings.TrimSpace(raw)
+	if value == "" {
+		return ""
+	}
+
+	parsed, err := url.Parse(value)
+	if err != nil {
+		return ""
+	}
+
+	if parsed.Scheme == "" {
+		if strings.HasPrefix(value, "//") {
+			return ""
+		}
+		return value
+	}
+
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return ""
+	}
+
+	return value
 }

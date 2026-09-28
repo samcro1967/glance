@@ -34,11 +34,11 @@ func TestForkUIEnhancementTemplateContracts(t *testing.T) {
 		"static/js/page.js":                      {`markPageContentReady(pageElement)`, `footer_micro_clocks`},
 		"static/js/relative-time.js":             {`window.addEventListener("pagehide", handlePageHide)`, `window.addEventListener("pageshow", handlePageShow)`, `clearScheduledUpdate()`},
 		"static/js/diagnostics.js":               {`frontendDiagnosticResourceTimingMetrics`, `slowest_fetch_to_request_ms`, `slowest_dns_ms`, `slowest_connect_ms`, `slowest_tls_ms`, `slowest_ttfb_ms`, `slowest_download_ms`, `parent: frontendDiagnosticElementDescriptor`, `previous: frontendDiagnosticElementDescriptor`, `previous_rect_current: frontendDiagnosticElementRect`, `frontendDiagnosticLayoutContext`, `cls_layout_context`, `.content-bounds.grow`, `.bottom-widgets`},
-		"templates/video-card-contents.html":     {`href="{{ .Video.Url | safeURL }}"`, `if .OpenLinksInNewTab`},
-		"templates/videos-vertical-list.html":    {`href="{{ .Url | safeURL }}"`, `if $.OpenLinksInNewTab`},
-		"templates/forum-posts.html":             {`.ThumbnailLink | safeURL`, `if $.OpenLinksInNewTab`},
-		"templates/reddit-horizontal-cards.html": {`.DiscussionUrl | safeURL`, `if $.OpenLinksInNewTab`},
-		"templates/reddit-vertical-cards.html":   {`.DiscussionUrl | safeURL`, `if $.OpenLinksInNewTab`},
+		"templates/video-card-contents.html":     {`href="{{ .Video.Url | safeExternalURL }}"`, `if .OpenLinksInNewTab`},
+		"templates/videos-vertical-list.html":    {`href="{{ .Url | safeExternalURL }}"`, `if $.OpenLinksInNewTab`},
+		"templates/forum-posts.html":             {`.ThumbnailLink | safeExternalURL`, `if $.OpenLinksInNewTab`},
+		"templates/reddit-horizontal-cards.html": {`.DiscussionUrl | safeExternalURL`, `if $.OpenLinksInNewTab`},
+		"templates/reddit-vertical-cards.html":   {`.DiscussionUrl | safeExternalURL`, `if $.OpenLinksInNewTab`},
 		"templates/monitor.html":                 {`if .Description`, `text-truncate`},
 	}
 	for name, fragments := range checks {

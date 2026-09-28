@@ -11,9 +11,9 @@
             {{- range .Links }}
             <a href="{{ .URL | safeURL }}" class="glance-card glance-app-card bookmarks-grid-card" target="_blank" rel="noreferrer">
                 <div class="bookmarks-grid-content">
-                    {{- if ne "" .Icon.URL }}
+                    {{- if ne "" .Icon.RenderURL }}
                     <div class="bookmarks-icon-container bookmarks-grid-icon-container">
-                        <img class="bookmarks-icon bookmarks-grid-icon{{ if .Icon.AutoInvert }} flat-icon{{ end }}" src="{{ .Icon.URL }}" alt="" loading="lazy">
+                        <img class="bookmarks-icon bookmarks-grid-icon{{ if .Icon.AutoInvert }} flat-icon{{ end }}" src="{{ .Icon.RenderURL }}" alt="" loading="lazy">
                     </div>
                     {{- end }}
                     <div class="bookmarks-grid-text min-width-0">

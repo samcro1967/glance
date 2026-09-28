@@ -16,7 +16,7 @@
     {{ else if eq .Type "state" }}
         <div class="glance-state glance-state-{{ .Variant }}">{{ .Text }}</div>
     {{ else if eq .Type "list" }}
-        <ul class="list glance-list">{{ range .Items }}<li class="glance-list-row"><div class="glance-list-row-primary">{{ if .URL }}<a href="{{ .URL | safeURL }}" target="_blank" rel="noreferrer">{{ .Title }}</a>{{ else }}{{ .Title }}{{ end }}</div>{{ if .Meta }}<div class="glance-list-row-meta">{{ .Meta }}</div>{{ end }}</li>{{ end }}</ul>
+        <ul class="list glance-list">{{ range .Items }}<li class="glance-list-row"><div class="glance-list-row-primary">{{ if .URL }}<a href="{{ .URL | safeExternalURL }}" target="_blank" rel="noreferrer">{{ .Title }}</a>{{ else }}{{ .Title }}{{ end }}</div>{{ if .Meta }}<div class="glance-list-row-meta">{{ .Meta }}</div>{{ end }}</li>{{ end }}</ul>
     {{ else if eq .Type "cards" }}
         <div class="glance-grid">{{ range .Items }}<div class="glance-card"><div class="color-highlight">{{ .Title }}</div>{{ if .Text }}<div class="glance-secondary margin-top-5">{{ .Text }}</div>{{ end }}{{ if .Status }}<div class="margin-top-10"><span class="glance-status glance-status-{{ .Status.Variant }}">{{ .Status.Text }}</span></div>{{ end }}</div>{{ end }}</div>
     {{ else if eq .Type "table" }}
