@@ -1272,7 +1272,6 @@ func (a *application) handleUnauthorizedResponse(w http.ResponseWriter, r *http.
 	return true
 }
 
-// Maybe this should be a POST request instead?
 func (a *application) handleLogoutRequest(w http.ResponseWriter, r *http.Request) {
 	a.setAuthSessionCookie(w, r, "", time.Now().Add(-1*time.Hour))
 	http.Redirect(w, r, a.Config.Server.BaseURL+"/login", http.StatusSeeOther)

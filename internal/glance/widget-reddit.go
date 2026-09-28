@@ -106,6 +106,10 @@ func (widget *redditWidget) update(ctx context.Context) {
 		return
 	}
 
+	for i := range posts {
+		posts[i].ThumbnailUrl = widget.resolveResourceProxyImageURL(posts[i].ThumbnailUrl)
+	}
+
 	if len(posts) > widget.Limit {
 		posts = posts[:widget.Limit]
 	}

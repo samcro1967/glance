@@ -592,13 +592,29 @@ func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime) (*appli
 		config.Pages[i].Theme.CustomCSSFile = app.resolveUserDefinedAssetPath(config.Pages[i].Theme.CustomCSSFile)
 	}
 
-	config.Branding.LogoURL = app.resolveUserDefinedAssetPath(config.Branding.LogoURL)
+	resolveBrandingImage := func(rawURL string) string {
+		resolved, err := resolveBrowserImageURL(rawURL, app.resolveResourceProxyURL)
+		if err != nil {
+			slog.Warn("Branding image resource proxy registration failed", "error", err)
+			return ""
+		}
+		return resolved
+	}
 
-	config.Branding.FaviconURL = ternary(
-		config.Branding.FaviconURL == "",
-		app.StaticAssetPath("favicon.svg"),
-		app.resolveUserDefinedAssetPath(config.Branding.FaviconURL),
+	config.Branding.LogoURL = resolveBrandingImage(
+		app.resolveUserDefinedAssetPath(config.Branding.LogoURL),
 	)
+
+	if config.Branding.FaviconURL == "" {
+		config.Branding.FaviconURL = app.StaticAssetPath("favicon.svg")
+	} else {
+		config.Branding.FaviconURL = resolveBrandingImage(
+			app.resolveUserDefinedAssetPath(config.Branding.FaviconURL),
+		)
+		if config.Branding.FaviconURL == "" {
+			config.Branding.FaviconURL = app.StaticAssetPath("favicon.svg")
+		}
+	}
 
 	config.Branding.FaviconType = ternary(
 		strings.HasSuffix(config.Branding.FaviconURL, ".svg"),
@@ -612,6 +628,13 @@ func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime) (*appli
 
 	if config.Branding.AppIconURL == "" {
 		config.Branding.AppIconURL = app.StaticAssetPath("app-icon.png")
+	} else {
+		config.Branding.AppIconURL = resolveBrandingImage(
+			app.resolveUserDefinedAssetPath(config.Branding.AppIconURL),
+		)
+		if config.Branding.AppIconURL == "" {
+			config.Branding.AppIconURL = app.StaticAssetPath("app-icon.png")
+		}
 	}
 
 	if config.Branding.AppBackgroundColor == "" {
@@ -1236,7 +1259,11 @@ func (a *application) router() http.Handler {
 
 	if a.RequiresAuth {
 		mux.HandleFunc("GET /login", a.handleLoginPageRequest)
-		mux.HandleFunc("GET /logout", a.handleLogoutRequest)
+		mux.HandleFunc("GET /logout", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Allow", http.MethodPost)
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		})
+		mux.HandleFunc("POST /logout", a.handleLogoutRequest)
 
 		if len(a.Config.Auth.Users) > 0 {
 			mux.HandleFunc("POST /api/authenticate", a.handleAuthenticationAttempt)
