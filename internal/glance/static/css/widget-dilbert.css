@@ -1,0 +1,46 @@
+.dilbert-comic {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.dilbert-comic-expand {
+    display: block;
+    width: 100%;
+    padding: 0;
+    border: 0;
+    border-radius: var(--theme-card-radius, var(--border-radius));
+    overflow: hidden;
+    background: transparent;
+    cursor: zoom-in;
+}
+
+.dilbert-comic-expand:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.dilbert-comic-image {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    background: white;
+}
+
+.dilbert-comic-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    min-width: 0;
+    font-size: var(--font-size-h5);
+}
+
+.dilbert-comic-meta > :first-child:not(:last-child) {
+    min-width: 0;
+}
+
+.dilbert-comic-meta time {
+    flex-shrink: 0;
+}

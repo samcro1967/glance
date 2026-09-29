@@ -1,0 +1,28 @@
+{{ template "widget-base.html" . }}
+
+{{ define "widget-content" }}
+<div class="dilbert-comic">
+    <button
+        class="dilbert-comic-expand"
+        type="button"
+        data-image-expand
+        data-image-expand-src="{{ .Comic.ImageURL | safeURL }}"
+        data-image-expand-alt="{{ if .Comic.Title }}{{ .Comic.Title }}{{ else }}Dilbert comic for {{ .Comic.Date }}{{ end }}"
+        aria-label="Enlarge Dilbert comic for {{ .Comic.Date }}"
+        title="Click to enlarge"
+    >
+        <img
+            class="dilbert-comic-image"
+            src="{{ .Comic.ImageURL | safeURL }}"
+            alt="{{ if .Comic.Title }}{{ .Comic.Title }}{{ else }}Dilbert comic for {{ .Comic.Date }}{{ end }}"
+            loading="lazy"
+            {{- if gt .Comic.Width 0 }} width="{{ .Comic.Width }}"{{ end }}
+            {{- if gt .Comic.Height 0 }} height="{{ .Comic.Height }}"{{ end }}
+        >
+    </button>
+    <div class="dilbert-comic-meta">
+        {{- if .Comic.Title }}<span class="color-highlight text-truncate">{{ .Comic.Title }}</span>{{ end }}
+        <time class="color-subdue" datetime="{{ .Comic.Date }}">{{ .Comic.Date }}</time>
+    </div>
+</div>
+{{ end }}

@@ -78,6 +78,7 @@ Set custom CSS classes for the specific widget instance.
 
 | Widget | Purpose |
 | --- | --- |
+| [Dilbert](widgets/dilbert.md) | Display a random or date-pinned archived Dilbert comic with click-to-enlarge viewing. |
 | [RSS](widgets/rss.md) | Display RSS and Atom feeds. |
 | [Videos](widgets/videos.md) | Display videos from configured channels and playlists. |
 | [Hacker News](widgets/hacker-news.md) | Display Hacker News stories. |

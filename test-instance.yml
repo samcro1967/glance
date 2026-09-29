@@ -411,6 +411,11 @@ pages:
 
       - size: full
         widgets:
+          - type: dilbert
+            title: Dilbert
+            css-class: visual-fixture-dilbert
+            date: 2020-06-15
+
           - type: rss
             title: RSS - Horizontal Cards
             css-class: visual-fixture-rss
