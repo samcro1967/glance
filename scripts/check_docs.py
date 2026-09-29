@@ -23,6 +23,7 @@ EXPECTED_WIDGET_DOCS = {
     "change-detection.md",
     "clock.md",
     "custom-api.md",
+    "dilbert.md",
     "dns-stats.md",
     "docker-containers.md",
     "extension.md",

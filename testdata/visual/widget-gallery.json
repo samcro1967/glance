@@ -1,6 +1,6 @@
 {
   "layout-composition": ["group", "stack", "status-bar", "split-column"],
-  "feeds-content": ["rss", "videos", "hacker-news", "lobsters", "reddit"],
+  "feeds-content": ["dilbert", "rss", "videos", "hacker-news", "lobsters", "reddit"],
   "search-custom-content": ["search", "bookmarks", "custom-api", "extension", "iframe", "markdown", "html"],
   "date-time-weather": ["weather", "calendar", "ics-events", "calendar-legacy", "clock", "analog-clock", "timer", "stopwatch"],
   "homelab-monitoring": ["monitor", "docker-containers", "torrenting", "arr", "seerr", "latest-media", "media-history", "now-playing", "dns-stats", "prometheus", "server-stats", "change-detection"],
