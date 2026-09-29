@@ -657,49 +657,88 @@ pages:
       - size: small
         widgets:
           - type: group
-            title: Astronomy
-            css-class: visual-fixture-astronomy
+            title: Sky & Zodiac
             widgets:
-              - type: astronomy
-                title: Sun & Moon
-                latitude: 38.6270
-                longitude: -90.1994
-                timezone: America/Chicago
-                at: 2026-09-29T20:00:00-05:00
-                hour-format: 12h
-                sections:
-                  - moon
-                  - sun
+              - type: group
+                title: Astronomy
+                css-class: visual-fixture-astronomy
+                widgets:
+                  - type: astronomy
+                    title: Sun & Moon
+                    latitude: 38.6270
+                    longitude: -90.1994
+                    timezone: America/Chicago
+                    at: 2026-09-29T20:00:00-05:00
+                    hour-format: 12h
+                    sections:
+                      - moon
+                      - sun
 
-              - type: astronomy
-                title: Planets
-                latitude: 38.6270
-                longitude: -90.1994
-                timezone: America/Chicago
-                at: 2026-09-29T20:00:00-05:00
-                hour-format: 12h
-                sections:
-                  - planets
+                  - type: astronomy
+                    title: Planets
+                    latitude: 38.6270
+                    longitude: -90.1994
+                    timezone: America/Chicago
+                    at: 2026-09-29T20:00:00-05:00
+                    hour-format: 12h
+                    sections:
+                      - planets
 
-              - type: astronomy
-                title: Stars
-                latitude: 38.6270
-                longitude: -90.1994
-                timezone: America/Chicago
-                at: 2026-09-29T20:00:00-05:00
-                hour-format: 12h
-                sections:
-                  - stars
+                  - type: astronomy
+                    title: Stars
+                    latitude: 38.6270
+                    longitude: -90.1994
+                    timezone: America/Chicago
+                    at: 2026-09-29T20:00:00-05:00
+                    hour-format: 12h
+                    sections:
+                      - stars
 
-              - type: astronomy
-                title: Upcoming
-                latitude: 38.6270
-                longitude: -90.1994
-                timezone: America/Chicago
-                at: 2026-09-29T20:00:00-05:00
-                hour-format: 12h
-                sections:
-                  - events
+                  - type: astronomy
+                    title: Upcoming
+                    latitude: 38.6270
+                    longitude: -90.1994
+                    timezone: America/Chicago
+                    at: 2026-09-29T20:00:00-05:00
+                    hour-format: 12h
+                    sections:
+                      - events
+
+              - type: group
+                title: Astrology
+                css-class: visual-fixture-astrology
+                widgets:
+                  - type: astrology
+                    title: Sun & Moon
+                    timezone: America/Chicago
+                    at: 2026-09-29T20:00:00-05:00
+                    hour-format: 12h
+                    sections:
+                      - sun-moon
+
+                  - type: astrology
+                    title: Planets
+                    timezone: America/Chicago
+                    at: 2026-09-29T20:00:00-05:00
+                    hour-format: 12h
+                    sections:
+                      - planets
+
+                  - type: astrology
+                    title: Aspects
+                    timezone: America/Chicago
+                    at: 2026-09-29T20:00:00-05:00
+                    hour-format: 12h
+                    sections:
+                      - aspects
+
+                  - type: astrology
+                    title: Upcoming
+                    timezone: America/Chicago
+                    at: 2026-09-29T20:00:00-05:00
+                    hour-format: 12h
+                    sections:
+                      - events
 
           - type: weather
             title: Weather

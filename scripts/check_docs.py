@@ -17,6 +17,7 @@ WIDGET_INDEX = DOCS / "widgets.md"
 EXPECTED_WIDGET_DOCS = {
     "analog-clock.md",
     "astronomy.md",
+    "astrology.md",
     "bookmarks.md",
     "calculator.md",
     "calendar-legacy.md",
