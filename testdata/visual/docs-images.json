@@ -155,6 +155,12 @@
     "route": "/search-custom-content",
     "selector": ".visual-fixture-custom-api"
   },
+  "widgets/dilbert.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "selector": ".visual-fixture-dilbert"
+  },
   "widgets/dns-stats.png": {
     "kind": "browser",
     "capture": "element",

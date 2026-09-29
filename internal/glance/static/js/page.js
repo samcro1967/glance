@@ -5,6 +5,7 @@ import { throttledDebounce, isElementVisible, openURLInNewTab } from './utils.js
 
 import { attachExpandToggleButton, setupCollapsibleList } from './collapsible-list.js';
 import { setupSearchBoxes } from './search.js';
+import setupImageExpander from './image-expand.js';
 import { updateRelativeTimeForElements, setupDynamicRelativeTime } from './relative-time.js';
 import { setupClocks, setupFooterMicroClocks, setupAnalogClocks } from './clocks.js';
 import { initThemePicker } from './theme.js';
@@ -58,6 +59,26 @@ async function fetchPageContent(pageData) {
     } finally {
         clearTimeout(timeout);
     }
+}
+
+function setupImageExpanders(root = document) {
+    const triggers = root.querySelectorAll("[data-image-expand]");
+    const cleanupCallbacks = [];
+
+    for (const trigger of triggers) {
+        const cleanup = setupImageExpander(trigger);
+
+        if (root === document) {
+            registerLiveWidgetCleanup(
+                trigger.closest("[data-widget-id]"),
+                cleanup
+            );
+        } else {
+            cleanupCallbacks.push(cleanup);
+        }
+    }
+
+    return cleanupCallbacks;
 }
 
 function setupCarousels(root = document) {
@@ -587,6 +608,10 @@ async function initializeContentRoot(root, diagnostics = false) {
     );
     cleanupCallbacks.push(
         ...runStage("status_bar_tickers", () => setupStatusBarTickers(root))
+    );
+
+    cleanupCallbacks.push(
+        ...runStage("image_expanders", () => setupImageExpanders(root))
     );
 
     runStage("collapsible_lists", () => setupCollapsibleLists(root));

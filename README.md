@@ -47,7 +47,7 @@ The detailed implementation history, provenance, compatibility contracts, and li
 
 ### Dashboard and widgets
 
-* RSS feeds, Reddit, Hacker News, Lobsters, YouTube, Twitch, releases, markets, weather, calendars, bookmarks, search, server statistics, Docker monitoring, and many more
+* RSS feeds, Reddit, Hacker News, Lobsters, Dilbert comics, YouTube, Twitch, releases, markets, weather, calendars, bookmarks, search, server statistics, Docker monitoring, and many more
 * Native Custom API, Extension, HTML, iframe, and Markdown options for custom content
 * Multiple pages, flexible column layouts, groups, nested groups, stacks, split columns, head widgets, and bottom widgets
 * Fork widgets including ICS Events, Timer, Stopwatch, Torrenting, ARR, Seerr, Latest Media, Media History, Now Playing, Unit Converter, Calculator, Analog Clock, Status Bar, and additional layout and utility components

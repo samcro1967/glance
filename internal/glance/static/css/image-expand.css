@@ -1,0 +1,53 @@
+.image-expand-dialog {
+    position: fixed;
+    max-width: min(96vw, 160rem);
+    max-height: 94vh;
+    padding: 1.2rem;
+    border: 1px solid var(--color-widget-content-border);
+    border-radius: var(--theme-card-radius, var(--border-radius));
+    background: var(--color-widget-background);
+    box-shadow: var(--theme-card-shadow, 0 1.5rem 5rem hsl(0 0% 0% / 0.45));
+    overflow: visible;
+}
+
+.image-expand-dialog::backdrop {
+    background: hsl(0 0% 0% / 0.72);
+}
+
+.image-expand-dialog-image {
+    display: block;
+    max-width: calc(96vw - 2.4rem);
+    max-height: calc(94vh - 2.4rem);
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    background: white;
+}
+
+.image-expand-dialog-close {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    width: 3.2rem;
+    height: 3.2rem;
+    font-size: 2.4rem;
+    line-height: 1;
+    background: var(--color-widget-background);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .image-expand-dialog[open] {
+        animation: image-expand-open 120ms ease-out;
+    }
+}
+
+@keyframes image-expand-open {
+    from {
+        opacity: 0;
+        transform: scale(0.985);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}

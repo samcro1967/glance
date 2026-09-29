@@ -59,6 +59,9 @@ var widgetRegistry = map[string]widgetDescriptor{
 	"html": {
 		constructor: func() widget { return &htmlWidget{} },
 	},
+	"dilbert": {
+		constructor: func() widget { return &dilbertWidget{} },
+	},
 	"hacker-news": {
 		constructor: func() widget { return &hackerNewsWidget{} },
 		capabilities: []widgetCapabilityDefinition{
