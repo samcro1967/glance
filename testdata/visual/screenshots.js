@@ -83,6 +83,35 @@ if (imageFilter && MODE !== 'docs') {
   throw new Error('--image is only supported in docs mode');
 }
 
+async function revealNestedGroupContent(locator) {
+  const tabpanels = [];
+  let current = locator;
+
+  // A documentation target may sit behind more than one Group tab. Collect
+  // each containing tabpanel from the target outward, then activate them in
+  // reverse order so every inner tab is visible before Playwright clicks it.
+  while (true) {
+    const tabpanel = current.locator('xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " widget-group-content ")][1]');
+
+    if ((await tabpanel.count()) === 0) break;
+
+    const tabpanelId = await tabpanel.getAttribute('id');
+    if (tabpanelId) tabpanels.push({ tabpanel, tabpanelId });
+
+    current = tabpanel;
+  }
+
+  for (let index = tabpanels.length - 1; index >= 0; index--) {
+    const { tabpanel, tabpanelId } = tabpanels[index];
+    const group = tabpanel.locator('xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " widget-type-group ")][1]');
+    const tab = group.locator(`.widget-group-title[aria-controls="${tabpanelId}"]`);
+
+    if ((await tab.getAttribute('aria-selected')) !== 'true') {
+      await tab.click();
+    }
+  }
+}
+
 function selectedQaPages() {
   const visualPages = JSON.parse(fs.readFileSync(VISUAL_PAGES_MAP, 'utf8'));
   const qaDashboards = Object.entries(visualPages)
@@ -410,14 +439,7 @@ async function captureDocs(browser) {
         const locator = page.locator(recipe.selector).nth(recipe.nth || 0);
 
         if (!(await locator.isVisible())) {
-          const tabpanel = locator.locator('xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " widget-group-content ")][1]');
-          const tabpanelId = await tabpanel.getAttribute('id');
-
-          if (tabpanelId) {
-            const group = tabpanel.locator('xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " widget-type-group ")][1]');
-            const tab = group.locator(`.widget-group-title[aria-controls="${tabpanelId}"]`);
-            await tab.click();
-          }
+          await revealNestedGroupContent(locator);
         }
 
         await locator.waitFor({ state: 'visible', timeout: 15000 });

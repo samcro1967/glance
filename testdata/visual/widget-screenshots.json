@@ -71,6 +71,14 @@
     "route": "/date-time-weather",
     "selector": ".visual-fixture-weather"
   },
+  "astronomy": {
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-astronomy"
+  },
+  "astrology": {
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-astrology"
+  },
   "calendar": {
     "route": "/date-time-weather",
     "selector": ".visual-fixture-calendar"
