@@ -1,0 +1,43 @@
+{{ template "widget-base.html" . }}
+
+{{ define "widget-content" }}
+<div class="astrology">
+    {{ if .ShowSunMoon }}
+    <div class="astrology-primary">
+        {{ range $i, $body := .Snapshot.Bodies }}{{ if lt $i 2 }}
+        <div class="astrology-primary-body">
+            <div class="astrology-primary-glyph">{{ .Glyph }}</div>
+            <div><div class="size-h3 color-highlight">{{ .Name }} in {{ .SignGlyph }} {{ .Sign }}</div><div class="size-h5 color-subdue">{{ .Degree }}° {{ printf "%02d" .Minute }}′</div></div>
+        </div>
+        {{ end }}{{ end }}
+    </div>
+    {{ end }}
+
+    {{ if .ShowPlanets }}
+    <div class="astrology-section">
+        <div class="astrology-section-title">Planets</div>
+        <div class="astrology-planet-grid">
+            {{ range $i, $body := .Snapshot.Bodies }}{{ if ge $i 2 }}
+            <div class="astrology-planet"><span class="astrology-glyph">{{ .Glyph }}</span><span class="color-highlight">{{ .Name }}</span><span>{{ .SignGlyph }} {{ .Sign }} {{ .Degree }}°{{ printf "%02d" .Minute }}′{{ if .Retrograde }} <span class="astrology-retrograde">℞</span>{{ end }}</span></div>
+            {{ end }}{{ end }}
+        </div>
+    </div>
+    {{ end }}
+
+    {{ if and .ShowAspects .Snapshot.Aspects }}
+    <div class="astrology-section">
+        <div class="astrology-section-title">Major aspects</div>
+        <div class="astrology-aspect-list">{{ range .Snapshot.Aspects }}<div class="astrology-aspect"><span>{{ .LeftGlyph }} {{ .LeftName }}</span><span class="astrology-aspect-symbol">{{ .Glyph }}</span><span>{{ .RightGlyph }} {{ .RightName }}</span><span class="color-subdue size-h6">{{ .Name }} · orb {{ printf "%.1f" .Orb }}°</span></div>{{ end }}</div>
+    </div>
+    {{ end }}
+
+    {{ if .ShowEvents }}
+    <div class="astrology-section">
+        <div class="astrology-section-title">Upcoming</div>
+        <div class="astrology-event-list">{{ range .Snapshot.Events }}<div class="astrology-event"><span>{{ .Name }}</span><span class="color-subdue size-h6">{{ $.FormatEventTime .Time }}</span></div>{{ end }}</div>
+    </div>
+    {{ end }}
+
+    <div class="astrology-note color-subdue size-h6">Tropical zodiac · geocentric apparent positions</div>
+</div>
+{{ end }}

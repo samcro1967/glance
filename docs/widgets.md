@@ -102,6 +102,8 @@ Set custom CSS classes for the specific widget instance.
 | Widget | Purpose |
 | --- | --- |
 | [Weather](widgets/weather.md) | Display current weather, details, hourly conditions, and forecast information. |
+| [Astronomy](widgets/astronomy.md) | Display local Sun, Moon, planet, bright-star, and upcoming sky-event information. |
+| [Astrology](widgets/astrology.md) | Display current tropical-zodiac positions, retrogrades, major aspects, and upcoming astrological events. |
 | [Calendar](widgets/calendar.md) | Display calendar events from configured sources. |
 | [ICS Events](widgets/ics-events.md) | Display upcoming events from ICS sources. |
 | [Calendar (legacy)](widgets/calendar-legacy.md) | Display the legacy calendar widget. |
