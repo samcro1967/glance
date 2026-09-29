@@ -107,6 +107,34 @@
     },
     "fullPage": true
   },
+  "widgets/astronomy-sun-moon.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-astronomy .widget-type-astronomy",
+    "nth": 0
+  },
+  "widgets/astronomy-planets.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-astronomy .widget-type-astronomy",
+    "nth": 1
+  },
+  "widgets/astronomy-stars.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-astronomy .widget-type-astronomy",
+    "nth": 2
+  },
+  "widgets/astronomy-upcoming.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-astronomy .widget-type-astronomy",
+    "nth": 3
+  },
   "widgets/analog-clock.png": {
     "kind": "browser",
     "capture": "element",

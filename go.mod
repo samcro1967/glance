@@ -11,6 +11,7 @@ require (
 	github.com/refraction-networking/utls v1.8.2
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/shirou/gopsutil/v4 v4.26.8
+	github.com/starainrt/astro v0.3.0
 	github.com/teambition/rrule-go v1.8.2
 	github.com/tidwall/gjson v1.19.0
 	github.com/yuin/goldmark v1.8.5

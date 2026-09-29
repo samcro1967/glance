@@ -1,0 +1,73 @@
+{{ template "widget-base.html" . }}
+
+{{ define "widget-content" }}
+<div class="astronomy">
+    {{ if .ShowMoon }}
+    <div class="astronomy-moon">
+        <div class="astronomy-moon-glyph" aria-hidden="true">{{ .Snapshot.Moon.PhaseGlyph }}</div>
+        <div>
+            <div class="size-h2 color-highlight">{{ .Snapshot.Moon.PhaseName }}</div>
+            <div class="size-h4">{{ .Snapshot.Moon.Illumination }}% illuminated · {{ printf "%.1f" .Snapshot.Moon.AgeDays }} days · {{ .Snapshot.Moon.Trend }}</div>
+            <div class="size-h5 color-subdue">Next: {{ .Snapshot.Moon.NextPhaseName }} · {{ .FormatEventTime .Snapshot.Moon.NextPhaseTime }}</div>
+        </div>
+    </div>
+    <div class="astronomy-key-values glance-key-values">
+        <div class="glance-key-value"><span class="glance-key">Moonrise</span><span class="glance-value">{{ .FormatTime .Snapshot.Moon.Rise }}</span></div>
+        <div class="glance-key-value"><span class="glance-key">Moonset</span><span class="glance-value">{{ .FormatTime .Snapshot.Moon.Set }}</span></div>
+    </div>
+    {{ end }}
+
+    {{ if .ShowSun }}
+    <div class="astronomy-section">
+        <div class="astronomy-section-title">Sun & Twilight</div>
+        <div class="astronomy-key-values glance-key-values">
+            <div class="glance-key-value"><span class="glance-key">Sunrise</span><span class="glance-value">{{ .FormatTime .Snapshot.Sun.Sunrise }}</span></div>
+            <div class="glance-key-value"><span class="glance-key">Sunset</span><span class="glance-value">{{ .FormatTime .Snapshot.Sun.Sunset }}</span></div>
+            <div class="glance-key-value"><span class="glance-key">Civil</span><span class="glance-value">{{ .FormatTime .Snapshot.Sun.CivilDawn }} – {{ .FormatTime .Snapshot.Sun.CivilDusk }}</span></div>
+            <div class="glance-key-value"><span class="glance-key">Astronomical</span><span class="glance-value">{{ .FormatTime .Snapshot.Sun.AstroDawn }} – {{ .FormatTime .Snapshot.Sun.AstroDusk }}</span></div>
+        </div>
+    </div>
+    {{ end }}
+
+    {{ if .ShowPlanets }}
+    <div class="astronomy-section">
+        <div class="astronomy-section-title">Planets</div>
+        <div class="astronomy-planet-list">
+            {{ range .Snapshot.Planets }}
+            <div class="astronomy-planet">
+                <div class="astronomy-object-glyph">{{ .Glyph }}</div>
+                <div class="astronomy-object-main">
+                    <div class="flex items-center gap-5"><span class="color-highlight">{{ .Name }}</span><span class="size-h6 color-subdue">{{ .Constellation }}</span></div>
+                    <div class="size-h6 color-subdue">Alt {{ printf "%.0f" .Altitude }}° · Az {{ printf "%.0f" .Azimuth }}° · mag {{ printf "%.1f" .Magnitude }}</div>
+                </div>
+                <div class="astronomy-visibility">{{ .Visibility }}</div>
+            </div>
+            {{ end }}
+        </div>
+    </div>
+    {{ end }}
+
+    {{ if and .ShowStars .Snapshot.Stars }}
+    <div class="astronomy-section">
+        <div class="astronomy-section-title">Bright Stars</div>
+        <div class="astronomy-star-grid">
+            {{ range .Snapshot.Stars }}
+            <div class="astronomy-star"><span class="color-highlight">{{ .Name }}</span><span class="size-h6 color-subdue">{{ .Constellation }} · {{ printf "%.0f" .Altitude }}°</span></div>
+            {{ end }}
+        </div>
+    </div>
+    {{ end }}
+
+    {{ if .ShowEvents }}
+    <div class="astronomy-section">
+        <div class="astronomy-section-title">Upcoming</div>
+        <div class="astronomy-event-list">
+            {{ range .Snapshot.Events }}
+            <div class="astronomy-event"><span class="astronomy-event-name">{{ .Name }}</span><span class="astronomy-event-date">{{ $.FormatEventTime .Time }}{{ if .Note }} · {{ .Note }}{{ end }}</span></div>
+            {{ end }}
+        </div>
+    </div>
+    {{ end }}
+    <div class="astronomy-location color-subdue size-h6">{{ .Observer.Label }} · calculated locally</div>
+</div>
+{{ end }}
