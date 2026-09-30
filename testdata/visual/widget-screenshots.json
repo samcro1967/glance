@@ -79,6 +79,10 @@
     "route": "/date-time-weather",
     "selector": ".visual-fixture-astrology"
   },
+  "horoscope": {
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-horoscope"
+  },
   "calendar": {
     "route": "/date-time-weather",
     "selector": ".visual-fixture-calendar"

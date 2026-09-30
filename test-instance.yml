@@ -740,6 +740,25 @@ pages:
                     sections:
                       - events
 
+              - type: group
+                title: Horoscope
+                css-class: visual-fixture-horoscope
+                widgets:
+                  - type: horoscope
+                    title: Daily
+                    signs: [cancer, libra]
+                    periods: [daily]
+
+                  - type: horoscope
+                    title: Weekly
+                    signs: [cancer, libra]
+                    periods: [weekly]
+
+                  - type: horoscope
+                    title: Monthly
+                    signs: [cancer, libra]
+                    periods: [monthly]
+
           - type: weather
             title: Weather
             css-class: visual-fixture-weather
