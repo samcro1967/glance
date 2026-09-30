@@ -135,6 +135,27 @@
     "selector": ".visual-fixture-astrology .widget-type-astrology",
     "nth": 3
   },
+  "widgets/horoscope-daily.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-horoscope .widget-type-horoscope",
+    "nth": 0
+  },
+  "widgets/horoscope-weekly.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-horoscope .widget-type-horoscope",
+    "nth": 1
+  },
+  "widgets/horoscope-monthly.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-horoscope .widget-type-horoscope",
+    "nth": 2
+  },
   "widgets/astronomy-sun-moon.png": {
     "kind": "browser",
     "capture": "element",

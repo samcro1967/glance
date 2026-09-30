@@ -1,0 +1,26 @@
+{{ template "widget-base.html" . }}
+
+{{ define "widget-content" }}
+<div class="horoscope">
+    {{ range .Readings }}
+    <div class="horoscope-period">
+        {{ if gt (len $.Periods) 1 }}<div class="horoscope-period-title">{{ $.PeriodTitle .Period }}</div>{{ end }}
+        <div class="horoscope-readings">
+            {{ range .Readings }}
+            <article class="horoscope-reading">
+                <div class="horoscope-heading">
+                    <span class="horoscope-glyph" aria-hidden="true">{{ .Glyph }}</span>
+                    <div>
+                        <div class="size-h3 color-highlight">{{ .Sign }}</div>
+                        {{ if .Date }}<div class="size-h6 color-subdue">{{ .Date }}</div>{{ end }}
+                    </div>
+                </div>
+                <div class="horoscope-text">{{ .Horoscope }}</div>
+            </article>
+            {{ end }}
+        </div>
+    </div>
+    {{ end }}
+    <div class="horoscope-source color-subdue size-h6">Source: Free Horoscope API</div>
+</div>
+{{ end }}
