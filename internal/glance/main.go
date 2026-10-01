@@ -17,6 +17,14 @@ import (
 
 var buildVersion = "dev"
 var buildRevision = ""
+var docsREADME []byte
+var docsContributing []byte
+
+func MainWithRootDocs(readme, contributing []byte) int {
+	docsREADME = readme
+	docsContributing = contributing
+	return Main()
+}
 
 func Main() int {
 	options, err := parseCliOptions()

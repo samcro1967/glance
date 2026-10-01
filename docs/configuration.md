@@ -1340,4 +1340,4 @@ Widgets are the individual components used to build Glance pages. See the [widge
 
 ---
 
-[Glance README](../README.md) · [Widgets](widgets.md) · [Back to top](#configuring-glance)
+[Glance README](../README.md) · [Widgets](widgets.md) · [Themes](themes.md) · [Preconfigured pages](preconfigured-pages.md) · [Back to top](#configuring-glance)

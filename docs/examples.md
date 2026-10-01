@@ -20,4 +20,4 @@ See [Custom API Monitoring](examples/custom-api/monitoring/README.md) for the sh
 
 ---
 
-[Glance README](../README.md) · [Configuration](configuration.md) · [Widgets](widgets.md) · [Preconfigured pages](preconfigured-pages.md) · [Back to top](#examples)
+[Glance README](../README.md) · [Configuration](configuration.md) · [Widgets](widgets.md) · [Custom API](widgets/custom-api.md) · [Preconfigured pages](preconfigured-pages.md) · [Back to top](#examples)

@@ -1,0 +1,98 @@
+.docs-layout {
+    display: grid;
+    grid-template-columns: minmax(18rem, 24rem) minmax(0, 1fr);
+    gap: var(--widget-gap);
+    padding-top: var(--widget-gap);
+    padding-bottom: var(--widget-gap);
+}
+
+.docs-navigation,
+.docs-content {
+    background: var(--color-widget-background);
+    border-radius: var(--border-radius);
+    padding: var(--widget-content-padding);
+}
+
+.docs-navigation {
+    align-self: start;
+    position: sticky;
+    top: calc(var(--widget-gap) + 5rem);
+    max-height: calc(100vh - 8rem);
+    overflow-y: auto;
+}
+
+.docs-navigation-title {
+    color: var(--color-text-highlight);
+    font-size: var(--font-size-h3);
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.docs-navigation nav {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.docs-navigation-link {
+    display: block;
+    padding: 0.45rem 0.65rem;
+    border-radius: var(--border-radius);
+    color: var(--color-text-base);
+    text-decoration: none;
+}
+
+.docs-navigation-link:hover {
+    color: var(--color-text-highlight);
+    background: var(--color-widget-background-highlight);
+}
+
+.docs-navigation-link-current {
+    color: var(--color-text-highlight);
+    background: var(--color-widget-background-highlight);
+}
+
+.docs-content {
+    min-width: 0;
+}
+
+.docs-content .markdown-content {
+    max-width: 100%;
+}
+
+@media (max-width: 700px) {
+    .docs-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .docs-navigation {
+        position: static;
+        max-height: none;
+    }
+}
+
+.docs-navigation-section {
+    color: var(--color-text-highlight);
+    font-weight: 600;
+    margin: 1.2rem 0 0.4rem;
+    padding: 0 0.65rem;
+}
+
+
+.docs-navigation-link-level-1 {
+    padding-left: 1.4rem;
+}
+
+.docs-navigation-link-level-2 {
+    padding-left: 2.4rem;
+}
+
+.docs-navigation-section-link {
+    display: block;
+    text-decoration: none;
+    border-radius: var(--border-radius);
+}
+
+.docs-navigation-section-link:hover {
+    background: var(--color-widget-background-highlight);
+}

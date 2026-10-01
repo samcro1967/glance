@@ -1,5 +1,9 @@
 # Contributing to Glance
 
+[Glance README](README.md) · [About this fork](docs/fork.md) · [Adding a widget](docs/adding-a-widget.md)
+
+---
+
 Thank you for contributing to this Glance fork.
 
 This repository is a maintained, substantially extended distribution of upstream Glance. It preserves upstream configuration compatibility and the familiar Glance user experience while maintaining additional functionality, architectural extensions, reliability improvements, operational hardening, diagnostics, regression protection, and controlled development, release, and deployment tooling.
@@ -451,3 +455,7 @@ Avoid unnecessary divergence. Where practical, changes should preserve existing 
 When functionality is derived from an upstream pull request, issue, or another Glance-derived project, preserve appropriate provenance in the fork documentation.
 
 The goal is not to change functioning areas solely for abstraction, cleanup, or coverage. Changes should address required functionality, observed defects, maintainability needs with concrete benefit, worthwhile upstream work, security or dependency maintenance, or meaningful regression protection.
+
+---
+
+[Glance README](README.md) · [About this fork](docs/fork.md) · [Adding a widget](docs/adding-a-widget.md) · [Back to top](#contributing-to-glance)
