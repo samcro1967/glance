@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/base64"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -2630,5 +2631,129 @@ func TestResolveAuthenticatedSessionLegacyOIDCRejectedWhenAllowedUsersConfigured
 	request.AddCookie(&http.Cookie{Name: AUTH_SESSION_COOKIE_NAME, Value: token})
 	if _, authorized := app.resolveAuthenticatedSession(request, time.Now()); authorized {
 		t.Fatal("legacy OIDC session without authorization identity bypassed allowed-users")
+	}
+}
+
+func TestHandleAuthenticationAttemptBoundsFailedClientState(t *testing.T) {
+	app := newAuthTestApplication(t)
+	now := time.Now()
+
+	for i := range AUTH_RATE_LIMIT_MAX_CLIENTS {
+		app.failedAuthAttempts[fmt.Sprintf("198.51.%d.%d", i/256, i%256)] = &failedAuthAttempt{
+			attempts: 1,
+			first:    now,
+		}
+	}
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/authenticate",
+		strings.NewReader(`{`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	req.RemoteAddr = "203.0.113.1:12345"
+	rec := httptest.NewRecorder()
+
+	app.handleAuthenticationAttempt(rec, req)
+
+	if rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusTooManyRequests)
+	}
+	if len(app.failedAuthAttempts) != AUTH_RATE_LIMIT_MAX_CLIENTS {
+		t.Fatalf(
+			"failed auth clients = %d, want hard bound %d",
+			len(app.failedAuthAttempts),
+			AUTH_RATE_LIMIT_MAX_CLIENTS,
+		)
+	}
+	if _, exists := app.failedAuthAttempts["203.0.113.1"]; exists {
+		t.Fatal("expected unseen client not to be admitted at capacity")
+	}
+	if _, exists := app.failedAuthAttempts["198.51.0.0"]; !exists {
+		t.Fatal("expected active rate-limit state not to be evicted at capacity")
+	}
+}
+
+func TestHandleAuthenticationAttemptKeepsExistingClientAtCapacity(t *testing.T) {
+	app := newAuthTestApplication(t)
+	now := time.Now()
+	const clientIP = "198.51.0.0"
+
+	for i := range AUTH_RATE_LIMIT_MAX_CLIENTS {
+		app.failedAuthAttempts[fmt.Sprintf("198.51.%d.%d", i/256, i%256)] = &failedAuthAttempt{
+			attempts: 1,
+			first:    now,
+		}
+	}
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/authenticate",
+		strings.NewReader(`{`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	req.RemoteAddr = clientIP + ":12345"
+	rec := httptest.NewRecorder()
+
+	app.handleAuthenticationAttempt(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+	if got := app.failedAuthAttempts[clientIP].attempts; got != 2 {
+		t.Fatalf("existing client attempts = %d, want 2", got)
+	}
+	if len(app.failedAuthAttempts) != AUTH_RATE_LIMIT_MAX_CLIENTS {
+		t.Fatalf(
+			"failed auth clients = %d, want %d",
+			len(app.failedAuthAttempts),
+			AUTH_RATE_LIMIT_MAX_CLIENTS,
+		)
+	}
+}
+
+func TestHandleAuthenticationAttemptReclaimsExpiredCapacity(t *testing.T) {
+	app := newAuthTestApplication(t)
+	now := time.Now()
+	const expiredIP = "198.51.0.0"
+	const newIP = "203.0.113.1"
+
+	for i := range AUTH_RATE_LIMIT_MAX_CLIENTS {
+		first := now
+		if i == 0 {
+			first = now.Add(-AUTH_RATE_LIMIT_WINDOW - time.Second)
+		}
+		app.failedAuthAttempts[fmt.Sprintf("198.51.%d.%d", i/256, i%256)] = &failedAuthAttempt{
+			attempts: 1,
+			first:    first,
+		}
+	}
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/authenticate",
+		strings.NewReader(`{`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	req.RemoteAddr = newIP + ":12345"
+	rec := httptest.NewRecorder()
+
+	app.handleAuthenticationAttempt(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusBadRequest)
+	}
+	if _, exists := app.failedAuthAttempts[expiredIP]; exists {
+		t.Fatal("expected expired rate-limit state to be reclaimed")
+	}
+	if _, exists := app.failedAuthAttempts[newIP]; !exists {
+		t.Fatal("expected new client to use reclaimed capacity")
+	}
+	if len(app.failedAuthAttempts) != AUTH_RATE_LIMIT_MAX_CLIENTS {
+		t.Fatalf(
+			"failed auth clients = %d, want %d",
+			len(app.failedAuthAttempts),
+			AUTH_RATE_LIMIT_MAX_CLIENTS,
+		)
 	}
 }

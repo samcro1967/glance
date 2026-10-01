@@ -23,6 +23,7 @@ import (
 const AUTH_SESSION_COOKIE_NAME = "session_token"
 const AUTH_RATE_LIMIT_WINDOW = 5 * time.Minute
 const AUTH_RATE_LIMIT_MAX_ATTEMPTS = 5
+const AUTH_RATE_LIMIT_MAX_CLIENTS = 4096
 
 const AUTH_TOKEN_SECRET_LENGTH = 32
 const AUTH_USERNAME_HASH_LENGTH = 32
@@ -851,18 +852,43 @@ func (a *application) handleAuthenticationAttempt(w http.ResponseWriter, r *http
 	ip := a.addressOfRequest(r)
 
 	a.authAttemptsMu.Lock()
+	now := time.Now()
+	oldestActiveAttempt := now
+
+	// Expired rate-limit state no longer protects the login endpoint and must
+	// not consume capacity that could be used to track a current client. Keep
+	// the oldest active timestamp so a capacity rejection can advertise when
+	// the first occupied slot is expected to become available.
+	for ipOfAttempt, attempt := range a.failedAuthAttempts {
+		if now.Sub(attempt.first) > AUTH_RATE_LIMIT_WINDOW {
+			delete(a.failedAuthAttempts, ipOfAttempt)
+			continue
+		}
+		if attempt.first.Before(oldestActiveAttempt) {
+			oldestActiveAttempt = attempt.first
+		}
+	}
+
 	exceededRateLimit, retryAfter := func() (bool, int) {
 		attempt, exists := a.failedAuthAttempts[ip]
 		if !exists {
+			// Failed-login state is security state rather than a cache. Never evict
+			// an active client's record to admit a new address, because doing so
+			// could allow address churn to bypass the per-client rate limit.
+			if len(a.failedAuthAttempts) >= AUTH_RATE_LIMIT_MAX_CLIENTS {
+				elapsed := now.Sub(oldestActiveAttempt)
+				return true, max(1, int(AUTH_RATE_LIMIT_WINDOW.Seconds()-elapsed.Seconds()))
+			}
+
 			a.failedAuthAttempts[ip] = &failedAuthAttempt{
 				attempts: 1,
-				first:    time.Now(),
+				first:    now,
 			}
 
 			return false, 0
 		}
 
-		elapsed := time.Since(attempt.first)
+		elapsed := now.Sub(attempt.first)
 		if elapsed < AUTH_RATE_LIMIT_WINDOW && attempt.attempts >= AUTH_RATE_LIMIT_MAX_ATTEMPTS {
 			return true, max(1, int(AUTH_RATE_LIMIT_WINDOW.Seconds()-elapsed.Seconds()))
 		}
@@ -871,20 +897,13 @@ func (a *application) handleAuthenticationAttempt(w http.ResponseWriter, r *http
 		return false, 0
 	}()
 
+	a.authAttemptsMu.Unlock()
+
 	if exceededRateLimit {
-		a.authAttemptsMu.Unlock()
 		time.Sleep(waitOnFailure)
 		w.Header().Set("Retry-After", strconv.Itoa(retryAfter))
 		w.WriteHeader(http.StatusTooManyRequests)
 		return
-	} else {
-		// Clean up old failed attempts
-		for ipOfAttempt := range a.failedAuthAttempts {
-			if time.Since(a.failedAuthAttempts[ipOfAttempt].first) > AUTH_RATE_LIMIT_WINDOW {
-				delete(a.failedAuthAttempts, ipOfAttempt)
-			}
-		}
-		a.authAttemptsMu.Unlock()
 	}
 
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 512*1024))
