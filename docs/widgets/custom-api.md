@@ -1172,4 +1172,4 @@ Invalid static table or chart configuration is rejected during widget initializa
 
 ---
 
-[Widgets](../widgets.md) · [Configuration](../configuration.md) · [Glance README](../../README.md) · [Back to top](#custom-api)
+[Widgets](../widgets.md) · [Configuration](../configuration.md) · [Examples](../examples.md#custom-api) · [Glance README](../../README.md) · [Back to top](#custom-api)

@@ -77,6 +77,8 @@
 
 @import "site.css";
 @import "widgets.css";
+@import "widget-markdown.css";
+@import "docs.css";
 @import "popover.css";
 @import "utils.css";
 @import "vendor/datatables/dataTables.dataTables.min.css";

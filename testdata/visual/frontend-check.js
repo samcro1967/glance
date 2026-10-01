@@ -1370,6 +1370,39 @@ async function main() {
       );
     }
 
+    const fixtureCalendarMonth = '2026-09';
+    const previousCalendarButton = calendar.locator(
+      'button[aria-label="Previous month"]'
+    );
+
+    for (let attempts = 0; attempts < 120; attempts++) {
+      const displayedMonth = await calendar.getAttribute(
+        'data-calendar-displayed-month'
+      );
+
+      if (displayedMonth === fixtureCalendarMonth) {
+        break;
+      }
+
+      if (!displayedMonth || displayedMonth < fixtureCalendarMonth) {
+        throw new Error(
+          `Calendar cannot navigate backward from ${displayedMonth} to fixture month ${fixtureCalendarMonth}`
+        );
+      }
+
+      await previousCalendarButton.click();
+    }
+
+    const fixtureDisplayedMonth = await calendar.getAttribute(
+      'data-calendar-displayed-month'
+    );
+
+    if (fixtureDisplayedMonth !== fixtureCalendarMonth) {
+      throw new Error(
+        `Calendar did not reach fixture month ${fixtureCalendarMonth}: ${fixtureDisplayedMonth}`
+      );
+    }
+
     await calendar.locator('[data-calendar-date="2026-09-23"]').click();
 
     const timedCalendarEvent = calendar.locator('.calendar-event', {

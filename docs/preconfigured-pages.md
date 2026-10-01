@@ -229,4 +229,4 @@ Pull requests with your page configurations are welcome!
 
 ---
 
-[Glance README](../README.md) · [Configuration](configuration.md) · [Widgets](widgets.md) · [Back to top](#preconfigured-pages)
+[Glance README](../README.md) · [Configuration](configuration.md) · [Widgets](widgets.md) · [Examples](examples.md) · [Back to top](#preconfigured-pages)

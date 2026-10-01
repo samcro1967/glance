@@ -260,4 +260,4 @@ The repository Makefile is the authoritative interface for normal development, t
 
 See **[CONTRIBUTING.md](CONTRIBUTING.md)** for development practices, implementation expectations, testing requirements, frontend and visual-QA workflows, documentation screenshots, and pull-request validation.
 
-See **[About this fork](docs/fork.md#development-and-ci-validation)** for the complete branch, CI, release, image-publication, deployment, and upstream-maintenance architecture.
+See **[About this fork](docs/fork.md)** for the complete branch, CI, release, image-publication, deployment, and upstream-maintenance architecture.

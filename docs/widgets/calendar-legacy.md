@@ -37,4 +37,4 @@ Whether calendar weeks start on Sunday or Monday.
 
 ---
 
-[Widgets](../widgets.md) · [Configuration](../configuration.md) · [Back to top](#calendar-legacy)
+[Widgets](../widgets.md) · [Calendar](calendar.md) · [Configuration](../configuration.md) · [Back to top](#calendar-legacy)

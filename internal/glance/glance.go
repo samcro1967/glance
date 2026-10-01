@@ -21,6 +21,7 @@ import (
 
 var (
 	pageTemplate        = mustParseTemplate("page.html", "document.html", "footer.html")
+	docsTemplate        = mustParseTemplate("docs.html", "document.html", "footer.html")
 	notFoundTemplate    = mustParseTemplate("not-found.html", "document.html", "footer.html")
 	pageContentTemplate = mustParseTemplate("page-content.html")
 	manifestTemplate    = mustParseTemplate("manifest.json")
@@ -28,11 +29,12 @@ var (
 
 const STATIC_ASSETS_CACHE_DURATION = 24 * time.Hour
 
-var reservedPageSlugs = []string{"login", "logout"}
+var reservedPageSlugs = []string{"docs", "login", "logout"}
 
 var reservedDashboardSlugs = []string{
 	"api",
 	"assets",
+	"docs",
 	"login",
 	"logout",
 	"manifest.json",
@@ -676,6 +678,7 @@ type templateData struct {
 	Dashboards      []*dashboard
 	Dashboard       *dashboard
 	DashboardPath   string
+	Docs            *docsPageData
 	Request         templateRequestData
 }
 
@@ -1172,6 +1175,11 @@ func (a *application) VersionedAssetPath(asset string) string {
 
 func (a *application) router() http.Handler {
 	mux := http.NewServeMux()
+
+	mux.HandleFunc("GET /docs", a.handleDocsRequest)
+	mux.HandleFunc("GET /docs/{$}", a.handleDocsRequest)
+	mux.HandleFunc("GET /docs/assets/{path...}", a.handleDocsAssetRequest)
+	mux.HandleFunc("GET /docs/{path...}", a.handleDocsRequest)
 
 	mux.HandleFunc("GET /{$}", a.handlePageRequest)
 	mux.HandleFunc("GET /{page}", a.handlePageRequest)
