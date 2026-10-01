@@ -145,8 +145,11 @@ func TestRenderDocsMarkdown(t *testing.T) {
 	}
 }
 
-func TestRenderTrustedReadmeRewritesRawHTMLAssets(t *testing.T) {
-	source := []byte(`<p align="center"><img src="docs/logo.png"></p>`)
+func TestRenderTrustedReadmeRewritesRawHTMLDestinations(t *testing.T) {
+	source := []byte(`<p align="center"><img src="docs/logo.png"></p>
+<a href="#installation">Install</a>
+<a href="docs/configuration.md#configuring-glance">Configuration</a>
+<a href="docs/widgets.md">Widgets</a>`)
 
 	rendered, err := renderDocsMarkdown(
 		newTrustedDocumentationMarkdownRenderer(),
@@ -159,8 +162,19 @@ func TestRenderTrustedReadmeRewritesRawHTMLAssets(t *testing.T) {
 	}
 
 	body := string(rendered)
-	if !strings.Contains(body, `src="/glance/docs/assets/logo.png"`) {
-		t.Fatalf("trusted README asset was not rewritten: %s", body)
+	for _, expected := range []string{
+		`src="/glance/docs/assets/logo.png"`,
+		`href="#installation"`,
+		`href="/glance/docs#configuration"`,
+		`href="/glance/docs/widgets"`,
+	} {
+		if !strings.Contains(body, expected) {
+			t.Errorf("trusted README missing rewritten destination %q: %s", expected, body)
+		}
+	}
+
+	if strings.Contains(body, `href="docs/configuration.md`) {
+		t.Fatalf("trusted README retained raw Markdown destination: %s", body)
 	}
 }
 

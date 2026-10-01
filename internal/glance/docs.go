@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"regexp"
 	"strings"
 
 	glancedocs "github.com/samcro1967/glance/docs"
@@ -63,6 +64,32 @@ func readDocsDocument(requestPath string) ([]byte, string, error) {
 	}
 
 	return source, filePath, nil
+}
+
+var trustedReadmeHTMLDestinationPattern = regexp.MustCompile(`(href|src)="([^"]+)"`)
+
+func rewriteTrustedReadmeHTMLDestinations(source []byte, baseURL string) []byte {
+	return trustedReadmeHTMLDestinationPattern.ReplaceAllFunc(source, func(attribute []byte) []byte {
+		parts := trustedReadmeHTMLDestinationPattern.FindSubmatch(attribute)
+		if len(parts) != 3 {
+			return attribute
+		}
+
+		name := string(parts[1])
+		target := string(parts[2])
+
+		// The README navigation links Configuration to the detailed reference
+		// for GitHub. In the in-app README, keep that top navigation on the
+		// README itself, matching the existing Installation anchor behavior.
+		if name == "href" &&
+			target == "docs/configuration.md#configuring-glance" {
+			return []byte(name + `="` + baseURL + `/docs#configuration"`)
+		}
+
+		rewritten := docsURLForTarget("README.md", target, baseURL, name == "src")
+
+		return []byte(name + `="` + rewritten + `"`)
+	})
 }
 
 func docsURLForTarget(currentDocument, target, baseURL string, image bool) string {
@@ -152,11 +179,7 @@ func renderDocsMarkdown(
 	baseURL string,
 ) (template.HTML, error) {
 	if documentPath == "README.md" {
-		source = bytes.ReplaceAll(
-			source,
-			[]byte(`src="docs/`),
-			[]byte(`src="`+baseURL+`/docs/assets/`),
-		)
+		source = rewriteTrustedReadmeHTMLDestinations(source, baseURL)
 	}
 
 	reader := text.NewReader(source)
