@@ -1,0 +1,128 @@
+{{ template "document.html" . }}
+
+{{ define "document-title" }}{{ .Docs.Title }} - Documentation{{ end }}
+
+{{ define "document-head-after" }}{{ end }}
+
+{{ define "document-body" }}
+<div class="flex flex-column body-content">
+    <div class="header-container content-bounds">
+        <div class="header flex padding-inline-widget widget-content-frame">
+            <div
+                class="logo dashboard-switcher"
+                data-popover-type="html"
+                data-popover-position="below"
+                data-popover-show-delay="0"
+                data-popover-trigger="click"
+                role="button"
+                tabindex="0"
+                aria-label="Application menu"
+                title="Application menu"
+            >
+                {{ if .App.Config.Branding.LogoURL }}
+                <img src="{{ .App.Config.Branding.LogoURL }}" alt="">
+                {{ else if .App.Config.Branding.LogoText }}
+                {{ .App.Config.Branding.LogoText }}
+                {{ else }}
+                <strong>Glance</strong>
+                {{ end }}
+
+                <div data-popover-html>
+                    <div class="dashboard-switcher-menu">
+                        {{ range .Dashboards }}
+                        <a href="{{ $.App.Config.Server.BaseURL }}{{ if .Slug }}/{{ .Slug }}/{{ else }}/{{ end }}" class="dashboard-switcher-link">
+                            <span>{{ .Name }}</span>
+                        </a>
+                        {{ end }}
+                        <a href="{{ .App.Config.Server.BaseURL }}/docs" class="dashboard-switcher-link dashboard-switcher-link-current" aria-current="true">
+                            <span>Docs</span>
+                            <span aria-hidden="true">✓</span>
+                        </a>
+                        {{ if .Request.AuthDisplayName }}
+                        <div class="dashboard-switcher-link">
+                            <span>
+                                <strong>{{ .Request.AuthDisplayName }}</strong><br>
+                                <small>{{ .Request.AuthDescription }}</small>
+                            </span>
+                        </div>
+                        {{ end }}
+                        {{ if .App.RequiresAuth }}
+                        <form method="post" action="{{ .App.Config.Server.BaseURL }}/logout">
+                            <button type="submit" class="dashboard-switcher-link dashboard-switcher-action">
+                                <span>Log out</span>
+                            </button>
+                        </form>
+                        {{ end }}
+                    </div>
+                </div>
+            </div>
+
+            <nav class="desktop-navigation flex grow hide-scrollbars">
+                <a href="{{ .App.Config.Server.BaseURL }}/docs" class="nav-item">
+                    <div class="nav-item-text">Home</div>
+                </a>
+            </nav>
+
+            {{ if not .App.Config.Theme.DisablePicker }}
+            <div class="theme-picker self-center" data-popover-type="html" data-popover-position="below" data-popover-show-delay="0">
+                <div class="current-theme-preview">
+                    {{ .Request.Theme.PreviewHTML }}
+                </div>
+                <div data-popover-html>
+                    <div class="theme-choices"></div>
+                </div>
+            </div>
+            {{ end }}
+        </div>
+    </div>
+    <div class="header-container-spacer"></div>
+
+    <div class="docs-layout content-bounds grow">
+        <aside class="docs-navigation widget-content-frame">
+            <div class="docs-navigation-title">Documentation</div>
+            <nav>
+                {{ range .Docs.GeneralDocs }}
+                <a
+                    href="{{ $.App.Config.Server.BaseURL }}/docs/{{ .Path }}"
+                    class="docs-navigation-link{{ if eq .Path $.Docs.Path }} docs-navigation-link-current{{ end }}"
+                    {{ if eq .Path $.Docs.Path }}aria-current="page"{{ end }}
+                >{{ .Title }}</a>
+                {{ end }}
+
+                <a
+                    href="{{ .App.Config.Server.BaseURL }}/docs/examples"
+                    class="docs-navigation-section docs-navigation-section-link{{ if eq .Docs.Path "examples" }} docs-navigation-link-current{{ end }}"
+                    {{ if eq .Docs.Path "examples" }}aria-current="page"{{ end }}
+                >Examples</a>
+                {{ range .Docs.ExampleDocs }}
+                {{ if ne .Path "examples" }}
+                <a
+                    href="{{ $.App.Config.Server.BaseURL }}/docs/{{ .Path }}"
+                    class="docs-navigation-link{{ if eq .Level 1 }} docs-navigation-link-level-1{{ else if eq .Level 2 }} docs-navigation-link-level-2{{ end }}{{ if eq .Path $.Docs.Path }} docs-navigation-link-current{{ end }}"
+                    {{ if eq .Path $.Docs.Path }}aria-current="page"{{ end }}
+                >{{ .Title }}</a>
+                {{ end }}
+                {{ end }}
+
+                <div class="docs-navigation-section">Widgets</div>
+                {{ range .Docs.WidgetDocs }}
+                <a
+                    href="{{ $.App.Config.Server.BaseURL }}/docs/{{ .Path }}"
+                    class="docs-navigation-link{{ if eq .Path $.Docs.Path }} docs-navigation-link-current{{ end }}"
+                    {{ if eq .Path $.Docs.Path }}aria-current="page"{{ end }}
+                >{{ .Title }}</a>
+                {{ end }}
+            </nav>
+        </aside>
+
+        <main class="docs-content widget-content-frame">
+            <article class="markdown-content">
+                {{ .Docs.Content }}
+            </article>
+        </main>
+    </div>
+
+    {{ template "footer.html" . }}
+    <div class="mobile-navigation-offset"></div>
+</div>
+{{ end }}

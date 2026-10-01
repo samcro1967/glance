@@ -1,7 +1,6 @@
 package glance
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"html/template"
@@ -10,7 +9,6 @@ import (
 	"time"
 
 	"github.com/yuin/goldmark"
-	goldmarkextension "github.com/yuin/goldmark/extension"
 )
 
 var markdownWidgetTemplate = mustParseTemplate("markdown.html", "widget-base.html")
@@ -33,12 +31,10 @@ func (widget *markdownWidget) initialize() error {
 		return fmt.Errorf("markdown widget must specify exactly one of source or file")
 	}
 
-	widget.markdown = goldmark.New(
-		goldmark.WithExtensions(goldmarkextension.GFM),
-	)
+	widget.markdown = newMarkdownRenderer()
 
 	if hasSource {
-		content, err := widget.renderMarkdown([]byte(widget.Source))
+		content, err := renderMarkdown(widget.markdown, []byte(widget.Source))
 		if err != nil {
 			return err
 		}
@@ -66,22 +62,12 @@ func (widget *markdownWidget) update(ctx context.Context) {
 		return
 	}
 
-	content, err := widget.renderMarkdown(body)
+	content, err := renderMarkdown(widget.markdown, body)
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
 		return
 	}
 
 	widget.Content = content
-}
-
-func (widget *markdownWidget) renderMarkdown(source []byte) (template.HTML, error) {
-	var output bytes.Buffer
-
-	if err := widget.markdown.Convert(source, &output); err != nil {
-		return "", fmt.Errorf("rendering markdown: %w", err)
-	}
-
-	return template.HTML(output.String()), nil
 }
 
 func (widget *markdownWidget) Render() template.HTML {

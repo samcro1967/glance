@@ -155,4 +155,4 @@ Set custom CSS classes for the specific widget instance.
 
 ---
 
-[Glance README](../README.md) · [Configuration](configuration.md) · [Back to top](#widgets)
+[Glance README](../README.md) · [Configuration](configuration.md) · [Adding a widget](adding-a-widget.md) · [Back to top](#widgets)

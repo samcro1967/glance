@@ -1,5 +1,9 @@
 # Adding a widget
 
+[Glance README](../README.md) · [Contributing](../CONTRIBUTING.md) · [Widgets](widgets.md)
+
+---
+
 This guide defines the repository-specific workflow for adding a native Glance widget. It supplements [Contributing to Glance](../CONTRIBUTING.md); the general development, testing, security, compatibility, and lifecycle requirements in that document still apply.
 
 The goal is not merely to make a widget render. A new widget should fit the existing Glance architecture, visual language, refresh lifecycle, deterministic test fixture, documentation system, and validation workflow without creating unnecessary parallel infrastructure.
@@ -263,3 +267,7 @@ Before considering a new widget ready for integration, confirm that:
 - real provider/runtime behavior was validated when applicable;
 - `make check` and `make validate` pass at the appropriate stages;
 - the complete diff contains only intended changes.
+
+---
+
+[Contributing](../CONTRIBUTING.md) · [Widgets](widgets.md) · [Back to top](#adding-a-widget)
