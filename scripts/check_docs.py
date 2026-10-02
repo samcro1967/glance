@@ -66,6 +66,7 @@ EXPECTED_WIDGET_DOCS = {
     "videos.md",
     "weather.md",
     "word-of-the-day.md",
+    "quote-of-the-day.md",
     "on-this-day.md",
 }
 

@@ -57,6 +57,10 @@ var widgetRegistry = map[string]widgetDescriptor{
 		constructor:  func() widget { return &wordOfTheDayWidget{} },
 		capabilities: []widgetCapabilityDefinition{{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance}},
 	},
+	"quote-of-the-day": {
+		constructor:  func() widget { return &quoteOfTheDayWidget{} },
+		capabilities: []widgetCapabilityDefinition{{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance}},
+	},
 	"trivia": {
 		constructor: func() widget { return &triviaWidget{} },
 	},

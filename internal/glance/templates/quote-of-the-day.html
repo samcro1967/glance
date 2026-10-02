@@ -1,0 +1,8 @@
+{{ template "widget-base.html" . }}
+{{ define "widget-content" }}
+<article class="quote-of-the-day">
+  <blockquote class="quote-of-the-day-quote">{{ .Entry.Quote }}</blockquote>
+  <div class="quote-of-the-day-author color-highlight">— <a href="{{ .Entry.AuthorURL | safeExternalURL }}"{{ if .OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }}>{{ .Entry.Author }}</a></div>
+  <div class="quote-of-the-day-meta color-subdue size-h6">{{ if .Entry.Date }}<time datetime="{{ .Entry.Date }}">{{ .Entry.Date }}</time> · {{ end }}<a href="{{ .Entry.SourceURL | safeExternalURL }}"{{ if .OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }}>Wikiquote</a></div>
+</article>
+{{ end }}
