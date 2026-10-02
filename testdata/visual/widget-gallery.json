@@ -66,6 +66,7 @@
   ],
   "daily-discovery": [
     "word-of-the-day",
+    "quote-of-the-day",
     "trivia",
     "on-this-day",
     "animal-of-the-day"

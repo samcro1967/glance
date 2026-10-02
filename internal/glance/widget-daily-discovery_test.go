@@ -7,7 +7,7 @@ import (
 )
 
 func TestDailyDiscoveryWidgetsRegistered(t *testing.T) {
-	for _, typ := range []string{"word-of-the-day", "trivia", "on-this-day", "animal-of-the-day"} {
+	for _, typ := range []string{"word-of-the-day", "quote-of-the-day", "trivia", "on-this-day", "animal-of-the-day"} {
 		if _, ok := widgetRegistry[typ]; !ok {
 			t.Fatalf("widget %q is not registered", typ)
 		}
@@ -24,6 +24,7 @@ func TestDailyDiscoveryWidgetsRegistered(t *testing.T) {
 func TestDailyDiscoveryWidgetsAreRefreshableAfterInitialization(t *testing.T) {
 	widgets := []widget{
 		&wordOfTheDayWidget{},
+		&quoteOfTheDayWidget{},
 		&triviaWidget{},
 		&onThisDayWidget{Limit: 3},
 		&animalOfTheDayWidget{},
@@ -110,6 +111,61 @@ func TestParseWiktionaryWordOfTheDayFallsBackToNewestEntry(t *testing.T) {
 	}
 	if got.Word != "trundle" || got.Date != "2026-10-02" {
 		t.Fatalf("unexpected fallback entry: %#v", got)
+	}
+}
+
+func TestParseWikiquoteQuoteOfTheDayCurrentTemplate(t *testing.T) {
+	source := `{{Wikiquote:Quote of the day/Template
+| image1 = Graham Greene in 1939.jpg
+| quote = <!-- marker -->No [[human]] being can really [[understand]] another, and no one can arrange another's [[happiness]].
+| author = Graham Greene<!-- source note -->
+}}`
+	now := time.Date(2026, 10, 2, 12, 0, 0, 0, time.UTC)
+	got, err := parseWikiquoteQuoteOfTheDay(source, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Quote != "No human being can really understand another, and no one can arrange another's happiness." || got.Author != "Graham Greene" || got.Date != "2026-10-02" {
+		t.Fatalf("unexpected quote: %#v", got)
+	}
+	if !strings.Contains(got.SourceURL, "October_2") || !strings.Contains(got.SourceURL, "2026") || !strings.Contains(got.AuthorURL, "Graham_Greene") {
+		t.Fatalf("unexpected URLs: %#v", got)
+	}
+}
+
+func TestParseWikiquoteQuoteOfTheDayLegacyTemplateAndMultilineQuote(t *testing.T) {
+	source := `{| style="background: {{{color}}}"
+| align=center | {{quote of the day
+| quote = ''Since [[honour]] from the honourer proceeds,<br/>How well do they deserve that [[memorize|remember]]''
+| author = [[John Florio]]
+}}
+|}`
+	got, err := parseWikiquoteQuoteOfTheDay(source, time.Date(2025, 12, 25, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Quote != "Since honour from the honourer proceeds,\nHow well do they deserve that remember" || got.Author != "John Florio" {
+		t.Fatalf("unexpected quote: %#v", got)
+	}
+}
+
+func TestParseWikiquoteQuoteOfTheDayAuthorDropsSourceAttribution(t *testing.T) {
+	source := `{{Wikiquote:Quote of the day/Template|quote=Truth.|author=[[Mahatma Gandhi]] ~<br /> in <br />~ ''[[The Story of My Experiments with Truth]]''}}`
+	got, err := parseWikiquoteQuoteOfTheDay(source, time.Date(2023, 10, 2, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Author != "Mahatma Gandhi" {
+		t.Fatalf("unexpected author: %q", got.Author)
+	}
+}
+
+func TestParseWikiquoteQuoteOfTheDayRequiresQuoteAndAuthor(t *testing.T) {
+	now := time.Date(2026, 10, 2, 0, 0, 0, 0, time.UTC)
+	for _, source := range []string{`{{Wikiquote:Quote of the day/Template|author=Graham Greene}}`, `{{Wikiquote:Quote of the day/Template|quote=Something}}`} {
+		if _, err := parseWikiquoteQuoteOfTheDay(source, now); err == nil {
+			t.Fatalf("expected parse failure for %q", source)
+		}
 	}
 }
 

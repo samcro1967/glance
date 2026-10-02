@@ -80,6 +80,7 @@ Set custom CSS classes for the specific widget instance.
 | --- | --- |
 | [Dilbert](widgets/dilbert.md) | Display a random or date-pinned archived Dilbert comic with click-to-enlarge viewing. |
 | [Word of the Day](widgets/word-of-the-day.md) | Display Wiktionary’s curated daily word and definition. |
+| [Quote of the Day](widgets/quote-of-the-day.md) | Display Wikiquote’s curated daily quote and author. |
 | [Trivia](widgets/trivia.md) | Display a daily multiple-choice trivia question with answer reveal. |
 | [On This Day](widgets/on-this-day.md) | Display curated historical events for today from Wikimedia. |
 | [Animal of the Day](widgets/animal-of-the-day.md) | Discover a different licensed iNaturalist animal each day. |
