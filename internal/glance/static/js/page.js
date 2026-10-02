@@ -9,6 +9,7 @@ import setupImageExpander from './image-expand.js';
 import { updateRelativeTimeForElements, setupDynamicRelativeTime } from './relative-time.js';
 import { setupClocks, setupFooterMicroClocks, setupAnalogClocks } from './clocks.js';
 import { initThemePicker } from './theme.js';
+import { setupTrivia } from './trivia.js';
 
 import {
     captureFrontendPerformanceSnapshot,
@@ -612,6 +613,9 @@ async function initializeContentRoot(root, diagnostics = false) {
 
     cleanupCallbacks.push(
         ...runStage("image_expanders", () => setupImageExpanders(root))
+    );
+    cleanupCallbacks.push(
+        ...runStage("trivia", () => setupTrivia(root))
     );
 
     runStage("collapsible_lists", () => setupCollapsibleLists(root));

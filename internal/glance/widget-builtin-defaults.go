@@ -6,6 +6,10 @@ import "time"
 // user-observable widget defaults. User-configured global defaults, type
 // defaults, and explicit widget configuration override these values.
 var builtinWidgetDefaults = map[string]widgetDefaultValues{
+	"animal-of-the-day": {CacheCron: stringDefault("5 0 * * *")},
+	"on-this-day":       {Limit: intDefault(3), CacheCron: stringDefault("5 0 * * *")},
+	"trivia":            {CacheCron: stringDefault("5 0 * * *")},
+	"word-of-the-day":   {CacheCron: stringDefault("5 0 * * *")},
 	"change-detection": {
 		Limit:         intDefault(10),
 		CollapseAfter: intDefault(5),
@@ -94,4 +98,8 @@ func intDefault(value int) *int {
 func durationDefault(value time.Duration) *durationField {
 	field := durationField(value)
 	return &field
+}
+
+func stringDefault(value string) *string {
+	return &value
 }

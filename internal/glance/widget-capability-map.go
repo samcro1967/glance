@@ -53,6 +53,24 @@ var widgetRegistry = map[string]widgetDescriptor{
 	"horoscope": {
 		constructor: func() widget { return &horoscopeWidget{} },
 	},
+	"word-of-the-day": {
+		constructor:  func() widget { return &wordOfTheDayWidget{} },
+		capabilities: []widgetCapabilityDefinition{{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance}},
+	},
+	"trivia": {
+		constructor: func() widget { return &triviaWidget{} },
+	},
+	"on-this-day": {
+		constructor: func() widget { return &onThisDayWidget{} },
+		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+			{widgetCapabilityLimit, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
+		},
+	},
+	"animal-of-the-day": {
+		constructor:  func() widget { return &animalOfTheDayWidget{} },
+		capabilities: []widgetCapabilityDefinition{{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance}},
+	},
 	"bookmarks": {
 		constructor: func() widget { return &bookmarksWidget{} },
 		capabilities: []widgetCapabilityDefinition{
