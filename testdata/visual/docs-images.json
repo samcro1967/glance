@@ -655,5 +655,11 @@
     "capture": "element",
     "route": "/daily-discovery",
     "selector": ".widget-type-animal-of-the-day"
+  },
+  "widgets/quote-of-the-day.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/daily-discovery",
+    "selector": ".widget-type-quote-of-the-day"
   }
 }

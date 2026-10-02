@@ -1070,6 +1070,9 @@ pages:
           - type: word-of-the-day
             title: ""
 
+          - type: quote-of-the-day
+            title: ""
+
           - type: trivia
             title: ""
 
