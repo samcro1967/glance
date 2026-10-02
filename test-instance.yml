@@ -1060,6 +1060,27 @@ pages:
             title: Calculator
             css-class: visual-fixture-calculator
 
+  - name: Daily Discovery
+    icon: mdi:calendar-star
+    slug: daily-discovery
+    width: wide
+    columns:
+      - size: medium
+        widgets:
+          - type: word-of-the-day
+            title: ""
+
+          - type: trivia
+            title: ""
+
+      - size: full
+        widgets:
+          - type: on-this-day
+            title: ""
+
+          - type: animal-of-the-day
+            title: ""
+
   - name: Theme Global
     icon: mdi:palette
     slug: theme-global
@@ -1981,6 +2002,7 @@ dashboards:
     - development-releases
     - markets-streaming
     - utilities
+    - daily-discovery
 
   Themes:
     - theme-global

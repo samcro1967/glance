@@ -16,6 +16,7 @@ WIDGET_INDEX = DOCS / "widgets.md"
 
 EXPECTED_WIDGET_DOCS = {
     "analog-clock.md",
+    "animal-of-the-day.md",
     "astronomy.md",
     "astrology.md",
     "horoscope.md",
@@ -56,6 +57,7 @@ EXPECTED_WIDGET_DOCS = {
     "stack.md",
     "status-bar.md",
     "timer.md",
+    "trivia.md",
     "stopwatch.md",
     "todo.md",
     "twitch-channels.md",
@@ -63,6 +65,8 @@ EXPECTED_WIDGET_DOCS = {
     "unit-converter.md",
     "videos.md",
     "weather.md",
+    "word-of-the-day.md",
+    "on-this-day.md",
 }
 
 LINK_RE = re.compile(r"!?(?:\[[^]]*\])\(([^)]+)\)")
