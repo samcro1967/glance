@@ -1,0 +1,12 @@
+{{ template "widget-base.html" . }}
+{{ define "widget-content" }}
+<div class="on-this-day">
+  {{ range .Events }}
+  <article class="on-this-day-event">
+    {{ if .ImageURL }}<img class="on-this-day-image" src="{{ .ImageURL | safeURL }}" alt="" loading="lazy">{{ end }}
+    <div class="on-this-day-body"><div class="on-this-day-year color-highlight">{{ .Year }}</div>{{ if .URL }}<a class="on-this-day-text" href="{{ .URL | safeExternalURL }}"{{ if $.OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }}>{{ .Text }}</a>{{ else }}<div class="on-this-day-text">{{ .Text }}</div>{{ end }}</div>
+  </article>
+  {{ end }}
+  <div class="on-this-day-source color-subdue size-h6">Source: Wikimedia</div>
+</div>
+{{ end }}

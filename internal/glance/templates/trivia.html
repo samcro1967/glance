@@ -1,0 +1,12 @@
+{{ template "widget-base.html" . }}
+{{ define "widget-content" }}
+<div class="trivia" data-trivia>
+  <div class="trivia-meta color-subdue size-h6">{{ .Question.Category }} · {{ .Question.Difficulty }}</div>
+  <div class="trivia-question color-highlight">{{ .Question.Question }}</div>
+  <div class="trivia-answers" role="group" aria-label="Trivia answers">
+    {{ range .Question.Answers }}<button type="button" class="trivia-answer" data-trivia-answer data-correct="{{ .Correct }}">{{ .Text }}</button>{{ end }}
+  </div>
+  <div class="trivia-result size-h5" data-trivia-result aria-live="polite"></div>
+  <div class="trivia-source color-subdue size-h6">Source: Open Trivia DB</div>
+</div>
+{{ end }}

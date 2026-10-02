@@ -375,6 +375,82 @@ const server = http.createServer((req, res) => {
     }
   }
 
+  if (url.pathname === '/daily-discovery/wiktionary') {
+    res.writeHead(200, { 'Content-Type': 'application/atom+xml; charset=utf-8' });
+    res.end('<?xml version="1.0" encoding="UTF-8"?>' +
+      '<feed xmlns="http://www.w3.org/2005/Atom">' +
+      '<entry><title>Word of the day for 2026-10-02</title><updated>2026-10-02T00:00:00Z</updated>' +
+      '<link rel="alternate" href="https://en.wiktionary.org/wiki/serendipity" />' +
+      '<summary type="html">&lt;div&gt;&lt;span id="WOTD-rss-title"&gt;serendipity&lt;/span&gt;' +
+      '&lt;div id="WOTD-rss-description"&gt;&lt;ol&gt;&lt;li&gt;An unexpected discovery that brings a welcome result.&lt;/li&gt;&lt;/ol&gt;&lt;/div&gt;&lt;/div&gt;</summary>' +
+      '</entry></feed>');
+    return;
+  }
+
+  if (url.pathname === '/daily-discovery/trivia') {
+    sendJson(res, {
+      response_code: 0,
+      results: [{
+        category: 'Science &amp; Nature',
+        type: 'multiple',
+        difficulty: 'medium',
+        question: 'Which planet is known as the &quot;Red Planet&quot;?',
+        correct_answer: 'Mars',
+        incorrect_answers: ['Venus', 'Jupiter', 'Mercury']
+      }]
+    });
+    return;
+  }
+
+  if (url.pathname.startsWith('/daily-discovery/on-this-day/')) {
+    sendJson(res, {
+      selected: [
+        { year: 1950, text: 'A deterministic historical event used to validate the On This Day widget.', pages: [{ content_urls: { desktop: { page: 'https://en.wikipedia.org/wiki/History' } } }] },
+        { year: 1967, text: 'A second fixture event demonstrates multiple entries and chronological metadata.', pages: [{ content_urls: { desktop: { page: 'https://en.wikipedia.org/wiki/1967' } } }] },
+        { year: 2001, text: 'A third fixture event exercises the default three-item display limit.', pages: [{ content_urls: { desktop: { page: 'https://en.wikipedia.org/wiki/2001' } } }] }
+      ]
+    });
+    return;
+  }
+
+  if (url.pathname === '/daily-discovery/animal') {
+    sendJson(res, {
+      results: [{
+        count: 12456,
+        taxon: {
+          id: 41638,
+          rank: 'species',
+          is_active: true,
+          extinct: false,
+          name: 'Ailurus fulgens',
+          preferred_common_name: 'Red Panda',
+          wikipedia_url: 'https://en.wikipedia.org/wiki/Red_panda',
+          default_photo: {
+            license_code: 'cc-by',
+            attribution: 'Deterministic visual fixture, CC BY',
+            medium_url: 'http://127.0.0.1:18089/daily-discovery/animal.png'
+          },
+          conservation_status: {
+            authority: 'IUCN',
+            status_name: 'endangered'
+          }
+        }
+      }]
+    });
+    return;
+  }
+
+  if (url.pathname === '/daily-discovery/animal.png') {
+    const image = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAUAAAAC0CAIAAABqhmJGAAAD10lEQVR42u3dwVHbQBSAYZlJL5TBjA85ugJXAA1QAg2YYnJzGe4mVwaEELL27b7d7ztmgllp9s+TwHIOp/NxAnJ6cApAwICAAQGDgAEBAwIGBAwCBgQMCBgEDAgYEDAgYBAwIGBAwICAQcCAgAEBg4ABAQMCBgQMAgYEDAgYmKZp+uMUdOPl6XH9X75cb86YgElT7PLX6lnAtB7typcVs4DJ0e3y91KygMmU7uy3lrGASZaujAVM+nRlLGDSpytjAZM+XRm3yTux1DvQmk1gZGAUm8B0NMSMYgGr17HgEtp2dzltAqNeRydgBt3fGhawne1IEbA97XgFjN3sqAWsXseOgAEBG0HOgICxd50HAdu1zgYChgF5L3RDA+f57d/XP3x//Vv3WPZa1cvTo3dK7+5wOh+dher1zkZSPeMSq9KwS+je/NjJyr8zwqoQcFvjd30DkbWUW5WfZgl4rNkb33Cbq0LAbY3fbfu+dC0BqzKEBQwIONv4LT2Ew1ZlCAsYEHCN8YszJmBAwIaJ8yZgQMCAgDNcB97zcEK5BxviV+UqWsAgYMJtG1mlnytsc1UIuIeGYzppc1UIuJUb4G27P7KTyFW5DRZw/3M4fsq1uSo+8ZlYDTXc2mditbkqBNzJLfHIq8IlNAh4YH764kwKGBAwCBgQMCBgQMAgYEDAgIABAYOAAQEDAgYBA0l4oH+7y/VW6Dm4jx+CUf15+oDFXK4328kEBgEDAgYEPKiPt5qzHwrZ0w0wAq7GT1+cQwEDAu5XravoulfvCLiT22DrQcC5b+Hih2HMd3QDLGBD2PgVMM03HDmE/fZIwK6is17Whv1L4fpZwMNdSJeu69PrG78CNoTTNBxZr/Er4KHn8L4Zf31BszeFw+l8dBb2Uvq/yZyN9s7SSrym8WsCM63savM0/u4LzV4T2BAua7nYhQI3f6Hx2yYfqZN1FC+kuG0gG7wmMHFD+J5WK6Zr/JrAzLS3oWQj1wSm/hD+7Uyu2K3xK2ANZ6XeEvwaCQSMgeNsCNiudR4QsL3rDAgYEDAjjyDjV8D2saNGwHaz4xUw9rQjFbCGHSMCtr8d3fA8jVRtl3f2ZmnpmsBGsWNBwPa9o3AJjctp6ZrAdFuCek1gUo5i6QqYlBlLV8CkzFi6AiZlxtIVMCkzlq6A2bmlgJJ1K2Ai6toxZtEKmMqXuL/qWbECpumeGYF3YoGAAQEDAgYBAwIGBAwIGAQMCBgQMAgYEDAgYEDAIGBAwICAAQGDgAEBAwIGAQMCBgQMCBgEDAgYEDAgYBAwIGBAwCBgQMCAgAEBg4CBlvwHVeiYgNK8j80AAAAASUVORK5CYII=', 'base64');
+    res.writeHead(200, {
+      'Content-Type': 'image/png',
+      'Content-Length': image.length,
+      'Cache-Control': 'public, max-age=3600'
+    });
+    res.end(image);
+    return;
+  }
+
   res.writeHead(404, { 'Content-Type': 'text/plain' });
   res.end('Not found');
 });

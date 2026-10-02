@@ -1,0 +1,8 @@
+{{ template "widget-base.html" . }}
+{{ define "widget-content" }}
+<article class="word-of-the-day">
+  <div class="word-of-the-day-word color-highlight">{{ .Entry.Word }}</div>
+  <div class="word-of-the-day-definition">{{ .Entry.Definition }}</div>
+  <div class="word-of-the-day-meta color-subdue size-h6">{{ if .Entry.Date }}<time datetime="{{ .Entry.Date }}">{{ .Entry.Date }}</time>{{ if .Entry.URL }} · {{ end }}{{ end }}{{ if .Entry.URL }}<a href="{{ .Entry.URL | safeExternalURL }}"{{ if .OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }}>Wiktionary</a>{{ end }}</div>
+</article>
+{{ end }}

@@ -6,7 +6,7 @@
 
 This guide defines the repository-specific workflow for adding a native Glance widget. It supplements [Contributing to Glance](../CONTRIBUTING.md); the general development, testing, security, compatibility, and lifecycle requirements in that document still apply.
 
-The goal is not merely to make a widget render. A new widget should fit the existing Glance architecture, visual language, refresh lifecycle, deterministic test fixture, documentation system, and validation workflow without creating unnecessary parallel infrastructure.
+The goal is not merely to make a widget render. A new widget should fit the existing Glance architecture, visual language, refresh lifecycle, provider-validation strategy, documentation system, and validation workflow without creating unnecessary parallel infrastructure.
 
 ## 1. Investigate before implementing
 
@@ -21,7 +21,7 @@ Review, as applicable:
 - existing templates and semantic presentation primitives;
 - widget CSS and global semantic theme variables;
 - tests for similar widgets and shared helpers;
-- deterministic fixtures in `test-instance.yml` and `testdata/visual/fixture-server.js`;
+- source-test configuration in `test-instance.yml` and deterministic provider fixtures in `testdata/visual/fixture-server.js` where required;
 - visual gallery, widget screenshot, and documentation image registries;
 - public widget documentation and fork documentation.
 
@@ -43,6 +43,14 @@ Where applicable, preserve the established contracts for:
 - resource cleanup and ownership;
 - authentication and authorization;
 - resource proxying for remote images or other browser resources.
+
+### Establish refresh behavior in the widget lifecycle
+
+A provider-backed or otherwise refreshable widget must establish a refreshable cache policy during `initialize()` using the existing widget lifecycle helpers, such as `withCacheDuration`, `withCacheCron`, or the appropriate shared equivalent.
+
+Do not rely solely on centralized builtin defaults to make an otherwise infinitely cached widget refreshable. Builtin or user configuration may refine or override the widget's policy, but the widget itself must participate correctly in the native refresh lifecycle after initialization.
+
+Add focused coverage proving a newly initialized refreshable widget is eligible for its initial update. When practical, runtime validation should also confirm that the provider was actually contacted rather than inferring success from configuration or compilation alone.
 
 Provider-specific payloads should remain behind provider-specific parsing or normalization boundaries. Templates should not need to understand raw provider responses.
 
@@ -78,13 +86,19 @@ Add the widget through the normal capability registry in `internal/glance/widget
 
 Registration, configuration decoding, defaults, and validation should be exercised by tests. A widget is not fully integrated merely because its Go type can be instantiated directly.
 
-## 6. Add deterministic fixture coverage
+## 6. Add provider and fixture coverage
 
-Every registered widget should be representable in the canonical source test instance.
+Every registered widget should be representable in the canonical source test instance. Runtime and visual validation should use the real production provider by default so the integration proves the same network, parsing, resource, and rendering path users will exercise.
 
-Update `test-instance.yml` with a deterministic example. If the widget depends on an external API or provider, extend `testdata/visual/fixture-server.js` so visual and browser tests do not depend on the public internet, production credentials, or changing third-party data.
+Use deterministic fixtures when live provider data is not feasible or is sensitive, and for automated tests that specifically require stable, repeatable provider responses, failure modes, or edge cases. Fixtures supplement real-provider validation; they should not silently replace a usable public production provider in the normal source test instance.
 
-Fixture data should exercise the presentation meaningfully. Include enough representative data to expose hierarchy, metadata, status, progress, empty/edge states, or other important visual behavior without making the fixture unnecessarily large.
+Before implementing or updating a provider parser, inspect a representative response from the real provider and identify the exact fields, nesting, ordering, encoding, and fallback behavior the widget depends on.
+
+Deterministic fixtures must be derived from that observed provider contract and preserve the relevant structure. Do not simplify or invent a provider response shape merely to make the fixture or parser easier to implement. A fixture-backed parser test proves compatibility with the fixture, not necessarily compatibility with the provider.
+
+For feeds containing multiple records, explicitly establish how the desired record is selected. Do not assume provider ordering unless that ordering is part of a documented contract; prefer selection by an explicit date, identifier, or other semantic field, with an intentional fallback where appropriate.
+
+When deterministic provider coverage is needed, extend `testdata/visual/fixture-server.js` and activate the fixture explicitly for that test or workflow rather than globally overriding normal test-instance provider behavior. Fixture data should exercise the presentation meaningfully without being unnecessarily large.
 
 Never place real credentials, tokens, personal identities, or production-only URLs in committed fixtures.
 
@@ -129,11 +143,13 @@ Add its canonical isolated screenshot mapping to:
 testdata/visual/widget-screenshots.json
 ```
 
-Use the deterministic page containing the fixture and a stable widget-specific selector such as:
+Use the page containing the validated widget and a stable selector. Prefer the native widget type selector when it uniquely identifies the capture, for example:
 
 ```text
-.visual-fixture-example
+.widget-type-example
 ```
+
+Use a dedicated fixture selector only when the page contains multiple instances or the native selector is otherwise ambiguous.
 
 Run:
 
@@ -210,14 +226,17 @@ Validation should progress from focused evidence to broader evidence.
 
 A typical sequence is:
 
-1. focused unit/provider tests with `make test-focused`;
-2. deterministic rendered behavior through the source test instance and visual workflow;
-3. real provider or production-representative runtime validation when the widget integrates with an external service;
-4. `make check` for broad development validation;
-5. `make validate` for the release gate;
-6. complete diff review before commit.
+1. inspect the real provider response and establish the provider contract when the widget integrates with an external service;
+2. focused unit/provider tests with `make test-focused`, using fixtures derived from the observed provider contract where deterministic coverage is useful;
+3. rendered behavior through the source test instance using real provider data by default, including confirmation that the provider was actually contacted and external resources rendered correctly;
+4. deterministic fixture validation for stable automated failure, edge-case, or regression coverage where needed;
+5. visual review and documentation screenshot capture/promotion;
+6. `make visual-check`;
+7. `make check` for broad development validation;
+8. `make validate` for the release gate;
+9. complete diff review before commit.
 
-Use `make test-instance-*` for deterministic source-runtime testing and `make test-prod-*` when the current source must be exercised against production-representative configuration, networks, assets, or providers without replacing the running production container.
+Use `make test-instance-*` for source-runtime and visual testing. The maintained source test instance should use real production provider data by default when that is feasible and safe. Use explicitly activated deterministic fixtures when stable provider responses, failure modes, edge cases, or sensitive data require them. Use `make test-prod-*` when the current source must be exercised against production-representative configuration, networks, assets, or providers without replacing the running production container.
 
 A successful build, one passing test, or a successful screenshot capture is not sufficient evidence for a runtime behavior change. Validate the behavior that actually changed.
 
@@ -258,7 +277,8 @@ Before considering a new widget ready for integration, confirm that:
 - cancellation, timeout, refresh, stale/degraded, and cleanup behavior are correct where relevant;
 - errors remain visible and credentials remain private;
 - the widget uses semantic theming and native presentation primitives where appropriate;
-- deterministic fixture coverage exists;
+- real provider coverage exists when the provider is feasible and safe to exercise directly;
+- deterministic fixture coverage exists where stable automated responses, failure modes, edge cases, or sensitive data require it;
 - focused tests cover important success, failure, and edge behavior;
 - gallery and widget screenshot mappings are complete;
 - the documentation image recipe is complete;

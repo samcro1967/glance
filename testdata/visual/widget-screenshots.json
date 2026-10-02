@@ -194,5 +194,21 @@
   "now-playing": {
     "route": "/homelab-monitoring",
     "selector": ".visual-fixture-now-playing"
+  },
+  "word-of-the-day": {
+    "route": "/daily-discovery",
+    "selector": ".widget-type-word-of-the-day"
+  },
+  "trivia": {
+    "route": "/daily-discovery",
+    "selector": ".widget-type-trivia"
+  },
+  "on-this-day": {
+    "route": "/daily-discovery",
+    "selector": ".widget-type-on-this-day"
+  },
+  "animal-of-the-day": {
+    "route": "/daily-discovery",
+    "selector": ".widget-type-animal-of-the-day"
   }
 }

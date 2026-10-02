@@ -631,5 +631,29 @@
     "selector": ".visual-fixture-now-playing",
     "kind": "browser",
     "capture": "element"
+  },
+  "widgets/word-of-the-day.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/daily-discovery",
+    "selector": ".widget-type-word-of-the-day"
+  },
+  "widgets/trivia.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/daily-discovery",
+    "selector": ".widget-type-trivia"
+  },
+  "widgets/on-this-day.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/daily-discovery",
+    "selector": ".widget-type-on-this-day"
+  },
+  "widgets/animal-of-the-day.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/daily-discovery",
+    "selector": ".widget-type-animal-of-the-day"
   }
 }

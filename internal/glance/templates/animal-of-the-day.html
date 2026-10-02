@@ -1,0 +1,9 @@
+{{ template "widget-base.html" . }}
+{{ define "widget-content" }}
+<article class="animal-of-the-day">
+  <img class="animal-of-the-day-image" src="{{ .Animal.ImageURL | safeURL }}" alt="{{ .Animal.CommonName }}" loading="lazy">
+  <div class="animal-of-the-day-heading"><a class="size-h3 color-highlight" href="{{ .Animal.WikipediaURL | safeExternalURL }}"{{ if .OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }}>{{ .Animal.CommonName }}</a><div class="color-subdue"><em>{{ .Animal.ScientificName }}</em> · {{ .Animal.Group }}</div></div>
+  <div class="animal-of-the-day-facts size-h5">{{ if .Animal.ConservationStatus }}<span><strong>Conservation:</strong> {{ .Animal.ConservationStatus }}{{ if .Animal.ConservationAuthority }} ({{ .Animal.ConservationAuthority }}){{ end }}</span>{{ end }}<span><strong>Observations:</strong> {{ .Animal.ObservationCount | formatNumber }}</span></div>
+  <div class="animal-of-the-day-source color-subdue size-h6">Photo: {{ .Animal.ImageAttribution }} · {{ .Animal.ImageLicense }} · <a href="{{ .Animal.INaturalistURL | safeExternalURL }}"{{ if .OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }}>iNaturalist</a></div>
+</article>
+{{ end }}
