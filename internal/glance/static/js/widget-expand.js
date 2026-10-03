@@ -34,12 +34,16 @@ export default function(trigger, widgetElement, baseURL, initializeContent) {
     const openDialog = async () => {
         if (dialog !== null) return;
 
-        const widgetID = widgetElement.dataset.widgetId;
+        const widgetID = trigger.dataset.widgetExpandId || widgetElement.dataset.widgetId;
         if (!widgetID) return;
+
+        const widgetTitle = trigger.dataset.widgetExpandTitle ||
+            widgetElement.querySelector(".widget-header h2")?.textContent?.trim() ||
+            "widget";
 
         const nextDialog = document.createElement("dialog");
         nextDialog.className = "widget-expand-dialog";
-        nextDialog.setAttribute("aria-label", `Expanded ${widgetElement.querySelector(".widget-header h2")?.textContent?.trim() || "widget"}`);
+        nextDialog.setAttribute("aria-label", `Expanded ${widgetTitle}`);
 
         const content = document.createElement("div");
         content.className = "widget-expand-dialog-content";

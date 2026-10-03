@@ -11,8 +11,18 @@
     overflow: visible;
 }
 
+.widget-group-tab-item {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
 .widget-group-title {
     flex-shrink: 0;
+}
+
+.widget-group-expand-button {
+    margin-left: 0;
 }
 
 .widget-group-content {
