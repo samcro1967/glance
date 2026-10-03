@@ -218,5 +218,9 @@
   "quote-of-the-day": {
     "route": "/daily-discovery",
     "selector": ".widget-type-quote-of-the-day"
+  },
+  "nasa-apod": {
+    "route": "/daily-discovery",
+    "selector": ".widget-type-nasa-apod"
   }
 }

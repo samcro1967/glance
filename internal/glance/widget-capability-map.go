@@ -96,6 +96,9 @@ var widgetRegistry = map[string]widgetDescriptor{
 	"dilbert": {
 		constructor: func() widget { return &dilbertWidget{} },
 	},
+	"nasa-apod": {
+		constructor: func() widget { return &nasaAPODWidget{} },
+	},
 	"hacker-news": {
 		constructor: func() widget { return &hackerNewsWidget{} },
 		capabilities: []widgetCapabilityDefinition{

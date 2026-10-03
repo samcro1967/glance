@@ -86,6 +86,7 @@ Set custom CSS classes for the specific widget instance.
 | [Trivia](widgets/trivia.md) | Display a daily multiple-choice trivia question with answer reveal. |
 | [On This Day](widgets/on-this-day.md) | Display curated historical events for today from Wikimedia. |
 | [Animal of the Day](widgets/animal-of-the-day.md) | Discover a different licensed iNaturalist animal each day. |
+| [NASA Astronomy Picture of the Day](widgets/nasa-apod.md) | Display NASA's daily astronomy image with explanation and attribution. |
 | [RSS](widgets/rss.md) | Display RSS and Atom feeds. |
 | [Videos](widgets/videos.md) | Display videos from configured channels and playlists. |
 | [Hacker News](widgets/hacker-news.md) | Display Hacker News stories. |

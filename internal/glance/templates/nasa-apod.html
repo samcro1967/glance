@@ -1,0 +1,27 @@
+{{ template "widget-base.html" . }}
+{{ define "widget-content" }}
+<article class="nasa-apod">
+  {{ if eq .APOD.MediaType "image" }}
+    <a class="nasa-apod-title size-h3 color-highlight" href="{{ .APOD.Permalink | safeExternalURL }}"{{ if .OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }}>{{ .APOD.Title }}</a>
+
+    <button class="nasa-apod-image-expand" type="button" data-image-expand data-image-expand-src="{{ .APOD.HDURL | safeURL }}" data-image-expand-alt="{{ .APOD.Alt }}" aria-label="Enlarge NASA Astronomy Picture of the Day">
+      <img class="nasa-apod-image" src="{{ .APOD.HDURL | safeURL }}" alt="{{ .APOD.Alt }}" loading="lazy">
+    </button>
+
+    {{ if or .APOD.Credit .APOD.Copyright }}
+      <div class="nasa-apod-credit color-subdue size-h6">
+        {{ if .APOD.Credit }}{{ .APOD.Credit }}{{ end }}{{ if and .APOD.Credit .APOD.Copyright }} · {{ end }}{{ if .APOD.Copyright }}{{ .APOD.Copyright }}{{ end }}
+      </div>
+    {{ end }}
+
+    {{ if .APOD.Explanation }}
+      <details class="glance-details">
+        <summary class="glance-summary">Show Explanation</summary>
+        <div class="nasa-apod-explanation color-highlight size-h5 margin-top-10">{{ .APOD.Explanation }}</div>
+      </details>
+    {{ end }}
+  {{ else }}
+    <div class="glance-empty">No image available today.</div>
+  {{ end }}
+</article>
+{{ end }}

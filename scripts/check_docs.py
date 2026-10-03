@@ -17,6 +17,7 @@ WIDGET_INDEX = DOCS / "widgets.md"
 EXPECTED_WIDGET_DOCS = {
     "analog-clock.md",
     "animal-of-the-day.md",
+    "nasa-apod.md",
     "astronomy.md",
     "astrology.md",
     "horoscope.md",

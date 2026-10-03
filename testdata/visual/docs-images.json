@@ -674,5 +674,11 @@
     "capture": "element",
     "route": "/daily-discovery",
     "selector": ".widget-type-quote-of-the-day"
+  },
+  "widgets/nasa-apod.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/daily-discovery",
+    "selector": ".widget-type-nasa-apod"
   }
 }

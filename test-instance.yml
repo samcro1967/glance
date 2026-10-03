@@ -1099,6 +1099,10 @@ pages:
           - type: animal-of-the-day
             title: ""
 
+          - type: nasa-apod
+            title: NASA
+            icon: mdi:rocket-launch
+
   - name: Theme Global
     icon: mdi:palette
     slug: theme-global
