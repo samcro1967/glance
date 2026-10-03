@@ -322,6 +322,23 @@ pages:
                 limit: 5
                 collapse-after: 3
 
+          - type: group
+            title: Expandable Group
+            css-class: visual-fixture-expandable-group
+            widgets:
+              - type: custom-api
+                title: Grouped API
+                url: http://127.0.0.1:18089/custom-api-presentation
+                cache: 1h
+                template: |
+                  <div class="glance-card">Grouped API compact content</div>
+                expanded-template: |
+                  <div class="glance-card">Expanded grouped child details</div>
+              - type: markdown
+                title: Grouped Markdown
+                source: |
+                  Non-expandable grouped content.
+
           - type: stack
             title: Stack
             css-class: visual-fixture-stack

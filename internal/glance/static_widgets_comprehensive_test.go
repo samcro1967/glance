@@ -494,6 +494,91 @@ func TestComprehensiveGroupTitleIcons(t *testing.T) {
 	}
 }
 
+func TestComprehensiveGroupChildExpandedViews(t *testing.T) {
+	expandable := &customAPIWidget{
+		widgetBase:       widgetBase{Type: "custom-api", Title: "Expanded"},
+		CustomAPIRequest: &CustomAPIRequest{URL: "https://example.com/expanded"},
+		Template:         `{{ .JSON.String "summary" }}`,
+		ExpandedTemplate: `{{ .JSON.String "details" }}`,
+	}
+	expandable.setID(41)
+
+	compact := &customAPIWidget{
+		widgetBase:       widgetBase{Type: "custom-api", Title: "Compact"},
+		CustomAPIRequest: &CustomAPIRequest{URL: "https://example.com/compact"},
+		Template:         `{{ .JSON.String "summary" }}`,
+	}
+	compact.setID(42)
+
+	group := &groupWidget{
+		widgetBase: widgetBase{Type: "group"},
+		containerWidgetBase: containerWidgetBase{
+			Widgets: widgets{expandable, compact},
+		},
+	}
+
+	if err := group.initialize(); err != nil {
+		t.Fatal(err)
+	}
+
+	if !expandable.HasExpandedView() {
+		t.Fatal("expanded child should expose its configured expanded view")
+	}
+	if compact.HasExpandedView() {
+		t.Fatal("compact child should remain non-expandable")
+	}
+	if !expandable.HideHeader || !compact.HideHeader {
+		t.Fatal("group child headers should remain hidden")
+	}
+
+	rendered := string(group.Render())
+
+	for _, expected := range []string{
+		`class="widget-group-tab-item"`,
+		`data-widget-expand-id="41"`,
+		`data-widget-expand-title="Expanded"`,
+		`aria-label="Expand Expanded"`,
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Errorf("rendered group missing %q: %s", expected, rendered)
+		}
+	}
+
+	if strings.Contains(rendered, `data-widget-expand-id="42"`) {
+		t.Fatalf("non-expandable child rendered an expand action: %s", rendered)
+	}
+	if count := strings.Count(rendered, "data-widget-expand "); count != 1 {
+		t.Fatalf("group rendered %d expand actions, want 1: %s", count, rendered)
+	}
+}
+
+func TestGroupChildExpandedViewBrowserContract(t *testing.T) {
+	pageJS, err := os.ReadFile(filepath.Join("static", "js", "page.js"))
+	if err != nil {
+		t.Fatalf("read page.js: %v", err)
+	}
+
+	pageSource := string(pageJS)
+	if !strings.Contains(pageSource, `header.querySelectorAll(":scope > .widget-group-tab-item > .widget-group-title")`) {
+		t.Fatal("page.js does not select group tabs independently of child expand actions")
+	}
+
+	expandJS, err := os.ReadFile(filepath.Join("static", "js", "widget-expand.js"))
+	if err != nil {
+		t.Fatalf("read widget-expand.js: %v", err)
+	}
+
+	expandSource := string(expandJS)
+	for _, fragment := range []string{
+		`trigger.dataset.widgetExpandId || widgetElement.dataset.widgetId`,
+		`trigger.dataset.widgetExpandTitle ||`,
+	} {
+		if !strings.Contains(expandSource, fragment) {
+			t.Fatalf("widget-expand.js missing group child routing contract %q", fragment)
+		}
+	}
+}
+
 func TestComprehensiveContainerRejectsUnsupportedNesting(t *testing.T) {
 	split := &splitColumnWidget{}
 	split.Type = "split-column"

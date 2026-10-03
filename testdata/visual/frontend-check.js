@@ -860,6 +860,70 @@ async function main() {
 
     console.log('PASS selected group title URL interaction');
 
+    const expandableGroup = page.locator(".visual-fixture-expandable-group");
+    const expandableGroupTabs = expandableGroup.locator("[role=tab]");
+    const expandableGroupPanels = expandableGroup.locator("[role=tabpanel]");
+    const groupedExpandButtons = expandableGroup.locator("[data-widget-expand]");
+
+    if (await expandableGroupTabs.count() !== 2 || await expandableGroupPanels.count() !== 2) {
+      throw new Error("Expandable group fixture does not contain exactly two tabs and panels");
+    }
+
+    if (await groupedExpandButtons.count() !== 1) {
+      throw new Error(
+        `Expandable group rendered ${await groupedExpandButtons.count()} expand actions, want 1`
+      );
+    }
+
+    const groupedExpandButton = groupedExpandButtons.first();
+
+    if (
+      await groupedExpandButton.getAttribute("data-widget-expand-title") !== "Grouped API" ||
+      await groupedExpandButton.getAttribute("aria-label") !== "Expand Grouped API"
+    ) {
+      throw new Error("Expandable group child does not expose its own expansion identity");
+    }
+
+    const groupedWidgetID = await groupedExpandButton.getAttribute("data-widget-expand-id");
+    if (!groupedWidgetID) {
+      throw new Error("Expandable group child does not expose its widget ID");
+    }
+
+    await groupedExpandButton.click();
+
+    const groupedExpandedDialog = page.locator(".widget-expand-dialog");
+    await groupedExpandedDialog.waitFor({ state: "visible", timeout: 10000 });
+
+    if (await groupedExpandedDialog.getAttribute("aria-label") !== "Expanded Grouped API") {
+      throw new Error("Grouped child expanded dialog does not use the child title");
+    }
+
+    await groupedExpandedDialog.getByText("Expanded grouped child details", {
+      exact: true
+    }).waitFor({ state: "visible", timeout: 10000 });
+
+    await groupedExpandedDialog.locator(".widget-expand-dialog-close").click();
+    await groupedExpandedDialog.waitFor({ state: "detached", timeout: 10000 });
+
+    await expandableGroupTabs.nth(1).click();
+
+    if (
+      await expandableGroupTabs.nth(0).getAttribute("aria-selected") !== "false" ||
+      await expandableGroupTabs.nth(1).getAttribute("aria-selected") !== "true" ||
+      await expandableGroupPanels.nth(0).getAttribute("aria-hidden") !== "true" ||
+      await expandableGroupPanels.nth(1).getAttribute("aria-hidden") !== "false"
+    ) {
+      throw new Error("Expandable group did not preserve normal tab switching");
+    }
+
+    if (await expandableGroup.locator("[data-widget-expand]").count() !== 1) {
+      throw new Error("Non-expandable grouped sibling unexpectedly exposed an expand action");
+    }
+
+    console.log("PASS grouped child expanded view routing");
+    console.log("PASS grouped child expanded view lifecycle");
+    console.log("PASS grouped child tab interaction");
+
     const initialTheme = await page.locator('html').getAttribute('data-theme');
     const desktopThemePreset = page.locator(
       '.header-container .theme-choices .theme-preset:not(.current)'

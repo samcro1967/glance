@@ -268,7 +268,7 @@ function setupGroups() {
             continue;
         }
 
-        const titles = header.children;
+        const titles = header.querySelectorAll(":scope > .widget-group-tab-item > .widget-group-title");
         const tabs = contents.children;
         let current = 0;
 
