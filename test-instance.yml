@@ -536,6 +536,15 @@ pages:
                   <span class="glance-badge">Local fixture</span>
                 </div>
               </div>
+            expanded-template: |
+              <div class="glance-card">
+                <div class="glance-secondary">Expanded repository details</div>
+                <div class="size-h2 color-highlight">{{ .JSON.String "full_name" }}</div>
+                <div class="glance-muted">{{ .JSON.String "description" }}</div>
+                <div class="margin-top-10">
+                  <span class="glance-badge">{{ .JSON.Int "stargazers_count" | formatNumber }} stars</span>
+                </div>
+              </div>
               <table class="glance-table margin-top-10" data-glance-table="services">
                 <thead>
                   <tr>
@@ -554,7 +563,7 @@ pages:
                   {{ end }}
                 </tbody>
               </table>
-              <div class="glance-chart margin-top-10" data-glance-chart="resources" data-glance-chart-label="Resource usage">
+              <div class="glance-chart margin-top-10" data-glance-chart="resources" data-glance-chart-label="Expanded resource usage">
                 <script type="application/json">{{ .JSON.String "chart" }}</script>
               </div>
 

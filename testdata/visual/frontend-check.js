@@ -1447,45 +1447,96 @@ async function main() {
     await openPage(page, '/search-custom-content', coveragePath);
 
     const presentationWidget = page.locator('.visual-fixture-custom-api');
-    const presentationTable = presentationWidget.locator(
+    const expandButton = presentationWidget.locator('[data-widget-expand]');
+    await expandButton.waitFor({ state: 'visible', timeout: 10000 });
+    await expandButton.click();
+
+    let expandedDialog = page.locator('.widget-expand-dialog');
+    await expandedDialog.waitFor({ state: 'visible', timeout: 10000 });
+
+    await expandedDialog.getByText('Expanded repository details', {
+      exact: true
+    }).waitFor({ state: 'visible', timeout: 10000 });
+
+    let expandedTable = expandedDialog.locator(
       '[data-glance-table="services"]'
     );
-    const presentationChart = presentationWidget.locator(
+    let expandedChart = expandedDialog.locator(
       '[data-glance-chart="resources"]'
     );
 
-    await presentationTable.waitFor({ state: 'visible', timeout: 10000 });
-    await presentationChart.waitFor({ state: 'visible', timeout: 10000 });
+    await expandedTable.waitFor({ state: 'visible', timeout: 10000 });
+    await expandedChart.waitFor({ state: 'visible', timeout: 10000 });
 
-    if (await presentationWidget.locator('.dt-container').count() !== 1) {
-      throw new Error('Configured Custom API table was not enhanced by DataTables');
+    if (await expandedDialog.locator('.dt-container').count() !== 1) {
+      throw new Error('Expanded Custom API table was not enhanced by DataTables');
     }
 
-    const presentationRows = presentationTable.locator('tbody > tr');
-    if (await presentationRows.count() !== 2) {
+    const expandedRows = expandedTable.locator('tbody > tr');
+    if (await expandedRows.count() !== 2) {
       throw new Error(
-        `Configured Custom API table rendered ${await presentationRows.count()} rows, want 2`
+        `Expanded Custom API table rendered ${await expandedRows.count()} rows, want 2`
       );
     }
 
     if (
-      !(await presentationRows.nth(0).innerText()).includes('Dashboard') ||
-      !(await presentationRows.nth(1).innerText()).includes('Fixture API')
+      !(await expandedRows.nth(0).innerText()).includes('Dashboard') ||
+      !(await expandedRows.nth(1).innerText()).includes('Fixture API')
     ) {
-      throw new Error('Configured Custom API table did not preserve deterministic fixture rows');
+      throw new Error('Expanded Custom API table did not preserve deterministic fixture rows');
     }
 
-    const chartCanvas = presentationChart.locator('canvas[role="img"][aria-label="Resource usage"]');
-    await chartCanvas.waitFor({ state: 'visible', timeout: 10000 });
+    let expandedChartCanvas = expandedChart.locator(
+      'canvas[role="img"][aria-label="Expanded resource usage"]'
+    );
+    await expandedChartCanvas.waitFor({ state: 'visible', timeout: 10000 });
 
-    if (await presentationChart.evaluate(element =>
+    if (await expandedChart.evaluate(element =>
       element.classList.contains('glance-chart-failed')
     )) {
-      throw new Error('Configured Custom API chart entered its failure state');
+      throw new Error('Expanded Custom API chart entered its failure state');
     }
+
+    await expandedDialog.locator('.widget-expand-dialog-close').click();
+    await expandedDialog.waitFor({ state: 'detached', timeout: 10000 });
+
+    if (await page.locator('.widget-expand-dialog').count() !== 0) {
+      throw new Error('Custom API expanded dialog was not removed after close');
+    }
+
+    await expandButton.click();
+
+    expandedDialog = page.locator('.widget-expand-dialog');
+    await expandedDialog.waitFor({ state: 'visible', timeout: 10000 });
+
+    expandedTable = expandedDialog.locator('[data-glance-table="services"]');
+    expandedChart = expandedDialog.locator('[data-glance-chart="resources"]');
+
+    await expandedTable.waitFor({ state: 'visible', timeout: 10000 });
+    await expandedChart.waitFor({ state: 'visible', timeout: 10000 });
+
+    if (await expandedDialog.locator('.dt-container').count() !== 1) {
+      throw new Error('Reopened Custom API table was not cleanly reinitialized');
+    }
+
+    expandedChartCanvas = expandedChart.locator(
+      'canvas[role="img"][aria-label="Expanded resource usage"]'
+    );
+    await expandedChartCanvas.waitFor({ state: 'visible', timeout: 10000 });
+
+    if (await expandedChart.evaluate(element =>
+      element.classList.contains('glance-chart-failed')
+    )) {
+      throw new Error('Reopened Custom API chart entered its failure state');
+    }
+
+    await expandedDialog.locator('.widget-expand-dialog-close').click();
+    await expandedDialog.waitFor({ state: 'detached', timeout: 10000 });
 
     console.log('PASS Custom API configured table enhancement');
     console.log('PASS Custom API configured chart enhancement');
+    console.log('PASS Custom API expanded presentation initialization');
+    console.log('PASS Custom API expanded presentation cleanup and reinitialization');
 
     await openPage(page, '/feeds-content', coveragePath);
 

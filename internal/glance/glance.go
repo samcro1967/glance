@@ -1174,8 +1174,14 @@ func (a *application) handleWidgetExpandedRequest(w http.ResponseWriter, r *http
 	}
 
 	widget, exists := a.widgetByID[widgetID]
+	if !exists {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
 	expanded, expandable := widget.(expandedWidget)
-	if !exists || !expandable || !a.canAccessWidget(session.AuthorizationIdentity, widgetID) {
+	base, hasBase := widgetBaseOf(widget)
+	if !expandable || !hasBase || !base.HasExpandedView() || !a.canAccessWidget(session.AuthorizationIdentity, widgetID) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}

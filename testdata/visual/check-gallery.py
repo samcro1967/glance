@@ -314,6 +314,32 @@ for filename, recipe in docs_images.items():
 
     capture = recipe.get("capture")
 
+    click = recipe.get("click")
+
+    if click is not None and (
+        not isinstance(click, str)
+        or not click.strip()
+    ):
+        invalid_docs_recipes.append(
+            f"{filename}: click must be a non-empty selector"
+        )
+
+    click_nth = recipe.get("clickNth")
+
+    if click_nth is not None and (
+        not isinstance(click_nth, int)
+        or isinstance(click_nth, bool)
+        or click_nth < 0
+    ):
+        invalid_docs_recipes.append(
+            f"{filename}: clickNth must be a non-negative integer"
+        )
+
+    if click_nth is not None and click is None:
+        invalid_docs_recipes.append(
+            f"{filename}: clickNth requires click"
+        )
+
     if capture not in {"element", "page"}:
         invalid_docs_recipes.append(
             f"{filename}: capture must be 'element' or 'page'"

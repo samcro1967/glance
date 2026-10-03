@@ -71,7 +71,12 @@ function setupWidgetExpanders(root = document) {
         const widgetElement = trigger.closest("[data-widget-id]");
         if (widgetElement === null) continue;
 
-        cleanupCallbacks.push(setupWidgetExpander(trigger, widgetElement, pageData.baseURL));
+        cleanupCallbacks.push(setupWidgetExpander(
+            trigger,
+            widgetElement,
+            pageData.baseURL,
+            initializeExpandedContentRoot
+        ));
     }
 
     return cleanupCallbacks;
@@ -650,6 +655,14 @@ async function initializeContentRoot(root, diagnostics = false) {
     updateRelativeTimeForElements(
         root.querySelectorAll("[data-dynamic-relative-time]")
     );
+
+    return cleanupCallbacks;
+}
+
+async function initializeExpandedContentRoot(root) {
+    const cleanupCallbacks = await initializeContentRoot(root);
+
+    cleanupCallbacks.push(() => cleanupPopoversWithin(root));
 
     return cleanupCallbacks;
 }

@@ -232,6 +232,13 @@
     "route": "/search-custom-content",
     "selector": ".visual-fixture-custom-api"
   },
+  "widgets/custom-api-expanded.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/search-custom-content",
+    "click": ".visual-fixture-custom-api [data-widget-expand]",
+    "selector": ".widget-expand-dialog"
+  },
   "widgets/dilbert.png": {
     "kind": "browser",
     "capture": "element",

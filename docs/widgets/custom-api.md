@@ -35,6 +35,7 @@ Fetch data from an HTTP API and render it with a Go template. Custom API support
 | `allow-insecure` | boolean | no | `false` |
 | `skip-json-validation` | boolean | no | `false` |
 | `template` | string | yes* | — |
+| `expanded-template` | string | no | — |
 | `options` | map | no | — |
 | `parameters` | map | no | — |
 | `subrequests` | map | no | — |
@@ -117,6 +118,61 @@ When set to `true`, skips the JSON validation step. This is useful when the API 
 The template used to display the data. Templates use Go's [`html/template`](https://pkg.go.dev/html/template) package and [tidwall/gjson](https://github.com/tidwall/gjson) for JSON selection.
 
 Templates can contain arbitrary HTML and use the existing Glance utility classes. Native [presentation components](#native-presentation-components) are optional and can be mixed with ordinary template HTML.
+
+### `expanded-template`
+
+Optional template used for the widget's [expanded view](../expanded-views.md). When configured, the widget header includes an expand action. When omitted, Custom API keeps its existing compact-only behavior.
+
+```yaml
+- type: custom-api
+  title: Service health
+  url: https://example.com/api/status
+  template: |
+    <div class="size-h3">{{ .JSON.String "summary.status" }}</div>
+    <div class="color-subdue">{{ .JSON.Int "summary.active" }} active services</div>
+  expanded-template: |
+    <div class="flex flex-column gap-10">
+      <div class="size-h3">{{ .JSON.String "summary.status" }}</div>
+      {{ range .JSON.Array "details.services" }}
+        <div>{{ .String "name" }} — {{ .String "status" }}</div>
+      {{ end }}
+    </div>
+```
+
+![Custom API expanded view](../images/widgets/custom-api-expanded.png)
+
+There is no required expanded-view response schema. Both templates can select whatever fields they need from the same API response. If you control the response format, separating compact summary data from richer detail can make the intent easier to maintain, for example:
+
+```json
+{
+  "summary": {
+    "status": "healthy",
+    "active": 12
+  },
+  "details": {
+    "services": [
+      {
+        "name": "Dashboard",
+        "status": "healthy"
+      }
+    ]
+  }
+}
+```
+
+This `summary`/`details` shape is a recommendation, not a Glance requirement. Existing flat or provider-defined payloads do not need to be changed merely to use `expanded-template`.
+
+During a refresh, Glance acquires the primary response and configured `subrequests` once. The compact `template` and `expanded-template` then render from that same acquired response snapshot and the same `.Options`. Opening the expanded dialog later does **not** fetch the upstream API again or execute either template again; it serves the expanded HTML prepared by the latest successful refresh.
+
+Compact and expanded output are published atomically. If acquisition or either template render fails after a previous successful refresh, Glance preserves the previous successful compact and expanded content and applies the normal stale fallback behavior.
+
+The `tables` and `charts` configuration is shared by both templates. The same named presentation configuration can therefore be used in the compact template, expanded template, or both. Expanded presentation components are initialized when the dialog opens and cleaned up when it closes.
+
+> [!NOTE]
+>
+> Configured `subrequests` are part of the shared acquisition snapshot. The dynamic `getResponse` template function is different: it performs a request while a template is being rendered. If both `template` and `expanded-template` call `getResponse`, those calls execute independently during the refresh and can produce separate HTTP requests.
+
+`expanded-template` is not supported when Custom API is embedded directly in a [Status Bar](status-bar.md).
 
 ### `options`
 
@@ -283,11 +339,13 @@ A chart configuration is referenced from the template with `data-glance-chart`:
 
 When `custom-api` is a direct child of a [Status Bar](status-bar.md), it uses the Status Bar compact JSON contract instead of the normal template renderer.
 
-In this mode, `template`, `subrequests`, `options`, `skip-json-validation`, `tables`, and `charts` are not supported. See the Status Bar documentation for the exact response envelope and item fields.
+In this mode, `template`, `expanded-template`, `subrequests`, `options`, `skip-json-validation`, `tables`, and `charts` are not supported. See the Status Bar documentation for the exact response envelope and item fields.
 
 ## Stale fallback
 
 After a `custom-api` widget has completed at least one successful refresh, Glance preserves that last successfully rendered content if a later refresh fails. The previous content remains visible and is marked with a `STALE` indicator showing how long ago the last successful refresh occurred.
+
+When `expanded-template` is configured, the compact and expanded presentations belong to the same successful refresh. Glance publishes them together only after both templates render successfully. A later acquisition or rendering failure therefore preserves both previous presentations rather than allowing the compact and expanded views to represent different refresh snapshots.
 
 The `cache` setting continues to control how often fresh data is requested. A failed refresh does not replace the last successful content or reset its age. Glance retries the update according to its normal retry schedule, and the stale indicator is automatically cleared when a later refresh succeeds.
 
@@ -308,7 +366,7 @@ The public interface is deliberately declarative:
 - Glance owns styling, responsive behavior, lifecycle management, theme integration, and browser enhancement.
 - Third-party rendering libraries are private implementation details and their configuration APIs are not exposed.
 
-Presentation components participate in normal Custom API rendering and live widget replacement. Browser-side behavior is cleaned up before refreshed widget content is replaced and initialized again after replacement.
+Presentation components participate in normal Custom API rendering and live widget replacement. Browser-side behavior is cleaned up before refreshed widget content is replaced and initialized again after replacement. When used by `expanded-template`, the same presentation system is initialized inside the expanded dialog and cleaned up when the dialog closes.
 
 
 *Native presentation components combine Glance primitives, enhanced tables, and charts while adapting to the available widget width.*
@@ -927,6 +985,11 @@ GJSON selectors can also be used with JSON Lines:
 ```
 
 ## Dynamic requests from templates
+
+> [!IMPORTANT]
+>
+> `getResponse` is evaluated while a template renders. With `expanded-template`, calls made by the compact and expanded templates are independent. They are not part of the single shared primary/subrequest acquisition snapshot described above, so placing the same `getResponse` call in both templates can result in two requests during one widget refresh.
+
 
 Additional HTTP requests can be created from within a template when later requests depend on data returned by an earlier request.
 

@@ -180,6 +180,22 @@ For a normal widget element capture, use the complete browser recipe:
 
 `kind` and `capture` are required parts of the recipe. An element capture must define a selector. A page capture should not define an element selector.
 
+Normal documentation captures should represent the page state without scripted interaction. When the documented state inherently requires a user interaction, a browser-managed recipe may define an optional `click` CSS selector. The screenshot runner waits for that control to become visible and clicks it after the page is ready but before the normal capture. Use `clickNth` only when the selector intentionally matches multiple controls and a specific zero-based match is required.
+
+For example, an expanded widget dialog can be captured from the real widget interaction:
+
+```json
+"widgets/example-expanded.png": {
+  "kind": "browser",
+  "capture": "element",
+  "route": "/appropriate-page",
+  "click": ".visual-fixture-example [data-widget-expand]",
+  "selector": ".widget-expand-dialog"
+}
+```
+
+Prefer the ordinary interaction-free recipe for the canonical widget image. Add an interactive documentation capture only when it demonstrates a distinct user-visible state that the normal image cannot show.
+
 Do not manually create or copy a browser-managed documentation screenshot into `docs/images`.
 
 ## 10. Capture only the new documentation screenshot during development

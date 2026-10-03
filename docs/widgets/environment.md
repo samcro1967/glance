@@ -4,6 +4,8 @@
 
 Display current air quality, UV index, pollutant concentrations, and optional pollen conditions and forecasts for a specific location. Air quality and UV data are provided by https://open-meteo.com/. Pollen data is provided by https://atmospore.com/ when an AtmoSpore API key is configured.
 
+
+Environment supports [expanded widget views](../expanded-views.md). The compact view prioritizes current conditions, while the expanded presentation provides the additional pollutant, trend, forecast, and pollen detail described below.
 ## Quick start
 
 ```yaml

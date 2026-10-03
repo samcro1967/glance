@@ -8,9 +8,17 @@ function removeDialog(dialog) {
     dialog.remove();
 }
 
-export default function(trigger, widgetElement, baseURL) {
+export default function(trigger, widgetElement, baseURL, initializeContent) {
     let dialog = null;
     let controller = null;
+    let contentCleanupCallbacks = [];
+
+    const cleanupContent = () => {
+        for (const callback of contentCleanupCallbacks) {
+            callback();
+        }
+        contentCleanupCallbacks = [];
+    };
 
     const closeDialog = () => {
         if (controller !== null) {
@@ -19,6 +27,7 @@ export default function(trigger, widgetElement, baseURL) {
         }
         const currentDialog = dialog;
         dialog = null;
+        cleanupContent();
         removeDialog(currentDialog);
     };
 
@@ -34,6 +43,7 @@ export default function(trigger, widgetElement, baseURL) {
 
         const content = document.createElement("div");
         content.className = "widget-expand-dialog-content";
+        content.dataset.glancePresentationScope = "";
         content.textContent = "Loading…";
 
         const closeButton = document.createElement("button");
@@ -48,7 +58,10 @@ export default function(trigger, widgetElement, baseURL) {
             if (event.target === nextDialog) closeDialog();
         });
         nextDialog.addEventListener("close", () => {
-            if (dialog === nextDialog) dialog = null;
+            if (dialog === nextDialog) {
+                dialog = null;
+                cleanupContent();
+            }
             nextDialog.remove();
         }, { once: true });
 
@@ -65,6 +78,19 @@ export default function(trigger, widgetElement, baseURL) {
             const response = await fetch(`${baseURL}/api/widgets/${encodeURIComponent(widgetID)}/expanded/`, { signal: requestController.signal });
             if (!response.ok) throw new Error(`Failed to load expanded widget: ${response.status} ${response.statusText}`);
             content.innerHTML = await response.text();
+
+            if (initializeContent !== undefined) {
+                const cleanupCallbacks = await initializeContent(content);
+
+                if (dialog !== nextDialog) {
+                    for (const callback of cleanupCallbacks) {
+                        callback();
+                    }
+                    return;
+                }
+
+                contentCleanupCallbacks = cleanupCallbacks;
+            }
         } catch (error) {
             if (error.name === "AbortError" && dialog === null) return;
             frontendDiagnosticError("widget_expand_failed", error, { widget: widgetID });

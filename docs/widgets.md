@@ -12,6 +12,8 @@
 
 Every widget supports a common set of configuration properties in addition to its widget-specific options. Individual widget pages link back to this shared reference instead of duplicating it.
 
+Some widgets also support [expanded widget views](expanded-views.md), which expose additional detail through the widget header without increasing the normal dashboard footprint.
+
 | Property | Type | Required | Default |
 | --- | --- | --- | --- |
 | `type` | string | yes | — |
@@ -96,7 +98,7 @@ Set custom CSS classes for the specific widget instance.
 | --- | --- |
 | [Search](widgets/search.md) | Search the web and configured shortcuts. |
 | [Bookmarks](widgets/bookmarks.md) | Organize frequently used links. |
-| [Custom API](widgets/custom-api.md) | Fetch data from HTTP APIs and render custom content with templates, native presentation components, tables, and charts. |
+| [Custom API](widgets/custom-api.md) | Fetch data from HTTP APIs and render compact or optional expanded custom content with templates, native presentation components, tables, and charts. |
 | [Extension](widgets/extension.md) | Display content provided by Glance extensions. See also the [Extensions guide](extensions.md). |
 | [iframe](widgets/iframe.md) | Embed another web page. |
 | [Markdown](widgets/markdown.md) | Render Markdown content. |
