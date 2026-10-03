@@ -432,6 +432,12 @@ async function captureDocs(browser) {
     try {
       await openPage(page, recipe.route);
 
+      if (recipe.click) {
+        const trigger = page.locator(recipe.click).nth(recipe.clickNth || 0);
+        await trigger.waitFor({ state: 'visible', timeout: 15000 });
+        await trigger.click();
+      }
+
       const output = path.join(DOCS_STAGING, filename);
       fs.mkdirSync(path.dirname(output), { recursive: true });
 

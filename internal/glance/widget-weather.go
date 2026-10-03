@@ -16,6 +16,7 @@ import (
 )
 
 var weatherWidgetTemplate = mustParseTemplate("weather.html", "widget-base.html")
+var weatherWidgetExpandedTemplate = mustParseTemplate("weather-expanded.html")
 
 type weatherWidget struct {
 	widgetBase   `yaml:",inline"`
@@ -97,6 +98,10 @@ func (widget *weatherWidget) update(ctx context.Context) {
 
 func (widget *weatherWidget) Render() template.HTML {
 	return widget.renderTemplate(widget, weatherWidgetTemplate)
+}
+
+func (widget *weatherWidget) RenderExpanded() template.HTML {
+	return widget.renderTemplate(widget, weatherWidgetExpandedTemplate)
 }
 
 type weather struct {

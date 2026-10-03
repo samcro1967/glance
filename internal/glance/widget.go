@@ -38,6 +38,7 @@ func newWidget(widgetType string) (widget, error) {
 	w.setID(widgetIDCounter.Add(1))
 
 	if base, ok := widgetBaseOf(w); ok {
+		_, base.ExpandedView = w.(expandedWidget)
 		base.OpenLinksInNewTab = true
 	}
 
@@ -178,6 +179,10 @@ func yamlMappingFields(node *yaml.Node) yamlConfiguredFields {
 	}
 
 	return fields
+}
+
+type expandedWidget interface {
+	RenderExpanded() template.HTML
 }
 
 type widget interface {
@@ -324,6 +329,7 @@ type widgetBase struct {
 	configuredFields    yamlConfiguredFields `yaml:"-"`
 	configLine          int                  `yaml:"-"`
 	WIP                 bool                 `yaml:"-"`
+	ExpandedView        bool                 `yaml:"-"`
 	Error               error                `yaml:"-"`
 	Notice              error                `yaml:"-"`
 	templateBuffer      bytes.Buffer         `yaml:"-"`
@@ -399,6 +405,10 @@ func (w *widgetBase) unlockRefresh() {
 
 func (w *widgetBase) IsWIP() bool {
 	return w.WIP
+}
+
+func (w *widgetBase) HasExpandedView() bool {
+	return w.ExpandedView
 }
 
 func (w *widgetBase) update(ctx context.Context) {

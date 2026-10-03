@@ -1,7 +1,7 @@
 export function getPresentationConfig(element) {
-    const widget = element.closest(".widget");
-    const script = widget?.querySelector(
-        ":scope > .widget-content > script[data-glance-presentation-config]"
+    const scope = element.closest("[data-glance-presentation-scope], .widget");
+    const script = scope?.querySelector(
+        ":scope > script[data-glance-presentation-config], :scope > .widget-content > script[data-glance-presentation-config]"
     );
 
     if (script === null || script === undefined) {

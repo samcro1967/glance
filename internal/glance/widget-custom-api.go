@@ -132,19 +132,22 @@ type statusBarCustomAPIItem struct {
 }
 
 type customAPIWidget struct {
-	widgetBase           `yaml:",inline"`
-	*CustomAPIRequest    `yaml:",inline"`                      // the primary request
-	Subrequests          customAPISubrequests                  `yaml:"subrequests"`
-	Options              customAPIOptions                      `yaml:"options"`
-	Template             string                                `yaml:"template"`
-	Frameless            bool                                  `yaml:"frameless"`
-	Tables               map[string]customAPIPresentationTable `yaml:"tables"`
-	Charts               map[string]customAPIPresentationChart `yaml:"charts"`
-	PresentationJSON     template.JS                           `yaml:"-"`
-	compiledTemplate     *template.Template                    `yaml:"-"`
-	CompiledHTML         template.HTML                         `yaml:"-"`
-	Stale                bool                                  `yaml:"-"`
-	LastSuccessfulUpdate time.Time                             `yaml:"-"`
+	widgetBase               `yaml:",inline"`
+	*CustomAPIRequest        `yaml:",inline"`                      // the primary request
+	Subrequests              customAPISubrequests                  `yaml:"subrequests"`
+	Options                  customAPIOptions                      `yaml:"options"`
+	Template                 string                                `yaml:"template"`
+	ExpandedTemplate         string                                `yaml:"expanded-template"`
+	Frameless                bool                                  `yaml:"frameless"`
+	Tables                   map[string]customAPIPresentationTable `yaml:"tables"`
+	Charts                   map[string]customAPIPresentationChart `yaml:"charts"`
+	PresentationJSON         template.JS                           `yaml:"-"`
+	compiledTemplate         *template.Template                    `yaml:"-"`
+	compiledExpandedTemplate *template.Template                    `yaml:"-"`
+	CompiledHTML             template.HTML                         `yaml:"-"`
+	CompiledExpandedHTML     template.HTML                         `yaml:"-"`
+	Stale                    bool                                  `yaml:"-"`
+	LastSuccessfulUpdate     time.Time                             `yaml:"-"`
 
 	statusBarCompactMode  bool                     `yaml:"-"`
 	StatusBarCompactItems []statusBarCustomAPIItem `yaml:"-"`
@@ -152,6 +155,7 @@ type customAPIWidget struct {
 
 func (widget *customAPIWidget) initialize() error {
 	widget.withTitle("Custom API").withCacheDuration(1 * time.Hour)
+	widget.ExpandedView = false
 
 	if err := widget.CustomAPIRequest.initialize(); err != nil {
 		return fmt.Errorf("initializing primary request: %w", err)
@@ -172,6 +176,9 @@ func (widget *customAPIWidget) initialize() error {
 		}
 		if widget.Template != "" {
 			return errors.New("template is not supported inside a status-bar")
+		}
+		if widget.ExpandedTemplate != "" {
+			return errors.New("expanded-template is not supported inside a status-bar")
 		}
 		if widget.SkipJSONValidation {
 			return errors.New("skip-json-validation is not supported inside a status-bar")
@@ -213,6 +220,18 @@ func (widget *customAPIWidget) initialize() error {
 	}
 
 	widget.compiledTemplate = compiledTemplate
+
+	widget.ExpandedView = widget.ExpandedTemplate != ""
+	if widget.ExpandedView {
+		compiledExpandedTemplate, err := template.New("").Funcs(customAPITemplateFuncs).Parse(widget.ExpandedTemplate)
+		if err != nil {
+			return &customAPITemplateParseError{
+				line:  parseCustomAPITemplateErrorLine(err.Error()),
+				cause: err,
+			}
+		}
+		widget.compiledExpandedTemplate = compiledExpandedTemplate
+	}
 
 	return nil
 }
@@ -368,15 +387,12 @@ func (widget *customAPIWidget) update(ctx context.Context) {
 		return
 	}
 
-	compiledHTML, err := fetchAndRenderCustomAPIRequest(
+	data, err := fetchCustomAPITemplateData(
 		ctx,
 		widget.CustomAPIRequest,
 		widget.Subrequests,
 		widget.Options,
-		widget.compiledTemplate,
-		widget.Providers,
 	)
-
 	if err != nil {
 		if !widget.LastSuccessfulUpdate.IsZero() {
 			widget.Stale = true
@@ -386,17 +402,63 @@ func (widget *customAPIWidget) update(ctx context.Context) {
 		return
 	}
 
+	compiledHTML, err := renderCustomAPITemplate(
+		ctx,
+		data,
+		widget.compiledTemplate,
+		widget.Providers,
+	)
+	if err != nil {
+		if !widget.LastSuccessfulUpdate.IsZero() {
+			widget.Stale = true
+		}
+
+		widget.canContinueUpdateAfterHandlingErr(err)
+		return
+	}
+
+	var compiledExpandedHTML template.HTML
+	if widget.compiledExpandedTemplate != nil {
+		compiledExpandedHTML, err = renderCustomAPITemplate(
+			ctx,
+			data,
+			widget.compiledExpandedTemplate,
+			widget.Providers,
+		)
+		if err != nil {
+			if !widget.LastSuccessfulUpdate.IsZero() {
+				widget.Stale = true
+			}
+
+			widget.canContinueUpdateAfterHandlingErr(err)
+			return
+		}
+	}
+
 	if !widget.canContinueUpdateAfterHandlingErr(nil) {
 		return
 	}
 
 	widget.CompiledHTML = compiledHTML
+	widget.CompiledExpandedHTML = compiledExpandedHTML
 	widget.LastSuccessfulUpdate = time.Now()
 	widget.Stale = false
 }
 
 func (widget *customAPIWidget) Render() template.HTML {
 	return widget.renderTemplate(widget, customAPIWidgetTemplate)
+}
+
+func (widget *customAPIWidget) RenderExpanded() template.HTML {
+	if widget.PresentationJSON == "" {
+		return widget.CompiledExpandedHTML
+	}
+
+	return template.HTML(
+		`<script type="application/json" data-glance-presentation-config>`+
+			string(widget.PresentationJSON)+
+			`</script>`,
+	) + widget.CompiledExpandedHTML
 }
 
 type customAPIOptions map[string]any
@@ -594,14 +656,12 @@ func fetchCustomAPIResponse(ctx context.Context, req *CustomAPIRequest) (*custom
 	}, nil
 }
 
-func fetchAndRenderCustomAPIRequest(
+func fetchCustomAPITemplateData(
 	ctx context.Context,
 	primaryReq *CustomAPIRequest,
 	subReqs map[string]*CustomAPIRequest,
 	options customAPIOptions,
-	tmpl *template.Template,
-	providers ...*widgetProviders,
-) (template.HTML, error) {
+) (*customAPITemplateData, error) {
 	var primaryData *customAPIResponseData
 	subData := make(map[string]*customAPIResponseData, len(subReqs))
 	var err error
@@ -658,17 +718,24 @@ func fetchAndRenderCustomAPIRequest(
 		}
 	}
 
-	emptyBody := template.HTML("")
-
 	if err != nil {
-		return emptyBody, err
+		return nil, err
 	}
 
-	data := customAPITemplateData{
+	return &customAPITemplateData{
 		customAPIResponseData: primaryData,
 		subrequests:           subData,
 		Options:               options,
-	}
+	}, nil
+}
+
+func renderCustomAPITemplate(
+	ctx context.Context,
+	data *customAPITemplateData,
+	tmpl *template.Template,
+	providers ...*widgetProviders,
+) (template.HTML, error) {
+	emptyBody := template.HTML("")
 
 	runtimeTemplate, err := tmpl.Clone()
 	if err != nil {
@@ -682,13 +749,13 @@ func fetchAndRenderCustomAPIRequest(
 	runtimeTemplate = runtimeTemplate.Funcs(customAPIRuntimeTemplateFuncs(ctx, providersForRefresh))
 
 	var templateBuffer bytes.Buffer
-	err = runtimeTemplate.Execute(&templateBuffer, &data)
-	if err != nil {
+	if err := runtimeTemplate.Execute(&templateBuffer, data); err != nil {
 		return emptyBody, err
 	}
 
 	rendered := templateBuffer.String()
 
+	primaryData := data.customAPIResponseData
 	if primaryData != nil &&
 		primaryData.Response != nil &&
 		(primaryData.Response.StatusCode < http.StatusOK ||
@@ -701,6 +768,22 @@ func fetchAndRenderCustomAPIRequest(
 	}
 
 	return template.HTML(rendered), nil
+}
+
+func fetchAndRenderCustomAPIRequest(
+	ctx context.Context,
+	primaryReq *CustomAPIRequest,
+	subReqs map[string]*CustomAPIRequest,
+	options customAPIOptions,
+	tmpl *template.Template,
+	providers ...*widgetProviders,
+) (template.HTML, error) {
+	data, err := fetchCustomAPITemplateData(ctx, primaryReq, subReqs, options)
+	if err != nil {
+		return template.HTML(""), err
+	}
+
+	return renderCustomAPITemplate(ctx, data, tmpl, providers...)
 }
 
 func customAPIRuntimeTemplateFuncs(ctx context.Context, providers *widgetProviders) template.FuncMap {

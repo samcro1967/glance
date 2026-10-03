@@ -12,6 +12,8 @@
 
 Every widget supports a common set of configuration properties in addition to its widget-specific options. Individual widget pages link back to this shared reference instead of duplicating it.
 
+Some widgets also support [expanded widget views](expanded-views.md), which expose additional detail through the widget header without increasing the normal dashboard footprint.
+
 | Property | Type | Required | Default |
 | --- | --- | --- | --- |
 | `type` | string | yes | — |
@@ -84,6 +86,7 @@ Set custom CSS classes for the specific widget instance.
 | [Trivia](widgets/trivia.md) | Display a daily multiple-choice trivia question with answer reveal. |
 | [On This Day](widgets/on-this-day.md) | Display curated historical events for today from Wikimedia. |
 | [Animal of the Day](widgets/animal-of-the-day.md) | Discover a different licensed iNaturalist animal each day. |
+| [NASA Astronomy Picture of the Day](widgets/nasa-apod.md) | Display NASA's daily astronomy image with explanation and attribution. |
 | [RSS](widgets/rss.md) | Display RSS and Atom feeds. |
 | [Videos](widgets/videos.md) | Display videos from configured channels and playlists. |
 | [Hacker News](widgets/hacker-news.md) | Display Hacker News stories. |
@@ -96,7 +99,7 @@ Set custom CSS classes for the specific widget instance.
 | --- | --- |
 | [Search](widgets/search.md) | Search the web and configured shortcuts. |
 | [Bookmarks](widgets/bookmarks.md) | Organize frequently used links. |
-| [Custom API](widgets/custom-api.md) | Fetch data from HTTP APIs and render custom content with templates, native presentation components, tables, and charts. |
+| [Custom API](widgets/custom-api.md) | Fetch data from HTTP APIs and render compact or optional expanded custom content with templates, native presentation components, tables, and charts. |
 | [Extension](widgets/extension.md) | Display content provided by Glance extensions. See also the [Extensions guide](extensions.md). |
 | [iframe](widgets/iframe.md) | Embed another web page. |
 | [Markdown](widgets/markdown.md) | Render Markdown content. |
@@ -107,6 +110,7 @@ Set custom CSS classes for the specific widget instance.
 | Widget | Purpose |
 | --- | --- |
 | [Weather](widgets/weather.md) | Display current weather, details, hourly conditions, and forecast information. |
+| [Environment](widgets/environment.md) | Display air quality, UV, pollutant measurements, and optional pollen conditions and forecasts. |
 | [Astronomy](widgets/astronomy.md) | Display local Sun, Moon, planet, bright-star, and upcoming sky-event information. |
 | [Astrology](widgets/astrology.md) | Display current tropical-zodiac positions, retrogrades, major aspects, and upcoming astrological events. |
 | [Horoscope](widgets/horoscope.md) | Display provider-backed daily, weekly, and monthly sun-sign horoscope readings. |

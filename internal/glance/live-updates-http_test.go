@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"html/template"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -221,6 +222,124 @@ pages:
 
 	if got := recorder.Header().Get("Content-Type"); got != "text/html; charset=utf-8" {
 		t.Fatalf("Content-Type = %q, want text/html; charset=utf-8", got)
+	}
+}
+
+func TestWidgetExpandedRequestReturnsConfiguredCustomAPIContent(t *testing.T) {
+	app := newGlanceTestApplication(t, `
+pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets:
+          - type: custom-api
+            url: http://example.test
+            template: |
+              <div>compact-content</div>
+            expanded-template: |
+              <div>expanded-content</div>
+            tables:
+              services:
+                process: false
+`)
+
+	if len(app.refreshWidgets) != 1 {
+		t.Fatalf("refresh widget count = %d, want 1", len(app.refreshWidgets))
+	}
+
+	widget := app.refreshWidgets[0]
+	customAPI, ok := widget.(*customAPIWidget)
+	if !ok {
+		t.Fatalf("widget type = %T, want *customAPIWidget", widget)
+	}
+	customAPI.CompiledExpandedHTML = template.HTML("<div>pre-rendered-expanded-content</div>")
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/api/widgets/"+strconv.FormatUint(widget.GetID(), 10)+"/expanded/",
+		nil,
+	)
+
+	app.router().ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf(
+			"status = %d, want %d; body=%q",
+			recorder.Code,
+			http.StatusOK,
+			recorder.Body.String(),
+		)
+	}
+
+	body := recorder.Body.String()
+	if !strings.Contains(body, `data-glance-presentation-config`) {
+		t.Fatalf("body does not contain presentation configuration: %q", body)
+	}
+	if !strings.Contains(body, `"services"`) {
+		t.Fatalf("body does not contain configured presentation table: %q", body)
+	}
+	if !strings.Contains(body, "<div>pre-rendered-expanded-content</div>") {
+		t.Fatalf("body does not contain pre-rendered expanded content: %q", body)
+	}
+
+	if got := recorder.Header().Get("Content-Type"); got != "text/html; charset=utf-8" {
+		t.Fatalf("Content-Type = %q, want text/html; charset=utf-8", got)
+	}
+}
+
+func TestWidgetExpandedRequestReturnsNotFoundWithoutExpandedView(t *testing.T) {
+	app := newGlanceTestApplication(t, `
+pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets:
+          - type: custom-api
+            url: http://example.test
+            template: |
+              <div>compact-only</div>
+`)
+
+	if len(app.refreshWidgets) != 1 {
+		t.Fatalf("refresh widget count = %d, want 1", len(app.refreshWidgets))
+	}
+
+	widgetID := app.refreshWidgets[0].GetID()
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/api/widgets/"+strconv.FormatUint(widgetID, 10)+"/expanded/",
+		nil,
+	)
+
+	app.router().ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNotFound)
+	}
+}
+
+func TestWidgetExpandedRequestReturnsNotFoundForUnknownWidget(t *testing.T) {
+	app := newGlanceTestApplication(t, `
+pages:
+  - name: Home
+    columns:
+      - size: full
+        widgets: []
+`)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/api/widgets/999999999/expanded/",
+		nil,
+	)
+
+	app.router().ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusNotFound)
 	}
 }
 

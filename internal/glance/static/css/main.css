@@ -78,6 +78,7 @@
 @import "site.css";
 @import "widgets.css";
 @import "widget-markdown.css";
+@import "widget-environment.css";
 @import "docs.css";
 @import "popover.css";
 @import "utils.css";
@@ -85,4 +86,5 @@
 @import "vendor/datatables/responsive.dataTables.min.css";
 @import "presentation.css";
 @import "image-expand.css";
+@import "widget-expand.css";
 @import "mobile.css";

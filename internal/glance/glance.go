@@ -1159,6 +1159,38 @@ func (a *application) handleWidgetContentRequest(w http.ResponseWriter, r *http.
 	_, _ = w.Write([]byte(renderWidget(widget)))
 }
 
+func (a *application) handleWidgetExpandedRequest(w http.ResponseWriter, r *http.Request) {
+	session, authenticated := a.authorizeSession(w, r)
+	if !authenticated {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"error": "Unauthorized"}`))
+		return
+	}
+
+	widgetID, err := strconv.ParseUint(r.PathValue("widget"), 10, 64)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	widget, exists := a.widgetByID[widgetID]
+	if !exists {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	expanded, expandable := widget.(expandedWidget)
+	base, hasBase := widgetBaseOf(widget)
+	if !expandable || !hasBase || !base.HasExpandedView() || !a.canAccessWidget(session.AuthorizationIdentity, widgetID) {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	a.setAuthenticatedDynamicResponseHeaders(w)
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write([]byte(expanded.RenderExpanded()))
+}
+
 func (a *application) handleWidgetRequest(w http.ResponseWriter, r *http.Request) {
 	// Generic widget subrequests remain intentionally disabled; supported widget content requests use their dedicated handlers.
 	w.WriteHeader(http.StatusNotImplemented)
@@ -1245,6 +1277,7 @@ func (a *application) router() http.Handler {
 	}
 
 	mux.HandleFunc("GET /api/widgets/{widget}/content/{$}", a.handleWidgetContentRequest)
+	mux.HandleFunc("GET /api/widgets/{widget}/expanded/{$}", a.handleWidgetExpandedRequest)
 	mux.HandleFunc("GET /api/resource-proxy/{resource}", a.handleResourceProxyRequest)
 	mux.HandleFunc("GET /api/live-updates", a.handleLiveUpdatesRequest)
 	mux.HandleFunc("POST /api/frontend-diagnostics", a.handleFrontendDiagnosticsRequest)

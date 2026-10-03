@@ -3,6 +3,7 @@ package glance
 import (
 	"context"
 	"errors"
+	"fmt"
 	"html/template"
 	"io"
 	"net/http"
@@ -221,6 +222,109 @@ func TestCustomAPIWidgetStaleFallbackAndRecovery(t *testing.T) {
 			firstSuccessfulUpdate,
 			widget.LastSuccessfulUpdate,
 		)
+	}
+}
+
+func TestCustomAPIWidgetExpandedRefreshSharesSnapshotAndCommitsAtomically(t *testing.T) {
+	primaryValue := "first"
+	subrequestValue := "sub-first"
+	primaryRequests := 0
+	subrequestRequests := 0
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		switch r.URL.Path {
+		case "/primary":
+			primaryRequests++
+			_, _ = fmt.Fprintf(w, `{"value":%q}`, primaryValue)
+		case "/subrequest":
+			subrequestRequests++
+			_, _ = fmt.Fprintf(w, `{"value":%q}`, subrequestValue)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	widget := &customAPIWidget{
+		CustomAPIRequest: newTestCustomAPIRequest(t, server.URL+"/primary"),
+		Subrequests: customAPISubrequests{
+			"other": newTestCustomAPIRequest(t, server.URL+"/subrequest"),
+		},
+		Options: customAPIOptions{
+			"label": "shared",
+		},
+		Template:         `<div>compact:{{ .JSON.String "value" }}:{{ (.Subrequest "other").JSON.String "value" }}:{{ .Options.StringOr "label" "" }}</div>`,
+		ExpandedTemplate: `<div>expanded:{{ .JSON.String "value" }}:{{ (.Subrequest "other").JSON.String "value" }}:{{ .Options.StringOr "label" "" }}</div>`,
+	}
+
+	if err := widget.initialize(); err != nil {
+		t.Fatalf("initialize widget: %v", err)
+	}
+
+	widget.update(context.Background())
+
+	if widget.Error != nil {
+		t.Fatalf("initial expanded refresh error: %v", widget.Error)
+	}
+	if primaryRequests != 1 {
+		t.Fatalf("primary requests = %d, want 1", primaryRequests)
+	}
+	if subrequestRequests != 1 {
+		t.Fatalf("subrequest requests = %d, want 1", subrequestRequests)
+	}
+
+	const wantCompact = `<div>compact:first:sub-first:shared</div>`
+	const wantExpanded = `<div>expanded:first:sub-first:shared</div>`
+	if got := string(widget.CompiledHTML); got != wantCompact {
+		t.Fatalf("compact HTML = %q, want %q", got, wantCompact)
+	}
+	if got := string(widget.CompiledExpandedHTML); got != wantExpanded {
+		t.Fatalf("expanded HTML = %q, want %q", got, wantExpanded)
+	}
+
+	firstCompact := widget.CompiledHTML
+	firstExpanded := widget.CompiledExpandedHTML
+	firstSuccessfulUpdate := widget.LastSuccessfulUpdate
+
+	primaryValue = "second"
+	subrequestValue = "sub-second"
+
+	brokenExpandedTemplate, err := template.New("").Funcs(customAPITemplateFuncs).Parse(
+		`{{ .Subrequest "missing" }}`,
+	)
+	if err != nil {
+		t.Fatalf("compile failing expanded template: %v", err)
+	}
+	widget.compiledExpandedTemplate = brokenExpandedTemplate
+
+	widget.update(context.Background())
+
+	if widget.Error == nil {
+		t.Fatal("expected expanded render failure")
+	}
+	if !widget.Stale {
+		t.Fatal("expected widget to be stale after expanded render failure")
+	}
+	if widget.CompiledHTML != firstCompact {
+		t.Fatalf("compact HTML changed after failed atomic refresh: got %q want %q", widget.CompiledHTML, firstCompact)
+	}
+	if widget.CompiledExpandedHTML != firstExpanded {
+		t.Fatalf("expanded HTML changed after failed atomic refresh: got %q want %q", widget.CompiledExpandedHTML, firstExpanded)
+	}
+	if !widget.LastSuccessfulUpdate.Equal(firstSuccessfulUpdate) {
+		t.Fatalf(
+			"successful timestamp changed after failed atomic refresh: got %v want %v",
+			widget.LastSuccessfulUpdate,
+			firstSuccessfulUpdate,
+		)
+	}
+	if primaryRequests != 2 {
+		t.Fatalf("primary requests after failed refresh = %d, want 2", primaryRequests)
+	}
+	if subrequestRequests != 2 {
+		t.Fatalf("subrequest requests after failed refresh = %d, want 2", subrequestRequests)
 	}
 }
 
@@ -616,6 +720,71 @@ func TestCustomAPIWidgetTemplateParseErrorCarriesLineAndCause(t *testing.T) {
 
 	if !strings.HasPrefix(err.Error(), "parsing template: template: :3:") {
 		t.Fatalf("unexpected error text: %q", err)
+	}
+}
+
+func TestCustomAPIWidgetExpandedTemplateInitialization(t *testing.T) {
+	tests := []struct {
+		name             string
+		expandedTemplate string
+		wantExpanded     bool
+		wantParseLine    int
+	}{
+		{
+			name: "omitted remains non-expandable",
+		},
+		{
+			name:             "configured enables expanded view",
+			expandedTemplate: `{{ .JSON.String "details" }}`,
+			wantExpanded:     true,
+		},
+		{
+			name:             "invalid expanded template preserves parse error",
+			expandedTemplate: "first line\nsecond line\n{{ doesNotExist }}",
+			wantParseLine:    3,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			widget := &customAPIWidget{
+				CustomAPIRequest: &CustomAPIRequest{URL: "https://example.com"},
+				Template:         `{{ .JSON.String "summary" }}`,
+				ExpandedTemplate: tt.expandedTemplate,
+			}
+
+			err := widget.initialize()
+			if tt.wantParseLine != 0 {
+				if err == nil {
+					t.Fatal("initialize() error = nil, want expanded template parse error")
+				}
+
+				var parseErr *customAPITemplateParseError
+				if !errors.As(err, &parseErr) {
+					t.Fatalf("expected customAPITemplateParseError, got %T: %v", err, err)
+				}
+				if parseErr.line != tt.wantParseLine {
+					t.Fatalf("expanded template error line = %d, want %d", parseErr.line, tt.wantParseLine)
+				}
+				if parseErr.Unwrap() == nil {
+					t.Fatal("expected expanded template parse error to preserve underlying cause")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("initialize() error = %v", err)
+			}
+			if widget.HasExpandedView() != tt.wantExpanded {
+				t.Fatalf("HasExpandedView() = %t, want %t", widget.HasExpandedView(), tt.wantExpanded)
+			}
+			if tt.wantExpanded && widget.compiledExpandedTemplate == nil {
+				t.Fatal("compiledExpandedTemplate = nil, want compiled expanded template")
+			}
+			if !tt.wantExpanded && widget.compiledExpandedTemplate != nil {
+				t.Fatal("compiledExpandedTemplate != nil without expanded-template")
+			}
+		})
 	}
 }
 
@@ -1274,6 +1443,13 @@ func TestStatusBarCustomAPICompactInitialization(t *testing.T) {
 				widget.Template = "{{ .JSON.String \"name\" }}"
 			},
 			wantErr: "template is not supported inside a status-bar",
+		},
+		{
+			name: "expanded template rejected",
+			configure: func(widget *customAPIWidget) {
+				widget.ExpandedTemplate = `{{ .JSON.String "details" }}`
+			},
+			wantErr: "expanded-template is not supported inside a status-bar",
 		},
 		{
 			name: "skip json validation rejected",
