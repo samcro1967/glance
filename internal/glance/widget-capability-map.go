@@ -44,6 +44,9 @@ var widgetRegistry = map[string]widgetDescriptor{
 	"weather": {
 		constructor: func() widget { return &weatherWidget{} },
 	},
+	"environment": {
+		constructor: func() widget { return &environmentWidget{} },
+	},
 	"astronomy": {
 		constructor: func() widget { return &astronomyWidget{} },
 	},

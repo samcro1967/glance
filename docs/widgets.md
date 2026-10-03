@@ -107,6 +107,7 @@ Set custom CSS classes for the specific widget instance.
 | Widget | Purpose |
 | --- | --- |
 | [Weather](widgets/weather.md) | Display current weather, details, hourly conditions, and forecast information. |
+| [Environment](widgets/environment.md) | Display air quality, UV, pollutant measurements, and optional pollen conditions and forecasts. |
 | [Astronomy](widgets/astronomy.md) | Display local Sun, Moon, planet, bright-star, and upcoming sky-event information. |
 | [Astrology](widgets/astrology.md) | Display current tropical-zodiac positions, retrogrades, major aspects, and upcoming astrological events. |
 | [Horoscope](widgets/horoscope.md) | Display provider-backed daily, weekly, and monthly sun-sign horoscope readings. |

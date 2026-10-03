@@ -30,6 +30,7 @@ EXPECTED_WIDGET_DOCS = {
     "dilbert.md",
     "dns-stats.md",
     "docker-containers.md",
+    "environment.md",
     "extension.md",
     "group.md",
     "hacker-news.md",

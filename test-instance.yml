@@ -770,6 +770,12 @@ pages:
             show-hourly: true
             show-forecast: true
 
+          - type: environment
+            title: Environment
+            css-class: visual-fixture-environment
+            location: St. Louis, Missouri, United States
+            pollen-api-key: ${ATMOSPORE_API_KEY}
+
           - type: calendar-legacy
             title: Calendar Legacy
             css-class: visual-fixture-calendar-legacy

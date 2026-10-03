@@ -78,6 +78,7 @@
 @import "site.css";
 @import "widgets.css";
 @import "widget-markdown.css";
+@import "widget-environment.css";
 @import "docs.css";
 @import "popover.css";
 @import "utils.css";
