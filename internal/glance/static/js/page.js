@@ -6,6 +6,7 @@ import { throttledDebounce, isElementVisible, openURLInNewTab } from './utils.js
 import { attachExpandToggleButton, setupCollapsibleList } from './collapsible-list.js';
 import { setupSearchBoxes } from './search.js';
 import setupImageExpander from './image-expand.js';
+import setupWidgetExpander from './widget-expand.js';
 import { updateRelativeTimeForElements, setupDynamicRelativeTime } from './relative-time.js';
 import { setupClocks, setupFooterMicroClocks, setupAnalogClocks } from './clocks.js';
 import { initThemePicker } from './theme.js';
@@ -60,6 +61,20 @@ async function fetchPageContent(pageData) {
     } finally {
         clearTimeout(timeout);
     }
+}
+
+function setupWidgetExpanders(root = document) {
+    const triggers = root.querySelectorAll("[data-widget-expand]");
+    const cleanupCallbacks = [];
+
+    for (const trigger of triggers) {
+        const widgetElement = trigger.closest("[data-widget-id]");
+        if (widgetElement === null) continue;
+
+        cleanupCallbacks.push(setupWidgetExpander(trigger, widgetElement, pageData.baseURL));
+    }
+
+    return cleanupCallbacks;
 }
 
 function setupImageExpanders(root = document) {
@@ -611,6 +626,9 @@ async function initializeContentRoot(root, diagnostics = false) {
         ...runStage("status_bar_tickers", () => setupStatusBarTickers(root))
     );
 
+    cleanupCallbacks.push(
+        ...runStage("widget_expanders", () => setupWidgetExpanders(root))
+    );
     cleanupCallbacks.push(
         ...runStage("image_expanders", () => setupImageExpanders(root))
     );

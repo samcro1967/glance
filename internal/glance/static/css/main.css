@@ -85,4 +85,5 @@
 @import "vendor/datatables/responsive.dataTables.min.css";
 @import "presentation.css";
 @import "image-expand.css";
+@import "widget-expand.css";
 @import "mobile.css";
