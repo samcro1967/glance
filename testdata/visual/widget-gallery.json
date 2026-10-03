@@ -24,6 +24,7 @@
   ],
   "date-time-weather": [
     "weather",
+    "environment",
     "astronomy",
     "astrology",
     "horoscope",
@@ -69,6 +70,7 @@
     "quote-of-the-day",
     "trivia",
     "on-this-day",
-    "animal-of-the-day"
+    "animal-of-the-day",
+    "nasa-apod"
   ]
 }

@@ -4,6 +4,8 @@
 
 Display current conditions, weather details, hourly temperatures and precipitation, and a 7-day forecast for a specific location. The data is provided by https://open-meteo.com/.
 
+
+Weather supports [expanded widget views](../expanded-views.md). Use the expand action in the widget header to open the additional weather presentation without changing the normal dashboard footprint.
 ## Quick start
 
 ```yaml

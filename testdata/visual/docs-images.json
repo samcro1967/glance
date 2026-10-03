@@ -232,6 +232,13 @@
     "route": "/search-custom-content",
     "selector": ".visual-fixture-custom-api"
   },
+  "widgets/custom-api-expanded.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/search-custom-content",
+    "click": ".visual-fixture-custom-api [data-widget-expand]",
+    "selector": ".widget-expand-dialog"
+  },
   "widgets/dilbert.png": {
     "kind": "browser",
     "capture": "element",
@@ -448,6 +455,12 @@
     "route": "/date-time-weather",
     "selector": ".visual-fixture-weather"
   },
+  "widgets/environment.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-environment"
+  },
   "examples/custom-api/alertmanager.png": {
     "kind": "browser",
     "capture": "element",
@@ -661,5 +674,11 @@
     "capture": "element",
     "route": "/daily-discovery",
     "selector": ".widget-type-quote-of-the-day"
+  },
+  "widgets/nasa-apod.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/daily-discovery",
+    "selector": ".widget-type-nasa-apod"
   }
 }

@@ -413,6 +413,21 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (url.pathname === '/daily-discovery/nasa-apod') {
+    sendJson(res, [{
+      date: '2026-10-03',
+      title: 'Webb View of a Spiral Galaxy',
+      permalink: 'https://science.nasa.gov/universe/',
+      media_type: 'image',
+      explanation: 'A <strong>deterministic</strong> NASA Astronomy Picture of the Day fixture &amp; explanation used for visual validation.',
+      credit: 'NASA &amp; ESA',
+      copyright: 'Visual Fixture',
+      alt: 'A spiral galaxy used as the deterministic NASA APOD fixture',
+      hdurl: 'http://127.0.0.1:18089/daily-discovery/animal.png'
+    }]);
+    return;
+  }
+
   if (url.pathname === '/daily-discovery/animal') {
     sendJson(res, {
       results: [{

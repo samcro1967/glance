@@ -1,0 +1,27 @@
+{{ template "widget-base.html" . }}
+{{ define "widget-content" }}
+<div class="environment-widget widget-small-content-bounds">
+  {{ if .AirQuality }}
+  <div class="environment-primary">
+    <div><div class="size-h6 color-subdue">AIR QUALITY</div><div class="size-h2 color-highlight">{{ printf "%.0f" .AirQuality.USAQI }}</div><div>{{ .AirQuality.USAQICategory }}</div></div>
+    <div><div class="size-h6 color-subdue">UV</div><div class="size-h2 color-highlight">{{ printf "%.1f" .AirQuality.UVIndex }}</div><div>{{ .AirQuality.UVCategory }}</div></div>
+  </div>
+  <div class="environment-measures">
+    <div><span class="color-subdue">PM2.5</span><strong>{{ printf "%.1f" .AirQuality.PM25 }}</strong><span class="color-subdue">µg/m³</span></div>
+    <div><span class="color-subdue">PM10</span><strong>{{ printf "%.1f" .AirQuality.PM10 }}</strong><span class="color-subdue">µg/m³</span></div>
+    <div><span class="color-subdue">Ozone</span><strong>{{ printf "%.1f" .AirQuality.Ozone }}</strong><span class="color-subdue">µg/m³</span></div>
+    <div><span class="color-subdue">NO₂</span><strong>{{ printf "%.1f" .AirQuality.NitrogenDioxide }}</strong><span class="color-subdue">µg/m³</span></div>
+  </div>
+  {{ end }}
+  {{ if .Pollen }}{{ with .Pollen.Current }}
+  <div class="environment-section">
+    <div class="environment-section-heading"><span>POLLEN</span><strong>{{ .DisplayRisk }}</strong></div>
+    {{ range $i,$s := .ActiveSpecies }}{{ if lt $i 3 }}<div class="glance-key-value"><span class="glance-key">{{ $s.Name }}</span><span class="glance-value">{{ printf "%.1f" $s.Value }} grains/m³ · {{ $s.DisplayRisk }}</span></div>{{ end }}{{ end }}
+    <div class="environment-attribution">Pollen data: <a href="https://atmospore.com" target="_blank" rel="noopener noreferrer">AtmoSpore</a></div>
+  </div>
+  {{ end }}{{ else if and .HasPollenProvider (not .PollenError) }}<div class="environment-provider-note color-subdue">Pollen data unavailable</div>{{ end }}
+  {{ if .AirQualityError }}{{ if .AirQuality }}<div class="environment-provider-note color-subdue">Air quality refresh failed; showing last available data</div>{{ else }}<div class="environment-provider-note color-subdue">Air quality data unavailable</div>{{ end }}{{ end }}
+  {{ if .PollenError }}{{ if .Pollen }}<div class="environment-provider-note color-subdue">Pollen refresh failed; showing last available data</div>{{ else }}<div class="environment-provider-note color-subdue">Pollen data unavailable</div>{{ end }}{{ end }}
+  {{ with .Place }}<div class="environment-location color-subdue">{{ .Name }}{{ if .Area }}, {{ .Area }}{{ end }}</div>{{ end }}
+</div>
+{{ end }}
