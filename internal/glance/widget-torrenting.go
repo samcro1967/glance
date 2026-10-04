@@ -15,6 +15,7 @@ import (
 )
 
 var torrentingWidgetTemplate = mustParseTemplate("torrenting.html", "widget-base.html")
+var torrentingWidgetExpandedTemplate = mustParseTemplate("torrenting-expanded.html")
 
 type torrentingWidget struct {
 	widgetBase `yaml:",inline"`
@@ -132,6 +133,10 @@ func (widget *torrentingWidget) update(ctx context.Context) {
 
 func (widget *torrentingWidget) Render() template.HTML {
 	return widget.renderTemplate(widget, torrentingWidgetTemplate)
+}
+
+func (widget *torrentingWidget) RenderExpanded() template.HTML {
+	return widget.renderTemplate(widget, torrentingWidgetExpandedTemplate)
 }
 
 type qBittorrentRequestOptions struct {

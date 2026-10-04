@@ -758,5 +758,61 @@
     "route": "/development-releases",
     "click": ".visual-fixture-releases [data-widget-expand]",
     "selector": ".widget-expand-dialog"
+  },
+  "widgets/arr-expanded.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "click": ".visual-fixture-arr [data-widget-expand]",
+    "selector": ".widget-expand-dialog"
+  },
+  "widgets/monitor-expanded.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "click": ".visual-fixture-monitor [data-widget-expand]",
+    "selector": ".widget-expand-dialog"
+  },
+  "widgets/prometheus-expanded.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "click": ".visual-fixture-prometheus [data-widget-expand]",
+    "selector": ".widget-expand-dialog"
+  },
+  "widgets/torrenting-expanded.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "click": ".visual-fixture-torrenting [data-widget-expand]",
+    "selector": ".widget-expand-dialog"
+  },
+  "widgets/repository-expanded.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/development-releases",
+    "click": ".visual-fixture-repository [data-widget-expand]",
+    "selector": ".widget-expand-dialog"
+  },
+  "widgets/change-detection-expanded.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "click": ".visual-fixture-change-detection [data-widget-expand]",
+    "selector": ".widget-expand-dialog"
+  },
+  "widgets/dns-stats-expanded.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "click": ".visual-fixture-dns-stats [data-widget-expand]",
+    "selector": ".widget-expand-dialog"
+  },
+  "widgets/videos-expanded.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "click": ".visual-fixture-videos [data-widget-expand]",
+    "selector": ".widget-expand-dialog"
   }
 }

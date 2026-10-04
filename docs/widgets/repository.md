@@ -48,6 +48,12 @@ The maximum number of latest open issues to show. Set to `-1` to not show any.
 The maximum number of lastest commits to show from the default branch. Set to `-1` to not show any.
 
 
+## Expanded view
+
+The expanded view gives commits, open pull requests, and open issues more room while retaining the configured API limits. It does not request additional GitHub records when opened.
+
+![Repository expanded view](../images/widgets/repository-expanded.png)
+
 ---
 
 [Widgets](../widgets.md) · [Configuration](../configuration.md) · [Back to top](#repository)

@@ -65,6 +65,12 @@ By default all of the configured watches will be shown. Optionally, you can spec
 ```
 
 
+## Expanded view
+
+The expanded view presents the current watches in a review table with last-change time, previous hash, and a direct link to the existing ChangeDetection.io diff. It does not fetch or render diff contents inside Glance.
+
+![Change Detection expanded view](../images/widgets/change-detection-expanded.png)
+
 ---
 
 [Widgets](../widgets.md) · [Configuration](../configuration.md) · [Back to top](#changedetectionio)

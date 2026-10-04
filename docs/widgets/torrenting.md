@@ -56,6 +56,12 @@ This widget also supports the [shared widget properties](../widgets.md#shared-pr
 
 `timeout` and `allow-insecure` use Glance's shared HTTP client behavior. Requests use the widget refresh context so cancellation propagates promptly. Credentials and session data are never rendered into browser URLs.
 
+## Expanded view
+
+The expanded view presents the current torrent set as a detailed table with state, progress, downloaded size, total size, and ETA. It remains read-only and uses the torrents already returned by the normal refresh.
+
+![Torrenting expanded view](../images/widgets/torrenting-expanded.png)
+
 ---
 
 [Widgets](../widgets.md) · [Configuration](../configuration.md) · [Back to top](#torrenting)

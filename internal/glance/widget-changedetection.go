@@ -11,6 +11,7 @@ import (
 )
 
 var changeDetectionWidgetTemplate = mustParseTemplate("change-detection.html", "widget-base.html")
+var changeDetectionWidgetExpandedTemplate = mustParseTemplate("change-detection-expanded.html")
 
 type changeDetectionWidget struct {
 	widgetBase       `yaml:",inline"`
@@ -75,6 +76,10 @@ func (widget *changeDetectionWidget) update(ctx context.Context) {
 
 func (widget *changeDetectionWidget) Render() template.HTML {
 	return widget.renderTemplate(widget, changeDetectionWidgetTemplate)
+}
+
+func (widget *changeDetectionWidget) RenderExpanded() template.HTML {
+	return widget.renderTemplate(widget, changeDetectionWidgetExpandedTemplate)
 }
 
 type changeDetectionWatch struct {

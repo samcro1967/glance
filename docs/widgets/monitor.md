@@ -147,6 +147,12 @@ basic-auth:
 ```
 
 
+## Expanded view
+
+The expanded view presents the currently monitored services as a status table with service, status, HTTP code, response time, and any current request error. It uses the statuses from the normal widget refresh and does not perform additional health checks.
+
+![Monitor expanded view](../images/widgets/monitor-expanded.png)
+
 ---
 
 [Widgets](../widgets.md) · [Configuration](../configuration.md) · [Back to top](#monitor)
