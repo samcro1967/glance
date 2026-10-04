@@ -37,17 +37,20 @@ type torrentingWidget struct {
 }
 
 type torrentRecord struct {
-	Name         string
-	State        string
-	StateLabel   string
-	Progress     float64
-	ProgressCSS  string
-	ProgressText string
-	Downloaded   string
-	Size         string
-	ETA          string
-	Completed    bool
-	Active       bool
+	Name            string
+	State           string
+	StateLabel      string
+	Progress        float64
+	ProgressCSS     string
+	ProgressText    string
+	Downloaded      string
+	DownloadedBytes int64
+	Size            string
+	SizeBytes       int64
+	ETA             string
+	ETASeconds      int64
+	Completed       bool
+	Active          bool
 }
 
 type qBittorrentTorrent struct {
@@ -233,17 +236,20 @@ func normalizeQBittorrentTorrent(raw qBittorrentTorrent) torrentRecord {
 	completed := progress >= 1
 	active := qbittorrentStateActive(raw.State)
 	return torrentRecord{
-		Name:         raw.Name,
-		State:        raw.State,
-		StateLabel:   qbittorrentStateLabel(raw.State),
-		Progress:     progress,
-		ProgressCSS:  fmt.Sprintf("%.1f%%", progress*100),
-		ProgressText: fmt.Sprintf("%.0f%%", progress*100),
-		Downloaded:   formatTorrentBytes(raw.Downloaded),
-		Size:         formatTorrentBytes(raw.Size),
-		ETA:          formatTorrentETA(raw.ETA),
-		Completed:    completed,
-		Active:       active,
+		Name:            raw.Name,
+		State:           raw.State,
+		StateLabel:      qbittorrentStateLabel(raw.State),
+		Progress:        progress,
+		ProgressCSS:     fmt.Sprintf("%.1f%%", progress*100),
+		ProgressText:    fmt.Sprintf("%.0f%%", progress*100),
+		Downloaded:      formatTorrentBytes(raw.Downloaded),
+		DownloadedBytes: raw.Downloaded,
+		Size:            formatTorrentBytes(raw.Size),
+		SizeBytes:       raw.Size,
+		ETA:             formatTorrentETA(raw.ETA),
+		ETASeconds:      raw.ETA,
+		Completed:       completed,
+		Active:          active,
 	}
 }
 

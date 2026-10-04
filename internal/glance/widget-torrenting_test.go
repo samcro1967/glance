@@ -152,6 +152,9 @@ func TestNormalizeQBittorrentTorrent(t *testing.T) {
 	if record.ProgressText != "62%" || record.ETA != "1h 2m" || record.Downloaded != "5.0 GiB" {
 		t.Fatalf("record = %#v", record)
 	}
+	if record.DownloadedBytes != 5<<30 || record.SizeBytes != 8<<30 || record.ETASeconds != 3720 {
+		t.Fatalf("canonical sort values = %#v", record)
+	}
 }
 
 func TestTorrentingWidgetRenderDoesNotExposeCredentials(t *testing.T) {

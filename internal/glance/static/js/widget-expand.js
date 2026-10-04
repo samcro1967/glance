@@ -45,9 +45,17 @@ export default function(trigger, widgetElement, baseURL, initializeContent) {
         nextDialog.className = "widget-expand-dialog";
         nextDialog.setAttribute("aria-label", `Expanded ${widgetTitle}`);
 
+        const header = document.createElement("div");
+        header.className = "widget-expand-dialog-header";
+
+        const title = document.createElement("h2");
+        title.className = "widget-expand-dialog-title";
+        title.textContent = widgetTitle;
+
         const content = document.createElement("div");
         content.className = "widget-expand-dialog-content";
         content.dataset.glancePresentationScope = "";
+        content.dataset.glanceTableStateScope = widgetID;
         content.textContent = "Loading…";
 
         const closeButton = document.createElement("button");
@@ -69,7 +77,8 @@ export default function(trigger, widgetElement, baseURL, initializeContent) {
             nextDialog.remove();
         }, { once: true });
 
-        nextDialog.append(content, closeButton);
+        header.append(title, closeButton);
+        nextDialog.append(header, content);
         document.body.append(nextDialog);
         dialog = nextDialog;
         nextDialog.showModal();
