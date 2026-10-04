@@ -13,6 +13,7 @@ import (
 )
 
 var marketsWidgetTemplate = mustParseTemplate("markets.html", "widget-base.html")
+var marketsWidgetExpandedTemplate = mustParseTemplate("markets-expanded.html")
 
 type marketsWidget struct {
 	widgetBase         `yaml:",inline"`
@@ -65,6 +66,9 @@ func (widget *marketsWidget) update(ctx context.Context) {
 
 func (widget *marketsWidget) Render() template.HTML {
 	return widget.renderTemplate(widget, marketsWidgetTemplate)
+}
+func (widget *marketsWidget) RenderExpanded() template.HTML {
+	return widget.renderTemplate(widget, marketsWidgetExpandedTemplate)
 }
 
 type marketRequest struct {

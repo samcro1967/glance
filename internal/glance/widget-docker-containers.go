@@ -14,8 +14,9 @@ import (
 )
 
 var (
-	dockerContainersWidgetTemplate     = mustParseTemplate("docker-containers.html", "widget-base.html")
-	dockerContainersWidgetGridTemplate = mustParseTemplate("docker-containers-grid.html", "widget-base.html")
+	dockerContainersWidgetTemplate         = mustParseTemplate("docker-containers.html", "widget-base.html")
+	dockerContainersWidgetGridTemplate     = mustParseTemplate("docker-containers-grid.html", "widget-base.html")
+	dockerContainersWidgetExpandedTemplate = mustParseTemplate("docker-containers-expanded.html")
 )
 
 type dockerContainersWidget struct {
@@ -77,6 +78,10 @@ func (widget *dockerContainersWidget) Render() template.HTML {
 	}
 
 	return widget.renderTemplate(widget, dockerContainersWidgetTemplate)
+}
+
+func (widget *dockerContainersWidget) RenderExpanded() template.HTML {
+	return widget.renderTemplate(widget, dockerContainersWidgetExpandedTemplate)
 }
 
 const (

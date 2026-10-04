@@ -9,6 +9,7 @@ import (
 )
 
 var calendarWidgetTemplate = mustParseTemplate("calendar.html", "widget-base.html")
+var calendarWidgetExpandedTemplate = mustParseTemplate("calendar-expanded.html")
 
 const calendarMonthRange = 12
 
@@ -90,6 +91,30 @@ func (widget *calendarWidget) Render() template.HTML {
 	}
 
 	return widget.renderTemplate(widget, calendarWidgetTemplate)
+}
+
+func (widget *calendarWidget) RenderExpanded() template.HTML {
+	events := widget.expandedAgendaEvents()
+	return widget.renderTemplate(struct {
+		*calendarWidget
+		ExpandedEvents []icsEvent
+	}{widget, events}, calendarWidgetExpandedTemplate)
+}
+
+func (widget *calendarWidget) expandedAgendaEvents() []icsEvent {
+	now := widget.now()
+	events := make([]icsEvent, 0, len(widget.Events))
+	for _, event := range widget.Events {
+		if event.End.Before(now) {
+			continue
+		}
+		events = append(events, event)
+		if len(events) == 50 {
+			break
+		}
+	}
+	decorateAgendaEvents(events, now)
+	return events
 }
 
 func (widget *calendarWidget) update(ctx context.Context) {

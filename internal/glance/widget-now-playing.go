@@ -13,6 +13,7 @@ import (
 )
 
 var nowPlayingWidgetTemplate = mustParseTemplate("now-playing.html", "widget-base.html")
+var nowPlayingWidgetExpandedTemplate = mustParseTemplate("now-playing-expanded.html")
 
 type nowPlayingWidget struct {
 	widgetBase            `yaml:",inline"`
@@ -153,6 +154,9 @@ func (widget *nowPlayingWidget) update(ctx context.Context) {
 
 func (widget *nowPlayingWidget) Render() template.HTML {
 	return widget.renderTemplate(widget, nowPlayingWidgetTemplate)
+}
+func (widget *nowPlayingWidget) RenderExpanded() template.HTML {
+	return widget.renderTemplate(widget, nowPlayingWidgetExpandedTemplate)
 }
 
 func fetchNowPlaying(ctx context.Context, widget *nowPlayingWidget) ([]nowPlayingItem, error) {

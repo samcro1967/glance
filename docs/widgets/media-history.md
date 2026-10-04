@@ -17,6 +17,12 @@ Preview:
 
 ![Media History widget](../images/widgets/media-history.png)
 
+## Expanded view
+
+Use the expand control in the widget header to open a richer recently played view. Expanded cards provide more room for artwork, title and subtitle, media type, duration, played date, and summary when those fields are available from the provider.
+
+![Media History expanded view](../images/widgets/media-history-expanded.png)
+
 ## Configuration
 
 This widget also supports the [shared widget properties](../widgets.md#shared-properties).

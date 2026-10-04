@@ -104,7 +104,10 @@ func (widget *icsEventsWidget) parseSource(body []byte, source icsEventSource) (
 }
 
 func (widget *icsEventsWidget) decorateEvents(events []icsEvent) {
-	now := widget.now()
+	decorateAgendaEvents(events, widget.now())
+}
+
+func decorateAgendaEvents(events []icsEvent, now time.Time) {
 	var previousDate string
 
 	for i := range events {

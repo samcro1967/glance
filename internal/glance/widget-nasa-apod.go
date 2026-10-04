@@ -12,6 +12,7 @@ import (
 )
 
 var nasaAPODWidgetTemplate = mustParseTemplate("nasa-apod.html", "widget-base.html")
+var nasaAPODWidgetExpandedTemplate = mustParseTemplate("nasa-apod-expanded.html")
 
 const nasaAPODURL = "https://science.nasa.gov/wp-json/wp/v2/apod-basic"
 
@@ -86,6 +87,9 @@ func (w *nasaAPODWidget) update(ctx context.Context) {
 
 func (w *nasaAPODWidget) Render() template.HTML {
 	return w.renderTemplate(w, nasaAPODWidgetTemplate)
+}
+func (w *nasaAPODWidget) RenderExpanded() template.HTML {
+	return w.renderTemplate(w, nasaAPODWidgetExpandedTemplate)
 }
 
 func selectNASAAPOD(apods []nasaAPOD, now time.Time) (nasaAPOD, error) {

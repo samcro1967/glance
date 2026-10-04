@@ -14,6 +14,7 @@ import (
 )
 
 var seerrWidgetTemplate = mustParseTemplate("seerr.html", "widget-base.html")
+var seerrWidgetExpandedTemplate = mustParseTemplate("seerr-expanded.html")
 
 type seerrWidget struct {
 	widgetBase `yaml:",inline"`
@@ -134,6 +135,9 @@ func (widget *seerrWidget) update(ctx context.Context) {
 
 func (widget *seerrWidget) Render() template.HTML {
 	return widget.renderTemplate(widget, seerrWidgetTemplate)
+}
+func (widget *seerrWidget) RenderExpanded() template.HTML {
+	return widget.renderTemplate(widget, seerrWidgetExpandedTemplate)
 }
 
 func fetchSeerr(ctx context.Context, widget *seerrWidget) ([]seerrItem, error) {
