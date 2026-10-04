@@ -48,6 +48,12 @@ Artwork is only rendered through Glance's resource proxy. Add the artwork origin
 
 `timeout` and `allow-insecure` use Glance's shared HTTP client behavior. Requests use the widget refresh context so cancellation propagates promptly. Structured HTTP status errors participate in the normal stale/degraded widget lifecycle.
 
+## Expanded view
+
+The expanded view shows the same normalized ARR items in a roomier media layout, including artwork, status, provider dates, and the full available summary. It uses the current cached widget data and does not make an additional ARR request.
+
+![Arr expanded view](../images/widgets/arr-expanded.png)
+
 ---
 
 [Widgets](../widgets.md) · [Configuration](../configuration.md) · [Back to top](#arr)

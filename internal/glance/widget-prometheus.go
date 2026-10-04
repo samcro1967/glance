@@ -22,6 +22,7 @@ const (
 )
 
 var prometheusWidgetTemplate = mustParseTemplate("prometheus.html", "widget-base.html")
+var prometheusWidgetExpandedTemplate = mustParseTemplate("prometheus-expanded.html")
 
 type prometheusWidget struct {
 	widgetBase `yaml:",inline"`
@@ -164,6 +165,10 @@ func (widget *prometheusWidget) update(ctx context.Context) {
 
 func (widget *prometheusWidget) Render() template.HTML {
 	return widget.renderTemplate(widget, prometheusWidgetTemplate)
+}
+
+func (widget *prometheusWidget) RenderExpanded() template.HTML {
+	return widget.renderTemplate(widget, prometheusWidgetExpandedTemplate)
 }
 
 func fetchPrometheusGraph(ctx context.Context, widget *prometheusWidget, now time.Time) (*prometheusGraph, []string, error) {

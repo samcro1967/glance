@@ -11,9 +11,10 @@ import (
 )
 
 var (
-	monitorWidgetTemplate        = mustParseTemplate("monitor.html", "widget-base.html")
-	monitorWidgetCompactTemplate = mustParseTemplate("monitor-compact.html", "widget-base.html")
-	monitorWidgetGridTemplate    = mustParseTemplate("monitor-grid.html", "widget-base.html")
+	monitorWidgetTemplate         = mustParseTemplate("monitor.html", "widget-base.html")
+	monitorWidgetCompactTemplate  = mustParseTemplate("monitor-compact.html", "widget-base.html")
+	monitorWidgetGridTemplate     = mustParseTemplate("monitor-grid.html", "widget-base.html")
+	monitorWidgetExpandedTemplate = mustParseTemplate("monitor-expanded.html")
 )
 
 type monitorSite struct {
@@ -110,6 +111,10 @@ func (widget *monitorWidget) Render() template.HTML {
 	default:
 		return widget.renderTemplate(widget, monitorWidgetTemplate)
 	}
+}
+
+func (widget *monitorWidget) RenderExpanded() template.HTML {
+	return widget.renderTemplate(widget, monitorWidgetExpandedTemplate)
 }
 
 func statusCodeToText(status int, altStatusCodes []int) string {

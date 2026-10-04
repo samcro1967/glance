@@ -93,6 +93,12 @@ video-url-template: https://invidious.your-domain.com/watch?v={VIDEO-ID}
 
 The `{VIDEO-ID}` placeholder is replaced with the YouTube video ID.
 
+## Expanded view
+
+The expanded view presents the already-fetched videos in a larger responsive card grid. Channel, playlist, Shorts, limit, and custom video URL behavior are unchanged, and opening the view does not fetch another feed.
+
+![Videos expanded view](../images/widgets/videos-expanded.png)
+
 ---
 
 [Widgets](../widgets.md) · [Configuration](../configuration.md) · [Back to top](#videos)

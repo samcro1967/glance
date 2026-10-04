@@ -15,6 +15,7 @@ import (
 )
 
 var arrWidgetTemplate = mustParseTemplate("arr.html", "widget-base.html")
+var arrWidgetExpandedTemplate = mustParseTemplate("arr-expanded.html")
 
 type arrWidget struct {
 	widgetBase `yaml:",inline"`
@@ -175,6 +176,10 @@ func (widget *arrWidget) update(ctx context.Context) {
 
 func (widget *arrWidget) Render() template.HTML {
 	return widget.renderTemplate(widget, arrWidgetTemplate)
+}
+
+func (widget *arrWidget) RenderExpanded() template.HTML {
+	return widget.renderTemplate(widget, arrWidgetExpandedTemplate)
 }
 
 func fetchARR(ctx context.Context, widget *arrWidget) ([]arrItem, error) {

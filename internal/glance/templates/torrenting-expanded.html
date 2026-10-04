@@ -1,0 +1,3 @@
+<div class="widget-expanded-section">
+{{ if .Torrents }}<div class="widget-expanded-table widget-expanded-torrent-table"><div class="widget-expanded-table-head"><span>Torrent</span><span>State</span><span>Progress</span><span>Downloaded / Size</span><span>ETA</span></div>{{ range .Torrents }}<div class="widget-expanded-table-row"><span class="color-highlight text-truncate" title="{{ .Name }}">{{ .Name }}</span><span>{{ .StateLabel }}</span><span>{{ .ProgressText }}</span><span>{{ .Downloaded }} / {{ .Size }}</span><span>{{ if .Completed }}Complete{{ else }}{{ .ETA }}{{ end }}</span></div>{{ end }}</div>{{ else }}<div class="text-center">No torrents available to show.</div>{{ end }}
+</div>

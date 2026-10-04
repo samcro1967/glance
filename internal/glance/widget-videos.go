@@ -19,6 +19,7 @@ var (
 	videosWidgetTemplate             = mustParseTemplate("videos.html", "widget-base.html", "video-card-contents.html")
 	videosWidgetGridTemplate         = mustParseTemplate("videos-grid.html", "widget-base.html", "video-card-contents.html")
 	videosWidgetVerticalListTemplate = mustParseTemplate("videos-vertical-list.html", "widget-base.html")
+	videosWidgetExpandedTemplate     = mustParseTemplate("videos-expanded.html", "video-card-contents.html")
 )
 
 type videosWidget struct {
@@ -102,6 +103,10 @@ func (w *videosWidget) Render() template.HTML {
 	}
 
 	return w.renderTemplate(w, template)
+}
+
+func (w *videosWidget) RenderExpanded() template.HTML {
+	return w.renderTemplate(w, videosWidgetExpandedTemplate)
 }
 
 type youtubeFeedResponseXml struct {
