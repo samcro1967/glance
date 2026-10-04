@@ -14,6 +14,7 @@ import (
 )
 
 var mediaHistoryWidgetTemplate = mustParseTemplate("media-history.html", "widget-base.html")
+var mediaHistoryWidgetExpandedTemplate = mustParseTemplate("media-history-expanded.html")
 
 type mediaHistoryWidget struct {
 	widgetBase    `yaml:",inline"`
@@ -55,6 +56,9 @@ func (widget *mediaHistoryWidget) update(ctx context.Context) {
 }
 func (widget *mediaHistoryWidget) Render() template.HTML {
 	return widget.renderTemplate(widget, mediaHistoryWidgetTemplate)
+}
+func (widget *mediaHistoryWidget) RenderExpanded() template.HTML {
+	return widget.renderTemplate(widget, mediaHistoryWidgetExpandedTemplate)
 }
 
 func fetchMediaHistory(ctx context.Context, widget *mediaHistoryWidget) ([]mediaItem, error) {

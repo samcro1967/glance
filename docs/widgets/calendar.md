@@ -44,6 +44,12 @@ The Calendar can consume iCalendar feeds exposed by applications such as Radarr 
 
 ![Calendar widget displaying a monthly calendar with iCalendar events](../images/widgets/calendar.png)
 
+## Expanded view
+
+Use the expand control in the widget header to open an upcoming-event agenda derived from the Calendar's already loaded event range. Completed events are omitted, and upcoming entries include their time, title, location, source, and event link when available.
+
+![Calendar expanded agenda](../images/widgets/calendar-expanded.png)
+
 ## Configuration
 
 This widget also supports the [shared widget properties](../widgets.md#shared-properties).

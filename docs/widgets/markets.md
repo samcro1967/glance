@@ -27,6 +27,12 @@ Preview:
 
 ![Markets widget](../images/widgets/markets.png)
 
+## Expanded view
+
+Use the expand control in the widget header to open a larger market overview. Each configured market is presented with its symbol and name, current value, daily percentage change, and a larger version of its chart while retaining configured symbol and chart links.
+
+![Markets expanded view](../images/widgets/markets-expanded.png)
+
 ## Configuration
 
 This widget also supports the [shared widget properties](../widgets.md#shared-properties).
