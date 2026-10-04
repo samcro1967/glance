@@ -29,6 +29,12 @@ Recommended grouped presentation:
 
 ![Astronomy upcoming events preview](../images/widgets/astronomy-upcoming.png)
 
+## Expanded view
+
+Use the expand control in the widget header to open a larger view of the configured Astronomy sections. The expanded view presents the same calculated observation snapshot with additional room for Moon and Sun details, planet and bright-star tables, and upcoming celestial events when those sections are enabled.
+
+![Astronomy expanded view](../images/widgets/astronomy-expanded.png)
+
 Astronomical calculations run locally after the observer location is resolved. A location name uses the same cached Open-Meteo geocoding resource as the Weather widget. You can alternatively provide latitude, longitude, and timezone directly to avoid geocoding. No astronomy API key is required.
 
 ## Configuration

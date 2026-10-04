@@ -9,6 +9,7 @@ import (
 )
 
 var astronomyWidgetTemplate = mustParseTemplate("astronomy.html", "widget-base.html")
+var astronomyWidgetExpandedTemplate = mustParseTemplate("astronomy-expanded.html")
 
 type astronomyWidget struct {
 	widgetBase  `yaml:",inline"`
@@ -116,6 +117,9 @@ func (widget *astronomyWidget) resolveObserver(ctx context.Context) (astronomyOb
 
 func (widget *astronomyWidget) Render() template.HTML {
 	return widget.renderTemplate(widget, astronomyWidgetTemplate)
+}
+func (widget *astronomyWidget) RenderExpanded() template.HTML {
+	return widget.renderTemplate(widget, astronomyWidgetExpandedTemplate)
 }
 func (widget *astronomyWidget) FormatTime(value time.Time) string {
 	return formatAstronomyTime(value, widget.HourFormat)

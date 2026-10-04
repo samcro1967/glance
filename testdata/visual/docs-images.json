@@ -680,5 +680,83 @@
     "capture": "element",
     "route": "/daily-discovery",
     "selector": ".widget-type-nasa-apod"
+  },
+  "widgets/astronomy-expanded.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "click": ".visual-fixture-astronomy [data-widget-expand]",
+    "clickNth": 0,
+    "selector": ".widget-expand-dialog"
+  },
+  "widgets/calendar-expanded.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "click": ".visual-fixture-calendar [data-widget-expand]",
+    "selector": ".widget-expand-dialog"
+  },
+  "widgets/docker-containers-expanded.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "click": ".visual-fixture-docker-containers [data-widget-expand]",
+    "selector": ".widget-expand-dialog"
+  },
+  "widgets/server-stats-expanded.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "click": ".visual-fixture-server-stats [data-widget-expand]",
+    "selector": ".widget-expand-dialog"
+  },
+  "widgets/markets-expanded.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/markets-streaming",
+    "click": ".visual-fixture-markets [data-widget-expand]",
+    "selector": ".widget-expand-dialog"
+  },
+  "widgets/latest-media-expanded.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "click": ".visual-fixture-latest-media [data-widget-expand]",
+    "selector": ".widget-expand-dialog"
+  },
+  "widgets/now-playing-expanded.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "click": ".visual-fixture-now-playing [data-widget-expand]",
+    "selector": ".widget-expand-dialog"
+  },
+  "widgets/media-history-expanded.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "click": ".visual-fixture-media-history [data-widget-expand]",
+    "selector": ".widget-expand-dialog"
+  },
+  "widgets/seerr-expanded.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "click": ".visual-fixture-seerr [data-widget-expand]",
+    "selector": ".widget-expand-dialog"
+  },
+  "widgets/nasa-apod-expanded.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/daily-discovery",
+    "click": ".widget-type-nasa-apod [data-widget-expand]",
+    "selector": ".widget-expand-dialog"
+  },
+  "widgets/releases-expanded.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/development-releases",
+    "click": ".visual-fixture-releases [data-widget-expand]",
+    "selector": ".widget-expand-dialog"
   }
 }

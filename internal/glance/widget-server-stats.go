@@ -16,6 +16,7 @@ import (
 )
 
 var serverStatsWidgetTemplate = mustParseTemplate("server-stats.html", "widget-base.html")
+var serverStatsWidgetExpandedTemplate = mustParseTemplate("server-stats-expanded.html")
 
 type serverStatsWidget struct {
 	widgetBase `yaml:",inline"`
@@ -162,6 +163,10 @@ func (widget *serverStatsWidget) update(ctx context.Context) {
 
 func (widget *serverStatsWidget) Render() template.HTML {
 	return widget.renderTemplate(widget, serverStatsWidgetTemplate)
+}
+
+func (widget *serverStatsWidget) RenderExpanded() template.HTML {
+	return widget.renderTemplate(widget, serverStatsWidgetExpandedTemplate)
 }
 
 type serverStatsRequest struct {

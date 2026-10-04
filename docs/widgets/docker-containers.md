@@ -6,6 +6,12 @@
 Display the status of your Docker containers along with an icon and an optional short description.
 
 ![Docker Containers widget](../images/widgets/docker-containers.png)
+
+## Expanded view
+
+Use the expand control in the widget header to open a detailed container table showing each displayed container's name, image, Docker Compose project, status, and description when available. Existing container links retain their configured same-tab or new-tab behavior.
+
+![Docker Containers expanded view](../images/widgets/docker-containers-expanded.png)
 ## Quick start
 
 

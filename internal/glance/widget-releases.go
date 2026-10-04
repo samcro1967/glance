@@ -15,6 +15,7 @@ import (
 )
 
 var releasesWidgetTemplate = mustParseTemplate("releases.html", "widget-base.html")
+var releasesWidgetExpandedTemplate = mustParseTemplate("releases-expanded.html")
 
 type releasesWidget struct {
 	widgetBase     `yaml:",inline"`
@@ -71,6 +72,9 @@ func (widget *releasesWidget) update(ctx context.Context) {
 
 func (widget *releasesWidget) Render() template.HTML {
 	return widget.renderTemplate(widget, releasesWidgetTemplate)
+}
+func (widget *releasesWidget) RenderExpanded() template.HTML {
+	return widget.renderTemplate(widget, releasesWidgetExpandedTemplate)
 }
 
 type releaseSource string

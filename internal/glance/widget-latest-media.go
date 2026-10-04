@@ -15,6 +15,7 @@ import (
 )
 
 var latestMediaWidgetTemplate = mustParseTemplate("latest-media.html", "widget-base.html")
+var latestMediaWidgetExpandedTemplate = mustParseTemplate("latest-media-expanded.html")
 
 type latestMediaWidget struct {
 	widgetBase    `yaml:",inline"`
@@ -121,6 +122,9 @@ func (widget *latestMediaWidget) update(ctx context.Context) {
 }
 func (widget *latestMediaWidget) Render() template.HTML {
 	return widget.renderTemplate(widget, latestMediaWidgetTemplate)
+}
+func (widget *latestMediaWidget) RenderExpanded() template.HTML {
+	return widget.renderTemplate(widget, latestMediaWidgetExpandedTemplate)
 }
 
 func fetchLatestMedia(ctx context.Context, widget *latestMediaWidget) ([]mediaItem, error) {
