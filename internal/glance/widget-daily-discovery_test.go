@@ -200,6 +200,39 @@ func TestParseTriviaQuestionDecodesEntitiesAndKeepsOneCorrectAnswer(t *testing.T
 	}
 }
 
+func TestAnimalOfTheDayRendersImageExpander(t *testing.T) {
+	w := &animalOfTheDayWidget{
+		widgetBase: widgetBase{ContentAvailable: true},
+		Animal: animalOfTheDay{
+			CommonName:       "Red Fox",
+			ScientificName:   "Vulpes vulpes",
+			Group:            "Mammalia",
+			ImageURL:         "https://example.com/red-fox.jpg",
+			ImageAttribution: "Example Photographer",
+			ImageLicense:     "CC-BY",
+			WikipediaURL:     "https://example.com/red-fox",
+			INaturalistURL:   "https://example.com/inaturalist/red-fox",
+			ObservationCount: 1234,
+		},
+	}
+
+	rendered := string(w.Render())
+	for _, expected := range []string{
+		`class="animal-of-the-day-image-expand"`,
+		`data-image-expand`,
+		`data-image-expand-src="https://example.com/red-fox.jpg"`,
+		`data-image-expand-alt="Red Fox"`,
+		`aria-label="Enlarge photo of Red Fox"`,
+		`title="Click to enlarge"`,
+		`class="animal-of-the-day-image"`,
+		`alt="Red Fox"`,
+	} {
+		if !strings.Contains(rendered, expected) {
+			t.Errorf("rendered animal missing %q: %s", expected, rendered)
+		}
+	}
+}
+
 func TestSelectAnimalOfTheDayRejectsUnlicensedPhoto(t *testing.T) {
 	var r iNaturalistSpeciesCountsResponse
 	r.Results = make([]struct {
