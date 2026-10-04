@@ -17,6 +17,7 @@ import (
 )
 
 var dnsStatsWidgetTemplate = mustParseTemplate("dns-stats.html", "widget-base.html")
+var dnsStatsWidgetExpandedTemplate = mustParseTemplate("dns-stats-expanded.html")
 
 const (
 	dnsStatsBars            = 8
@@ -138,6 +139,10 @@ func (widget *dnsStatsWidget) update(ctx context.Context) {
 
 func (widget *dnsStatsWidget) Render() template.HTML {
 	return widget.renderTemplate(widget, dnsStatsWidgetTemplate)
+}
+
+func (widget *dnsStatsWidget) RenderExpanded() template.HTML {
+	return widget.renderTemplate(widget, dnsStatsWidgetExpandedTemplate)
 }
 
 type dnsStats struct {

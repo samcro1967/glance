@@ -21,6 +21,14 @@ func TestNativeWidgetsRenderExpandedViews(t *testing.T) {
 	seerr := &seerrWidget{View: "trending", Items: []seerrItem{{Title: "Seerr title"}}}
 	apod := &nasaAPODWidget{APOD: nasaAPOD{MediaType: "image", Title: "APOD title", HDURL: "https://example.com/apod.jpg", Permalink: "https://example.com/apod", Explanation: "Explanation"}}
 	releases := &releasesWidget{Releases: appReleaseList{{Name: "repo", Version: "v1", NotesUrl: "https://example.com/release", TimeReleased: now}}}
+	arr := &arrWidget{View: "upcoming", Items: []arrItem{{Title: "ARR title", Summary: "ARR summary"}}}
+	monitor := &monitorWidget{Sites: []monitorSite{{Title: "Glance", URL: "https://example.com", Status: &siteStatus{Code: 200, ResponseTime: 12 * time.Millisecond}, StatusText: "OK", StatusStyle: "ok"}}}
+	prometheus := &prometheusWidget{ShowValue: true, Graph: &prometheusGraph{LatestValue: "42", MinimumValue: "10", MaximumValue: "50", Polyline: "0,100 1000,0"}}
+	torrenting := &torrentingWidget{Torrents: []torrentRecord{{Name: "Linux ISO", StateLabel: "Downloading", ProgressText: "50%", Downloaded: "1 GB", Size: "2 GB", ETA: "10m", Active: true}}}
+	repository := &repositoryWidget{Repository: repository{Name: "samcro1967/glance", Stars: 10, Commits: []githubCommitDetails{{Sha: "abc", Author: "Test", CreatedAt: now, Message: "Expanded repository"}}}}
+	changeDetection := &changeDetectionWidget{ChangeDetections: changeDetectionWatchList{{Title: "Changed page", URL: "https://example.com", DiffURL: "https://example.com/diff", PreviousHash: "abc", LastChanged: now}}}
+	dnsStats := &dnsStatsWidget{Stats: &dnsStats{TotalQueries: 100, BlockedQueries: 20, BlockedPercent: 20, TopBlockedDomains: []dnsStatsBlockedDomain{{Domain: "ads.example", PercentBlocked: 50}}}}
+	videos := &videosWidget{Videos: videoList{{Title: "Expanded video", Url: "https://example.com/video", Author: "Channel", AuthorUrl: "https://example.com/channel", TimePosted: now}}}
 
 	cases := []struct {
 		name   string
@@ -38,6 +46,14 @@ func TestNativeWidgetsRenderExpandedViews(t *testing.T) {
 		{"seerr", seerr, "Seerr title"},
 		{"nasa apod", apod, "Explanation"},
 		{"releases", releases, "v1"},
+		{"arr", arr, "ARR summary"},
+		{"monitor", monitor, "Glance"},
+		{"prometheus", prometheus, "Maximum"},
+		{"torrenting", torrenting, "Linux ISO"},
+		{"repository", repository, "Expanded repository"},
+		{"change detection", changeDetection, "Changed page"},
+		{"dns stats", dnsStats, "ads.example"},
+		{"videos", videos, "Expanded video"},
 	}
 
 	for _, tc := range cases {

@@ -11,6 +11,7 @@ import (
 )
 
 var repositoryWidgetTemplate = mustParseTemplate("repository.html", "widget-base.html")
+var repositoryWidgetExpandedTemplate = mustParseTemplate("repository-expanded.html")
 
 type repositoryWidget struct {
 	widgetBase          `yaml:",inline"`
@@ -59,6 +60,10 @@ func (widget *repositoryWidget) update(ctx context.Context) {
 
 func (widget *repositoryWidget) Render() template.HTML {
 	return widget.renderTemplate(widget, repositoryWidgetTemplate)
+}
+
+func (widget *repositoryWidget) RenderExpanded() template.HTML {
+	return widget.renderTemplate(widget, repositoryWidgetExpandedTemplate)
 }
 
 type repository struct {

@@ -75,6 +75,12 @@ Whether to show minimum and maximum values on the graph.
 ### `show-time-labels`
 Whether to show the configured range and `now` below the graph.
 
+## Expanded view
+
+The expanded view enlarges the current graph and surfaces the latest, minimum, and maximum values from the same query-range result. Opening it does not issue another Prometheus query.
+
+![Prometheus expanded view](../images/widgets/prometheus-expanded.png)
+
 ---
 
 [Widgets](../widgets.md) · [Configuration](../configuration.md) · [Back to top](#prometheus)

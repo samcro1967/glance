@@ -78,6 +78,12 @@ Whether to hide the list of top blocked domains.
 Whether to display the relative time in the graph in `12h` or `24h` format.
 
 
+## Expanded view
+
+The expanded view enlarges the current DNS summary, query activity, and top blocked domains using the statistics already returned by the configured DNS service. Provider capabilities and the existing hide options are preserved.
+
+![Dns Stats expanded view](../images/widgets/dns-stats-expanded.png)
+
 ---
 
 [Widgets](../widgets.md) · [Configuration](../configuration.md) · [Back to top](#dns-stats)
