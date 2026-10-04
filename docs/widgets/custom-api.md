@@ -536,6 +536,8 @@ The simplest form requires no YAML table configuration:
 </table>
 ```
 
+Anonymous tables can also opt into behavior directly from template markup without adding YAML table configuration. The `data-glance-table-search`, `data-glance-table-sortable`, `data-glance-table-responsive`, and `data-glance-table-pagination` attributes accept `true` or `false`; `data-glance-table-page-size` accepts a positive integer. Headers can declare `data-column-type="text|number|date"`, `data-column-priority`, and `data-column-sortable="false"`. Cells can use standard DataTables `data-order` values when their displayed text is formatted differently from the canonical sort value.
+
 Anonymous tables use these defaults:
 
 | Option | Default |

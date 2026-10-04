@@ -727,3 +727,20 @@
         transition: none;
     }
 }
+
+/* Native table controls share Glance presentation styling. */
+.dt-container .dt-search { margin-bottom: .8rem; }
+.dt-container .dt-search input {
+    min-width: min(24rem, 70vw);
+    margin-left: 0;
+    padding: .55rem .8rem;
+    border: 1px solid var(--theme-widget-content-border-color, var(--color-widget-content-border));
+    border-radius: var(--border-radius);
+    background: var(--theme-widget-background-color, var(--color-widget-background));
+    color: var(--color-text-base);
+    font: inherit;
+}
+.dt-container .dt-search input:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}

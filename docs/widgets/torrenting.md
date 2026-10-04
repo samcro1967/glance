@@ -58,7 +58,7 @@ This widget also supports the [shared widget properties](../widgets.md#shared-pr
 
 ## Expanded view
 
-The expanded view presents the current torrent set as a detailed table with state, progress, downloaded size, total size, and ETA. It remains read-only and uses the torrents already returned by the normal refresh.
+The expanded view presents the current torrent set as a detailed table with state, progress, downloaded size, total size, and ETA. Use the filter to narrow the displayed torrents, or select a sortable column heading to cycle through ascending, descending, and original order. Downloaded / Size sorts by total size. The interaction is client-side and temporary; the view remains read-only and uses the torrents already returned by the normal refresh.
 
 ![Torrenting expanded view](../images/widgets/torrenting-expanded.png)
 
