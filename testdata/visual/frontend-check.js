@@ -1602,6 +1602,53 @@ async function main() {
     console.log('PASS Custom API expanded presentation initialization');
     console.log('PASS Custom API expanded presentation cleanup and reinitialization');
 
+    await openPage(page, '/homelab-monitoring', coveragePath);
+
+    const torrentWidget = page.locator('.visual-fixture-torrenting');
+    await torrentWidget.locator('[data-widget-expand]').click();
+
+    expandedDialog = page.locator('.widget-expand-dialog');
+    await expandedDialog.waitFor({ state: 'visible', timeout: 10000 });
+
+    const dialogTitle = expandedDialog.locator('.widget-expand-dialog-title');
+    if ((await dialogTitle.innerText()).trim() !== 'Torrents') {
+      throw new Error(`Expanded widget title was ${await dialogTitle.innerText()}, want Torrents`);
+    }
+
+    expandedTable = expandedDialog.locator('[data-glance-table-state="torrenting"]');
+    await expandedTable.waitFor({ state: 'visible', timeout: 10000 });
+
+    if (await expandedDialog.locator('.dt-container').count() !== 1) {
+      throw new Error('Native Torrenting table was not enhanced by shared presentation tables');
+    }
+
+    const torrentFilter = expandedDialog.locator('.dt-search input');
+    await torrentFilter.fill('Media Backup');
+    if (await expandedTable.locator('tbody > tr').count() !== 1 ||
+        !(await expandedTable.locator('tbody > tr').first().innerText()).includes('Media Backup')) {
+      throw new Error('Native Torrenting table filter did not narrow the rendered rows');
+    }
+
+    await expandedDialog.locator('.widget-expand-dialog-close').click();
+    await expandedDialog.waitFor({ state: 'detached', timeout: 10000 });
+    await torrentWidget.locator('[data-widget-expand]').click();
+
+    expandedDialog = page.locator('.widget-expand-dialog');
+    await expandedDialog.waitFor({ state: 'visible', timeout: 10000 });
+    expandedTable = expandedDialog.locator('[data-glance-table-state="torrenting"]');
+    await expandedTable.waitFor({ state: 'visible', timeout: 10000 });
+
+    if ((await expandedDialog.locator('.dt-search input').inputValue()) !== 'Media Backup') {
+      throw new Error('Native table filter state did not survive expanded content reinitialization');
+    }
+
+    await expandedDialog.locator('.widget-expand-dialog-close').click();
+    await expandedDialog.waitFor({ state: 'detached', timeout: 10000 });
+
+    console.log('PASS native expanded table shared presentation enhancement');
+    console.log('PASS native expanded table transient state restoration');
+    console.log('PASS expanded widget visible title');
+
     await openPage(page, '/feeds-content', coveragePath);
 
     const disclosureWidget = page.locator('.visual-fixture-hacker-news');

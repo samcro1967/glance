@@ -149,7 +149,7 @@ basic-auth:
 
 ## Expanded view
 
-The expanded view presents the currently monitored services as a status table with service, status, HTTP code, response time, and any current request error. It uses the statuses from the normal widget refresh and does not perform additional health checks.
+The expanded view presents the currently monitored services as a status table with service, status, HTTP code, response time, and any current request error. Use the filter to narrow the displayed services, or select a sortable column heading to cycle through ascending, descending, and original order. The interaction is client-side and temporary; the view uses the statuses from the normal widget refresh and does not perform additional health checks.
 
 ![Monitor expanded view](../images/widgets/monitor-expanded.png)
 

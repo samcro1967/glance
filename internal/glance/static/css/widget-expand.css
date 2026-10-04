@@ -16,7 +16,7 @@
     width: min(92vw, 110rem);
     max-width: 110rem;
     max-height: 90vh;
-    padding: 3.8rem 2rem 2rem;
+    padding: 2rem;
     border: 1px solid var(--theme-widget-border-color, var(--color-widget-content-border));
     border-radius: var(--theme-widget-radius, 1.2rem);
     background: var(--theme-widget-background-color, var(--color-widget-background));
@@ -26,14 +26,16 @@
 }
 
 .widget-expand-dialog::backdrop { background: hsl(0 0% 0% / 0.72); }
-.widget-expand-dialog-close { position: absolute; top: .6rem; right: .8rem; width: 3rem; height: 3rem; font-size: 2.4rem; line-height: 1; }
+.widget-expand-dialog-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-bottom: 1rem; margin-bottom: 1.4rem; border-bottom: 1px solid var(--color-separator); }
+.widget-expand-dialog-title { min-width: 0; color: var(--color-text-highlight); font-size: var(--font-size-h2); font-weight: 600; }
+.widget-expand-dialog-close { width: 3rem; height: 3rem; flex: 0 0 auto; font-size: 2.4rem; line-height: 1; }
 .widget-expanded-weather-summary { display: flex; justify-content: space-between; gap: 2rem; align-items: end; margin-bottom: 2rem; }
 .widget-expanded-weather-temperature { font-size: 4rem; line-height: 1; color: var(--color-text-highlight); margin: .6rem 0; }
 .widget-expanded-weather-details { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem 3rem; }
 .widget-expanded-weather-forecast { margin-top: 2rem; }
 
 @media (max-width: 550px) {
-    .widget-expand-dialog { width: 100vw; max-width: none; height: 100dvh; max-height: none; margin: 0; padding: 4.5rem 1.5rem 1.5rem; border: 0; border-radius: 0; }
+    .widget-expand-dialog { width: 100vw; max-width: none; height: 100dvh; max-height: none; margin: 0; padding: 1.5rem; border: 0; border-radius: 0; }
     .widget-expanded-weather-summary { align-items: start; flex-direction: column; }
     .widget-expanded-weather-details { grid-template-columns: 1fr; }
 }
@@ -50,13 +52,12 @@
 .widget-expanded-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin-top: 1.2rem; }
 .widget-expanded-metrics > div { display: flex; flex-direction: column; gap: .2rem; }
 .widget-expanded-metrics strong { color: var(--color-text-highlight); font-size: var(--font-size-h2); }
-.widget-expanded-metrics small, .widget-expanded-storage-row small, .widget-expanded-table-row small { display: block; }
+.widget-expanded-metrics small, .widget-expanded-storage-row small, .widget-expanded-table small { display: block; }
 .widget-expanded-storage { display: grid; gap: .6rem; }
 .widget-expanded-storage-row { display: flex; justify-content: space-between; gap: 1rem; padding: .6rem 0; border-bottom: 1px solid var(--color-separator); }
-.widget-expanded-table { display: grid; overflow-x: auto; }
-.widget-expanded-table-head, .widget-expanded-table-row { display: grid; grid-template-columns: minmax(12rem, 1.4fr) minmax(12rem, 1.5fr) minmax(8rem, 1fr) minmax(8rem, 1fr); gap: 1rem; min-width: 56rem; padding: .7rem .3rem; align-items: center; }
-.widget-expanded-table-head { color: var(--color-text-subdue); font-size: var(--font-size-h6); text-transform: uppercase; border-bottom: 1px solid var(--color-separator); }
-.widget-expanded-table-row { border-bottom: 1px solid var(--color-separator); }
+.widget-expanded-table { min-width: 56rem; }
+.widget-expanded-table th, .widget-expanded-table td { padding: .7rem .3rem; vertical-align: middle; }
+.widget-expanded-table th { color: var(--color-text-subdue); font-size: var(--font-size-h6); text-transform: uppercase; font-weight: 400; }
 .widget-expanded-market-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.2rem; }
 .widget-expanded-market-chart { display: block; width: 100%; height: 12rem; margin-top: 1rem; }
 .widget-expanded-media-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.2rem; }
@@ -73,12 +74,14 @@
   .widget-expanded-media-card > img { width: 7rem; max-height: 11rem; }
 }
 /* Information-dense expanded views. */
-.widget-expanded-monitor-table .widget-expanded-table-head, .widget-expanded-monitor-table .widget-expanded-table-row { grid-template-columns: minmax(14rem, 1.6fr) minmax(7rem, .7fr) minmax(5rem, .5fr) minmax(12rem, 1.2fr); }
+.widget-expanded-monitor-table th:first-child { width: 40%; }
 .widget-expanded-monitor-table .monitor-site-icon { width: 2rem; height: 2rem; margin-right: .6rem; vertical-align: middle; }
 .widget-expanded-prometheus-chart { min-height: 26rem; margin-top: 1rem; }
 .widget-expanded-prometheus-chart .prometheus-plot { min-height: 24rem; }
-.widget-expanded-torrent-table .widget-expanded-table-head, .widget-expanded-torrent-table .widget-expanded-table-row { grid-template-columns: minmax(18rem, 2fr) minmax(8rem, .8fr) minmax(7rem, .7fr) minmax(12rem, 1fr) minmax(7rem, .7fr); min-width: 68rem; }
-.widget-expanded-change-table .widget-expanded-table-head, .widget-expanded-change-table .widget-expanded-table-row { grid-template-columns: minmax(16rem, 1.7fr) minmax(9rem, .8fr) minmax(14rem, 1.2fr) minmax(7rem, .6fr); min-width: 60rem; }
+.widget-expanded-torrent-table { min-width: 68rem; }
+.widget-expanded-torrent-table th:first-child { width: 38%; }
+.widget-expanded-change-table { min-width: 60rem; }
+.widget-expanded-change-table th:first-child { width: 36%; }
 .widget-expanded-activity-list { display: grid; gap: .2rem; }
 .widget-expanded-activity-row { display: grid; grid-template-columns: 8rem minmax(0, 1fr) minmax(8rem, .5fr); gap: 1rem; padding: .55rem 0; border-bottom: 1px solid var(--color-separator); align-items: baseline; }
 .widget-expanded-dns-bars { height: 20rem; display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: .8rem; align-items: end; padding-top: 1rem; }

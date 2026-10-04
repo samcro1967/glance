@@ -24,7 +24,7 @@ func TestNativeWidgetsRenderExpandedViews(t *testing.T) {
 	arr := &arrWidget{View: "upcoming", Items: []arrItem{{Title: "ARR title", Summary: "ARR summary"}}}
 	monitor := &monitorWidget{Sites: []monitorSite{{Title: "Glance", URL: "https://example.com", Status: &siteStatus{Code: 200, ResponseTime: 12 * time.Millisecond}, StatusText: "OK", StatusStyle: "ok"}}}
 	prometheus := &prometheusWidget{ShowValue: true, Graph: &prometheusGraph{LatestValue: "42", MinimumValue: "10", MaximumValue: "50", Polyline: "0,100 1000,0"}}
-	torrenting := &torrentingWidget{Torrents: []torrentRecord{{Name: "Linux ISO", StateLabel: "Downloading", ProgressText: "50%", Downloaded: "1 GB", Size: "2 GB", ETA: "10m", Active: true}}}
+	torrenting := &torrentingWidget{Torrents: []torrentRecord{{Name: "Linux ISO", StateLabel: "Downloading", Progress: .5, ProgressText: "50%", Downloaded: "1 GB", DownloadedBytes: 1 << 30, Size: "2 GB", SizeBytes: 2 << 30, ETA: "10m", ETASeconds: 600, Active: true}}}
 	repository := &repositoryWidget{Repository: repository{Name: "samcro1967/glance", Stars: 10, Commits: []githubCommitDetails{{Sha: "abc", Author: "Test", CreatedAt: now, Message: "Expanded repository"}}}}
 	changeDetection := &changeDetectionWidget{ChangeDetections: changeDetectionWatchList{{Title: "Changed page", URL: "https://example.com", DiffURL: "https://example.com/diff", PreviousHash: "abc", LastChanged: now}}}
 	dnsStats := &dnsStatsWidget{Stats: &dnsStats{TotalQueries: 100, BlockedQueries: 20, BlockedPercent: 20, TopBlockedDomains: []dnsStatsBlockedDomain{{Domain: "ads.example", PercentBlocked: 50}}}}
@@ -78,5 +78,59 @@ func TestCalendarExpandedAgendaExcludesPastEvents(t *testing.T) {
 	rendered := string(widget.RenderExpanded())
 	if strings.Contains(rendered, "Past") || !strings.Contains(rendered, "Upcoming") {
 		t.Fatalf("unexpected expanded agenda: %s", rendered)
+	}
+}
+
+func TestExpandedDataTablesUseSharedPresentationContract(t *testing.T) {
+	now := time.Date(2026, time.October, 4, 12, 0, 0, 0, time.Local)
+	cases := []struct {
+		name   string
+		widget expandedWidget
+		wants  []string
+	}{
+		{
+			name: "monitor",
+			widget: &monitorWidget{Sites: []monitorSite{{
+				Title: "Glance", URL: "https://example.com",
+				Status:     &siteStatus{Code: 200, ResponseTime: 12 * time.Millisecond},
+				StatusText: "OK", StatusStyle: "ok",
+			}}},
+			wants: []string{`class="glance-table widget-expanded-table widget-expanded-monitor-table"`, `data-glance-table-search="true"`, `data-glance-table-state="monitor"`, `data-order="200"`},
+		},
+		{
+			name: "torrenting",
+			widget: &torrentingWidget{Torrents: []torrentRecord{{
+				Name: "Linux ISO", StateLabel: "Downloading", Progress: .5, ProgressText: "50%",
+				Downloaded: "1 GB", DownloadedBytes: 1 << 30, Size: "2 GB", SizeBytes: 2 << 30,
+				ETA: "10m", ETASeconds: 600,
+			}}},
+			wants: []string{`data-glance-table-state="torrenting"`, `data-order="0.5"`, `data-order="2147483648"`, `data-order="600"`},
+		},
+		{
+			name: "change detection",
+			widget: &changeDetectionWidget{ChangeDetections: changeDetectionWatchList{{
+				Title: "Changed page", URL: "https://example.com", DiffURL: "https://example.com/diff",
+				PreviousHash: "abc", LastChanged: now,
+			}}},
+			wants: []string{`data-glance-table-state="change-detection"`, `data-column-sortable="false"`, `data-order="`},
+		},
+		{
+			name: "docker containers",
+			widget: &dockerContainersWidget{Containers: dockerContainerList{{
+				Name: "glance", Image: "glance:test", StateText: "running",
+			}}},
+			wants: []string{`data-glance-table-state="docker-containers"`, `Filter containers…`},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			rendered := string(tc.widget.RenderExpanded())
+			for _, want := range tc.wants {
+				if !strings.Contains(rendered, want) {
+					t.Fatalf("expanded view missing %q: %s", want, rendered)
+				}
+			}
+		})
 	}
 }
