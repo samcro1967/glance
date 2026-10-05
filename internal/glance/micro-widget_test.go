@@ -51,13 +51,13 @@ footer-micro-widgets:
 		t.Fatalf("right micro-widget count = %d, want 1", len(c.FooterMicroWidgets.Right))
 	}
 
-	if got := c.FooterMicroWidgets.Left[0].GetPosition(); got != 1 {
+	if got := c.FooterMicroWidgets.Left[0].(microWidget).GetPosition(); got != 1 {
 		t.Errorf("left[0] position = %d, want 1", got)
 	}
-	if got := c.FooterMicroWidgets.Left[1].GetPosition(); got != 3 {
+	if got := c.FooterMicroWidgets.Left[1].(microWidget).GetPosition(); got != 3 {
 		t.Errorf("left[1] position = %d, want 3", got)
 	}
-	if got := c.FooterMicroWidgets.Right[0].GetPosition(); got != 2 {
+	if got := c.FooterMicroWidgets.Right[0].(microWidget).GetPosition(); got != 2 {
 		t.Errorf("right[0] position = %d, want 2", got)
 	}
 
@@ -449,8 +449,8 @@ footer-micro-widgets:
 	if !ok {
 		t.Fatalf("left[1] type = %T, want *microMarkets", c.FooterMicroWidgets.Left[1])
 	}
-	if len(markets.MarketsRequests) != 1 || markets.MarketsRequests[0].Symbol != "AAPL" {
-		t.Fatalf("markets requests = %#v, want one AAPL request", markets.MarketsRequests)
+	if len(markets.MarketRequests) != 1 || markets.MarketRequests[0].Symbol != "AAPL" {
+		t.Fatalf("markets requests = %#v, want one AAPL request", markets.MarketRequests)
 	}
 
 	monitor, ok := c.FooterMicroWidgets.Right[0].(*microMonitor)
@@ -625,14 +625,14 @@ func TestMicroMarketsOptionsAndValidation(t *testing.T) {
 `)
 
 	markets := c.FooterMicroWidgets.Left[0].(*microMarkets)
-	if len(markets.MarketsRequests) != 1 || markets.MarketsRequests[0].Symbol != "AAPL" {
-		t.Fatalf("markets requests = %#v, want legacy stocks AAPL", markets.MarketsRequests)
+	if len(markets.MarketRequests) != 1 || markets.MarketRequests[0].Symbol != "AAPL" {
+		t.Fatalf("markets requests = %#v, want legacy stocks AAPL", markets.MarketRequests)
 	}
-	if markets.MarketsRequests[0].ChartLink != "https://chart.example/AAPL" {
-		t.Errorf("chart link = %q", markets.MarketsRequests[0].ChartLink)
+	if markets.MarketRequests[0].ChartLink != "https://chart.example/AAPL" {
+		t.Errorf("chart link = %q", markets.MarketRequests[0].ChartLink)
 	}
-	if markets.MarketsRequests[0].SymbolLink != "https://quote.example/AAPL" {
-		t.Errorf("symbol link = %q", markets.MarketsRequests[0].SymbolLink)
+	if markets.MarketRequests[0].SymbolLink != "https://quote.example/AAPL" {
+		t.Errorf("symbol link = %q", markets.MarketRequests[0].SymbolLink)
 	}
 	if markets.Sort != "change" {
 		t.Errorf("sort = %q, want change", markets.Sort)
@@ -670,11 +670,11 @@ func TestMicroMarketsSymbolLinkPrecedence(t *testing.T) {
 
 	markets := c.FooterMicroWidgets.Left[0].(*microMarkets)
 
-	if got := markets.MarketsRequests[0].SymbolLink; got != "https://finance.yahoo.com/quote/SPY" {
+	if got := markets.MarketRequests[0].SymbolLink; got != "https://finance.yahoo.com/quote/SPY" {
 		t.Errorf("default SPY symbol link = %q, want Yahoo Finance", got)
 	}
 
-	if got := markets.MarketsRequests[1].SymbolLink; got != "https://quote.example/custom-qqq" {
+	if got := markets.MarketRequests[1].SymbolLink; got != "https://quote.example/custom-qqq" {
 		t.Errorf("explicit QQQ symbol link = %q, want configured override", got)
 	}
 }

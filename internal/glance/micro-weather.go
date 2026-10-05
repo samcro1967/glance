@@ -1,63 +1,41 @@
 package glance
 
-import (
-	"context"
-	"fmt"
-	"html/template"
-)
-
-type microWeather struct {
-	widgetBase   `yaml:",inline"`
-	Position     int                         `yaml:"position"`
-	Location     string                      `yaml:"location"`
-	ShowAreaName bool                        `yaml:"show-area-name"`
-	HideLocation bool                        `yaml:"hide-location"`
-	Units        string                      `yaml:"units"`
-	URL          string                      `yaml:"url"`
-	SameTab      bool                        `yaml:"same-tab"`
-	Place        *openMeteoPlaceResponseJson `yaml:"-"`
-	Weather      *weather                    `yaml:"-"`
-}
-
-func (m *microWeather) GetPosition() int {
-	return m.Position
-}
-
-func (m *microWeather) initialize() error {
-	m.withCacheOnTheHour()
-
-	if m.Location == "" {
-		return fmt.Errorf("location is required")
-	}
-
-	if m.Units == "" {
-		m.Units = "metric"
-	}
-
-	if m.Units != "metric" && m.Units != "imperial" {
-		return fmt.Errorf("units must be either metric or imperial")
-	}
-
-	return nil
-}
-
-func (m *microWeather) update(ctx context.Context) {
-	place, err := fetchOpenMeteoPlaceResource(ctx, m.Location)
-	if !m.canContinueUpdateAfterHandlingErr(err) {
-		return
-	}
-
-	weather, err := fetchOpenMeteoWeatherResource(ctx, place, m.Units)
-	if !m.canContinueUpdateAfterHandlingErr(err) {
-		return
-	}
-
-	m.Place = place
-	m.Weather = weather
-}
+import "html/template"
 
 var microWeatherTemplate = mustParseTemplate("footer-micro-weather.html")
 
-func (m *microWeather) Render() template.HTML {
-	return m.renderTemplate(m, microWeatherTemplate)
+type microWeather struct {
+	weatherWidget `yaml:",inline"`
+	Position      int    `yaml:"position"`
+	URL           string `yaml:"url"`
+	SameTab       bool   `yaml:"same-tab"`
+}
+
+func (m *microWeather) GetPosition() int      { return m.Position }
+func (m *microWeather) Render() template.HTML { return m.renderTemplate(m, microWeatherTemplate) }
+func (m *microWeather) MicroItems(open bool) []statusBarCompactItem {
+	return weatherStatusBarCompactItems(&m.weatherWidget, open)
+}
+func weatherStatusBarCompactItems(m *weatherWidget, open bool) []statusBarCompactItem {
+	if m.Weather == nil || m.Place == nil {
+		if m.Error != nil {
+			return []statusBarCompactItem{{Kind: "error", Error: m.Error, ErrorTitle: m.Title}}
+		}
+		return nil
+	}
+	unit := "F"
+	if m.Units == "metric" {
+		unit = "C"
+	}
+	location := ""
+	if !m.HideLocation {
+		location = m.Place.Name
+		if m.ShowAreaName && m.Place.Area != "" {
+			location += ", " + m.Place.Area
+		}
+		if m.Place.Country != "" {
+			location += ", " + m.Place.Country
+		}
+	}
+	return []statusBarCompactItem{{Kind: "weather", Error: m.Error, Notice: m.Notice, WeatherCondition: m.Weather.WeatherCodeAsString(), WeatherTemperature: m.Weather.Temperature, WeatherFeelsLike: m.Weather.ApparentTemperature, WeatherUnit: unit, WeatherLocation: location}}
 }

@@ -140,6 +140,37 @@ const dockerContainers = [
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${HOST}:${PORT}`);
 
+  if (url.pathname === '/micro-custom-api') {
+    sendJson(res, {
+      items: [
+        {
+          line1: 'Fixture API',
+          line2: 'Healthy',
+          url: 'https://example.com/'
+        },
+        {
+          line1: '12 ms latency'
+        }
+      ]
+    });
+    return;
+  }
+
+  if (url.pathname === '/micro-rss.xml') {
+    res.writeHead(200, { 'Content-Type': 'application/rss+xml; charset=utf-8' });
+    res.end(
+      '<?xml version="1.0" encoding="UTF-8"?>' +
+      '<rss version="2.0"><channel>' +
+      '<title>Glance Fixture Feed</title>' +
+      '<link>https://example.com/</link>' +
+      '<description>Deterministic micro-widget RSS fixture</description>' +
+      '<item><title>Micro widgets share one registry</title><link>https://example.com/micro-registry</link><pubDate>Sun, 05 Oct 2026 12:00:00 GMT</pubDate></item>' +
+      '<item><title>Footer and Status Bar use the same sources</title><link>https://example.com/shared-sources</link><pubDate>Sun, 05 Oct 2026 11:00:00 GMT</pubDate></item>' +
+      '</channel></rss>'
+    );
+    return;
+  }
+
   if (url.pathname === '/custom-api-presentation') {
     sendJson(res, {
       full_name: 'samcro1967/glance',

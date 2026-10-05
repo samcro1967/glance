@@ -97,8 +97,13 @@ func (widget *monitorWidget) update(ctx context.Context) {
 			site.URL = site.DefaultURL
 		}
 
-		site.StatusText = statusCodeToText(status.Code, site.AltStatusCodes)
-		site.StatusStyle = statusCodeToStyle(status.Code, site.AltStatusCodes)
+		if status.Error != nil {
+			site.StatusText = "Error"
+			site.StatusStyle = "error"
+		} else {
+			site.StatusText = statusCodeToText(status.Code, site.AltStatusCodes)
+			site.StatusStyle = statusCodeToStyle(status.Code, site.AltStatusCodes)
+		}
 	}
 }
 
@@ -232,4 +237,8 @@ func (widget *monitorWidget) setDefaultNewTab(value bool) {
 
 		site.SameTab = !value
 	}
+}
+
+func (widget *monitorWidget) MicroItems(open bool) []statusBarCompactItem {
+	return monitorStatusBarCompactItems(widget, open)
 }

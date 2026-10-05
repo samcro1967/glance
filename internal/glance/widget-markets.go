@@ -280,3 +280,7 @@ var currencyToSymbol = map[string]string{
 	"PLN": "zł",
 	"PHP": "₱",
 }
+
+func (widget *marketsWidget) MicroItems(open bool) []statusBarCompactItem {
+	return marketsStatusBarCompactItems(widget, open)
+}

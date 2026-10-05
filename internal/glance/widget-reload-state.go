@@ -128,23 +128,22 @@ func (a *application) applyWidgetReloadReusePlan(plan widgetReloadReusePlan) {
 
 	replaceMicroWidgets := func(source microWidgets) {
 		for i, candidate := range source {
-			dynamic, ok := candidate.(dynamicMicroWidget)
+			replacement, ok := plan[candidate]
 			if !ok {
 				continue
 			}
-			replacement, ok := plan[dynamic]
-			if !ok {
+			if _, ok := replacement.(microWidget); !ok {
 				continue
 			}
-			source[i] = replacement.(dynamicMicroWidget)
+			source[i] = replacement
 		}
 	}
 	replaceMicroWidgets(a.Config.FooterMicroWidgets.Left)
 	replaceMicroWidgets(a.Config.FooterMicroWidgets.Right)
 
 	if a.widgetProviders != nil {
-		for _, dynamic := range a.Config.FooterMicroWidgets.dynamicWidgets() {
-			dynamic.setProviders(a.widgetProviders)
+		for _, micro := range a.Config.FooterMicroWidgets.allWidgets() {
+			micro.setProviders(a.widgetProviders)
 		}
 	}
 
@@ -176,12 +175,12 @@ func (a *application) applyWidgetReloadReusePlan(plan widgetReloadReusePlan) {
 	a.widgetPages = make(map[uint64][]*page)
 	a.globalWidgetIDs = make(map[uint64]struct{})
 	refreshSources := make(widgets, 0)
-	footerDynamicWidgets := a.Config.FooterMicroWidgets.dynamicWidgets()
-	for _, candidate := range collectRefreshWidgets(footerDynamicWidgets) {
+	footerMicroWidgets := a.Config.FooterMicroWidgets.allWidgets()
+	for _, candidate := range collectRefreshWidgets(footerMicroWidgets) {
 		a.widgetByID[candidate.GetID()] = candidate
 		a.globalWidgetIDs[candidate.GetID()] = struct{}{}
 	}
-	refreshSources = append(refreshSources, footerDynamicWidgets...)
+	refreshSources = append(refreshSources, footerMicroWidgets...)
 
 	recordPageWidgets := func(page *page, source widgets) {
 		for _, candidate := range collectRefreshWidgets(source) {

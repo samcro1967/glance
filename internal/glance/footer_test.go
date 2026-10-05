@@ -206,10 +206,9 @@ func TestFooterMicroWidgetsRender(t *testing.T) {
 			FooterMicroWidgets: footerMicroWidgets{
 				Left: microWidgets{
 					&microBookmark{
-						Position: 1,
-						Title:    "GitHub",
-						URL:      "https://example.com/github",
-						Icon:     newCustomIconField("si:github"),
+						widgetBase: widgetBase{Title: "GitHub", Icon: newCustomIconField("si:github")},
+						Position:   1,
+						URL:        "https://example.com/github",
 					},
 				},
 				Right: microWidgets{
@@ -220,10 +219,10 @@ func TestFooterMicroWidgetsRender(t *testing.T) {
 						Label:      "NY",
 					},
 					&microBookmark{
-						Position: 2,
-						Title:    "Same Tab",
-						URL:      "https://example.com/same",
-						SameTab:  true,
+						widgetBase: widgetBase{Title: "Same Tab"},
+						Position:   2,
+						URL:        "https://example.com/same",
+						SameTab:    true,
 					},
 				},
 			},
@@ -261,20 +260,14 @@ func TestFooterMicroWidgetsRender(t *testing.T) {
 
 func TestFooterMicroWeatherAndMarketsNavigationDefaults(t *testing.T) {
 	weatherMicro := &microWeather{
-		widgetBase: widgetBase{Type: "weather"},
-		Position:   1,
-		Units:      "imperial",
-		Place:      &openMeteoPlaceResponseJson{Name: "St. Louis"},
-		Weather:    &weather{Temperature: 72, WeatherCode: 0},
+		weatherWidget: weatherWidget{widgetBase: widgetBase{Type: "weather"}, Units: "imperial", Place: &openMeteoPlaceResponseJson{Name: "St. Louis"}, Weather: &weather{Temperature: 72, WeatherCode: 0}},
+		Position:      1,
 	}
 	weatherMicro.setID(201)
 
 	marketsMicro := &microMarkets{
-		widgetBase: widgetBase{Type: "markets"},
-		Position:   2,
-		Markets: marketList{
-			{marketRequest: marketRequest{Symbol: "SPY"}, PercentChange: 1.25},
-		},
+		marketsWidget: marketsWidget{widgetBase: widgetBase{Type: "markets"}, Markets: marketList{{marketRequest: marketRequest{Symbol: "SPY"}, PercentChange: 1.25}}},
+		Position:      2,
 	}
 	marketsMicro.setID(202)
 
@@ -310,9 +303,9 @@ func TestFooterMicroWidgetsRequirePage(t *testing.T) {
 			FooterMicroWidgets: footerMicroWidgets{
 				Left: microWidgets{
 					&microBookmark{
-						Position: 1,
-						Title:    "Hidden",
-						URL:      "https://example.com",
+						widgetBase: widgetBase{Title: "Hidden"},
+						Position:   1,
+						URL:        "https://example.com",
 					},
 				},
 			},
@@ -333,9 +326,9 @@ func TestFooterMicroWidgetsHiddenWithFooter(t *testing.T) {
 			FooterMicroWidgets: footerMicroWidgets{
 				Left: microWidgets{
 					&microBookmark{
-						Position: 1,
-						Title:    "Hidden",
-						URL:      "https://example.com",
+						widgetBase: widgetBase{Title: "Hidden"},
+						Position:   1,
+						URL:        "https://example.com",
 					},
 				},
 			},
@@ -357,9 +350,9 @@ func TestFooterMicroWidgetsWithCustomFooter(t *testing.T) {
 			FooterMicroWidgets: footerMicroWidgets{
 				Left: microWidgets{
 					&microBookmark{
-						Position: 1,
-						Title:    "Micro",
-						URL:      "https://example.com",
+						widgetBase: widgetBase{Title: "Micro"},
+						Position:   1,
+						URL:        "https://example.com",
 					},
 				},
 			},
@@ -392,30 +385,19 @@ func TestFooterWithoutMicroWidgetsUnchanged(t *testing.T) {
 
 func TestFooterMicroWidgetsRenderAllSupportedTypes(t *testing.T) {
 	weatherMicro := &microWeather{
-		widgetBase:   widgetBase{Type: "weather"},
-		Position:     2,
-		Units:        "imperial",
-		ShowAreaName: true,
-		URL:          "https://weather.example/st-louis",
-		SameTab:      true,
-		Place:        &openMeteoPlaceResponseJson{Name: "St. Louis", Area: "Missouri"},
-		Weather:      &weather{Temperature: 72, WeatherCode: 0},
+		weatherWidget: weatherWidget{widgetBase: widgetBase{Type: "weather"}, Units: "imperial", ShowAreaName: true, Place: &openMeteoPlaceResponseJson{Name: "St. Louis", Area: "Missouri"}, Weather: &weather{Temperature: 72, WeatherCode: 0}},
+		Position:      2, URL: "https://weather.example/st-louis", SameTab: true,
 	}
 	weatherMicro.setID(101)
 
 	marketsMicro := &microMarkets{
-		widgetBase: widgetBase{Type: "markets"},
-		Position:   3,
-		Markets: marketList{
-			{marketRequest: marketRequest{Symbol: "SPY", SymbolLink: "https://quote.example/SPY"}, PercentChange: 1.25},
-		},
+		marketsWidget: marketsWidget{widgetBase: widgetBase{Type: "markets"}, Markets: marketList{{marketRequest: marketRequest{Symbol: "SPY", SymbolLink: "https://quote.example/SPY"}, PercentChange: 1.25}}},
+		Position:      3,
 	}
 	marketsMicro.setID(102)
 
 	monitorMicro := &microMonitor{
-		widgetBase: widgetBase{Type: "monitor"},
-		Position:   2,
-		Sites: []monitorSite{
+		monitorWidget: monitorWidget{widgetBase: widgetBase{Type: "monitor"}, Sites: []monitorSite{
 			{
 				SiteStatusRequest: &SiteStatusRequest{DefaultURL: "https://example.com/status"},
 				URL:               "https://example.com/status",
@@ -423,7 +405,8 @@ func TestFooterMicroWidgetsRenderAllSupportedTypes(t *testing.T) {
 				StatusText:        "OK",
 				StatusStyle:       "ok",
 			},
-		},
+		}},
+		Position: 2,
 	}
 	monitorMicro.setID(103)
 
@@ -432,14 +415,14 @@ func TestFooterMicroWidgetsRenderAllSupportedTypes(t *testing.T) {
 		Config: config{
 			FooterMicroWidgets: footerMicroWidgets{
 				Left: microWidgets{
-					&microBookmark{Position: 1, Title: "Bookmark Marker", URL: "https://example.com/bookmark"},
+					&microBookmark{widgetBase: widgetBase{Title: "Bookmark Marker"}, Position: 1, URL: "https://example.com/bookmark"},
 					weatherMicro,
 					marketsMicro,
 				},
 				Right: microWidgets{
 					&microClock{Position: 1, HourFormat: "24h", Timezone: "UTC", Label: "UTC"},
 					monitorMicro,
-					&microLink{Position: 3, Title: "Link Marker", URL: "https://example.com/link"},
+					&microLink{widgetBase: widgetBase{Title: "Link Marker"}, Position: 3, URL: "https://example.com/link"},
 				},
 			},
 		},

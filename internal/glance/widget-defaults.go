@@ -266,7 +266,7 @@ func applyWidgetCapabilityDefaults(candidate widget, defaults widgetDefaultsConf
 		return nil
 	}
 
-	resolved := resolveWidgetDefaultValues(candidate.GetType(), defaults)
+	resolved := resolveWidgetDefaultValues(widgetDefaultsType(candidate), defaults)
 
 	if base.configuredFields["cache"] && base.configuredFields["cache-cron"] {
 		return fmt.Errorf("cache and cache-cron cannot both be configured on the same widget")
@@ -290,7 +290,7 @@ func applyWidgetCapabilityDefaults(candidate widget, defaults widgetDefaultsConf
 	}
 
 	if resolved.NewTab != nil &&
-		widgetSupportsCapability(candidate.GetType(), widgetCapabilityNewTab, widgetCapabilityScopeType) &&
+		widgetSupportsCapability(widgetDefaultsType(candidate), widgetCapabilityNewTab, widgetCapabilityScopeType) &&
 		!base.configuredFields["new-tab"] {
 		if setter, ok := candidate.(widgetNewTabSetter); ok {
 			setter.setDefaultNewTab(*resolved.NewTab)
@@ -298,7 +298,7 @@ func applyWidgetCapabilityDefaults(candidate widget, defaults widgetDefaultsConf
 	}
 
 	if resolved.Limit != nil &&
-		widgetSupportsCapability(candidate.GetType(), widgetCapabilityLimit, widgetCapabilityScopeType) &&
+		widgetSupportsCapability(widgetDefaultsType(candidate), widgetCapabilityLimit, widgetCapabilityScopeType) &&
 		!base.configuredFields["limit"] {
 		if setter, ok := candidate.(widgetLimitSetter); ok {
 			setter.setDefaultLimit(*resolved.Limit)
@@ -306,7 +306,7 @@ func applyWidgetCapabilityDefaults(candidate widget, defaults widgetDefaultsConf
 	}
 
 	if resolved.CollapseAfter != nil &&
-		widgetSupportsCapability(candidate.GetType(), widgetCapabilityCollapseAfter, widgetCapabilityScopeType) &&
+		widgetSupportsCapability(widgetDefaultsType(candidate), widgetCapabilityCollapseAfter, widgetCapabilityScopeType) &&
 		!base.configuredFields["collapse-after"] {
 		if setter, ok := candidate.(widgetCollapseAfterSetter); ok {
 			setter.setDefaultCollapseAfter(*resolved.CollapseAfter)
@@ -314,7 +314,7 @@ func applyWidgetCapabilityDefaults(candidate widget, defaults widgetDefaultsConf
 	}
 
 	if resolved.CollapseAfterRows != nil &&
-		widgetSupportsCapability(candidate.GetType(), widgetCapabilityCollapseAfterRows, widgetCapabilityScopeType) &&
+		widgetSupportsCapability(widgetDefaultsType(candidate), widgetCapabilityCollapseAfterRows, widgetCapabilityScopeType) &&
 		!base.configuredFields["collapse-after-rows"] {
 		if setter, ok := candidate.(widgetCollapseAfterRowsSetter); ok {
 			setter.setDefaultCollapseAfterRows(*resolved.CollapseAfterRows)
@@ -322,7 +322,7 @@ func applyWidgetCapabilityDefaults(candidate widget, defaults widgetDefaultsConf
 	}
 
 	if resolved.Timeout != nil &&
-		widgetSupportsCapability(candidate.GetType(), widgetCapabilityTimeout, widgetCapabilityScopeType) &&
+		widgetSupportsCapability(widgetDefaultsType(candidate), widgetCapabilityTimeout, widgetCapabilityScopeType) &&
 		!base.configuredFields["timeout"] {
 		if setter, ok := candidate.(widgetTimeoutSetter); ok {
 			setter.setDefaultTimeout(*resolved.Timeout)
@@ -330,7 +330,7 @@ func applyWidgetCapabilityDefaults(candidate widget, defaults widgetDefaultsConf
 	}
 
 	if resolved.AllowInsecure != nil &&
-		widgetSupportsCapability(candidate.GetType(), widgetCapabilityAllowInsecure, widgetCapabilityScopeType) &&
+		widgetSupportsCapability(widgetDefaultsType(candidate), widgetCapabilityAllowInsecure, widgetCapabilityScopeType) &&
 		!base.configuredFields["allow-insecure"] {
 		if setter, ok := candidate.(widgetAllowInsecureSetter); ok {
 			setter.setDefaultAllowInsecure(*resolved.AllowInsecure)
@@ -338,21 +338,21 @@ func applyWidgetCapabilityDefaults(candidate widget, defaults widgetDefaultsConf
 	}
 
 	if resolved.Headers != nil &&
-		widgetSupportsCapability(candidate.GetType(), widgetCapabilityHeaders, widgetCapabilityScopeType) {
+		widgetSupportsCapability(widgetDefaultsType(candidate), widgetCapabilityHeaders, widgetCapabilityScopeType) {
 		if setter, ok := candidate.(widgetHeadersSetter); ok {
 			setter.setDefaultHeaders(resolved.Headers)
 		}
 	}
 
 	if resolved.BasicAuth != nil &&
-		widgetSupportsCapability(candidate.GetType(), widgetCapabilityBasicAuth, widgetCapabilityScopeType) {
+		widgetSupportsCapability(widgetDefaultsType(candidate), widgetCapabilityBasicAuth, widgetCapabilityScopeType) {
 		if setter, ok := candidate.(widgetBasicAuthSetter); ok {
 			setter.setDefaultBasicAuth(*resolved.BasicAuth)
 		}
 	}
 
 	if resolved.Proxy != nil &&
-		widgetSupportsCapability(candidate.GetType(), widgetCapabilityProxy, widgetCapabilityScopeType) &&
+		widgetSupportsCapability(widgetDefaultsType(candidate), widgetCapabilityProxy, widgetCapabilityScopeType) &&
 		!base.configuredFields["proxy"] {
 		if setter, ok := candidate.(widgetProxySetter); ok {
 			if err := setter.setDefaultProxy(*resolved.Proxy); err != nil {
@@ -370,7 +370,7 @@ func applyWidgetBaseDefaults(candidate widget, defaults widgetDefaultsConfig) {
 		return
 	}
 
-	resolved := resolveWidgetDefaultValues(candidate.GetType(), defaults)
+	resolved := resolveWidgetDefaultValues(widgetDefaultsType(candidate), defaults)
 
 	if resolved.Title != nil && !base.configuredFields["title"] {
 		base.Title = *resolved.Title
@@ -441,6 +441,15 @@ func applyWidgetDefaultsTree(
 		child := children[i]
 		if _, invalid := child.(*invalidConfiguredWidget); invalid {
 			continue
+		}
+		if _, invalid := child.(*invalidConfiguredMicroWidget); invalid {
+			continue
+		}
+		if _, micro := child.(microWidget); micro {
+			descriptor := microWidgetRegistry[child.GetType()]
+			if !descriptor.applyWidgetDefaults {
+				continue
+			}
 		}
 
 		childSummary, err := applyWidgetDefaultsTree(child, defaults)

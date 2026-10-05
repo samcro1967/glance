@@ -12,16 +12,13 @@ A page can contain one or multiple status bars in `head-widgets`, one or multipl
 
 ![Full-width Status Bar showing compact weather, market, RSS, and Custom API information](../images/widgets/status-bar.png)
 
-## Supported widgets
+## Supported micro-widgets
 
-- [Weather](weather.md)
-- [Markets](markets.md)
-- [RSS](rss.md)
-- [Custom API](custom-api.md)
+Status Bar and footer micro-widgets use the same shared registry. The currently registered types are `bookmark`, `clock`, `custom-api`, `docker`, `link`, `markets`, `monitor`, `rss`, and `weather`. Registering a micro-widget makes it eligible in both containers.
 
-Weather, Markets, and RSS children are configured through the `widgets` property using their normal widget configuration. They retain their existing provider fetching, caching, refresh, recovery, error handling, limits, sorting, and link behavior, but are displayed using a compact status-bar presentation rather than their normal full widget layout.
+Provider-backed types reuse their canonical widget configuration, fetching, caching, refresh, recovery, and error behavior while rendering compactly. Bookmark, Link, and Clock are lightweight local micro sources.
 
-A `custom-api` child uses a dedicated compact mode. It retains the normal Custom API request, HTTP, caching, refresh, stale-content, recovery, and link behavior, but does not accept `template`, `subrequests`, `options`, `skip-json-validation`, `tables`, or `charts` inside a Status Bar. Its response must instead conform to the locked Status Bar Custom API contract described below.
+A `custom-api` micro-widget uses a dedicated compact mode. It retains the normal Custom API request, HTTP, caching, refresh, stale-content, recovery, and link behavior, but does not accept `template`, `subrequests`, `options`, `skip-json-validation`, `tables`, or `charts` inside a Status Bar. Its response must instead conform to the locked Status Bar Custom API contract described below.
 
 ## Quick start
 

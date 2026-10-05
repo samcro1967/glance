@@ -181,7 +181,7 @@ func widgetDefaultOverrideFields(candidate widget, defaults widgetDefaultsConfig
 		return nil
 	}
 
-	resolved := resolveWidgetDefaultValues(candidate.GetType(), defaults)
+	resolved := resolveWidgetDefaultValues(widgetDefaultsType(candidate), defaults)
 	capabilities := resolved.configuredCapabilities()
 	fields := make([]string, 0, len(capabilities))
 
@@ -189,7 +189,7 @@ func widgetDefaultOverrideFields(candidate widget, defaults widgetDefaultsConfig
 		field := string(capability)
 
 		if !widgetSupportsCapability(
-			candidate.GetType(),
+			widgetDefaultsType(candidate),
 			capability,
 			widgetCapabilityScopeType,
 		) {
