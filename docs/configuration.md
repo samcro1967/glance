@@ -765,7 +765,7 @@ Footer micro-widgets provide compact page-level information and shortcuts on the
 
 `max-per-side` defaults to `5` and may be set from `1` through `10`. Each micro-widget requires a `position` between `1` and `max-per-side`. Positions must be unique within each side; the same position may be used once on the left and once on the right.
 
-Supported types are `bookmark`, `clock`, `weather`, `markets`, `monitor`, `docker`, and `link`.
+Supported types are `astronomy`, `astrology`, `bookmark`, `clock`, `custom-api`, `dns-stats`, `docker`, `environment`, `link`, `markets`, `monitor`, `now-playing`, `releases`, `repository`, `rss`, `server-stats`, and `weather`. The same shared micro-widget registry is used by the Status Bar, so every registered micro-widget is eligible in both containers.
 
 ### Configuration
 
@@ -927,7 +927,47 @@ At least one site is required. Site entries use the Monitor widget site configur
 
 Monitor data uses a five-minute cache. Equivalent Monitor requests share cached results rather than issuing duplicate requests.
 
-Dynamic Weather, Markets, Monitor, and Docker micro-widgets participate in the normal Glance initialization, refresh, recovery, and live-update lifecycle. Bookmark, Clock, and Link require no provider refresh.
+### RSS
+
+Uses the normal RSS `feeds`, `limit`, ordering, HTTP, cache, and recovery configuration while presenting returned entries compactly.
+
+### Environment
+
+Uses the native Environment widget data. By default the compact item shows US AQI/category and UV/category. Optional `display` values are `air-quality`, `uv`, and `pollen`. Location and pollen-provider settings remain the normal Environment configuration.
+
+### Astronomy
+
+Uses the native Astronomy snapshot. The default compact item shows moon phase, illumination, and sunset. Optional `display` values are `moon-phase`, `illumination`, `sunrise`, `sunset`, `moonrise`, `moonset`, `next-phase`, and `next-event`. Existing Astronomy `sections` continue to control canonical computation and are not replaced by `display`.
+
+### Astrology
+
+Uses the native Astrology snapshot. The default compact item shows Sun and Moon zodiac positions. Optional `display` values are `sun`, `moon`, `aspect`, and `next-event`. Existing Astrology `sections` remain canonical widget configuration.
+
+### Server Stats
+
+Emits one compact item per configured server. The default shows server name, CPU, RAM, and the first returned mountpoint usage. Optional `display` values are `cpu`, `memory`, `disk`, `temperature`, `uptime`, and `swap`. Server acquisition and mountpoint configuration remain unchanged.
+
+### DNS Stats
+
+Uses the native DNS Stats result. The default shows query count, blocked percentage, and response latency. Optional `display` values are `queries`, `blocked`, `latency`, and `domains`.
+
+### Repository
+
+Represents the single repository configured by the native Repository widget. The default shows repository name, stars, open pull requests, and open issues. Optional `display` values are `stars`, `forks`, `pull-requests`, and `issues`.
+
+### Releases
+
+Uses the native Releases result and emits one compact item per release already selected by canonical sorting and `limit`. Each item shows release name and version and links to its release notes when available. No separate micro limit or repository selection is introduced.
+
+### Now Playing
+
+Uses the native Now Playing sessions and emits one compact item per returned session. Each item shows playing/paused state, title, and subtitle when available, falling back to the session user. Existing service, limit, and `show-paused` settings continue to control the canonical result.
+
+### Custom API
+
+Uses the same locked compact JSON contract documented for Status Bar Custom API usage. The compact contract is shared by both micro-widget containers; arbitrary Custom API templates, tables, charts, options, and subrequests are not accepted in micro mode.
+
+Provider-backed Astronomy, Astrology, Custom API, DNS Stats, Docker, Environment, Markets, Monitor, Now Playing, Releases, Repository, RSS, Server Stats, and Weather micro-widgets reuse their canonical widget initialization, provider, refresh, recovery, defaults, and live-update behavior. Bookmark, Clock, and Link remain lightweight and require no provider refresh. See [Adding a micro-widget](adding-a-micro-widget.md) for the shared registry and implementation contract.
 
 
 ## Pages & Columns

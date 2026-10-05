@@ -1,83 +1,53 @@
 package glance
 
 import (
-	"context"
 	"fmt"
 	"html/template"
 	"strings"
-	"time"
 )
 
 const defaultMicroMarketSymbolLinkTemplate = "https://finance.yahoo.com/quote/{SYMBOL}"
 
-type microMarkets struct {
-	widgetBase         `yaml:",inline"`
-	Position           int             `yaml:"position"`
-	MarketsRequests    []marketRequest `yaml:"markets"`
-	StocksRequests     []marketRequest `yaml:"stocks"`
-	Sort               string          `yaml:"sort-by"`
-	ChartLinkTemplate  string          `yaml:"chart-link-template"`
-	SymbolLinkTemplate string          `yaml:"symbol-link-template"`
-	SameTab            bool            `yaml:"same-tab"`
-	Markets            marketList      `yaml:"-"`
-}
-
-func (m *microMarkets) GetPosition() int {
-	return m.Position
-}
-
-func (m *microMarkets) initialize() error {
-	m.withCacheDuration(time.Hour)
-
-	if len(m.MarketsRequests) == 0 {
-		m.MarketsRequests = m.StocksRequests
-	}
-
-	if len(m.MarketsRequests) == 0 {
-		return fmt.Errorf("at least one market is required")
-	}
-
-	for i := range m.MarketsRequests {
-		request := &m.MarketsRequests[i]
-
-		if request.Symbol == "" {
-			return fmt.Errorf("market symbol is required")
-		}
-
-		if request.ChartLink == "" && m.ChartLinkTemplate != "" {
-			request.ChartLink = strings.ReplaceAll(m.ChartLinkTemplate, "{SYMBOL}", request.Symbol)
-		}
-
-		if request.SymbolLink == "" {
-			symbolLinkTemplate := m.SymbolLinkTemplate
-			if symbolLinkTemplate == "" {
-				symbolLinkTemplate = defaultMicroMarketSymbolLinkTemplate
-			}
-
-			request.SymbolLink = strings.ReplaceAll(symbolLinkTemplate, "{SYMBOL}", request.Symbol)
-		}
-	}
-
-	return nil
-}
-
-func (m *microMarkets) update(ctx context.Context) {
-	markets, err := fetchMarketsDataFromYahoo(ctx, m.MarketsRequests)
-	if !m.canContinueUpdateAfterHandlingErr(err) {
-		return
-	}
-
-	if m.Sort == "absolute-change" {
-		markets.sortByAbsChange()
-	} else if m.Sort == "change" {
-		markets.sortByChange()
-	}
-
-	m.Markets = markets
-}
-
 var microMarketsTemplate = mustParseTemplate("footer-micro-markets.html")
 
-func (m *microMarkets) Render() template.HTML {
-	return m.renderTemplate(m, microMarketsTemplate)
+type microMarkets struct {
+	marketsWidget `yaml:",inline"`
+	Position      int  `yaml:"position"`
+	SameTab       bool `yaml:"same-tab"`
+}
+
+func (m *microMarkets) GetPosition() int { return m.Position }
+func (m *microMarkets) initialize() error {
+	if len(m.MarketRequests) == 0 {
+		m.MarketRequests = m.StocksRequests
+	}
+	if len(m.MarketRequests) == 0 {
+		return fmt.Errorf("at least one market is required")
+	}
+	if m.SymbolLinkTemplate == "" {
+		m.SymbolLinkTemplate = defaultMicroMarketSymbolLinkTemplate
+	}
+	for i := range m.MarketRequests {
+		if m.MarketRequests[i].Symbol == "" {
+			return fmt.Errorf("market symbol is required")
+		}
+		if m.MarketRequests[i].SymbolLink == "" {
+			m.MarketRequests[i].SymbolLink = strings.ReplaceAll(m.SymbolLinkTemplate, "{SYMBOL}", m.MarketRequests[i].Symbol)
+		}
+	}
+	return m.marketsWidget.initialize()
+}
+func (m *microMarkets) Render() template.HTML { return m.renderTemplate(m, microMarketsTemplate) }
+func (m *microMarkets) MicroItems(open bool) []statusBarCompactItem {
+	return marketsStatusBarCompactItems(&m.marketsWidget, open)
+}
+func marketsStatusBarCompactItems(m *marketsWidget, open bool) []statusBarCompactItem {
+	if len(m.Markets) == 0 && m.Error != nil {
+		return []statusBarCompactItem{{Kind: "error", Error: m.Error, ErrorTitle: m.Title}}
+	}
+	items := make([]statusBarCompactItem, 0, len(m.Markets))
+	for _, market := range m.Markets {
+		items = append(items, statusBarCompactItem{Kind: "market", Error: m.Error, Notice: m.Notice, URL: market.SymbolLink, OpenLinksInNewTab: open, MarketSymbol: market.Symbol, MarketName: market.Name, MarketChartURL: market.ChartLink, MarketCurrency: market.Currency, MarketCurrencySymbol: market.CurrencySymbol, MarketPrice: market.Price, MarketPriceHint: market.PriceHint, MarketPercentChange: market.PercentChange})
+	}
+	return items
 }

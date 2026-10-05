@@ -447,17 +447,8 @@ func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime) (*appli
 	}
 	app.widgetProviders = providers
 
-	for _, side := range []microWidgets{config.FooterMicroWidgets.Left, config.FooterMicroWidgets.Right} {
-		for _, micro := range side {
-			if bookmark, ok := micro.(*microBookmark); ok {
-				bookmark.Icon.resolveResourceProxy(providers.resourceProxyURL)
-			}
-		}
-	}
-
-	footerDynamicWidgets := config.FooterMicroWidgets.dynamicWidgets()
-	for _, widget := range footerDynamicWidgets {
-		widget.setID(widgetIDCounter.Add(1))
+	footerMicroWidgets := config.FooterMicroWidgets.allWidgets()
+	for _, widget := range footerMicroWidgets {
 		widget.setProviders(providers)
 		app.widgetByID[widget.GetID()] = widget
 	}
@@ -550,8 +541,8 @@ func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime) (*appli
 	)
 
 	refreshSources := make(widgets, 0)
-	refreshSources = append(refreshSources, footerDynamicWidgets...)
-	for _, candidate := range collectRefreshWidgets(footerDynamicWidgets) {
+	refreshSources = append(refreshSources, footerMicroWidgets...)
+	for _, candidate := range collectRefreshWidgets(footerMicroWidgets) {
 		app.globalWidgetIDs[candidate.GetID()] = struct{}{}
 	}
 

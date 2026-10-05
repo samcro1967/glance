@@ -241,3 +241,18 @@
     overflow: hidden;
     text-overflow: ellipsis;
 }
+
+.status-bar-micro-simple,
+.status-bar-micro-status-content,
+.status-bar-micro-clock {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.7rem;
+}
+
+.status-bar-micro-clock {
+    flex-direction: column;
+    justify-content: center;
+    gap: 0;
+    line-height: 1.8rem;
+}

@@ -1,6 +1,6 @@
 # Adding a widget
 
-[Glance README](../README.md) · [Contributing](../CONTRIBUTING.md) · [Widgets](widgets.md)
+[Glance README](../README.md) · [Contributing](../CONTRIBUTING.md) · [Widgets](widgets.md) · [Adding a micro-widget](adding-a-micro-widget.md)
 
 ---
 

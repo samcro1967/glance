@@ -41,6 +41,9 @@ footer-micro-widgets:
       position: 4
       container: Glance
       sock-path: http://127.0.0.1:18089
+    - type: custom-api
+      position: 5
+      url: http://127.0.0.1:18089/micro-custom-api
   right:
     - type: clock
       position: 1
@@ -53,17 +56,12 @@ footer-micro-widgets:
     - type: monitor
       position: 3
       sites:
-        - title: "Example"
-          url: https://example.com
-    - type: clock
+        - title: "Fixture"
+          url: http://127.0.0.1:18089/custom-api-presentation
+    - type: rss
       position: 4
-      hour-format: 24h
-      timezone: America/New_York
-      label: "NY"
-    - type: docker
-      position: 5
-      summary: true
-      sock-path: http://127.0.0.1:18089
+      feeds:
+        - url: http://127.0.0.1:18089/micro-rss.xml
 
 $include: testdata/expanded-theme.yml
 
@@ -296,16 +294,35 @@ pages:
         mode: ticker
         speed: normal
         widgets:
-          - type: weather
-            location: St. Louis, Missouri, United States
-            units: imperial
+          - type: bookmark
+            title: GitHub
+            url: https://github.com/samcro1967/glance
+            icon: si:github
+          - type: clock
+            hour-format: 12h
+            label: Local
+          - type: custom-api
+            url: http://127.0.0.1:18089/micro-custom-api
+          - type: docker
+            summary: true
+            sock-path: http://127.0.0.1:18089
+          - type: link
+            title: Glance Docs
+            url: https://github.com/samcro1967/glance/tree/main/docs
           - type: markets
             markets:
               - symbol: SPY
                 name: S&P 500
-              - symbol: BTC-USD
-                name: Bitcoin
-
+          - type: monitor
+            sites:
+              - title: Fixture
+                url: http://127.0.0.1:18089/custom-api-presentation
+          - type: rss
+            feeds:
+              - url: http://127.0.0.1:18089/micro-rss.xml
+          - type: weather
+            location: St. Louis, Missouri, United States
+            units: imperial
     columns:
       - size: small
         widgets:

@@ -1,0 +1,1 @@
+{{ define "footer-micro-rss" }}<span class="footer-micro-item footer-micro-rss" data-widget-id="{{ .GetID }}">{{ range .Items }}<a class="footer-micro-rss-item" href="{{ .Link | safeURL }}"{{ if not $.SameTab }} target="_blank"{{ end }} rel="noreferrer"><span>{{ .Title }}</span></a>{{ end }}</span>{{ end }}{{ template "footer-micro-rss" . }}

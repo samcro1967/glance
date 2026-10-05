@@ -571,3 +571,7 @@ func (widget *rssWidget) setDefaultBasicAuth(value basicAuthDefaults) {
 		request.BasicAuth.Password = value.Password
 	}
 }
+
+func (widget *rssWidget) MicroItems(open bool) []statusBarCompactItem {
+	return rssStatusBarCompactItems(widget, open)
+}

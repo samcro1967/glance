@@ -39,6 +39,8 @@
                     <span class="{{ if eq .MarketPercentChange 0.0 }}{{ else if gt .MarketPercentChange 0.0 }}color-positive{{ else }}color-negative{{ end }}">{{ printf "%+.2f" .MarketPercentChange }}%</span>
                 {{ if .MarketChartURL }}</a>{{ else }}</span>{{ end }}
             </div>
+        {{ else if eq .Kind "summary" }}
+            {{ if .URL }}<a href="{{ .URL }}"{{ if .OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }} class="status-bar-micro-simple">{{ else }}<span class="status-bar-micro-simple">{{ end }}<span class="status-bar-primary">{{ .Line1 }}</span>{{ if .Line2 }}<span class="color-subdue">{{ .Line2 }}</span>{{ end }}{{ if .URL }}</a>{{ else }}</span>{{ end }}
         {{ else if eq .Kind "custom-api" }}
             {{ if .URL }}<a href="{{ .URL }}"{{ if .OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }} class="status-bar-custom-api-content">{{ else }}<div class="status-bar-custom-api-content">{{ end }}
                 {{ if .Icon1 }}<img class="status-bar-custom-api-icon" src="{{ .Icon1 }}" alt="" loading="lazy">{{ end }}
@@ -48,6 +50,12 @@
                 </span>
                 {{ if .Icon2 }}<img class="status-bar-custom-api-icon" src="{{ .Icon2 }}" alt="" loading="lazy">{{ end }}
             {{ if .URL }}</a>{{ else }}</div>{{ end }}
+        {{ else if or (eq .Kind "bookmark") (eq .Kind "link") }}
+            {{ if .URL }}<a href="{{ .URL }}"{{ if .OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }} class="status-bar-micro-simple">{{ if .Icon1 }}<img class="status-bar-custom-api-icon" src="{{ .Icon1 }}" alt="" loading="lazy">{{ end }}<span class="status-bar-primary">{{ .Line1 }}</span></a>{{ else }}<span class="status-bar-primary">{{ .Line1 }}</span>{{ end }}
+        {{ else if eq .Kind "clock" }}
+            <div class="status-bar-micro-clock" data-hour-format="{{ .ClockHourFormat }}"{{ if .ClockTimezone }} data-timezone="{{ .ClockTimezone }}"{{ end }}>{{ if .Line1 }}<span class="color-subdue">{{ .Line1 }} · </span>{{ end }}<span data-micro-clock-date></span><span class="status-bar-primary" data-micro-clock-time></span></div>
+        {{ else if or (eq .Kind "monitor") (eq .Kind "docker") }}
+            {{ if .URL }}<a href="{{ .URL }}"{{ if .OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }} class="status-bar-micro-status-content">{{ else }}<span class="status-bar-micro-status-content">{{ end }}<span class="footer-micro-status footer-micro-status-{{ .StatusStyle }}"></span>{{ if .Icon1 }}<img class="status-bar-custom-api-icon" src="{{ .Icon1 }}" alt="" loading="lazy">{{ end }}<span class="status-bar-primary">{{ .Line1 }}</span>{{ if .Line2 }}<span class="color-subdue">{{ .Line2 }}</span>{{ end }}{{ if .URL }}</a>{{ else }}</span>{{ end }}
         {{ else if eq .Kind "rss" }}
             <div class="status-bar-rss-content">
                 {{ if .URL }}<a href="{{ .URL }}"{{ if .OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }} class="status-bar-primary status-bar-rss-title">{{ .RSSTitle }}</a>{{ else }}<span class="status-bar-primary status-bar-rss-title">{{ .RSSTitle }}</span>{{ end }}

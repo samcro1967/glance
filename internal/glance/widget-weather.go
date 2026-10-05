@@ -643,3 +643,7 @@ var weatherCodeTable = map[int]string{
 	96: "Thunderstorm",
 	99: "Thunderstorm",
 }
+
+func (widget *weatherWidget) MicroItems(open bool) []statusBarCompactItem {
+	return weatherStatusBarCompactItems(widget, open)
+}

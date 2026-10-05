@@ -1364,3 +1364,7 @@ func (widget *customAPIWidget) setDefaultBasicAuth(value basicAuthDefaults) {
 		setCustomAPIRequestDefaultBasicAuth(request, value)
 	}
 }
+
+func (widget *customAPIWidget) MicroItems(open bool) []statusBarCompactItem {
+	return customAPIStatusBarCompactItems(widget, open)
+}
