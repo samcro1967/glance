@@ -538,6 +538,19 @@ async function setupSudokus(root = document) {
     return cleanupCallbacks;
 }
 
+async function setup2048Games(root = document) {
+    const elems = Array.from(root.getElementsByClassName("game-2048"));
+    if (elems.length === 0) return [];
+
+    const game2048 = await import("./2048.js");
+    const cleanupCallbacks = [];
+    for (const element of elems) {
+        const cleanup = game2048.default(element);
+        if (typeof cleanup === "function") cleanupCallbacks.push(cleanup);
+    }
+    return cleanupCallbacks;
+}
+
 async function setupTodos() {
     const elems = Array.from(document.getElementsByClassName("todo"));
     if (elems.length == 0) return;
@@ -655,6 +668,9 @@ async function initializeContentRoot(root, diagnostics = false) {
     );
     cleanupCallbacks.push(
         ...await runAsyncStage("sudokus", () => setupSudokus(root))
+    );
+    cleanupCallbacks.push(
+        ...await runAsyncStage("2048_games", () => setup2048Games(root))
     );
     cleanupCallbacks.push(
         ...runStage("carousels", () => setupCarousels(root))

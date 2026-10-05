@@ -203,6 +203,10 @@
     "route": "/utilities",
     "selector": ".visual-fixture-sudoku"
   },
+  "2048": {
+    "route": "/utilities",
+    "selector": ".visual-fixture-2048"
+  },
   "now-playing": {
     "route": "/homelab-monitoring",
     "selector": ".visual-fixture-now-playing"

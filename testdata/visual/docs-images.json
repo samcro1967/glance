@@ -214,6 +214,12 @@
     "route": "/utilities",
     "selector": ".visual-fixture-sudoku"
   },
+  "widgets/2048.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/utilities",
+    "selector": ".visual-fixture-2048"
+  },
   "widgets/calendar-legacy.png": {
     "kind": "browser",
     "capture": "element",
