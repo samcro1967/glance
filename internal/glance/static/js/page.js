@@ -525,6 +525,19 @@ async function setupMinesweepers(root = document) {
     return cleanupCallbacks;
 }
 
+async function setupSudokus(root = document) {
+    const elems = Array.from(root.getElementsByClassName("sudoku"));
+    if (elems.length === 0) return [];
+
+    const sudoku = await import('./sudoku.js');
+    const cleanupCallbacks = [];
+    for (const element of elems) {
+        const cleanup = sudoku.default(element);
+        if (typeof cleanup === "function") cleanupCallbacks.push(cleanup);
+    }
+    return cleanupCallbacks;
+}
+
 async function setupTodos() {
     const elems = Array.from(document.getElementsByClassName("todo"));
     if (elems.length == 0) return;
@@ -639,6 +652,9 @@ async function initializeContentRoot(root, diagnostics = false) {
     );
     cleanupCallbacks.push(
         ...await runAsyncStage("minesweepers", () => setupMinesweepers(root))
+    );
+    cleanupCallbacks.push(
+        ...await runAsyncStage("sudokus", () => setupSudokus(root))
     );
     cleanupCallbacks.push(
         ...runStage("carousels", () => setupCarousels(root))

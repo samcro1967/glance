@@ -199,6 +199,10 @@
     "route": "/utilities",
     "selector": ".visual-fixture-minesweeper"
   },
+  "sudoku": {
+    "route": "/utilities",
+    "selector": ".visual-fixture-sudoku"
+  },
   "now-playing": {
     "route": "/homelab-monitoring",
     "selector": ".visual-fixture-now-playing"
