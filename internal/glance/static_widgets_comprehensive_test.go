@@ -14,7 +14,7 @@ import (
 )
 
 func TestComprehensiveNewWidgetAllKnownTypes(t *testing.T) {
-	types := []string{"calendar", "calendar-legacy", "ics-events", "clock", "analog-clock", "weather", "bookmarks", "iframe", "markdown", "html", "hacker-news", "releases", "videos", "markets", "stocks", "reddit", "rss", "monitor", "prometheus", "twitch-top-games", "twitch-channels", "lobsters", "change-detection", "repository", "search", "extension", "group", "dns-stats", "split-column", "custom-api", "docker-containers", "server-stats", "timer", "to-do", "unit-converter", "calculator", "minesweeper", "sudoku", "stack", "status-bar", "word-of-the-day", "quote-of-the-day", "trivia", "on-this-day", "animal-of-the-day"}
+	types := []string{"calendar", "calendar-legacy", "ics-events", "clock", "analog-clock", "weather", "bookmarks", "iframe", "markdown", "html", "hacker-news", "releases", "videos", "markets", "stocks", "reddit", "rss", "monitor", "prometheus", "twitch-top-games", "twitch-channels", "lobsters", "change-detection", "repository", "search", "extension", "group", "dns-stats", "split-column", "custom-api", "docker-containers", "server-stats", "timer", "to-do", "unit-converter", "calculator", "minesweeper", "sudoku", "2048", "stack", "status-bar", "word-of-the-day", "quote-of-the-day", "trivia", "on-this-day", "animal-of-the-day"}
 	seen := map[uint64]bool{}
 	for _, typ := range types {
 		t.Run(typ, func(t *testing.T) {

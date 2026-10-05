@@ -65,7 +65,8 @@
     "unit-converter",
     "calculator",
     "minesweeper",
-    "sudoku"
+    "sudoku",
+    "2048"
   ],
   "daily-discovery": [
     "word-of-the-day",

@@ -1,0 +1,22 @@
+{{ template "widget-base.html" . }}
+
+{{ define "widget-content" }}
+<div class="game-2048" data-2048>
+    <div class="game-2048-toolbar">
+        <div class="game-2048-scores" aria-label="2048 scores">
+            <div class="game-2048-score"><span>Score</span><output data-2048-score>0</output></div>
+        </div>
+        <button type="button" class="glance-button game-2048-restart" data-2048-restart>New Game</button>
+    </div>
+    <div class="game-2048-status visually-hidden" data-2048-status aria-live="polite">Ready</div>
+    <div class="game-2048-board" data-2048-board role="grid" aria-label="2048 board" tabindex="0"></div>
+    <div class="game-2048-message" data-2048-message hidden>
+        <strong data-2048-message-text></strong>
+        <div class="game-2048-message-actions">
+            <button type="button" class="glance-button" data-2048-continue hidden>Continue</button>
+            <button type="button" class="glance-button" data-2048-try-again hidden>Try Again</button>
+        </div>
+    </div>
+    <div class="game-2048-help">Use arrow keys or WASD. On touch screens, swipe to move the tiles.</div>
+</div>
+{{ end }}

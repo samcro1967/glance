@@ -11,6 +11,9 @@
   "minesweeper": {
     "variants": ["standard"]
   },
+  "2048": {
+    "variants": ["standard"]
+  },
   "calendar": {
     "variants": ["standard"]
   },

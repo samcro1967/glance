@@ -333,6 +333,9 @@ var widgetRegistry = map[string]widgetDescriptor{
 	"sudoku": {
 		constructor: func() widget { return &sudokuWidget{} },
 	},
+	"2048": {
+		constructor: func() widget { return &game2048Widget{} },
+	},
 	"stack": {
 		constructor: func() widget { return &stackWidget{} },
 	},

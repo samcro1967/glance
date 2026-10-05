@@ -1117,6 +1117,10 @@ pages:
             title: Sudoku
             css-class: visual-fixture-sudoku
 
+          - type: 2048
+            title: 2048
+            css-class: visual-fixture-2048
+
   - name: Daily Discovery
     icon: mdi:calendar-star
     slug: daily-discovery
