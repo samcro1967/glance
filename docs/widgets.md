@@ -163,6 +163,7 @@ Set custom CSS classes for the specific widget instance.
 | [Calculator](widgets/calculator.md) | Perform calculations directly in Glance. |
 | [Minesweeper](widgets/minesweeper.md) | Play classic Minesweeper directly in Glance. |
 | [Sudoku](widgets/sudoku.md) | Play locally generated Sudoku puzzles directly in Glance. |
+| [2048](widgets/2048.md) | Play the classic 2048 sliding-tile game directly in Glance. |
 
 ---
 
