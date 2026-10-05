@@ -31,8 +31,16 @@ type microWidgetDescriptor struct {
 // containers own placement and layout only; individual micro-widgets own
 // configuration, data lifecycle, and compact presentation semantics.
 var microWidgetRegistry = map[string]microWidgetDescriptor{
-	"bookmark": {constructor: func() microWidget { return &microBookmark{} }},
-	"clock":    {constructor: func() microWidget { return &microClock{} }},
+	"environment":  {constructor: func() microWidget { return &microEnvironment{} }, canonicalWidgetType: "environment", applyWidgetDefaults: true},
+	"astronomy":    {constructor: func() microWidget { return &microAstronomy{} }, canonicalWidgetType: "astronomy", applyWidgetDefaults: true},
+	"astrology":    {constructor: func() microWidget { return &microAstrology{} }, canonicalWidgetType: "astrology", applyWidgetDefaults: true},
+	"server-stats": {constructor: func() microWidget { return &microServerStats{} }, canonicalWidgetType: "server-stats", applyWidgetDefaults: true},
+	"dns-stats":    {constructor: func() microWidget { return &microDNSStats{} }, canonicalWidgetType: "dns-stats", applyWidgetDefaults: true},
+	"repository":   {constructor: func() microWidget { return &microRepository{} }, canonicalWidgetType: "repository", applyWidgetDefaults: true},
+	"releases":     {constructor: func() microWidget { return &microReleases{} }, canonicalWidgetType: "releases", applyWidgetDefaults: true},
+	"now-playing":  {constructor: func() microWidget { return &microNowPlaying{} }, canonicalWidgetType: "now-playing", applyWidgetDefaults: true},
+	"bookmark":     {constructor: func() microWidget { return &microBookmark{} }},
+	"clock":        {constructor: func() microWidget { return &microClock{} }},
 	"custom-api": {
 		constructor:         func() microWidget { return &microCustomAPI{} },
 		canonicalWidgetType: "custom-api",

@@ -20,6 +20,8 @@ For example, Weather, Markets, Monitor, Docker, RSS, and Custom API micro-widget
 
 Lightweight micro-only sources such as Bookmark, Link, and Clock may remain self-contained when there is no provider-backed lifecycle to share.
 
+A compact projection may select, format, order, or omit state already owned by the canonical widget. It must not perform additional provider requests, introduce a second data model, or derive new domain state whose semantics are not already represented canonically. Micro-only presentation selectors such as `display` are appropriate when several canonical facts are useful compactly; they must not replace canonical configuration that controls acquisition or computation.
+
 ## 3. Keep containers presentation-only
 
 Status Bar and Footer must not inspect concrete micro-widget Go types. They iterate the shared micro contract. Adding a new registered micro-widget must not require adding the type to either container.

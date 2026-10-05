@@ -3,7 +3,7 @@ package glance
 import "testing"
 
 func TestMicroWidgetRegistryConstructsBothContainerSources(t *testing.T) {
-	expected := []string{"bookmark", "clock", "custom-api", "docker", "link", "markets", "monitor", "rss", "weather"}
+	expected := []string{"astrology", "astronomy", "bookmark", "clock", "custom-api", "dns-stats", "docker", "environment", "link", "markets", "monitor", "now-playing", "releases", "repository", "rss", "server-stats", "weather"}
 	if len(microWidgetRegistry) != len(expected) {
 		t.Fatalf("registered micro-widget count = %d, want %d", len(microWidgetRegistry), len(expected))
 	}
@@ -26,14 +26,24 @@ func TestStatusBarDecodesEveryRegisteredMicroWidget(t *testing.T) {
     head-widgets:
       - type: status-bar
         widgets:
+          - type: astrology
+          - type: astronomy
+            location: London, United Kingdom
           - type: bookmark
             title: Example
             url: https://example.com
           - type: clock
           - type: custom-api
             url: https://example.com/api
+          - type: dns-stats
+            service: adguard
+            url: https://example.com
+            username: example
+            password: example
           - type: docker
             summary: true
+          - type: environment
+            location: London, United Kingdom
           - type: link
             title: Example
             url: https://example.com
@@ -44,9 +54,22 @@ func TestStatusBarDecodesEveryRegisteredMicroWidget(t *testing.T) {
             sites:
               - title: Example
                 url: https://example.com
+          - type: now-playing
+            service: plex
+            server: https://example.com
+            api-key: example
+          - type: releases
+            repositories:
+              - glanceapp/glance
+          - type: repository
+            repository: glanceapp/glance
           - type: rss
             feeds:
               - url: https://example.com/feed.xml
+          - type: server-stats
+            servers:
+              - type: local
+                name: Example
           - type: weather
             location: London, United Kingdom
     columns:
@@ -71,37 +94,69 @@ func TestFooterDecodesEveryRegisteredMicroWidget(t *testing.T) {
 	yaml := `footer-micro-widgets:
   max-per-side: 10
   left:
-    - type: bookmark
+    - type: astrology
       position: 1
+    - type: astronomy
+      position: 2
+      location: London, United Kingdom
+    - type: bookmark
+      position: 3
       title: Example
       url: https://example.com
     - type: clock
-      position: 2
-    - type: custom-api
-      position: 3
-      url: https://example.com/api
-    - type: docker
       position: 4
-      summary: true
-    - type: link
+    - type: custom-api
       position: 5
+      url: https://example.com/api
+    - type: dns-stats
+      position: 6
+      service: adguard
+      url: https://example.com
+      username: example
+      password: example
+    - type: docker
+      position: 7
+      summary: true
+    - type: environment
+      position: 8
+      location: London, United Kingdom
+    - type: link
+      position: 9
       title: Example
       url: https://example.com
+  right:
     - type: markets
-      position: 6
+      position: 1
       markets:
         - symbol: SPY
     - type: monitor
-      position: 7
+      position: 2
       sites:
         - title: Example
           url: https://example.com
+    - type: now-playing
+      position: 3
+      service: plex
+      server: https://example.com
+      api-key: example
+    - type: releases
+      position: 4
+      repositories:
+        - glanceapp/glance
+    - type: repository
+      position: 5
+      repository: glanceapp/glance
     - type: rss
-      position: 8
+      position: 6
       feeds:
         - url: https://example.com/feed.xml
+    - type: server-stats
+      position: 7
+      servers:
+        - type: local
+          name: Example
     - type: weather
-      position: 9
+      position: 8
       location: London, United Kingdom
 pages:
   - name: Home
@@ -115,27 +170,40 @@ pages:
 	if err != nil {
 		t.Fatalf("newConfigFromYAML() error = %v", err)
 	}
-	if len(config.FooterMicroWidgets.Left) != len(microWidgetRegistry) {
-		t.Fatalf("footer micro count = %d, want %d", len(config.FooterMicroWidgets.Left), len(microWidgetRegistry))
+	if got := len(config.FooterMicroWidgets.Left) + len(config.FooterMicroWidgets.Right); got != len(microWidgetRegistry) {
+		t.Fatalf("footer micro count = %d, want %d", got, len(microWidgetRegistry))
 	}
-	for _, candidate := range config.FooterMicroWidgets.Left {
-		if _, ok := candidate.(microWidget); !ok {
-			t.Fatalf("footer child %T does not implement microWidget", candidate)
-		}
-		if _, invalid := candidate.(*invalidConfiguredMicroWidget); invalid {
-			t.Fatalf("footer child %T decoded as invalid micro-widget", candidate)
+	assertValidMicroWidgets := func(candidates microWidgets) {
+		t.Helper()
+		for _, candidate := range candidates {
+			if _, ok := candidate.(microWidget); !ok {
+				t.Fatalf("footer child %T does not implement microWidget", candidate)
+			}
+			if _, invalid := candidate.(*invalidConfiguredMicroWidget); invalid {
+				t.Fatalf("footer child %T decoded as invalid micro-widget", candidate)
+			}
 		}
 	}
+	assertValidMicroWidgets(config.FooterMicroWidgets.Left)
+	assertValidMicroWidgets(config.FooterMicroWidgets.Right)
 }
 
 func TestMicroWidgetRegistryCanonicalDefaultsTypes(t *testing.T) {
 	want := map[string]string{
-		"custom-api": "custom-api",
-		"docker":     "docker-containers",
-		"markets":    "markets",
-		"monitor":    "monitor",
-		"rss":        "rss",
-		"weather":    "weather",
+		"astrology":    "astrology",
+		"astronomy":    "astronomy",
+		"custom-api":   "custom-api",
+		"dns-stats":    "dns-stats",
+		"docker":       "docker-containers",
+		"environment":  "environment",
+		"markets":      "markets",
+		"monitor":      "monitor",
+		"now-playing":  "now-playing",
+		"releases":     "releases",
+		"repository":   "repository",
+		"rss":          "rss",
+		"server-stats": "server-stats",
+		"weather":      "weather",
 	}
 	for microType, canonicalType := range want {
 		descriptor := microWidgetRegistry[microType]
