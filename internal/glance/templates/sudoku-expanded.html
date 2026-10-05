@@ -1,0 +1,29 @@
+<div class="sudoku sudoku-expanded" data-sudoku data-difficulty="{{ .Difficulty }}">
+    <div class="sudoku-toolbar">
+        <label class="sudoku-difficulty-label">
+            <span class="visually-hidden">Difficulty</span>
+            <select class="glance-form-input sudoku-difficulty" data-sudoku-difficulty aria-label="Difficulty">
+                <option value="easy"{{ if eq .Difficulty "easy" }} selected{{ end }}>Easy</option>
+                <option value="medium"{{ if eq .Difficulty "medium" }} selected{{ end }}>Medium</option>
+                <option value="hard"{{ if eq .Difficulty "hard" }} selected{{ end }}>Hard</option>
+            </select>
+        </label>
+        <button type="button" class="glance-button sudoku-restart" data-sudoku-restart aria-label="Start a new puzzle">New</button>
+        <div class="sudoku-time" aria-label="Elapsed time"><span aria-hidden="true">&#9201;</span><output data-sudoku-time>00:00</output></div>
+    </div>
+    <div class="sudoku-status visually-hidden" data-sudoku-status aria-live="polite">Ready</div>
+    <div class="sudoku-board" data-sudoku-board role="grid" aria-label="Sudoku board"></div>
+    <div class="sudoku-keypad" data-sudoku-keypad aria-label="Number keypad">
+        <button type="button" class="glance-button sudoku-number" data-sudoku-number="1">1</button>
+        <button type="button" class="glance-button sudoku-number" data-sudoku-number="2">2</button>
+        <button type="button" class="glance-button sudoku-number" data-sudoku-number="3">3</button>
+        <button type="button" class="glance-button sudoku-number" data-sudoku-number="4">4</button>
+        <button type="button" class="glance-button sudoku-number" data-sudoku-number="5">5</button>
+        <button type="button" class="glance-button sudoku-number" data-sudoku-number="6">6</button>
+        <button type="button" class="glance-button sudoku-number" data-sudoku-number="7">7</button>
+        <button type="button" class="glance-button sudoku-number" data-sudoku-number="8">8</button>
+        <button type="button" class="glance-button sudoku-number" data-sudoku-number="9">9</button>
+        <button type="button" class="glance-button sudoku-erase" data-sudoku-erase aria-label="Clear selected cell">Clear</button>
+    </div>
+    <div class="sudoku-help" data-sudoku-help>Select a cell, then enter 1-9. Backspace, Delete, or 0 clears it.</div>
+</div>

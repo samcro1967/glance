@@ -64,7 +64,8 @@
     "to-do",
     "unit-converter",
     "calculator",
-    "minesweeper"
+    "minesweeper",
+    "sudoku"
   ],
   "daily-discovery": [
     "word-of-the-day",
