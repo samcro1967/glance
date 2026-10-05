@@ -1329,6 +1329,72 @@ async function main() {
     }
     await page.locator('.widget-expand-dialog-close').click();
 
+    const sudoku = page.locator('.visual-fixture-sudoku');
+    const sudokuCells = sudoku.locator('.sudoku-cell');
+    if (await sudokuCells.count() !== 81) {
+      throw new Error('Sudoku board did not render 81 cells');
+    }
+
+    const editableSudokuCell = sudoku.locator('.sudoku-cell:not(.is-given)').first();
+    await editableSudokuCell.click();
+
+    let acceptedSudokuValue = null;
+    let rejectedSudokuValue = null;
+    for (let value = 1; value <= 9; value++) {
+      await sudoku.locator(`[data-sudoku-number="${value}"]`).click();
+      const entered = (await editableSudokuCell.textContent())?.trim();
+
+      if (entered === String(value)) {
+        acceptedSudokuValue = value;
+        await editableSudokuCell.press('Backspace');
+        continue;
+      }
+
+      if (entered !== '') {
+        throw new Error(`Sudoku incorrect value ${value} changed the board to ${entered}`);
+      }
+
+      if (!(await editableSudokuCell.evaluate(cell => cell.classList.contains('is-invalid')))) {
+        throw new Error(`Sudoku incorrect value ${value} did not show invalid feedback`);
+      }
+
+      rejectedSudokuValue = value;
+    }
+
+    if (acceptedSudokuValue === null) {
+      throw new Error('Sudoku did not accept the correct value for an editable cell');
+    }
+    if (rejectedSudokuValue === null) {
+      throw new Error('Sudoku test did not exercise incorrect-value rejection');
+    }
+
+    await sudoku.locator(`[data-sudoku-number="${acceptedSudokuValue}"]`).click();
+    if ((await editableSudokuCell.textContent())?.trim() !== String(acceptedSudokuValue)) {
+      throw new Error('Sudoku did not restore the accepted value');
+    }
+    if (await editableSudokuCell.evaluate(cell => cell.classList.contains('is-invalid'))) {
+      throw new Error('Sudoku invalid feedback remained after a correct entry');
+    }
+
+    await editableSudokuCell.press('Backspace');
+    if ((await editableSudokuCell.textContent())?.trim() !== '') {
+      throw new Error('Sudoku keyboard clear did not clear the accepted value');
+    }
+
+    await sudoku.locator('[data-sudoku-difficulty]').selectOption('medium');
+    if (await sudoku.locator('.sudoku-cell').count() !== 81) {
+      throw new Error('Sudoku medium puzzle did not render 81 cells');
+    }
+
+    await sudoku.locator('[data-widget-expand]').click();
+    const expandedSudoku = page.locator('.widget-expand-dialog .sudoku');
+    await expandedSudoku.waitFor({ state: 'visible', timeout: 10000 });
+    await expandedSudoku.locator('[data-sudoku-difficulty]').selectOption('hard');
+    if (await expandedSudoku.locator('.sudoku-cell').count() !== 81) {
+      throw new Error('Sudoku expanded hard puzzle did not render 81 cells');
+    }
+    await page.locator('.widget-expand-dialog-close').click();
+
     const converter = page.locator('.visual-fixture-unit-converter');
     const converterCategory = converter.locator(
       '[data-unit-converter-category]'
@@ -1381,6 +1447,7 @@ async function main() {
 
     console.log('PASS calculator interaction');
     console.log('PASS minesweeper interaction');
+    console.log('PASS sudoku interaction');
     console.log('PASS unit converter interaction');
     console.log('PASS to-do persistence interaction');
 

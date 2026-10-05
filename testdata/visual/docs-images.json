@@ -208,6 +208,12 @@
     "route": "/utilities",
     "selector": ".visual-fixture-minesweeper"
   },
+  "widgets/sudoku.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/utilities",
+    "selector": ".visual-fixture-sudoku"
+  },
   "widgets/calendar-legacy.png": {
     "kind": "browser",
     "capture": "element",

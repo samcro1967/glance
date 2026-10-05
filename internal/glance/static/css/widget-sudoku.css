@@ -1,0 +1,29 @@
+.sudoku { --sudoku-cell-size: min(3.25rem, calc((100cqw - 1.6rem) / 9)); display: flex; flex-direction: column; gap: 1rem; width: 100%; }
+.sudoku-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 0.7rem; }
+.sudoku-difficulty { width: 100%; min-width: 0; }
+.sudoku-restart { min-width: 4.8rem; }
+.sudoku-time { display: flex; align-items: center; gap: 0.35rem; min-width: 5.3rem; justify-content: flex-end; font-variant-numeric: tabular-nums; color: var(--theme-heading-text-color, var(--color-text-highlight)); }
+.sudoku-board { display: grid; grid-template-columns: repeat(9, var(--sudoku-cell-size)); width: max-content; margin-inline: auto; border: 2px solid var(--theme-heading-text-color, var(--color-text-highlight)); border-radius: var(--border-radius); overflow: hidden; user-select: none; -webkit-user-select: none; }
+.sudoku-cell { display: grid; place-items: center; width: var(--sudoku-cell-size); height: var(--sudoku-cell-size); padding: 0; border: 0; border-right: 1px solid var(--theme-control-border-color, var(--color-widget-content-border)); border-bottom: 1px solid var(--theme-control-border-color, var(--color-widget-content-border)); border-radius: 0; background: var(--theme-widget-background-color, var(--color-widget-background)); color: var(--color-primary); font: inherit; font-size: 1.5em; font-weight: 600; line-height: 1; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.sudoku-cell:nth-child(9n) { border-right: 0; }
+.sudoku-cell:nth-child(n+73) { border-bottom: 0; }
+.sudoku-cell:nth-child(9n+3), .sudoku-cell:nth-child(9n+6) { border-right: 2px solid var(--theme-heading-text-color, var(--color-text-highlight)); }
+.sudoku-cell:nth-child(n+19):nth-child(-n+27), .sudoku-cell:nth-child(n+46):nth-child(-n+54) { border-bottom: 2px solid var(--theme-heading-text-color, var(--color-text-highlight)); }
+.sudoku-cell.is-given { color: var(--theme-heading-text-color, var(--color-text-highlight)); font-weight: 800; cursor: default; }
+.sudoku-cell.is-related { background: color-mix(in srgb, var(--color-primary) 8%, var(--theme-widget-background-color, var(--color-widget-background))); }
+.sudoku-cell.is-matching { background: color-mix(in srgb, var(--color-primary) 16%, var(--theme-widget-background-color, var(--color-widget-background))); }
+.sudoku-cell.is-selected { position: relative; z-index: 1; background: color-mix(in srgb, var(--color-primary) 25%, var(--theme-widget-background-color, var(--color-widget-background))); outline: 2px solid var(--color-primary); outline-offset: -2px; }
+.sudoku-cell.is-invalid { color: var(--color-negative); background: color-mix(in srgb, var(--color-negative) 14%, var(--theme-widget-background-color, var(--color-widget-background))); }
+.sudoku-cell:focus-visible { position: relative; z-index: 2; outline: 2px solid var(--color-primary); outline-offset: -2px; }
+.sudoku-keypad { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0.5rem; }
+.sudoku-number, .sudoku-erase { min-width: 0; padding-inline: 0.4rem; }
+.sudoku-erase { grid-column: span 1; }
+.sudoku-help { min-height: 1.4em; margin: 0; color: var(--theme-muted-text-color, var(--color-text-subdue)); font-size: 0.9em; line-height: 1.4; text-align: center; }
+@container widget (max-width: 400px) { .sudoku-toolbar { grid-template-columns: minmax(0, 1fr) auto; } .sudoku-time { display: none; } .sudoku-keypad { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+.sudoku-expanded { --sudoku-cell-size: min(3.75rem, calc((100cqw - 2rem) / 9)); }
+
+.sudoku-expanded .sudoku-keypad,
+.sudoku-expanded .sudoku-help {
+    width: min(100%, 34rem);
+    margin-inline: auto;
+}

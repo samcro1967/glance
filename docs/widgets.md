@@ -162,6 +162,7 @@ Set custom CSS classes for the specific widget instance.
 | [Unit Converter](widgets/unit-converter.md) | Convert between common units. |
 | [Calculator](widgets/calculator.md) | Perform calculations directly in Glance. |
 | [Minesweeper](widgets/minesweeper.md) | Play classic Minesweeper directly in Glance. |
+| [Sudoku](widgets/sudoku.md) | Play locally generated Sudoku puzzles directly in Glance. |
 
 ---
 

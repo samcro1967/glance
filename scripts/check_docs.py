@@ -24,6 +24,7 @@ EXPECTED_WIDGET_DOCS = {
     "bookmarks.md",
     "calculator.md",
     "minesweeper.md",
+    "sudoku.md",
     "calendar-legacy.md",
     "calendar.md",
     "change-detection.md",
