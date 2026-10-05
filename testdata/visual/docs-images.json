@@ -202,6 +202,12 @@
     "route": "/utilities",
     "selector": ".visual-fixture-calculator"
   },
+  "widgets/minesweeper.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/utilities",
+    "selector": ".visual-fixture-minesweeper"
+  },
   "widgets/calendar-legacy.png": {
     "kind": "browser",
     "capture": "element",

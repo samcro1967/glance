@@ -8,6 +8,9 @@
   "calculator": {
     "variants": ["standard"]
   },
+  "minesweeper": {
+    "variants": ["standard"]
+  },
   "calendar": {
     "variants": ["standard"]
   },

@@ -195,6 +195,10 @@
     "route": "/utilities",
     "selector": ".visual-fixture-calculator"
   },
+  "minesweeper": {
+    "route": "/utilities",
+    "selector": ".visual-fixture-minesweeper"
+  },
   "now-playing": {
     "route": "/homelab-monitoring",
     "selector": ".visual-fixture-now-playing"

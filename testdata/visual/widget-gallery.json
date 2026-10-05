@@ -63,7 +63,8 @@
   "utilities": [
     "to-do",
     "unit-converter",
-    "calculator"
+    "calculator",
+    "minesweeper"
   ],
   "daily-discovery": [
     "word-of-the-day",

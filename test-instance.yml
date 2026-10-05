@@ -1092,6 +1092,10 @@ pages:
             title: Calculator
             css-class: visual-fixture-calculator
 
+          - type: minesweeper
+            title: Minesweeper
+            css-class: visual-fixture-minesweeper
+
   - name: Daily Discovery
     icon: mdi:calendar-star
     slug: daily-discovery

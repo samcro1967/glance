@@ -512,6 +512,19 @@ async function setupStopwatches(root = document) {
     return cleanupCallbacks;
 }
 
+async function setupMinesweepers(root = document) {
+    const elems = Array.from(root.getElementsByClassName("minesweeper"));
+    if (elems.length === 0) return [];
+
+    const minesweeper = await import('./minesweeper.js');
+    const cleanupCallbacks = [];
+    for (const element of elems) {
+        const cleanup = minesweeper.default(element);
+        if (typeof cleanup === "function") cleanupCallbacks.push(cleanup);
+    }
+    return cleanupCallbacks;
+}
+
 async function setupTodos() {
     const elems = Array.from(document.getElementsByClassName("todo"));
     if (elems.length == 0) return;
@@ -623,6 +636,9 @@ async function initializeContentRoot(root, diagnostics = false) {
     );
     cleanupCallbacks.push(
         ...await runAsyncStage("stopwatches", () => setupStopwatches(root))
+    );
+    cleanupCallbacks.push(
+        ...await runAsyncStage("minesweepers", () => setupMinesweepers(root))
     );
     cleanupCallbacks.push(
         ...runStage("carousels", () => setupCarousels(root))

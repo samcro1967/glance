@@ -2870,7 +2870,7 @@ frontend-audit:
 
 frontend-unit:
 	@echo "=== FRONTEND UNIT TESTS ==="
-	@node --test testdata/visual/personal-state.test.mjs
+	@node --test testdata/visual/personal-state.test.mjs testdata/visual/minesweeper.test.mjs
 
 frontend-check:
 	@echo "=== FRONTEND REGRESSION CHECK ==="

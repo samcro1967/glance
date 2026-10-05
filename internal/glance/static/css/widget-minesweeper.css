@@ -1,0 +1,32 @@
+.minesweeper { --minesweeper-cell-size: 2.7rem; display: flex; flex-direction: column; gap: 1rem; width: 100%; }
+.minesweeper-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: 0.7rem; }
+.minesweeper-difficulty { width: 100%; min-width: 0; }
+.minesweeper-counter { display: flex; align-items: center; gap: 0.35rem; min-width: 4.4rem; font-variant-numeric: tabular-nums; color: var(--theme-heading-text-color, var(--color-text-highlight)); }
+.minesweeper-counter output { min-width: 2.4rem; text-align: right; }
+.minesweeper-restart { width: 3.5rem; height: 3.5rem; padding: 0; font-size: 1.8rem; line-height: 1; }
+.minesweeper-board-scroll { width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: thin; }
+.minesweeper-board { display: grid; grid-template-columns: repeat(var(--minesweeper-columns), var(--minesweeper-cell-size)); width: max-content; margin-inline: auto; border: 1px solid var(--theme-control-border-color, var(--color-widget-content-border)); border-radius: var(--border-radius); overflow: hidden; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+.minesweeper-cell { display: grid; place-items: center; width: var(--minesweeper-cell-size); height: var(--minesweeper-cell-size); padding: 0; border: 0; border-right: 1px solid var(--theme-control-border-color, var(--color-widget-content-border)); border-bottom: 1px solid var(--theme-control-border-color, var(--color-widget-content-border)); border-radius: 0; background: var(--theme-control-background-color, var(--color-widget-background-highlight)); color: var(--theme-heading-text-color, var(--color-text-highlight)); font: inherit; font-weight: 700; line-height: 1; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.minesweeper-cell:hover:not(.is-revealed), .minesweeper-cell:focus-visible:not(.is-revealed) { background: var(--theme-elevated-background-color, var(--color-widget-background-highlight)); }
+.minesweeper-cell:focus-visible { position: relative; z-index: 1; outline: 2px solid var(--color-primary); outline-offset: -2px; }
+.minesweeper-cell.is-revealed { background: var(--theme-widget-background-color, var(--color-widget-background)); cursor: default; }
+.minesweeper-cell.is-mine { color: var(--color-negative); }
+.minesweeper-cell.is-exploded { background: color-mix(in srgb, var(--color-negative) 20%, transparent); }
+.minesweeper-cell.is-flagged { color: var(--color-primary); }
+.minesweeper-cell.is-incorrect-flag { color: var(--color-negative); }
+.minesweeper-cell[data-adjacent="1"] { color: #4c8bf5; }
+.minesweeper-cell[data-adjacent="2"] { color: #4aa564; }
+.minesweeper-cell[data-adjacent="3"] { color: #e35d5d; }
+.minesweeper-cell[data-adjacent="4"] { color: #8b6bd6; }
+.minesweeper-cell[data-adjacent="5"], .minesweeper-cell[data-adjacent="6"], .minesweeper-cell[data-adjacent="7"], .minesweeper-cell[data-adjacent="8"] { color: var(--theme-heading-text-color, var(--color-text-highlight)); }
+.minesweeper-help { min-height: 1.4em; margin: 0; color: var(--theme-muted-text-color, var(--color-text-subdue)); font-size: 0.9em; line-height: 1.4; text-align: center; }
+.minesweeper-result-key { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.35em 0.8em; }
+.minesweeper-result-symbol { display: inline-flex; align-items: center; justify-content: center; min-width: 1.2em; font-weight: 700; }
+.minesweeper-result-symbol.is-flagged { color: #60a5fa; }
+.minesweeper-result-symbol.is-incorrect { color: #ef4444; }
+.minesweeper-result-symbol.is-mine { color: #f87171; }
+.minesweeper-result-symbol.is-exploded { padding: 0 0.2em; color: #f87171; background: rgba(239, 68, 68, 0.28); border-radius: 2px; }
+@container widget (max-width: 400px) { .minesweeper { --minesweeper-cell-size: 2.5rem; } .minesweeper-toolbar { grid-template-columns: minmax(0, 1fr) auto auto; } .minesweeper-toolbar .minesweeper-counter:last-child { display: none; } }
+@media (pointer: coarse) { .minesweeper-cell { min-width: 2.5rem; min-height: 2.5rem; } }
+
+.minesweeper-expanded { --minesweeper-cell-size: 2.5rem; }

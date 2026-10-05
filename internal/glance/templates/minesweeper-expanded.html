@@ -1,0 +1,18 @@
+<div class="minesweeper minesweeper-expanded" data-minesweeper data-difficulty="{{ .Difficulty }}">
+    <div class="minesweeper-toolbar">
+        <label class="minesweeper-difficulty-label">
+            <span class="visually-hidden">Difficulty</span>
+            <select class="glance-form-input minesweeper-difficulty" data-minesweeper-difficulty aria-label="Difficulty">
+                <option value="beginner"{{ if eq .Difficulty "beginner" }} selected{{ end }}>Beginner</option>
+                <option value="intermediate"{{ if eq .Difficulty "intermediate" }} selected{{ end }}>Intermediate</option>
+                <option value="expert"{{ if eq .Difficulty "expert" }} selected{{ end }}>Expert</option>
+            </select>
+        </label>
+        <div class="minesweeper-counter" aria-label="Mines remaining"><span aria-hidden="true">&#9873;</span><output data-minesweeper-mines>010</output></div>
+        <button type="button" class="glance-button minesweeper-restart" data-minesweeper-restart aria-label="Start a new game">&#9786;</button>
+        <div class="minesweeper-counter" aria-label="Elapsed time"><span aria-hidden="true">&#9201;</span><output data-minesweeper-time>000</output></div>
+    </div>
+    <div class="minesweeper-status visually-hidden" data-minesweeper-status aria-live="polite">Ready</div>
+    <div class="minesweeper-board-scroll"><div class="minesweeper-board" data-minesweeper-board role="grid" aria-label="Minesweeper board"></div></div>
+    <div class="minesweeper-help" data-minesweeper-help>Tap or click to reveal. Right-click or long-press to flag.</div>
+</div>
