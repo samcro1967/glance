@@ -547,7 +547,9 @@ kbd:active {
 
 .footer-micro-markets,
 .footer-micro-monitor,
-.footer-micro-docker {
+.footer-micro-docker,
+.footer-micro-rss,
+.footer-micro-custom-api {
     gap: 1rem;
 }
 
@@ -555,10 +557,29 @@ kbd:active {
 .footer-micro-monitor-site,
 .footer-micro-monitor-all-ok,
 .footer-micro-docker-container,
-.footer-micro-docker-summary {
+.footer-micro-docker-summary,
+.footer-micro-rss-item,
+.footer-micro-custom-api > a,
+.footer-micro-custom-api > span {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
+}
+
+.footer-micro-custom-api-lines {
+    display: inline-flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 1px;
+    line-height: 1;
+}
+
+.footer-micro-rss {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 1px;
+    line-height: 1;
 }
 
 .footer-micro-status {

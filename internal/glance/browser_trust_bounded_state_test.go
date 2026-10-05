@@ -279,7 +279,7 @@ func TestStatusBarCustomAPIIconsUseResourceProxy(t *testing.T) {
 			Icon2: "http://logs.loc/icons/two.png",
 		}},
 	}
-	widget := &statusBarWidget{containerWidgetBase: containerWidgetBase{Widgets: widgets{child}}}
+	widget := &statusBarWidget{Widgets: microWidgets{child}}
 	items := widget.CompactItems()
 	if len(items) != 1 {
 		t.Fatalf("items = %d, want 1", len(items))

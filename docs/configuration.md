@@ -765,7 +765,7 @@ Footer micro-widgets provide compact page-level information and shortcuts on the
 
 `max-per-side` defaults to `5` and may be set from `1` through `10`. Each micro-widget requires a `position` between `1` and `max-per-side`. Positions must be unique within each side; the same position may be used once on the left and once on the right.
 
-Supported types are `bookmark`, `clock`, `weather`, `markets`, `monitor`, `docker`, and `link`.
+Supported types are `bookmark`, `clock`, `custom-api`, `docker`, `link`, `markets`, `monitor`, `rss`, and `weather`. The same shared micro-widget registry is used by the Status Bar, so every registered micro-widget is eligible in both containers.
 
 ### Configuration
 
@@ -927,7 +927,15 @@ At least one site is required. Site entries use the Monitor widget site configur
 
 Monitor data uses a five-minute cache. Equivalent Monitor requests share cached results rather than issuing duplicate requests.
 
-Dynamic Weather, Markets, Monitor, and Docker micro-widgets participate in the normal Glance initialization, refresh, recovery, and live-update lifecycle. Bookmark, Clock, and Link require no provider refresh.
+### RSS
+
+Uses the normal RSS `feeds`, `limit`, ordering, HTTP, cache, and recovery configuration while presenting returned entries compactly.
+
+### Custom API
+
+Uses the same locked compact JSON contract documented for Status Bar Custom API usage. The compact contract is shared by both micro-widget containers; arbitrary Custom API templates, tables, charts, options, and subrequests are not accepted in micro mode.
+
+Provider-backed Weather, Markets, Monitor, Docker, RSS, and Custom API micro-widgets reuse their canonical widget initialization, provider, refresh, recovery, defaults, and live-update behavior. Bookmark, Clock, and Link remain lightweight and require no provider refresh. See [Adding a micro-widget](adding-a-micro-widget.md) for the shared registry and implementation contract.
 
 
 ## Pages & Columns

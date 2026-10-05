@@ -1374,8 +1374,8 @@ pages:
 	}
 
 	statusBar := config.Pages[0].HeadWidgets[0].(*statusBarWidget)
-	markets := statusBar.Widgets[0].(*marketsWidget)
-	rss := statusBar.Widgets[1].(*rssWidget)
+	markets := &statusBar.Widgets[0].(*microMarkets).marketsWidget
+	rss := &statusBar.Widgets[1].(*microRSS).rssWidget
 
 	if !markets.OpenLinksInNewTab {
 		t.Fatal("markets child did not receive type new-tab=true")
@@ -1476,7 +1476,7 @@ pages:
 		t.Fatal("status-bar did not receive its type new-tab=true title-link policy")
 	}
 
-	rss := statusBar.Widgets[0].(*rssWidget)
+	rss := &statusBar.Widgets[0].(*microRSS).rssWidget
 	if rss.OpenLinksInNewTab {
 		t.Fatal("status-bar type policy leaked into child RSS widget")
 	}

@@ -534,10 +534,12 @@ func newConfigFromParsedYAML(parsed *parsedYAMLConfig) (*config, error) {
 	config.FooterMicroWidgets.Left = initializeConfiguredMicroWidgets(
 		config.FooterMicroWidgets.Left,
 		semanticSources.footerMicroLeft,
+		config.WidgetDefaults,
 	)
 	config.FooterMicroWidgets.Right = initializeConfiguredMicroWidgets(
 		config.FooterMicroWidgets.Right,
 		semanticSources.footerMicroRight,
+		config.WidgetDefaults,
 	)
 	resolveInvalidMicroWidgetDiagnostics(
 		parsed,
@@ -799,6 +801,20 @@ func formatWidgetInitError(err error, w widget) error {
 	}
 }
 
+func formatMicroWidgetInitError(err error, w widget) error {
+	failedWidget := w
+	var nested *widgetInitError
+	if errors.As(err, &nested) && nested.widget != nil {
+		failedWidget = nested.widget
+	}
+
+	return &widgetInitError{
+		message: fmt.Sprintf("%s micro-widget: %v", w.GetType(), err),
+		widget:  failedWidget,
+		cause:   err,
+	}
+}
+
 func widgetSourceAt(sources []configWidgetSemanticSources, index int) configWidgetSemanticSources {
 	if index < 0 || index >= len(sources) {
 		return configWidgetSemanticSources{}
@@ -1000,31 +1016,31 @@ func recoverAssetsPathError(config *config, parsed *parsedYAMLConfig, sources *c
 	config.Server.AssetsPath = ""
 }
 
-func initializeConfiguredMicroWidgets(items microWidgets, sourceLines []int) microWidgets {
+func initializeConfiguredMicroWidgets(items microWidgets, sourceLines []int, defaults widgetDefaultsConfig) microWidgets {
 	for i, candidate := range items {
 		if _, invalid := candidate.(*invalidConfiguredMicroWidget); invalid {
 			continue
 		}
-
-		dynamic, ok := candidate.(dynamicMicroWidget)
-		if !ok {
-			continue
+		micro := candidate.(microWidget)
+		descriptor := microWidgetRegistry[candidate.GetType()]
+		if descriptor.applyWidgetDefaults {
+			if _, err := applyWidgetDefaultsTree(candidate, defaults); err != nil {
+				line := 0
+				if i < len(sourceLines) {
+					line = sourceLines[i]
+				}
+				items[i] = newInvalidMicroWidget(candidate, candidate.GetType(), micro.GetPosition(), line, err)
+				continue
+			}
 		}
-
-		if err := dynamic.initialize(); err != nil {
-			generatedLine := 0
+		if err := candidate.initialize(); err != nil {
+			line := 0
 			if i < len(sourceLines) {
-				generatedLine = sourceLines[i]
+				line = sourceLines[i]
 			}
-			items[i] = &invalidConfiguredMicroWidget{
-				Position:    candidate.GetPosition(),
-				Type:        candidate.GetType(),
-				configLine:  generatedLine,
-				ConfigError: fmt.Errorf("%s micro-widget: %w", candidate.GetType(), err),
-			}
+			items[i] = newInvalidMicroWidget(candidate, candidate.GetType(), micro.GetPosition(), line, formatMicroWidgetInitError(err, candidate))
 		}
 	}
-
 	return items
 }
 
@@ -1040,7 +1056,9 @@ func resolveInvalidMicroWidgetDiagnostics(
 		}
 
 		diagnostic := semanticConfigDiagnostic(parsed, invalid.configLine, invalid.ConfigError)
+		invalid.configError = diagnostic
 		invalid.ConfigError = diagnostic
+		invalid.Error = diagnostic
 		*issues = append(*issues, diagnostic)
 	}
 }

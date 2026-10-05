@@ -29,10 +29,8 @@ func TestStatusBarWidgetModes(t *testing.T) {
 			child.FeedRequests = []rssFeedRequest{{URL: "https://example.com/feed.xml"}}
 
 			widget := &statusBarWidget{
-				Mode: tt.mode,
-				containerWidgetBase: containerWidgetBase{
-					Widgets: widgets{child},
-				},
+				Mode:    tt.mode,
+				Widgets: microWidgets{child},
 			}
 			widget.Type = "status-bar"
 
@@ -109,9 +107,7 @@ func TestStatusBarWidgetSupportedChildren(t *testing.T) {
 			}
 
 			statusBar := &statusBarWidget{
-				containerWidgetBase: containerWidgetBase{
-					Widgets: widgets{tt.child},
-				},
+				Widgets: microWidgets{tt.child},
 			}
 			statusBar.Type = "status-bar"
 
@@ -120,7 +116,7 @@ func TestStatusBarWidgetSupportedChildren(t *testing.T) {
 				if err == nil {
 					t.Fatal("initialize() error = nil, want unsupported child error")
 				}
-				if err.Error() != "only weather, markets, rss and custom-api widgets are supported" {
+				if err.Error() != "only registered micro-widgets are supported" {
 					t.Errorf("initialize() error = %q", err.Error())
 				}
 				return
@@ -152,9 +148,7 @@ func TestStatusBarWidgetIsolatesChildInitializationError(t *testing.T) {
 	child.Type = "weather"
 
 	widget := &statusBarWidget{
-		containerWidgetBase: containerWidgetBase{
-			Widgets: widgets{child},
-		},
+		Widgets: microWidgets{child},
 	}
 	widget.Type = "status-bar"
 
@@ -225,9 +219,7 @@ func TestStatusBarCompactItems(t *testing.T) {
 
 	widget := &statusBarWidget{
 		widgetBase: widgetBase{OpenLinksInNewTab: true},
-		containerWidgetBase: containerWidgetBase{
-			Widgets: widgets{weatherChild, marketsChild, rssChild},
-		},
+		Widgets:    microWidgets{weatherChild, marketsChild, rssChild},
 	}
 
 	items := widget.CompactItems()
@@ -250,14 +242,12 @@ func TestStatusBarCompactItems(t *testing.T) {
 
 func TestStatusBarCompactWeatherOptions(t *testing.T) {
 	widget := &statusBarWidget{
-		containerWidgetBase: containerWidgetBase{
-			Widgets: widgets{
-				&weatherWidget{
-					Units:        "metric",
-					HideLocation: true,
-					Place:        &openMeteoPlaceResponseJson{Name: "London", Country: "United Kingdom"},
-					Weather:      &weather{Temperature: 20, ApparentTemperature: 19},
-				},
+		Widgets: microWidgets{
+			&weatherWidget{
+				Units:        "metric",
+				HideLocation: true,
+				Place:        &openMeteoPlaceResponseJson{Name: "London", Country: "United Kingdom"},
+				Weather:      &weather{Temperature: 20, ApparentTemperature: 19},
 			},
 		},
 	}
@@ -276,9 +266,7 @@ func TestStatusBarCompactWeatherOptions(t *testing.T) {
 
 func TestStatusBarCompactWeatherWithoutDataIsSkipped(t *testing.T) {
 	widget := &statusBarWidget{
-		containerWidgetBase: containerWidgetBase{
-			Widgets: widgets{&weatherWidget{}},
-		},
+		Widgets: microWidgets{&weatherWidget{}},
 	}
 
 	if items := widget.CompactItems(); len(items) != 0 {
@@ -291,46 +279,44 @@ func TestStatusBarRenderTicker(t *testing.T) {
 
 	widget := &statusBarWidget{
 		Mode: "ticker",
-		containerWidgetBase: containerWidgetBase{
-			Widgets: widgets{
-				&weatherWidget{
-					Units: "imperial",
-					Place: &openMeteoPlaceResponseJson{
-						Name:    "Saint Peters",
-						Country: "United States",
-					},
-					Weather: &weather{
-						Temperature:         82,
-						ApparentTemperature: 85,
-						WeatherCode:         0,
+		Widgets: microWidgets{
+			&weatherWidget{
+				Units: "imperial",
+				Place: &openMeteoPlaceResponseJson{
+					Name:    "Saint Peters",
+					Country: "United States",
+				},
+				Weather: &weather{
+					Temperature:         82,
+					ApparentTemperature: 85,
+					WeatherCode:         0,
+				},
+			},
+			&marketsWidget{
+				Markets: marketList{
+					{
+						marketRequest: marketRequest{
+							Symbol:     "NSIT",
+							SymbolLink: "https://finance.yahoo.com/quote/NSIT",
+							ChartLink:  "https://tradingview.com/chart?symbol=NSIT",
+						},
+						Name:           "Insight",
+						Currency:       "USD",
+						CurrencySymbol: "$",
+						Price:          143.25,
+						PriceHint:      2,
+						PercentChange:  1.75,
 					},
 				},
-				&marketsWidget{
-					Markets: marketList{
-						{
-							marketRequest: marketRequest{
-								Symbol:     "NSIT",
-								SymbolLink: "https://finance.yahoo.com/quote/NSIT",
-								ChartLink:  "https://tradingview.com/chart?symbol=NSIT",
-							},
-							Name:           "Insight",
-							Currency:       "USD",
-							CurrencySymbol: "$",
-							Price:          143.25,
-							PriceHint:      2,
-							PercentChange:  1.75,
-						},
-					},
-				},
-				&rssWidget{
-					Items: rssFeedItemList{
-						{
-							ChannelName: "Example News",
-							ChannelURL:  "https://example.com",
-							Title:       "Example headline",
-							Link:        "https://example.com/article",
-							PublishedAt: published,
-						},
+			},
+			&rssWidget{
+				Items: rssFeedItemList{
+					{
+						ChannelName: "Example News",
+						ChannelURL:  "https://example.com",
+						Title:       "Example headline",
+						Link:        "https://example.com/article",
+						PublishedAt: published,
 					},
 				},
 			},
@@ -375,18 +361,16 @@ func TestStatusBarRenderTicker(t *testing.T) {
 func TestStatusBarRenderWrap(t *testing.T) {
 	widget := &statusBarWidget{
 		Mode: "wrap",
-		containerWidgetBase: containerWidgetBase{
-			Widgets: widgets{
-				&marketsWidget{
-					Markets: marketList{
-						{
-							marketRequest:  marketRequest{Symbol: "BUD"},
-							Name:           "Anheuser-Busch InBev",
-							Currency:       "USD",
-							CurrencySymbol: "$",
-							Price:          61.5,
-							PriceHint:      2,
-						},
+		Widgets: microWidgets{
+			&marketsWidget{
+				Markets: marketList{
+					{
+						marketRequest:  marketRequest{Symbol: "BUD"},
+						Name:           "Anheuser-Busch InBev",
+						Currency:       "USD",
+						CurrencySymbol: "$",
+						Price:          61.5,
+						PriceHint:      2,
 					},
 				},
 			},
@@ -409,16 +393,14 @@ func TestStatusBarRenderWithoutOptionalLinks(t *testing.T) {
 	published := time.Date(2026, 9, 2, 12, 0, 0, 0, time.UTC)
 	widget := &statusBarWidget{
 		Mode: "ticker",
-		containerWidgetBase: containerWidgetBase{
-			Widgets: widgets{
-				&marketsWidget{Markets: marketList{{
-					marketRequest: marketRequest{Symbol: "TEST"},
-					Name:          "Test Market", Currency: "USD", CurrencySymbol: "$", Price: 10, PriceHint: 2,
-				}}},
-				&rssWidget{Items: rssFeedItemList{{
-					ChannelName: "Test Feed", Title: "Test Headline", PublishedAt: published,
-				}}},
-			},
+		Widgets: microWidgets{
+			&marketsWidget{Markets: marketList{{
+				marketRequest: marketRequest{Symbol: "TEST"},
+				Name:          "Test Market", Currency: "USD", CurrencySymbol: "$", Price: 10, PriceHint: 2,
+			}}},
+			&rssWidget{Items: rssFeedItemList{{
+				ChannelName: "Test Feed", Title: "Test Headline", PublishedAt: published,
+			}}},
 		},
 	}
 	widget.Type = "status-bar"
@@ -463,9 +445,7 @@ func TestStatusBarCompactItemsPreserveChildStatus(t *testing.T) {
 	marketsChild.Notice = partialErr
 
 	widget := &statusBarWidget{
-		containerWidgetBase: containerWidgetBase{
-			Widgets: widgets{weatherChild, marketsChild},
-		},
+		Widgets: microWidgets{weatherChild, marketsChild},
 	}
 
 	items := widget.CompactItems()
@@ -507,10 +487,8 @@ func TestStatusBarCompactItemsPreserveZeroContentErrors(t *testing.T) {
 	rssChild.Error = errors.New("rss unavailable")
 
 	widget := &statusBarWidget{
-		Mode: "ticker",
-		containerWidgetBase: containerWidgetBase{
-			Widgets: widgets{weatherChild, marketsChild, rssChild},
-		},
+		Mode:    "ticker",
+		Widgets: microWidgets{weatherChild, marketsChild, rssChild},
 	}
 	widget.Type = "status-bar"
 	widget.HideHeader = true
@@ -671,10 +649,8 @@ func TestStatusBarWidgetSpeeds(t *testing.T) {
 			child.FeedRequests = []rssFeedRequest{{URL: "https://example.com/feed.xml"}}
 
 			widget := &statusBarWidget{
-				Speed: tt.speed,
-				containerWidgetBase: containerWidgetBase{
-					Widgets: widgets{child},
-				},
+				Speed:   tt.speed,
+				Widgets: microWidgets{child},
 			}
 			widget.Type = "status-bar"
 
@@ -704,18 +680,16 @@ func TestStatusBarRenderTickerSpeed(t *testing.T) {
 	widget := &statusBarWidget{
 		Mode:  "ticker",
 		Speed: "fast",
-		containerWidgetBase: containerWidgetBase{
-			Widgets: widgets{
-				&marketsWidget{
-					Markets: marketList{{
-						marketRequest:  marketRequest{Symbol: "TEST"},
-						Name:           "Test Market",
-						Currency:       "USD",
-						CurrencySymbol: "$",
-						Price:          10,
-						PriceHint:      2,
-					}},
-				},
+		Widgets: microWidgets{
+			&marketsWidget{
+				Markets: marketList{{
+					marketRequest:  marketRequest{Symbol: "TEST"},
+					Name:           "Test Market",
+					Currency:       "USD",
+					CurrencySymbol: "$",
+					Price:          10,
+					PriceHint:      2,
+				}},
 			},
 		},
 	}
