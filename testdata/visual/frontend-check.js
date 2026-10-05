@@ -1271,6 +1271,64 @@ async function main() {
       );
     }
 
+    const minesweeper = page.locator('.visual-fixture-minesweeper');
+    const minesweeperCells = minesweeper.locator('.minesweeper-cell');
+    if (await minesweeperCells.count() !== 81) {
+      throw new Error('Minesweeper beginner board did not render 81 cells');
+    }
+
+    await minesweeperCells.nth(80).click({ button: 'right' });
+    if (!(await minesweeperCells.nth(80).evaluate(element =>
+      element.classList.contains('is-flagged')
+    ))) {
+      throw new Error('Minesweeper right-click did not flag a cell');
+    }
+    if ((await minesweeper.locator('[data-minesweeper-mines]').textContent())?.trim() !== '009') {
+      throw new Error('Minesweeper mine counter did not update after flagging');
+    }
+
+    await minesweeperCells.nth(80).click({ button: 'right' });
+
+    await minesweeperCells.nth(79).dispatchEvent('pointerdown', { pointerType: 'touch' });
+    await page.waitForTimeout(550);
+    await minesweeperCells.nth(79).dispatchEvent('pointerup', { pointerType: 'touch' });
+    if (!(await minesweeperCells.nth(79).evaluate(element =>
+      element.classList.contains('is-flagged')
+    ))) {
+      throw new Error('Minesweeper long-press did not flag a cell');
+    }
+    await minesweeperCells.nth(79).click({ button: 'right' });
+    if (await minesweeperCells.nth(79).evaluate(element =>
+      element.classList.contains('is-flagged')
+    )) {
+      throw new Error('Minesweeper right-click did not unflag a cell');
+    }
+
+    await minesweeperCells.nth(0).click();
+    if ((await minesweeper.locator('[data-minesweeper-status]').textContent())?.trim() === 'Game over') {
+      throw new Error('Minesweeper first reveal was not safe');
+    }
+
+    await minesweeper.locator('[data-minesweeper-difficulty]').selectOption('intermediate');
+    if (await minesweeper.locator('.minesweeper-cell').count() !== 256) {
+      throw new Error('Minesweeper intermediate board did not render 256 cells');
+    }
+
+    await minesweeper.locator('[data-widget-expand]').click();
+    const expandedMinesweeper = page.locator('.widget-expand-dialog .minesweeper');
+    await expandedMinesweeper.waitFor({ state: 'visible', timeout: 10000 });
+    await expandedMinesweeper.locator('[data-minesweeper-difficulty]').selectOption('expert');
+    if (await expandedMinesweeper.locator('.minesweeper-cell').count() !== 480) {
+      throw new Error('Minesweeper expanded expert board did not render 480 cells');
+    }
+    const expandedBoardFits = await expandedMinesweeper.locator('.minesweeper-board-scroll').evaluate(element =>
+      element.scrollWidth <= element.clientWidth + 1
+    );
+    if (!expandedBoardFits) {
+      throw new Error('Minesweeper expanded expert board requires horizontal scrolling');
+    }
+    await page.locator('.widget-expand-dialog-close').click();
+
     const converter = page.locator('.visual-fixture-unit-converter');
     const converterCategory = converter.locator(
       '[data-unit-converter-category]'
@@ -1322,6 +1380,7 @@ async function main() {
     }
 
     console.log('PASS calculator interaction');
+    console.log('PASS minesweeper interaction');
     console.log('PASS unit converter interaction');
     console.log('PASS to-do persistence interaction');
 

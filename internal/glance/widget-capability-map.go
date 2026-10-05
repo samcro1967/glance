@@ -327,6 +327,9 @@ var widgetRegistry = map[string]widgetDescriptor{
 	"calculator": {
 		constructor: func() widget { return &calculatorWidget{} },
 	},
+	"minesweeper": {
+		constructor: func() widget { return &minesweeperWidget{} },
+	},
 	"stack": {
 		constructor: func() widget { return &stackWidget{} },
 	},
