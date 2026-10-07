@@ -54,12 +54,9 @@ cleanup() {
         echo "$ACTIVITY complete."
     fi
 
-    # The Makefile owns both Glance and the deterministic fixture API. Preserve
-    # the existing shared-runner contract: failed runs stop the test instance,
-    # while successful runs leave it available for interactive review.
-    if [ "$rc" -ne 0 ]; then
-        make test-instance-stop >/dev/null 2>&1 || true
-    fi
+    # This runner owns the temporary deterministic Glance instance and fixture
+    # API it starts. Always clean them up before returning, on success or failure.
+    make test-instance-stop >/dev/null 2>&1 || true
 
     exit "$rc"
 }
