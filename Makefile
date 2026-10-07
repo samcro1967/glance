@@ -6,7 +6,7 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps build goreleaser-check frontend-audit frontend-unit frontend-check validate validate-all test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-status test-instance-stop test-prod-start test-prod-status test-prod-stop test test-race test-count test-race-count fuzz fuzz-all fmt-check diff-check staged-check docs-check check coverage vuln image-vuln status staged-diff upstream-status upstream-dev-status branch park push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-retry release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-nonruntime deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final lint lighthouse performance-check performance
+.PHONY: help deps build goreleaser-check frontend-audit frontend-unit frontend-check validate validate-all test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-restart test-instance-status test-instance-stop test-prod-start test-prod-restart test-prod-status test-prod-stop test-container-restart test test-race test-count test-race-count fuzz fuzz-all fmt-check diff-check staged-check docs-check check coverage vuln image-vuln status staged-diff upstream-status upstream-dev-status branch abandon park push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-retry release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-nonruntime deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final lint lighthouse performance-check performance
 
 COUNT ?= 10
 FUZZTIME ?= 30s
@@ -91,6 +91,8 @@ help:
 	@echo "HIGH-LEVEL WORKFLOWS -- START HERE:"
 	@echo "  make branch NEW_BRANCH=feature/name"
 	@echo "                                Start feature work from local dev; parked commits are included"
+	@echo "  make abandon                  Discard an uncommitted feature branch and return to clean local dev"
+	@echo "                                Refuses branches containing feature-only commits"
 	@echo "  make park                     Return committed feature work to local dev without pushing"
 	@echo "  make ship TITLE='Description' [BODY_FILE=file]"
 	@echo "                                Ship all parked local dev commits through PR -> main -> release"
@@ -104,6 +106,7 @@ help:
 	@echo "NORMAL ORDER:"
 	@echo "  1. make branch NEW_BRANCH=feature/name"
 	@echo "  2. edit, validate, stage, and commit"
+	@echo "     make abandon               Before committing, discard failed/abandoned feature work"
 	@echo "  3. make park                  Accumulate committed work locally on dev without pushing"
 	@echo "  4. repeat 1-3 as needed"
 	@echo "  5. make ship TITLE=...        From dev, ship all parked runtime/code changes through production"
@@ -149,6 +152,7 @@ help:
 	@echo "                                  Config: test-instance.yml (tracked/public/deterministic)"
 	@echo "                                  Use for normal development, frontend regression,"
 	@echo "                                  visual QA, widgets, layouts, themes, and screenshots"
+	@echo "    make test-instance-restart    Cleanly replace the deterministic current-source runtime"
 	@echo "    make test-instance-status     Show deterministic test instance + fixture status"
 	@echo "    make test-instance-stop       Stop it and remove generated runtime artifacts"
 	@echo
@@ -167,12 +171,14 @@ help:
 	@echo "                                  TEST_PROD_EXTRA_ENV='VAR1 VAR2' forwards additional env"
 	@echo "    make test-prod-config-refresh Re-copy production config + reapply test-prod.yml"
 	@echo "                                  Use after changing the local overlay while running"
+	@echo "    make test-prod-restart        Cleanly replace the production-runtime current-source test"
 	@echo "    make test-prod-status         Show isolated production-runtime container status"
 	@echo "    make test-prod-stop           Remove isolated container, image, and generated config"
 	@echo
 	@echo "  PUBLISHED DEV-IMAGE TEST:"
 	@echo "    make test-container-start     Pull and run the published $(DEPLOY_DEV_IMAGE) artifact"
 	@echo "                                  NOT current local source; use to validate published dev"
+	@echo "    make test-container-restart   Cleanly replace the published dev-image test runtime"
 	@echo "    make test-container-status    Show published-image test container status"
 	@echo "    make test-container-stop      Remove published-image test container"
 	@echo
@@ -180,6 +186,9 @@ help:
 	@echo "    test-instance = deterministic current source"
 	@echo "    test-prod     = current source + production runtime/integrations"
 	@echo "    test-container= published dev artifact"
+	@echo "    Explicit *-start and *-restart targets first clean all mutually exclusive test runtimes"
+	@echo "    Explicit starts remain running for interactive work until stopped or restarted"
+	@echo "    Orchestrated browser/visual/performance workflows stop temporary runtimes on success or failure"
 	@echo "    Use these Makefile runtimes instead of manually recreating them with Go/Docker"
 	@echo "    test-prod.yml is local/ignored and must never be committed"
 	@echo "    make test-all-stop            Stop/clean every Makefile-managed test runtime"
@@ -199,10 +208,14 @@ help:
 	@echo "VISUAL QA / DOCUMENTATION:"
 	@echo "  make visual-check             Validate visual QA and documentation contracts"
 	@echo "  make lighthouse              Run informational Lighthouse analysis"
-	@echo "  make visual-screenshots       Capture canonical QA pages and widgets"
-	@echo "  make visual-docs              Stage documentation screenshots for review"
+	@echo "  make visual-screenshots [VISUAL_WIDGET=name] [VISUAL_DASHBOARD=name] [VISUAL_PAGE=name] [VIEWPORT=desktop|mobile]"
+	@echo "                                Capture canonical QA pages and widgets in the selected scope"
+	@echo "                                Widget/page/dashboard scopes are mutually exclusive; VISUAL_WIDGET is desktop-only"
+	@echo "  make visual-docs [VISUAL_IMAGE=file] [VISUAL_DASHBOARD=name] [VISUAL_PAGE=name]"
+	@echo "                                Stage selected documentation screenshots for review"
 	@echo "                                NEVER modifies docs/images"
-	@echo "  make visual-docs-promote      Promote approved staged images into docs/images"
+	@echo "  make visual-docs-promote [VISUAL_IMAGE=file] [VISUAL_DASHBOARD=name] [VISUAL_PAGE=name]"
+	@echo "                                Promote selected approved staged images into docs/images"
 	@echo "  make visual-all               Capture QA + stage documentation screenshots"
 	@echo "                                NEVER promotes documentation images"
 	@echo
@@ -241,10 +254,18 @@ help:
 	@echo "  make verify-dev               Refresh origin and inspect dev"
 	@echo "  make verify-main              Refresh origin/upstream and inspect main"
 	@echo "  make branch NEW_BRANCH=name   Create feature branch; clean dev may include parked commits"
+	@echo "  make abandon                  Discard uncommitted feature work and return to clean local dev"
 	@echo "  make park                     Park committed feature work on local dev; NEVER pushes"
 	@echo "  make push                     Push clean feature branch; refuses dev/main"
 	@echo "  make patch PATCH=file         Validate and apply a patch to the working tree"
 	@echo "                                Runs git apply --check and deletes the patch afterward"
+	@echo
+	@echo "  REPOSITORY WORKFLOW BOUNDARY:"
+	@echo "    Make owns guarded branch/workflow transitions, validation, test runtimes, PRs, releases, and deployment."
+	@echo "    Ordinary working-tree Git operations intentionally remain direct Git commands."
+	@echo "    No generic make add, make commit, make diff, or make restore targets exist."
+	@echo "    Use git diff for ordinary diff review, git add for staging, and git commit for commits."
+	@echo "    Use make staged-diff for the maintained staged-change review."
 	@echo
 	@echo "PULL REQUESTS:"
 	@echo "  make pr-create TITLE=... BODY_FILE=file"
@@ -303,7 +324,7 @@ test-count:
 .PHONY: test-focused
 test-focused:
 	@if [ -z "$(TEST_RUN)" ]; then \
-		echo "TEST_RUN is required. Example: make test-focused TEST_RUN=TestAuthTokenGenerationAndVerification"; \
+		echo "TEST_RUN is required. Example: make test-focused TEST_RUN=TestWidgetName TEST_PACKAGE=./internal/glance"; \
 		exit 2; \
 	fi
 	go test $(if $(TEST_PACKAGE),$(TEST_PACKAGE),./...) -run '$(TEST_RUN)' -count=1
@@ -498,6 +519,37 @@ branch:
 	fi; \
 	echo "Creating branch $(NEW_BRANCH) from $$local_revision..."; \
 	git switch -c "$(NEW_BRANCH)"
+
+abandon:
+	@set -euo pipefail; \
+	feature="$$(git branch --show-current)"; \
+	if [ -z "$$feature" ]; then \
+		echo "Unable to determine current branch."; \
+		exit 1; \
+	fi; \
+	if [ "$$feature" = "$(DEV_BRANCH)" ] || [ "$$feature" = "$(STABLE_BRANCH)" ]; then \
+		echo "Abandon requires a feature branch; current branch is $$feature."; \
+		exit 1; \
+	fi; \
+	feature_commits="$$(git rev-list --count $(DEV_BRANCH)..HEAD)"; \
+	if [ "$$feature_commits" -ne 0 ]; then \
+		echo "Refusing abandon: $$feature contains $$feature_commits feature-only commit(s)."; \
+		echo "This target only discards uncommitted feature work."; \
+		echo "Review or preserve committed work before removing the branch."; \
+		exit 1; \
+	fi; \
+	echo "Discarding tracked and untracked work on $$feature..."; \
+	git reset --hard HEAD; \
+	git clean -fd; \
+	echo "Returning to $(DEV_BRANCH)..."; \
+	git switch $(DEV_BRANCH); \
+	git branch -D "$$feature"; \
+	if [ -n "$$(git status --porcelain)" ]; then \
+		echo "Abandon completed, but $(DEV_BRANCH) is not clean:"; \
+		git status --short; \
+		exit 1; \
+	fi; \
+	echo "Feature $$feature discarded; $(DEV_BRANCH) is clean."
 
 park:
 	@set -euo pipefail; \
@@ -2174,8 +2226,10 @@ test-instance-fixture-stop:
 	fi; \
 	rm -f "$(TEST_FIXTURE_PID_FILE)" "$(TEST_FIXTURE_LOG)"
 
-test-instance-start: test-instance-fixture-start
+test-instance-start:
 	@set -euo pipefail; \
+	$(MAKE) --no-print-directory test-all-stop >/dev/null; \
+	$(MAKE) --no-print-directory test-instance-fixture-start; \
 	if ss -ltn "sport = :$(TEST_PORT)" 2>/dev/null | tail -n +2 | grep -q .; then \
 		echo "Test port $(TEST_PORT) is already in use."; \
 		echo "Refusing to start a canonical test instance against an occupied endpoint."; \
@@ -2186,15 +2240,6 @@ test-instance-start: test-instance-fixture-start
 		echo "Canonical test configuration does not exist: $(TEST_CONFIG)"; \
 		$(MAKE) --no-print-directory test-instance-fixture-stop; \
 		exit 1; \
-	fi; \
-	if [ -f "$(TEST_PID_FILE)" ]; then \
-		pid="$$(cat "$(TEST_PID_FILE)")"; \
-		if kill -0 "$$pid" 2>/dev/null; then \
-			echo "Test instance is already running with PID $$pid."; \
-			echo "URL=$(TEST_URL)"; \
-			exit 0; \
-		fi; \
-		rm -f "$(TEST_PID_FILE)"; \
 	fi; \
 	echo "=== BUILD TEST BINARY ==="; \
 	go build -ldflags "-X github.com/samcro1967/glance/internal/glance.buildRevision=$$(git rev-parse HEAD)" -o "$(TEST_BINARY)" . || { \
@@ -2288,7 +2333,10 @@ test-instance-stop:
 	echo "Test instance stopped and runtime artifacts removed."; \
 	echo "Preserved $(TEST_CONFIG)."
 
-.PHONY: test-prod-start test-prod-config-refresh test-prod-status test-prod-stop
+test-instance-restart:
+	@$(MAKE) --no-print-directory test-instance-start
+
+.PHONY: test-prod-start test-prod-restart test-prod-config-refresh test-prod-status test-prod-stop
 
 test-prod-config-refresh:
 	@set -euo pipefail; \
@@ -2348,24 +2396,7 @@ test-prod-start:
 		echo "Runtime reference container does not exist: $(TEST_RUNTIME_CONTAINER)"; \
 		exit 1; \
 	fi; \
-	if docker inspect "$(TEST_PROD_CONTAINER)" >/dev/null 2>&1; then \
-		echo "Production-runtime test container already exists: $(TEST_PROD_CONTAINER)"; \
-		echo "Run make test-prod-stop first."; \
-		exit 1; \
-	fi; \
-	if docker inspect "$(TEST_CONTAINER)" >/dev/null 2>&1; then \
-		echo "Published-image test container already exists: $(TEST_CONTAINER)"; \
-		echo "Run make test-container-stop first."; \
-		exit 1; \
-	fi; \
-	if [ -f "$(TEST_PID_FILE)" ]; then \
-		pid="$$(cat "$(TEST_PID_FILE)" 2>/dev/null || true)"; \
-		if [ -n "$$pid" ] && kill -0 "$$pid" 2>/dev/null; then \
-			echo "Canonical test instance is already running."; \
-			echo "Run make test-instance-stop first."; \
-			exit 1; \
-		fi; \
-	fi; \
+	$(MAKE) --no-print-directory test-all-stop >/dev/null; \
 	echo "=== BUILD CURRENT SOURCE TEST IMAGE ==="; \
 	docker build --build-arg BUILD_REVISION="$$(git rev-parse HEAD)" -t "$(TEST_PROD_IMAGE)" .; \
 	image_id="$$(docker image inspect "$(TEST_PROD_IMAGE)" --format "{{.Id}}")"; \
@@ -2517,6 +2548,9 @@ test-prod-stop:
 		echo "Removed image $(TEST_PROD_IMAGE)."; \
 	fi; \
 	rm -rf "$(TEST_PROD_CONFIG_DIR)"
+
+test-prod-restart:
+	@$(MAKE) --no-print-directory test-prod-start TEST_FRONTEND_DIAGNOSTICS=$(TEST_FRONTEND_DIAGNOSTICS) TEST_PROD_CONFIG_OVERRIDE=$(TEST_PROD_CONFIG_OVERRIDE) TEST_PROD_HTTPS=$(TEST_PROD_HTTPS)
 
 .PHONY: test-all-stop
 
@@ -2710,7 +2744,7 @@ pprof-summary:
 	echo "Profile: $$profile"; \
 	go tool pprof -top "$$profile"
 
-.PHONY: test-container-start test-container-status test-container-stop
+.PHONY: test-container-start test-container-restart test-container-status test-container-stop
 
 test-container-start:
 	@set -euo pipefail; \
@@ -2723,11 +2757,7 @@ test-container-start:
 		echo "Runtime reference container does not exist: $(TEST_RUNTIME_CONTAINER)"; \
 		exit 1; \
 	fi; \
-	if docker inspect "$(TEST_CONTAINER)" >/dev/null 2>&1; then \
-		echo "Test container already exists: $(TEST_CONTAINER)"; \
-		echo "Run make test-container-stop first."; \
-		exit 1; \
-	fi; \
+	$(MAKE) --no-print-directory test-all-stop >/dev/null; \
 	echo "=== VERIFY DEVELOPMENT IMAGE ==="; \
 	git fetch origin --prune; \
 	dev_revision="$$(git rev-parse origin/$(DEV_BRANCH))"; \
@@ -2858,6 +2888,9 @@ test-container-stop:
 	fi; \
 	echo "Preserved image $(TEST_CONTAINER_IMAGE).";
 
+test-container-restart:
+	@$(MAKE) --no-print-directory test-container-start TEST_RUNTIME_CONTAINER=$(TEST_RUNTIME_CONTAINER)
+
 # -----------------------------------------------------------------------------
 # Frontend validation and visual QA
 # -----------------------------------------------------------------------------
@@ -2886,7 +2919,7 @@ visual-check:
 
 visual-screenshots: visual-check
 	@echo "=== VISUAL QA SCREENSHOTS ==="
-	@bash testdata/visual/run.sh qa $(if $(VISUAL_DASHBOARD),--dashboard=$(VISUAL_DASHBOARD)) $(if $(VISUAL_PAGE),--page=$(VISUAL_PAGE)) $(if $(VIEWPORT),--viewport=$(VIEWPORT))
+	@bash testdata/visual/run.sh qa $(if $(VISUAL_WIDGET),--widget=$(VISUAL_WIDGET)) $(if $(VISUAL_DASHBOARD),--dashboard=$(VISUAL_DASHBOARD)) $(if $(VISUAL_PAGE),--page=$(VISUAL_PAGE)) $(if $(VIEWPORT),--viewport=$(VIEWPORT))
 
 visual-docs:
 	@echo "=== VISUAL DOCUMENTATION STAGING CONTRACT ==="

@@ -41,6 +41,7 @@ const qaPageRoutes = {
   'development-releases': '/development-releases',
   'markets-streaming': '/markets-streaming',
   'utilities': '/utilities',
+  'daily-discovery': '/daily-discovery',
   'theme-global': '/themes/',
   'theme-dark-page': '/themes/theme-dark-page',
   'theme-light-page': '/themes/theme-light-page',
@@ -58,6 +59,7 @@ function optionValue(name) {
 const dashboardFilter = optionValue('dashboard');
 const pageFilter = optionValue('page');
 const imageFilter = optionValue('image');
+const widgetFilter = optionValue('widget');
 const viewportFilter = optionValue('viewport');
 const qaViewportName = viewportFilter || 'desktop';
 const qaViewport = QA_VIEWPORTS[qaViewportName];
@@ -72,15 +74,23 @@ if (viewportFilter && MODE !== 'qa') {
   throw new Error('--viewport is only supported in QA mode');
 }
 
-const selectedFilters = [dashboardFilter, pageFilter, imageFilter]
+const selectedFilters = [dashboardFilter, pageFilter, imageFilter, widgetFilter]
   .filter(Boolean);
 
 if (selectedFilters.length > 1) {
-  throw new Error('--dashboard, --page, and --image are mutually exclusive');
+  throw new Error('--dashboard, --page, --image, and --widget are mutually exclusive');
 }
 
 if (imageFilter && MODE !== 'docs') {
   throw new Error('--image is only supported in docs mode');
+}
+
+if (widgetFilter && MODE !== 'qa') {
+  throw new Error('--widget is only supported in QA mode');
+}
+
+if (widgetFilter && qaViewportName !== 'desktop') {
+  throw new Error('--widget is only supported with the desktop QA viewport');
 }
 
 async function revealNestedGroupContent(locator) {
@@ -218,7 +228,13 @@ async function openPage(page, route) {
 
 async function captureQa(browser) {
   const qaPages = selectedQaPages();
-  const selective = Boolean(dashboardFilter || pageFilter);
+  const widgetMappings = JSON.parse(fs.readFileSync(WIDGET_MAP, 'utf8'));
+
+  if (widgetFilter && !Object.prototype.hasOwnProperty.call(widgetMappings, widgetFilter)) {
+    throw new Error(`Unknown widget screenshot mapping: ${widgetFilter}`);
+  }
+
+  const selective = Boolean(dashboardFilter || pageFilter || widgetFilter);
 
   const qaOutputRoot = qaViewportName === 'desktop'
     ? SCREENSHOT_ROOT
@@ -235,41 +251,43 @@ async function captureQa(browser) {
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
 
-  for (const [dashboard, name, route] of qaPages) {
-    const directory = path.join(qaOutputRoot, dashboard);
-    fs.mkdirSync(directory, { recursive: true });
-    await openPage(page, route);
+  if (!widgetFilter) {
+    for (const [dashboard, name, route] of qaPages) {
+      const directory = path.join(qaOutputRoot, dashboard);
+      fs.mkdirSync(directory, { recursive: true });
+      await openPage(page, route);
 
-    if (qaViewportName !== 'desktop') {
-      await page.locator('.mobile-navigation-page-links-input').evaluate(input => {
-        input.checked = false;
+      if (qaViewportName !== 'desktop') {
+        await page.locator('.mobile-navigation-page-links-input').evaluate(input => {
+          input.checked = false;
+        });
+
+        await page.waitForFunction(() => {
+          const navigation = document.querySelector('.mobile-navigation');
+          if (navigation === null) {
+            return false;
+          }
+
+          const navigationHeight = parseFloat(
+            getComputedStyle(document.documentElement).getPropertyValue('--mobile-navigation-height')
+          );
+
+          if (!Number.isFinite(navigationHeight)) {
+            return false;
+          }
+
+          const top = navigation.getBoundingClientRect().top;
+          return Math.abs(top - (window.innerHeight - navigationHeight)) < 1;
+        });
+      }
+
+      const output = path.join(directory, `${name}.png`);
+      await page.screenshot({
+        path: output,
+        fullPage: qaViewportName === 'desktop'
       });
-
-      await page.waitForFunction(() => {
-        const navigation = document.querySelector('.mobile-navigation');
-        if (navigation === null) {
-          return false;
-        }
-
-        const navigationHeight = parseFloat(
-          getComputedStyle(document.documentElement).getPropertyValue('--mobile-navigation-height')
-        );
-
-        if (!Number.isFinite(navigationHeight)) {
-          return false;
-        }
-
-        const top = navigation.getBoundingClientRect().top;
-        return Math.abs(top - (window.innerHeight - navigationHeight)) < 1;
-      });
+      console.log(`QA   ${dashboard}/${name}.png`);
     }
-
-    const output = path.join(directory, `${name}.png`);
-    await page.screenshot({
-      path: output,
-      fullPage: qaViewportName === 'desktop'
-    });
-    console.log(`QA   ${dashboard}/${name}.png`);
   }
 
   if (qaViewportName !== 'desktop') {
@@ -287,14 +305,14 @@ async function captureQa(browser) {
     return;
   }
 
-  const widgetMappings = JSON.parse(fs.readFileSync(WIDGET_MAP, 'utf8'));
   const widgetDirectory = path.join(SCREENSHOT_ROOT, 'widgets');
   fs.mkdirSync(widgetDirectory, { recursive: true });
 
   const allowedRoutes = selectedRoutes();
   const selectedWidgetMappings = Object.fromEntries(
-    Object.entries(widgetMappings).filter(([, recipe]) =>
-      !allowedRoutes || allowedRoutes.has(recipe.route)
+    Object.entries(widgetMappings).filter(([widgetType, recipe]) =>
+      (!widgetFilter || widgetType === widgetFilter) &&
+      (!allowedRoutes || allowedRoutes.has(recipe.route))
     )
   );
 
@@ -339,9 +357,11 @@ async function captureQa(browser) {
   const capturedWidgets = expectedWidgets - widgetFailures.length;
 
   console.log('');
-  console.log(`Page screenshots:   ${qaPages.length}`);
+  const capturedPages = widgetFilter ? 0 : qaPages.length;
+
+  console.log(`Page screenshots:   ${capturedPages}`);
   console.log(`Widget screenshots: ${capturedWidgets}/${expectedWidgets}`);
-  console.log(`Total screenshots:  ${qaPages.length + capturedWidgets}`);
+  console.log(`Total screenshots:  ${capturedPages + capturedWidgets}`);
 
   if (widgetFailures.length) {
     console.log('');
