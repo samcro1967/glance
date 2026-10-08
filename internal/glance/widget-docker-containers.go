@@ -70,6 +70,7 @@ func (widget *dockerContainersWidget) update(ctx context.Context) {
 		widget.Groups = groupDockerContainersByComposeProject(containers)
 	}
 	widget.Containers = containers
+	widget.Critical = containers.hasWarning()
 }
 
 func (widget *dockerContainersWidget) Render() template.HTML {
@@ -181,6 +182,16 @@ func (containers dockerContainerList) sortByStateIconThenName() {
 
 		return strings.ToLower(containers[a].Name) < strings.ToLower(containers[b].Name)
 	})
+}
+
+func (containers dockerContainerList) hasWarning() bool {
+	for i := range containers {
+		if containers[i].StateIcon == dockerContainerStateIconWarn {
+			return true
+		}
+	}
+
+	return false
 }
 
 func groupDockerContainersByComposeProject(containers dockerContainerList) []dockerContainerGroup {

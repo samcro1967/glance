@@ -191,6 +191,60 @@ func TestDockerContainerStateToStateIcon(t *testing.T) {
 	}
 }
 
+func TestDockerContainerListHasWarning(t *testing.T) {
+	tests := []struct {
+		name       string
+		containers dockerContainerList
+		want       bool
+	}{
+		{name: "empty"},
+		{
+			name: "healthy",
+			containers: dockerContainerList{
+				{StateIcon: dockerContainerStateIconOK},
+				{StateIcon: dockerContainerStateIconPaused},
+				{StateIcon: dockerContainerStateIconOther},
+			},
+		},
+		{
+			name: "warning",
+			containers: dockerContainerList{
+				{StateIcon: dockerContainerStateIconOK},
+				{StateIcon: dockerContainerStateIconWarn},
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.containers.hasWarning(); got != tt.want {
+				t.Fatalf("hasWarning() = %t, want %t", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDockerContainersWidgetRenderCriticalStatus(t *testing.T) {
+	widget := &dockerContainersWidget{
+		widgetBase: widgetBase{
+			ContentAvailable: true,
+			Critical:         true,
+		},
+	}
+
+	rendered := string(widget.Render())
+	if !strings.Contains(rendered, `data-widget-status="critical"`) {
+		t.Fatalf("critical widget missing rendered status: %s", rendered)
+	}
+
+	widget.Critical = false
+	rendered = string(widget.Render())
+	if strings.Contains(rendered, `data-widget-status="critical"`) {
+		t.Fatalf("noncritical widget rendered critical status: %s", rendered)
+	}
+}
+
 func TestIsDockerContainerHidden(t *testing.T) {
 	tests := []struct {
 		name          string

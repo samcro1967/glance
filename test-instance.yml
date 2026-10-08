@@ -409,6 +409,40 @@ pages:
                 title: Alternate
                 source: Second tab
 
+          - type: group
+            title: Critical Group
+            css-class: visual-fixture-critical-group
+            widgets:
+              - type: markdown
+                title: Healthy
+                source: Healthy first tab
+              - type: monitor
+                title: Failing Monitor
+                cache: 1m
+                sites:
+                  - title: Critical Fixture
+                    url: http://127.0.0.1:18089/monitor-critical
+
+          - type: group
+            title: Nested Critical Group
+            css-class: visual-fixture-nested-critical-group
+            widgets:
+              - type: markdown
+                title: Healthy
+                source: Healthy outer first tab
+              - type: group
+                title: Inner Critical Group
+                widgets:
+                  - type: markdown
+                    title: Healthy Inner
+                    source: Healthy inner first tab
+                  - type: monitor
+                    title: Failing Monitor
+                    cache: 1m
+                    sites:
+                      - title: Critical Fixture
+                        url: http://127.0.0.1:18089/monitor-critical
+
     bottom-widgets:
       - type: status-bar
         title: Status Bar - Wrap

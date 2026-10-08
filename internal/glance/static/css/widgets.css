@@ -216,6 +216,28 @@
     pointer-events: none;
 }
 
+/* Critical widgets retain the normal heading hierarchy while using the
+ * shared negative state to make current operational failures visible. */
+.widget[data-widget-status="critical"] > .widget-header {
+    color: var(--color-negative);
+}
+
+.widget[data-widget-status="critical"] > .widget-header::before {
+    background-color: var(--color-negative);
+    animation: widgetCriticalPulse 2s ease-in-out infinite;
+}
+
+@keyframes widgetCriticalPulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.35;
+    }
+}
+
 /* A widget title is hierarchy rather than accent decoration. */
 .widget > .widget-header > h2 {
     color: inherit;
@@ -421,5 +443,9 @@
     .widget-header button {
         transition: none !important;
         transform: none !important;
+    }
+
+    .widget[data-widget-status="critical"] > .widget-header::before {
+        animation: none;
     }
 }

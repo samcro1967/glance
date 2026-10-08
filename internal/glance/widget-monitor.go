@@ -105,6 +105,8 @@ func (widget *monitorWidget) update(ctx context.Context) {
 			site.StatusStyle = statusCodeToStyle(status.Code, site.AltStatusCodes)
 		}
 	}
+
+	widget.Critical = widget.HasFailing
 }
 
 func (widget *monitorWidget) Render() template.HTML {
