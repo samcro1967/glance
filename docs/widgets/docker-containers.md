@@ -101,6 +101,14 @@ This will place all child containers under the `Immich` container when hovering 
 If any of the child containers are down, their status will propagate up to the parent container:
 
 
+## Critical status
+
+When any displayed top-level container has the existing warning state, the Docker Containers widget is marked critical. This includes unhealthy, exited, or dead containers. A warning propagated from a failed child container to its parent also makes the widget critical. Paused containers do not make the widget critical.
+
+A critical widget uses the shared negative-state header treatment. When the widget is inside a `group`, its tab and the containing group are also marked critical, including through nested groups, so a failure remains visible when another tab is selected. The critical state clears automatically when the displayed containers recover.
+
+This behavior requires no additional configuration and does not change container discovery. The `containers` property continues to provide overrides for containers reported by Docker; it is not an expected-container inventory, and containers that are absent from the Docker response are not treated as missing failures.
+
 ## Configuration
 
 This widget also supports the [shared widget properties](../widgets.md#shared-properties).

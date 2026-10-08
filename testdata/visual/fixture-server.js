@@ -134,6 +134,16 @@ const dockerContainers = [
       'glance.name': 'Paused Service',
       'glance.description': 'Paused state example'
     }
+  },
+  {
+    Names: ['/failed-service'],
+    Image: 'example/service:latest',
+    State: 'exited',
+    Status: 'Exited (1) 5 minutes ago',
+    Labels: {
+      'glance.name': 'Failed Service',
+      'glance.description': 'Critical state visual fixture'
+    }
   }
 ];
 
@@ -387,6 +397,12 @@ const server = http.createServer((req, res) => {
 
   if (url.pathname === '/containers/json') {
     sendJson(res, dockerContainers);
+    return;
+  }
+
+  if (url.pathname === '/monitor-critical') {
+    res.writeHead(503, { 'Content-Type': 'text/plain' });
+    res.end('Service Unavailable');
     return;
   }
 

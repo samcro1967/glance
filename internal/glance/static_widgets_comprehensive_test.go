@@ -552,6 +552,85 @@ func TestComprehensiveGroupChildExpandedViews(t *testing.T) {
 	}
 }
 
+func TestGroupCriticalStateBrowserContract(t *testing.T) {
+	pageJS, err := os.ReadFile(filepath.Join("static", "js", "page.js"))
+	if err != nil {
+		t.Fatalf("read page.js: %v", err)
+	}
+
+	pageSource := string(pageJS)
+	for _, fragment := range []string{
+		`function syncGroupCriticalStates()`,
+		`for (let g = groups.length - 1; g >= 0; g--)`,
+		`:scope > .widget[data-widget-status=critical], :scope > .widget.widget-group-critical`,
+		`"widget-group-title-critical"`,
+		`group.classList.toggle("widget-group-critical", groupCritical)`,
+	} {
+		if !strings.Contains(pageSource, fragment) {
+			t.Fatalf("page.js missing group critical-state contract %q", fragment)
+		}
+	}
+
+	setupStart := strings.Index(pageSource, "function setupGroups()")
+	lazyStart := strings.Index(pageSource, "function setupLazyImages")
+	if setupStart == -1 || lazyStart == -1 || lazyStart <= setupStart {
+		t.Fatal("page.js group setup boundaries not found")
+	}
+	if !strings.Contains(
+		pageSource[setupStart:lazyStart],
+		"syncGroupCriticalStates();",
+	) {
+		t.Fatal("group setup does not synchronize initial critical state")
+	}
+
+	liveInit := strings.Index(
+		pageSource,
+		"await initializeLiveWidget(replacement);",
+	)
+	if liveInit == -1 {
+		t.Fatal("page.js live widget initialization point not found")
+	}
+	liveTail := pageSource[liveInit:]
+	liveSync := strings.Index(liveTail, "syncGroupCriticalStates();")
+	liveDiagnostic := strings.Index(
+		liveTail,
+		`frontendDiagnostic("widget_initialize_complete"`,
+	)
+	if liveSync == -1 || liveDiagnostic == -1 || liveSync > liveDiagnostic {
+		t.Fatal("live widget replacement does not synchronize group critical state after initialization")
+	}
+
+	widgetsCSS, err := os.ReadFile(filepath.Join("static", "css", "widgets.css"))
+	if err != nil {
+		t.Fatalf("read widgets.css: %v", err)
+	}
+	for _, fragment := range []string{
+		`.widget[data-widget-status="critical"] > .widget-header`,
+		`.widget[data-widget-status="critical"] > .widget-header::before`,
+		`@keyframes widgetCriticalPulse`,
+		`@media (prefers-reduced-motion: reduce)`,
+	} {
+		if !strings.Contains(string(widgetsCSS), fragment) {
+			t.Fatalf("widgets.css missing critical-state contract %q", fragment)
+		}
+	}
+
+	groupCSS, err := os.ReadFile(filepath.Join("static", "css", "widget-group.css"))
+	if err != nil {
+		t.Fatalf("read widget-group.css: %v", err)
+	}
+	for _, fragment := range []string{
+		`.widget-group-title-critical`,
+		`.widget-group-critical > .widget-header`,
+		`.widget-group-critical > .widget-content > .widget-group-header > .widget-header`,
+		`@media (prefers-reduced-motion: reduce)`,
+	} {
+		if !strings.Contains(string(groupCSS), fragment) {
+			t.Fatalf("widget-group.css missing critical-state contract %q", fragment)
+		}
+	}
+}
+
 func TestGroupChildExpandedViewBrowserContract(t *testing.T) {
 	pageJS, err := os.ReadFile(filepath.Join("static", "js", "page.js"))
 	if err != nil {
