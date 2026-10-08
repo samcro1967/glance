@@ -168,6 +168,9 @@ func TestMonitorWidgetUpdateAggregatesSiteState(t *testing.T) {
 	if !widget.HasFailing {
 		t.Fatal("expected widget to report a failing site")
 	}
+	if !widget.Critical {
+		t.Fatal("expected failing site to mark widget critical")
+	}
 
 	if widget.Sites[0].Status == nil {
 		t.Fatal("healthy site status was not populated")
@@ -271,6 +274,9 @@ func TestMonitorWidgetUpdateUsesErrorURLForRequestError(t *testing.T) {
 	if !widget.HasFailing {
 		t.Fatal("expected request error to mark widget as failing")
 	}
+	if !widget.Critical {
+		t.Fatal("expected request error to mark widget critical")
+	}
 
 	if widget.Sites[0].Status == nil {
 		t.Fatal("site status was not populated")
@@ -297,6 +303,7 @@ func TestMonitorWidgetSuccessfulUpdateClearsFailingState(t *testing.T) {
 	defer server.Close()
 
 	widget := &monitorWidget{
+		widgetBase: widgetBase{Critical: true},
 		HasFailing: true,
 	}
 	widget.Sites = make([]monitorSite, 1)
@@ -309,6 +316,9 @@ func TestMonitorWidgetSuccessfulUpdateClearsFailingState(t *testing.T) {
 
 	if widget.HasFailing {
 		t.Fatal("expected successful update to clear failing state")
+	}
+	if widget.Critical {
+		t.Fatal("expected successful update to clear critical state")
 	}
 
 	if widget.Sites[0].Status == nil {

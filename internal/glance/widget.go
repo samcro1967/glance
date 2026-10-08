@@ -326,6 +326,7 @@ type widgetBase struct {
 	CustomCacheCron     string               `yaml:"cache-cron"`
 	OpenLinksInNewTab   bool                 `yaml:"-"`
 	ContentAvailable    bool                 `yaml:"-"`
+	Critical            bool                 `yaml:"-"`
 	configuredFields    yamlConfiguredFields `yaml:"-"`
 	configLine          int                  `yaml:"-"`
 	WIP                 bool                 `yaml:"-"`

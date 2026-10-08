@@ -149,11 +149,18 @@ expected_slugs = {
 }
 
 missing_pages = sorted(expected_slugs - configured_slugs)
+unmanaged_pages = sorted(configured_slugs - expected_slugs)
 
 if missing_pages:
     fail(
         "visual pages missing from test-instance.yml: "
         + ", ".join(missing_pages)
+    )
+
+if unmanaged_pages:
+    fail(
+        "test-instance.yml pages missing from visual-pages.json: "
+        + ", ".join(unmanaged_pages)
     )
 
 

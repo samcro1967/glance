@@ -242,6 +242,55 @@ function setupStatusBarTickers(root = document) {
     return cleanupCallbacks;
 }
 
+function syncGroupCriticalStates() {
+    const groups = document.getElementsByClassName("widget-type-group");
+
+    for (let g = groups.length - 1; g >= 0; g--) {
+        const group = groups[g];
+        const content = group.querySelector(":scope > .widget-content");
+        if (content === null) {
+            continue;
+        }
+
+        const header = content.querySelector(
+            ":scope > .widget-group-header > .widget-header"
+        );
+        const contents = content.querySelector(
+            ":scope > .widget-group-contents"
+        );
+
+        if (header === null || contents === null) {
+            continue;
+        }
+
+        const titles = header.querySelectorAll(
+            ":scope > .widget-group-tab-item > .widget-group-title"
+        );
+        const tabs = contents.children;
+        let groupCritical = false;
+
+        for (let t = 0; t < titles.length; t++) {
+            const tab = tabs[t];
+            const critical =
+                tab !== undefined &&
+                tab.querySelector(
+                    ":scope > .widget[data-widget-status=critical], :scope > .widget.widget-group-critical"
+                ) !== null;
+
+            titles[t].classList.toggle(
+                "widget-group-title-critical",
+                critical
+            );
+
+            if (critical) {
+                groupCritical = true;
+            }
+        }
+
+        group.classList.toggle("widget-group-critical", groupCritical);
+    }
+}
+
 function setupGroups() {
     const groups = document.getElementsByClassName("widget-type-group");
 
@@ -317,6 +366,8 @@ function setupGroups() {
             });
         }
     }
+
+    syncGroupCriticalStates();
 }
 
 function setupLazyImages(root = document) {
@@ -881,6 +932,7 @@ async function refreshLiveWidget(widgetID) {
             );
 
             await initializeLiveWidget(replacement);
+            syncGroupCriticalStates();
 
             frontendDiagnostic("widget_initialize_complete", {
                 widget: widgetID,

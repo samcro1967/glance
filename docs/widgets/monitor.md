@@ -37,6 +37,14 @@ Preview:
 
 You can hover over the "ERROR" text to view more information.
 
+## Critical status
+
+When any configured site is failing according to the Monitor widget's existing health semantics, the widget is marked critical. Status codes configured in `alt-status-codes` continue to be treated as healthy, and no additional health check or failure classification is introduced.
+
+A critical widget uses the shared negative-state header treatment. When the widget is inside a `group`, its tab and the containing group are also marked critical, including through nested groups, so a failure remains visible when another tab is selected. The critical state clears automatically when all monitored sites recover.
+
+This behavior requires no additional configuration.
+
 ## Configuration
 
 This widget also supports the [shared widget properties](../widgets.md#shared-properties).
