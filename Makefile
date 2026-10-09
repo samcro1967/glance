@@ -71,6 +71,7 @@ FORK_RELEASE_ID ?= samcro1967
 FORK_RELEASE_WIDTH ?= 3
 GORELEASER_VERSION ?= v2.18.1
 GOLANGCI_LINT_VERSION ?= v2.14.0
+GOLANGCI_LINT_MODE ?= docker
 LIGHTHOUSE_VERSION ?= 13.4.1
 GRYPE ?= grype
 GRYPE_FALLBACK ?= $(HOME)/Documents/Docker/grype/grype
@@ -376,7 +377,15 @@ docs-check:
 check: test test-race build fmt-check diff-check staged-check docs-check lint frontend-audit frontend-unit
 
 lint:
-	docker run --rm -v "$(CURDIR):/app" -w /app golangci/golangci-lint:$(GOLANGCI_LINT_VERSION) golangci-lint run ./...
+	@if [ "$(GOLANGCI_LINT_MODE)" = "native" ]; then \
+		command -v golangci-lint >/dev/null 2>&1 || { echo "golangci-lint executable not found"; exit 1; }; \
+		golangci-lint version | grep -Eq "version $$(printf %s $(GOLANGCI_LINT_VERSION) | sed s/^v//)([[:space:]]|$$)" || { echo "golangci-lint version does not match $(GOLANGCI_LINT_VERSION)"; exit 1; }; \
+		golangci-lint run ./...; \
+	elif [ "$(GOLANGCI_LINT_MODE)" = "docker" ]; then \
+		docker run --rm -v "$(CURDIR):/app" -w /app golangci/golangci-lint:$(GOLANGCI_LINT_VERSION) golangci-lint run ./...; \
+	else \
+		echo "Unsupported GOLANGCI_LINT_MODE: $(GOLANGCI_LINT_MODE)"; exit 2; \
+	fi
 
 validate: check frontend-check visual-check vuln
 

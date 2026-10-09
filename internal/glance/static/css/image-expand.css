@@ -1,7 +1,9 @@
 .image-expand-dialog {
     position: fixed;
+    inset: 0;
+    margin: auto;
     max-width: min(96vw, 160rem);
-    max-height: 94vh;
+    max-height: min(94dvh, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)));
     padding: 1.2rem;
     border: 1px solid var(--color-widget-content-border);
     border-radius: var(--theme-card-radius, var(--border-radius));
@@ -17,7 +19,7 @@
 .image-expand-dialog-image {
     display: block;
     max-width: calc(96vw - 2.4rem);
-    max-height: calc(94vh - 2.4rem);
+    max-height: calc(94dvh - 2.4rem - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
     width: auto;
     height: auto;
     object-fit: contain;

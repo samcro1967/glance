@@ -6,7 +6,7 @@
 .minesweeper-restart { width: 3.5rem; height: 3.5rem; padding: 0; font-size: 1.8rem; line-height: 1; }
 .minesweeper-board-scroll { width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; scrollbar-width: thin; }
 .minesweeper-board { display: grid; grid-template-columns: repeat(var(--minesweeper-columns), var(--minesweeper-cell-size)); width: max-content; margin-inline: auto; border: 1px solid var(--theme-control-border-color, var(--color-widget-content-border)); border-radius: var(--border-radius); overflow: hidden; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
-.minesweeper-cell { display: grid; place-items: center; width: var(--minesweeper-cell-size); height: var(--minesweeper-cell-size); padding: 0; border: 0; border-right: 1px solid var(--theme-control-border-color, var(--color-widget-content-border)); border-bottom: 1px solid var(--theme-control-border-color, var(--color-widget-content-border)); border-radius: 0; background: var(--theme-control-background-color, var(--color-widget-background-highlight)); color: var(--theme-heading-text-color, var(--color-text-highlight)); font: inherit; font-weight: 700; line-height: 1; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.minesweeper-cell { display: grid; place-items: center; width: var(--minesweeper-cell-size); height: var(--minesweeper-cell-size); padding: 0; border: 0; border-right: 1px solid var(--color-separator); border-bottom: 1px solid var(--color-separator); border-radius: 0; background: var(--theme-control-background-color, var(--color-widget-background-highlight)); color: var(--theme-heading-text-color, var(--color-text-highlight)); font: inherit; font-weight: 700; line-height: 1; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .minesweeper-cell:hover:not(.is-revealed), .minesweeper-cell:focus-visible:not(.is-revealed) { background: var(--theme-elevated-background-color, var(--color-widget-background-highlight)); }
 .minesweeper-cell:focus-visible { position: relative; z-index: 1; outline: 2px solid var(--color-primary); outline-offset: -2px; }
 .minesweeper-cell.is-revealed { background: var(--theme-widget-background-color, var(--color-widget-background)); cursor: default; }
@@ -29,4 +29,6 @@
 @container widget (max-width: 400px) { .minesweeper { --minesweeper-cell-size: 2.5rem; } .minesweeper-toolbar { grid-template-columns: minmax(0, 1fr) auto auto; } .minesweeper-toolbar .minesweeper-counter:last-child { display: none; } }
 @media (pointer: coarse) { .minesweeper-cell { min-width: 2.5rem; min-height: 2.5rem; } }
 
-.minesweeper-expanded { --minesweeper-cell-size: 2.5rem; }
+.minesweeper-expanded { --minesweeper-cell-size: 3rem; }
+/* Preserve larger touch targets in expanded mode, including narrow widget containers. */
+@container widget (max-width: 400px) { .minesweeper-expanded { --minesweeper-cell-size: 3rem; } }
