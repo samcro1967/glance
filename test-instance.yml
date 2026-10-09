@@ -1062,6 +1062,8 @@ pages:
             title: Repository
             css-class: visual-fixture-repository
             repository: samcro1967/glance
+            token: ${GITHUB_TOKEN}
+            commits-limit: 3
 
       - size: full
         widgets:
