@@ -41,7 +41,7 @@ func TestComprehensiveFinalRepositoryInitializeAndFetch(t *testing.T) {
 			return finalWaveResponse(404, `{}`), nil
 		}
 	})
-	repo, err := fetchRepositoryDetailsFromGithub(context.Background(), "example/project", "token", 3, 3, 2)
+	repo, err := fetchRepositoryDetailsFromGithub(context.Background(), "example/project", "", 3, 3, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
