@@ -519,7 +519,7 @@ func TestFetchRepositoryDetailsFromGithubAppliesBearerTokenToAllRequests(t *test
 		}),
 	)
 
-	_, err := fetchRepositoryDetailsFromGithub(
+	_, err := fetchRepositoryDetailsFromGithubREST(
 		context.Background(),
 		"example/project",
 		token,

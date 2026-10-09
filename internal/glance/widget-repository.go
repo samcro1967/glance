@@ -125,6 +125,20 @@ func fetchRepositoryDetailsFromGithub(
 	maxIssues int,
 	maxCommits int,
 ) (repository, error) {
+	if token != "" {
+		return fetchRepositoryDetailsFromGithubGraphQL(ctx, repo, token, maxPRs, maxIssues, maxCommits)
+	}
+	return fetchRepositoryDetailsFromGithubREST(ctx, repo, token, maxPRs, maxIssues, maxCommits)
+}
+
+func fetchRepositoryDetailsFromGithubREST(
+	ctx context.Context,
+	repo string,
+	token string,
+	maxPRs int,
+	maxIssues int,
+	maxCommits int,
+) (repository, error) {
 	repositoryRequest, err := http.NewRequestWithContext(
 		ctx,
 		"GET",
