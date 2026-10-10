@@ -929,6 +929,8 @@ Monitor data uses a five-minute cache. Equivalent Monitor requests share cached 
 
 ### RSS
 
+RSS article ordering supports `sort: chronological` (default), `sort: rarity`, and `sort: tier`, with optional `rarity-base`, `rarity-exponent`, and per-feed `tier`. `preserve-order: true` overrides sorting. See [RSS widget configuration](widgets/rss.md).
+
 Uses the normal RSS `feeds`, `limit`, ordering, HTTP, cache, and recovery configuration while presenting returned entries compactly.
 
 ### Environment

@@ -48,6 +48,8 @@ The fork's differences from upstream span both user-visible functionality and un
 
 ### Dashboard, layout, and widgets
 
+- **RSS feed sorting** — Adds chronological, rarity-weighted, and explicit per-feed tier ordering while preserving the default chronological and `preserve-order` behavior. Adapted from upstream [PR #1094](https://github.com/glanceapp/glance/pull/1094) by [@JustMaris](https://github.com/JustMaris), addressing [issue #1093](https://github.com/glanceapp/glance/issues/1093).
+
 - **Stack widget** — Adds the `stack` widget from upstream [PR #765](https://github.com/glanceapp/glance/pull/765), allowing multiple widgets to be stacked vertically and treated as a single widget.
 - **Analog clock widget** — Adds an `analog-clock` widget based on upstream [PR #747](https://github.com/glanceapp/glance/pull/747), providing a theme-aware analog clock with optional date and AM/PM indicators, configurable numerical dial markers, and additional clocks for configured timezones.
 - **Nested groups** — Allows `group` widgets to contain other `group` widgets, enabling multiple levels of tabbed navigation.

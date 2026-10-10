@@ -61,6 +61,9 @@ The RSS widget supports four layouts:
 | `card-height` | float | no | style default |
 | `limit` | integer | no | `25` |
 | `preserve-order` | boolean | no | `false` |
+| `sort` | string | no | `chronological` |
+| `rarity-base` | float | no | `72` |
+| `rarity-exponent` | float | no | `2.5` |
 | `single-line-titles` | boolean | no | `false` |
 | `collapse-after` | integer | no | `5` |
 
@@ -77,6 +80,36 @@ Sets how many articles are visible before the **SHOW MORE** control appears. Set
 ### `preserve-order`
 
 When `true`, articles retain the order supplied by the feeds instead of being sorted by publication time. When combining large feeds, consider setting a per-feed `limit` so one feed does not dominate the result.
+
+### `sort`
+
+Controls article ordering when `preserve-order` is `false`:
+
+- `chronological` (default): newest articles first.
+- `rarity`: boosts articles from less frequently posting feeds using the median gap between returned publication dates. Feeds with only one article assume a 24-hour posting interval.
+- `tier`: sorts feeds by configured integer `tier` (lower first), newest first within each tier; feeds without a tier appear last.
+
+`preserve-order: true` takes precedence over `sort`. Sorting is applied before the widget's overall `limit`. Feed-level `limit` still restricts which articles enter the sort.
+
+### `rarity-base`
+
+For `sort: rarity`, the posting interval in hours that receives neutral weighting (default `72`). Zero selects the default.
+
+### `rarity-exponent`
+
+For `sort: rarity`, controls how strongly posting frequency changes ranking (default `2.5`). Zero selects the default.
+
+Example:
+
+```yaml
+- type: rss
+  sort: tier
+  feeds:
+    - url: https://example.com/important.xml
+      tier: 0
+    - url: https://example.com/other.xml
+      tier: 1
+```
 
 ### `single-line-titles`
 
@@ -101,6 +134,7 @@ Each entry in `feeds` supports its own request and presentation options.
 | `hide-categories` | boolean | no | `false` | Applies to `detailed-list` |
 | `hide-description` | boolean | no | `false` | Applies to `detailed-list` |
 | `limit` | integer | no | — | Maximum articles from this feed |
+| `tier` | integer | no | — | Feed priority for `sort: tier` (lower first) |
 | `item-link-prefix` | string | no | — | Prefix for relative item links |
 | `thumbnail-link-prefix` | string | no | — | Prefix for relative thumbnail links |
 | `timeout` | duration | no | inherited | Request timeout |
