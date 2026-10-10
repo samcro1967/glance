@@ -2238,6 +2238,7 @@ test-instance-fixture-stop:
 test-instance-start:
 	@set -euo pipefail; \
 	$(MAKE) --no-print-directory test-all-stop >/dev/null; \
+	python3 testdata/visual/generate-calendar.py; \
 	$(MAKE) --no-print-directory test-instance-fixture-start; \
 	if ss -ltn "sport = :$(TEST_PORT)" 2>/dev/null | tail -n +2 | grep -q .; then \
 		echo "Test port $(TEST_PORT) is already in use."; \
@@ -2337,6 +2338,7 @@ test-instance-stop:
 			done; \
 		fi; \
 	fi; \
+	rm -f testdata/visual/generated-calendar.ics; \
 	rm -f "$(TEST_PID_FILE)" "$(TEST_BINARY)" "$(TEST_LOG)"; \
 	$(MAKE) --no-print-directory test-instance-fixture-stop; \
 	echo "Test instance stopped and runtime artifacts removed."; \

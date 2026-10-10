@@ -6,7 +6,8 @@ The visual QA configuration mirrors the eight widget categories in `docs/widgets
 
 - `test-instance.yml` is the complete local visual QA dashboard.
 - `testdata/expanded-theme.yml` owns the expanded global theme fixture.
-- `testdata/screenshot-calendar.ics` provides deterministic calendar content.
+- `testdata/screenshot-calendar.ics` preserves the original reference calendar.
+- `testdata/visual/generate-calendar.py` generates the date-relative `generated-calendar.ics` for Calendar and ICS Events during test-instance startup. The generated file is ignored by Git and removed during cleanup.
 - `widget-gallery.json` classifies every registered widget exactly once.
 - `visual-pages.json` lists the canonical pages captured by browser QA.
 - `docs-images.json` explicitly lists documentation PNGs managed by automation.

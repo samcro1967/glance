@@ -18,6 +18,7 @@
 /testdata/visual/node_modules/
 /testdata/visual/screenshots/
 /testdata/visual/docs-staging/
+/testdata/visual/generated-calendar.ics
 
 # Python generated files
 __pycache__/

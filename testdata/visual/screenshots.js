@@ -232,6 +232,38 @@ async function captureMobileViewport(page, output, viewport = qaViewport) {
   }
 }
 
+async function waitForDilbertImage(page, locator) {
+  const isDilbert = await locator.evaluate(element =>
+    element.classList.contains("visual-fixture-dilbert")
+  );
+
+  if (!isDilbert) return;
+
+  const image = locator.locator(".dilbert-comic-image");
+  await image.waitFor({ state: "visible", timeout: 15000 });
+  await image.scrollIntoViewIfNeeded();
+
+  try {
+    await image.evaluate(element => {
+      if (!element.complete) {
+        element.loading = "eager";
+      }
+    });
+
+    await page.waitForFunction(() => {
+      const image = document.querySelector(
+        ".visual-fixture-dilbert .dilbert-comic-image"
+      );
+      return image && image.complete &&
+        image.naturalWidth > 0 && image.naturalHeight > 0;
+    }, null, { timeout: 15000 });
+  } catch (error) {
+    throw new Error(
+      `Dilbert screenshot image failed to load: ${error.message}`
+    );
+  }
+}
+
 async function captureMobileWidget(page, locator, output, viewport = QA_VIEWPORTS.mobile) {
   const columnIndex = await locator.evaluate(element => {
     const column = element.closest(".page-columns > .page-column");
@@ -299,6 +331,7 @@ async function captureMobileWidget(page, locator, output, viewport = QA_VIEWPORT
       );
     }
 
+    await waitForDilbertImage(page, locator);
     await captureMobileViewport(page, output, viewport);
   } finally {
     if (spacer) {
@@ -614,6 +647,7 @@ async function captureDocs(browser) {
             await revealNestedGroupContent(locator);
           }
           await locator.waitFor({ state: "visible", timeout: 15000 });
+          await waitForDilbertImage(page, locator);
           await locator.screenshot({ path: output });
         }
       } else if (recipe.capture === 'page') {

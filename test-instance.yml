@@ -13,6 +13,9 @@ server:
   port: 18080
   assets-path: testdata/assets
   frontend-diagnostics: true
+  resource-proxy:
+    allowed-origins:
+      - http://127.0.0.1:18089
 
 branding:
   app-name: "Glance Test"
@@ -483,6 +486,7 @@ pages:
             title: Dilbert
             css-class: visual-fixture-dilbert
             date: 2020-06-15
+            archive-url: http://127.0.0.1:18089
 
           - type: rss
             title: RSS - Horizontal Cards
@@ -718,7 +722,7 @@ pages:
             css-class: visual-fixture-calendar
             first-day-of-week: sunday
             sources:
-              - file: testdata/screenshot-calendar.ics
+              - file: testdata/visual/generated-calendar.ics
                 title: Visual QA
 
           - type: ics-events
@@ -728,7 +732,7 @@ pages:
             limit: 10
             collapse-after: 6
             sources:
-              - file: testdata/screenshot-calendar.ics
+              - file: testdata/visual/generated-calendar.ics
                 title: Visual QA
 
       - size: small
