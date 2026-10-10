@@ -704,7 +704,7 @@ async function initializeContentRoot(root, diagnostics = false) {
     };
 
     cleanupCallbacks.push(
-        ...runStage("presentation", () => setupPresentation(root))
+        ...await runAsyncStage("presentation", () => setupPresentation(root))
     );
     runStage("popovers", () => setupPopovers(root));
 

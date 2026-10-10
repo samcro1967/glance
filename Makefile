@@ -402,9 +402,36 @@ performance: performance-check benchmark lighthouse performance-runtime
 	@echo "Runtime/provider/browser measurements are informational and are not pass/fail thresholds."
 
 
-lighthouse:
-	@report=$$(mktemp /tmp/glance-lighthouse.XXXXXX.json); trap '$(MAKE) test-instance-stop >/dev/null 2>&1 || true; rm -f "$$report"' EXIT; $(MAKE) test-instance-stop >/dev/null; $(MAKE) test-instance-start; CHROME_PATH="$${GLANCE_VISUAL_CHROME:-/usr/bin/google-chrome}" npx --yes lighthouse@$(LIGHTHOUSE_VERSION) http://127.0.0.1:18080 --chrome-flags="--headless --no-sandbox" --output=json --output-path="$$report" --quiet; REPORT="$$report" node -e 'const r=require(process.env.REPORT); for (const [id,c] of Object.entries(r.categories)) console.log(id+": "+Math.round(c.score*100)); const failed=Object.values(r.audits).filter(a=>a.score!==null && a.score<1 && a.scoreDisplayMode!=="notApplicable").filter(a=>a.details || ["button-name","color-contrast","target-size"].includes(a.id)); const accessibility=failed.filter(a=>r.categories.accessibility && r.categories.accessibility.auditRefs.some(ref=>ref.id===a.id)); if (accessibility.length) console.log("accessibility findings: "+accessibility.map(a=>a.id).join(", "));'
 
+lighthouse:
+	@set -euo pipefail; \
+	url="$(LIGHTHOUSE_URL)"; \
+	report="$(LIGHTHOUSE_REPORT)"; \
+	managed=0; \
+	temporary=0; \
+	if [ -z "$$report" ]; then \
+		report="$$(mktemp /tmp/glance-lighthouse.XXXXXX.json)"; \
+		temporary=1; \
+	elif [ -e "$$report" ]; then \
+		echo "Refusing to overwrite Lighthouse report: $$report"; \
+		exit 2; \
+	fi; \
+	cleanup() { \
+		if [ "$$managed" -eq 1 ]; then $(MAKE) --no-print-directory test-instance-stop >/dev/null 2>&1 || true; fi; \
+		if [ "$$temporary" -eq 1 ]; then rm -f "$$report"; fi; \
+	}; \
+	trap cleanup EXIT; \
+	if [ -z "$$url" ]; then \
+		$(MAKE) --no-print-directory test-instance-stop >/dev/null; \
+		managed=1; \
+		$(MAKE) --no-print-directory test-instance-start; \
+		url="$(TEST_URL)"; \
+	fi; \
+	echo "=== LIGHTHOUSE TARGET ==="; \
+	echo "$$url"; \
+	CHROME_PATH="$${GLANCE_VISUAL_CHROME:-/usr/bin/google-chrome}" npx --yes lighthouse@$(LIGHTHOUSE_VERSION) "$$url" --chrome-flags="--headless --no-sandbox" --output=json --output-path="$$report" --quiet; \
+	node scripts/report_lighthouse.js "$$report"; \
+	if [ "$$temporary" -eq 0 ]; then echo "Lighthouse JSON: $$report"; fi
 
 coverage:
 	@trap 'rm -f "$(COVERAGE_FILE)"' EXIT; go test ./... -coverprofile="$(COVERAGE_FILE)"; go tool cover -func="$(COVERAGE_FILE)"
