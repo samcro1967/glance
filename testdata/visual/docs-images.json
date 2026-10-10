@@ -1444,5 +1444,55 @@
       "width": 430,
       "height": 900
     }
+  },
+  "widgets/mobile/astrology.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-astrology",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/astronomy.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-astronomy",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/horoscope.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-horoscope",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/stocks.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/markets-streaming",
+    "selector": ".visual-fixture-stocks",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/to-do.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/utilities",
+    "selector": ".visual-fixture-to-do",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
   }
 }

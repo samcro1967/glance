@@ -23,6 +23,10 @@ To reorder tasks, drag and drop them by grabbing the top side of the task:
 
 To delete a task, hover over it and click on the trash icon.
 
+**Mobile preview:**
+
+![Todo mobile preview](../images/widgets/mobile/to-do.png)
+
 ## Configuration
 
 This widget also supports the [shared widget properties](../widgets.md#shared-properties).

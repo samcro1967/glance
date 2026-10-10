@@ -29,6 +29,10 @@ Recommended grouped presentation:
 
 ![Astronomy upcoming events preview](../images/widgets/astronomy-upcoming.png)
 
+**Mobile preview:**
+
+![Astronomy mobile preview](../images/widgets/mobile/astronomy.png)
+
 ## Expanded view
 
 Use the expand control in the widget header to open a larger view of the configured Astronomy sections. The expanded view presents the same calculated observation snapshot with additional room for Moon and Sun details, planet and bright-star tables, and upcoming celestial events when those sections are enabled.

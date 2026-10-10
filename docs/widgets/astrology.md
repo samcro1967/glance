@@ -30,6 +30,10 @@ Recommended grouped presentation:
 
 For a combined sky dashboard, place the Astronomy and Astrology groups inside an outer Group. Each inner group can then expose its own compact tabs without creating a single very tall card.
 
+**Mobile preview:**
+
+![Astrology mobile preview](../images/widgets/mobile/astrology.png)
+
 ## Configuration
 
 This widget also supports the [shared widget properties](../widgets.md#shared-properties). The default cache duration is `30m`.
