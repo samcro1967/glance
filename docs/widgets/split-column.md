@@ -60,6 +60,8 @@ A Split Column cannot be placed inside a Group.
 
 Three equal-width columns:
 
+![Split Column with three columns](../images/widgets/split-column-three-columns.png)
+
 
 <details>
 <summary>View <code>glance.yml</code></summary>
@@ -90,6 +92,8 @@ pages:
 ### Four columns
 
 Four equal-width columns on a page configured with `width: wide`:
+
+![Split Column with four columns](../images/widgets/split-column-four-columns.png)
 
 
 <details>
@@ -125,6 +129,8 @@ pages:
 ### Masonry layout
 
 A masonry layout with up to five equal-width columns on a page configured with `width: wide`:
+
+![Split Column with uneven-height masonry-style content](../images/widgets/split-column-masonry.png)
 
 
 <details>

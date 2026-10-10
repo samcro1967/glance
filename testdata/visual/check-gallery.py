@@ -124,6 +124,50 @@ for page, widgets in gallery.items():
 
 
 # -----------------------------------------------------------------------------
+# Widget variant inventory contract
+# -----------------------------------------------------------------------------
+
+VARIANTS_MANIFEST = ROOT / "testdata/visual/widget-variants.json"
+variants = json.loads(VARIANTS_MANIFEST.read_text())
+
+if not isinstance(variants, dict):
+    fail("widget-variants.json must contain an object")
+
+missing_variants = sorted(registered - set(variants))
+unknown_variants = sorted(set(variants) - registered)
+invalid_variants = []
+
+for widget, entry in variants.items():
+    if not isinstance(entry, dict):
+        invalid_variants.append(f"{widget}: expected an object")
+        continue
+    names = entry.get("variants")
+    if (
+        not isinstance(names, list)
+        or not names
+        or any(not isinstance(name, str) or not name.strip() for name in names)
+        or len(names) != len(set(names))
+    ):
+        invalid_variants.append(f"{widget}: expected unique non-empty variant names")
+
+print()
+print("=== WIDGET VARIANT INVENTORY ===")
+print(f"Registered widgets: {len(registered)}")
+print(f"Widget variant inventories: {len(variants)}")
+
+if missing_variants or unknown_variants or invalid_variants:
+    if missing_variants:
+        print("Missing:", ", ".join(missing_variants))
+    if unknown_variants:
+        print("Unknown:", ", ".join(unknown_variants))
+    for error in invalid_variants:
+        print("Invalid:", error)
+    raise SystemExit(1)
+
+print("Widget variant inventory: COMPLETE")
+
+
+# -----------------------------------------------------------------------------
 # Visual page contract
 # -----------------------------------------------------------------------------
 
@@ -262,6 +306,32 @@ docs_images = json.loads(DOCS_MANIFEST.read_text())
 
 if not isinstance(docs_images, dict):
     fail("docs-images.json must contain an object")
+
+# Variant-specific captures must target an actual configured fixture and
+# be referenced by the corresponding widget documentation.
+for widget, (page, styles) in {
+    "rss": ("feeds-content", ("vertical-list", "detailed-list", "horizontal-cards-2")),
+    "reddit": ("feeds-content", ("vertical-list", "vertical-cards", "vertical-list-thumbnails")),
+    "videos": ("feeds-content", ("horizontal-cards", "vertical-list")),
+    "split-column": ("layout-composition", ("three-columns", "four-columns", "masonry")),
+    "status-bar": ("layout-composition", ("wrap",)),
+}.items():
+    document = (DOCS_ROOT / "widgets" / f"{widget}.md").read_text()
+    for style in styles:
+        filename = f"widgets/{widget}-{style}.png"
+        selector = f".visual-variant-{widget}-{style}"
+        recipe = docs_images.get(filename)
+        if not isinstance(recipe, dict) or (
+            recipe.get("kind") != "browser"
+            or recipe.get("capture") != "element"
+            or recipe.get("route") != f"/{page}"
+            or recipe.get("selector") != selector
+        ):
+            fail(f"{filename}: missing or incorrect variant capture recipe")
+        if f"css-class: {selector[1:]}" not in config_text:
+            fail(f"{filename}: no matching deterministic fixture class")
+        if f"../images/{filename}" not in document:
+            fail(f"{filename}: not referenced by {widget} documentation")
 
 browser_images = set()
 static_images = set()

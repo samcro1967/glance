@@ -240,6 +240,16 @@ Add its canonical isolated screenshot mapping to:
 testdata/visual/widget-screenshots.json
 ```
 
+Record its supported visual variants in:
+
+```text
+testdata/visual/widget-variants.json
+```
+
+Use `standard` only when one representative appearance is sufficient. For visually distinct supported layouts, modes, or content states, list descriptive variant names and provide deterministic widget instances in `test-instance.yml` (with explicit fixture responses when needed). A variant inventory is a coverage declaration, not evidence that an image was captured: every documented visual variant should have a corresponding `testdata/visual/docs-images.json` recipe, a stable and unambiguous selector, and a screenshot reference in the widget documentation. Reuse existing captures rather than creating duplicate images. Do not add variants for options that have no observable visual difference, such as credentials, request intervals, or provider authentication.
+
+Keep variant instances within the page layout constraints (at most three top-level columns per page). Multiple visual examples can be separate widgets inside an existing column; do not create an additional top-level column for each variant.
+
 Use the page containing the validated widget and a stable selector. Prefer the native widget type selector when it uniquely identifies the capture, for example:
 
 ```text
@@ -418,6 +428,7 @@ test-instance.yml
 testdata/visual/fixture-server.js
 testdata/visual/widget-gallery.json
 testdata/visual/widget-screenshots.json
+testdata/visual/widget-variants.json
 testdata/visual/docs-images.json
 
 docs/widgets/<name>.md
@@ -470,6 +481,8 @@ Before considering a new widget ready for integration, confirm that:
 - Makefile orchestration that starts a temporary test runtime cleans it up on success and failure;
 - `testdata/visual/widget-gallery.json` includes the widget in the canonical visual gallery where applicable;
 - `testdata/visual/widget-screenshots.json` defines its canonical QA screenshot recipe and supports targeted capture with `VISUAL_WIDGET=<widget>`;
+- `testdata/visual/widget-variants.json` lists the widget and its visually distinct supported variants; each documented variant has a matching deterministic fixture, managed screenshot recipe, and documentation reference;
+- visual fixture pages respect the maximum of three top-level columns;
 - `visual-check`, QA capture, documentation staging, and documentation promotion were treated as distinct operations;
 - `testdata/visual/docs-images.json` defines its managed documentation screenshot recipe;
 - the new documentation screenshot was staged, visually reviewed, and promoted intentionally;

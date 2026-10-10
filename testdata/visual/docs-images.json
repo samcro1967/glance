@@ -371,6 +371,78 @@
     "route": "/homelab-monitoring",
     "selector": ".visual-fixture-monitor"
   },
+  "widgets/reddit-vertical-cards.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "selector": ".visual-variant-reddit-vertical-cards"
+  },
+  "widgets/reddit-vertical-list-thumbnails.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "selector": ".visual-variant-reddit-vertical-list-thumbnails"
+  },
+  "widgets/reddit-vertical-list.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "selector": ".visual-variant-reddit-vertical-list"
+  },
+  "widgets/rss-detailed-list.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "selector": ".visual-variant-rss-detailed-list"
+  },
+  "widgets/rss-horizontal-cards-2.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "selector": ".visual-variant-rss-horizontal-cards-2"
+  },
+  "widgets/rss-vertical-list.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "selector": ".visual-variant-rss-vertical-list"
+  },
+  "widgets/split-column-four-columns.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/layout-composition",
+    "selector": ".visual-variant-split-column-four-columns"
+  },
+  "widgets/split-column-masonry.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/layout-composition",
+    "selector": ".visual-variant-split-column-masonry"
+  },
+  "widgets/split-column-three-columns.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/layout-composition",
+    "selector": ".visual-variant-split-column-three-columns"
+  },
+  "widgets/status-bar-wrap.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/layout-composition",
+    "selector": ".visual-variant-status-bar-wrap"
+  },
+  "widgets/videos-horizontal-cards.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "selector": ".visual-variant-videos-horizontal-cards"
+  },
+  "widgets/videos-vertical-list.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "selector": ".visual-variant-videos-vertical-list"
+  },
   "widgets/reddit.png": {
     "kind": "browser",
     "capture": "element",

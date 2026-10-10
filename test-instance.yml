@@ -326,6 +326,40 @@ pages:
           - type: weather
             location: St. Louis, Missouri, United States
             units: imperial
+      - type: status-bar
+        title: Status Bar - Wrap
+        css-class: visual-variant-status-bar-wrap
+        mode: wrap
+        widgets:
+          - type: bookmark
+            title: GitHub
+            url: https://github.com/samcro1967/glance
+            icon: si:github
+          - type: clock
+            hour-format: 12h
+            label: Local
+          - type: link
+            title: Documentation
+            url: https://github.com/samcro1967/glance/tree/main/docs
+          - type: rss
+            feeds:
+              - url: http://127.0.0.1:18089/micro-rss.xml
+          - type: custom-api
+            url: http://127.0.0.1:18089/micro-custom-api
+          - type: docker
+            summary: true
+            sock-path: http://127.0.0.1:18089
+          - type: markets
+            markets:
+              - symbol: SPY
+                name: S&P 500
+          - type: monitor
+            sites:
+              - title: Fixture
+                url: http://127.0.0.1:18089/custom-api-presentation
+          - type: weather
+            location: St. Louis, Missouri, United States
+            units: imperial
     columns:
       - size: small
         widgets:
@@ -396,6 +430,127 @@ pages:
                 limit: 6
                 collapse-after: 4
 
+          - type: split-column
+            title: Split Column - three-columns
+            css-class: visual-variant-split-column-three-columns
+            max-columns: 3
+            widgets:
+              - type: markdown
+                title: Column 1
+                source: |
+                  **Deterministic layout example 1**
+
+                  A fixed-size text block for layout verification.
+              - type: markdown
+                title: Column 2
+                source: |
+                  **Deterministic layout example 2**
+
+                  A fixed-size text block for layout verification.
+              - type: markdown
+                title: Column 3
+                source: |
+                  **Deterministic layout example 3**
+
+                  A fixed-size text block for layout verification.
+          - type: split-column
+            title: Split Column - four-columns
+            css-class: visual-variant-split-column-four-columns
+            max-columns: 4
+            widgets:
+              - type: markdown
+                title: Column 1
+                source: |
+                  **Deterministic layout example 1**
+
+                  A fixed-size text block for layout verification.
+              - type: markdown
+                title: Column 2
+                source: |
+                  **Deterministic layout example 2**
+
+                  A fixed-size text block for layout verification.
+              - type: markdown
+                title: Column 3
+                source: |
+                  **Deterministic layout example 3**
+
+                  A fixed-size text block for layout verification.
+              - type: markdown
+                title: Column 4
+                source: |
+                  **Deterministic layout example 4**
+
+                  A fixed-size text block for layout verification.
+          - type: split-column
+            title: Split Column - masonry
+            css-class: visual-variant-split-column-masonry
+            max-columns: 5
+            widgets:
+              - type: markdown
+                title: Column 1
+                source: |
+                  **Deterministic layout example 1**
+
+                  A fixed-size text block for layout verification.
+
+                  Additional content demonstrates unequal column heights.
+              - type: markdown
+                title: Column 2
+                source: |
+                  **Deterministic layout example 2**
+
+                  A fixed-size text block for layout verification.
+              - type: markdown
+                title: Column 3
+                source: |
+                  **Deterministic layout example 3**
+
+                  A fixed-size text block for layout verification.
+
+                  Additional content demonstrates unequal column heights.
+              - type: markdown
+                title: Column 4
+                source: |
+                  **Deterministic layout example 4**
+
+                  A fixed-size text block for layout verification.
+              - type: markdown
+                title: Column 5
+                source: |
+                  **Deterministic layout example 5**
+
+                  A fixed-size text block for layout verification.
+
+                  Additional content demonstrates unequal column heights.
+              - type: markdown
+                title: Column 6
+                source: |
+                  **Deterministic layout example 6**
+
+                  A fixed-size text block for layout verification.
+              - type: markdown
+                title: Column 7
+                source: |
+                  **Deterministic layout example 7**
+
+                  A fixed-size text block for layout verification.
+
+                  Additional content demonstrates unequal column heights.
+              - type: markdown
+                title: Column 8
+                source: |
+                  **Deterministic layout example 8**
+
+                  A fixed-size text block for layout verification.
+              - type: markdown
+                title: Column 9
+                source: |
+                  **Deterministic layout example 9**
+
+                  A fixed-size text block for layout verification.
+
+                  Additional content demonstrates unequal column heights.
       - size: small
         widgets:
           - type: group
@@ -498,6 +653,36 @@ pages:
               - url: https://selfh.st/rss/
                 title: selfh.st
 
+          - type: rss
+            title: RSS - vertical-list
+            css-class: visual-variant-rss-vertical-list
+            style: vertical-list
+            limit: 8
+            collapse-after: -1
+            feeds:
+              - url: http://127.0.0.1:18089/micro-rss.xml
+                title: Visual fixture
+
+          - type: rss
+            title: RSS - detailed-list
+            css-class: visual-variant-rss-detailed-list
+            style: detailed-list
+            limit: 8
+            collapse-after: -1
+            feeds:
+              - url: http://127.0.0.1:18089/micro-rss.xml
+                title: Visual fixture
+
+          - type: rss
+            title: RSS - horizontal-cards-2
+            css-class: visual-variant-rss-horizontal-cards-2
+            style: horizontal-cards-2
+            limit: 8
+            collapse-after: -1
+            feeds:
+              - url: http://127.0.0.1:18089/micro-rss.xml
+                title: Visual fixture
+
           - type: videos
             title: Videos - Grid Cards
             css-class: visual-fixture-videos
@@ -509,12 +694,55 @@ pages:
               - UCsBjURrPoezykLs9EqgamOA
 
           - type: reddit
+            title: Reddit - vertical-list
+            css-class: visual-variant-reddit-vertical-list
+            subreddit: selfhosted
+            style: vertical-list
+            limit: 8
+            collapse-after: -1
+
+          - type: reddit
+            title: Reddit - vertical-cards
+            css-class: visual-variant-reddit-vertical-cards
+            subreddit: selfhosted
+            style: vertical-cards
+            limit: 8
+            collapse-after: -1
+
+          - type: reddit
+            title: Reddit - List with Thumbnails
+            css-class: visual-variant-reddit-vertical-list-thumbnails
+            subreddit: selfhosted
+            style: vertical-list
+            show-thumbnails: true
+            limit: 8
+            collapse-after: -1
+
+          - type: reddit
             title: Reddit - Horizontal Cards
             css-class: visual-fixture-reddit
             subreddit: selfhosted
             style: horizontal-cards
             limit: 8
             collapse-after: 6
+
+          - type: videos
+            title: Videos - horizontal-cards
+            css-class: visual-variant-videos-horizontal-cards
+            style: horizontal-cards
+            limit: 8
+            collapse-after: -1
+            channels:
+              - UCXuqSBlHAE6Xw-yeJA0Tunw
+
+          - type: videos
+            title: Videos - vertical-list
+            css-class: visual-variant-videos-vertical-list
+            style: vertical-list
+            limit: 8
+            collapse-after: -1
+            channels:
+              - UCXuqSBlHAE6Xw-yeJA0Tunw
 
       - size: small
         widgets:
