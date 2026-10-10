@@ -151,6 +151,7 @@ Set custom CSS classes for the specific widget instance.
 | Widget | Purpose |
 | --- | --- |
 | [Markets](widgets/markets.md) | Display market prices and changes. |
+| [Stocks](widgets/markets.md) | Display market prices and changes. |
 | [Twitch Channels](widgets/twitch-channels.md) | Display configured Twitch channels. |
 | [Twitch Top Games](widgets/twitch-top-games.md) | Display top games on Twitch. |
 
