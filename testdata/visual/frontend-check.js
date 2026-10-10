@@ -2045,6 +2045,21 @@ async function main() {
       deviceScaleFactor: 1
     });
     const mobilePage = await mobileContext.newPage();
+    await mobilePage.addInitScript(() => {
+      window.__mobileViewportOverflow = 0;
+      const sampleViewport = () => {
+        const root = document.documentElement;
+        if (root) {
+          window.__mobileViewportOverflow = Math.max(
+            window.__mobileViewportOverflow,
+            root.scrollWidth - root.clientWidth
+          );
+        }
+        requestAnimationFrame(sampleViewport);
+      };
+      requestAnimationFrame(sampleViewport);
+    });
+
     await startCoverage(mobilePage, coveragePath);
     const mobileBrowserErrors = [];
 
@@ -2053,6 +2068,16 @@ async function main() {
     });
 
     await openPage(mobilePage, '/layout-composition', coveragePath);
+
+    const transientMobileOverflow = await mobilePage.evaluate(
+      () => window.__mobileViewportOverflow
+    );
+    if (transientMobileOverflow > 1) {
+      throw new Error(
+        `Mobile viewport temporarily overflows by ${transientMobileOverflow}px during initialization`
+      );
+    }
+    console.log("PASS mobile initialization viewport stability");
 
     const mobileOverflow = await mobilePage.evaluate(() =>
       document.documentElement.scrollWidth - document.documentElement.clientWidth

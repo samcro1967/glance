@@ -26,6 +26,7 @@ const frontendPerformanceState = {
     clsWindowLast: 0,
     clsWindowSources: [],
     clsAttribution: [],
+    clsExcludedShifts: [],
     eventTimingSupported: false,
     eventTimingCount: 0,
     maxEventDurationMS: 0,
@@ -96,6 +97,8 @@ function frontendDiagnosticLayoutContext() {
         ".page-columns",
         ".bottom-widgets",
         ".footer",
+        ".mobile-navigation",
+        ".mobile-navigation-offset",
     ];
 
     return selectors.map((selector) => {
@@ -109,14 +112,14 @@ function frontendDiagnosticLayoutContext() {
     });
 }
 
-function frontendDiagnosticLayoutShiftSources(entry) {
+function frontendDiagnosticLayoutShiftSources(entry, limit = 6) {
     if (!Array.isArray(entry.sources)) {
         return [];
     }
 
     const context = frontendDiagnosticLayoutContext();
 
-    return entry.sources.slice(0, 6).map((source) => ({
+    return entry.sources.slice(0, limit).map((source) => ({
         element: frontendDiagnosticElementDescriptor(source.node),
         parent: frontendDiagnosticElementDescriptor(source.node?.parentElement),
         previous: frontendDiagnosticElementDescriptor(source.node?.previousElementSibling),
@@ -178,6 +181,22 @@ function setupFrontendPerformanceObservers() {
             const observer = new PerformanceObserver((list) => {
                 for (const entry of list.getEntries()) {
                     if (entry.hadRecentInput) {
+                        if (entry.value > 0) {
+                            const shifts = frontendPerformanceState.clsExcludedShifts;
+                            const sample = {
+                                value: entry.value,
+                                startTime: entry.startTime,
+                                hadRecentInput: true,
+                                sources: frontendDiagnosticLayoutShiftSources(entry, 3),
+                            };
+
+                            shifts.push(sample);
+                            shifts.sort((a, b) =>
+                                b.value - a.value || a.startTime - b.startTime
+                            );
+                            shifts.length = Math.min(shifts.length, 3);
+                        }
+
                         continue;
                     }
 
@@ -546,6 +565,94 @@ function frontendDiagnosticPerformanceSnapshot(reason, commandID) {
                 size: attribution.size || 0,
             },
         });
+    }
+
+    // Preserve room for existing performance diagnostics in each snapshot.
+    let excludedShiftEvents = 0;
+    const excludedShiftEventLimit = 12;
+
+    for (const [shiftIndex, shift] of frontendPerformanceState.clsExcludedShifts.entries()) {
+        if (excludedShiftEvents >= excludedShiftEventLimit) {
+            break;
+        }
+
+        frontendDiagnostic("cls_excluded_shift", {
+            commandID,
+            detail: "had_recent_input=true",
+            metrics: {
+                shift_index: shiftIndex,
+                value: shift.value,
+                start_time_ms: shift.startTime,
+                had_recent_input: 1,
+                source_count: shift.sources.length,
+            },
+        });
+        excludedShiftEvents++;
+
+        for (const [sourceIndex, source] of shift.sources.entries()) {
+            if (excludedShiftEvents >= excludedShiftEventLimit) {
+                break;
+            }
+
+            frontendDiagnostic("cls_excluded_shift_context", {
+                commandID,
+                detail: [
+                    `element=${source.element || ""}`,
+                    `parent=${source.parent || ""}`,
+                    `previous=${source.previous || ""}`,
+                ].join(" ").slice(0, 256),
+                metrics: {
+                    shift_index: shiftIndex,
+                    source_index: sourceIndex,
+                    context: 0,
+                    previous_x_abs: Math.abs(source.previous_rect?.x ?? 0),
+                    previous_x_negative: source.previous_rect?.x < 0 ? 1 : 0,
+                    previous_y_abs: Math.abs(source.previous_rect?.y ?? 0),
+                    previous_y_negative: source.previous_rect?.y < 0 ? 1 : 0,
+                    previous_width: source.previous_rect?.width ?? 0,
+                    previous_height: source.previous_rect?.height ?? 0,
+                    current_x_abs: Math.abs(source.current_rect?.x ?? 0),
+                    current_x_negative: source.current_rect?.x < 0 ? 1 : 0,
+                    current_y_abs: Math.abs(source.current_rect?.y ?? 0),
+                    current_y_negative: source.current_rect?.y < 0 ? 1 : 0,
+                    current_width: source.current_rect?.width ?? 0,
+                    current_height: source.current_rect?.height ?? 0,
+                },
+            });
+            excludedShiftEvents++;
+        }
+
+        const context = shift.sources[0]?.context || [];
+        for (const item of context) {
+            if (excludedShiftEvents >= excludedShiftEventLimit) {
+                break;
+            }
+            if (
+                item.selector !== ".mobile-navigation" &&
+                item.selector !== ".mobile-navigation-offset"
+            ) {
+                continue;
+            }
+
+            frontendDiagnostic("cls_excluded_shift_context", {
+                commandID,
+                detail: [
+                    `selector=${item.selector}`,
+                    `element=${item.element || ""}`,
+                ].join(" ").slice(0, 256),
+                metrics: {
+                    shift_index: shiftIndex,
+                    context: 1,
+                    x_abs: Math.abs(item.rect?.x ?? 0),
+                    x_negative: item.rect?.x < 0 ? 1 : 0,
+                    y_abs: Math.abs(item.rect?.y ?? 0),
+                    y_negative: item.rect?.y < 0 ? 1 : 0,
+                    width: item.rect?.width ?? 0,
+                    height: item.rect?.height ?? 0,
+                },
+            });
+            excludedShiftEvents++;
+        }
     }
 
     const emittedCLSContexts = new Set();

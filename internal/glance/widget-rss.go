@@ -38,12 +38,16 @@ type rssWidget struct {
 	CollapseAfter    int              `yaml:"collapse-after"`
 	SingleLineTitles bool             `yaml:"single-line-titles"`
 	PreserveOrder    bool             `yaml:"preserve-order"`
+	Sort             string           `yaml:"sort"`
+	RarityBase       float64          `yaml:"rarity-base"`
+	RarityExponent   float64          `yaml:"rarity-exponent"`
 
 	Items          rssFeedItemList `yaml:"-"`
 	NoItemsMessage string          `yaml:"-"`
 
 	cachedFeedsMutex sync.Mutex
 	cachedFeeds      map[string]*cachedRSSFeed `yaml:"-"`
+	feedTiers        map[string]int            `yaml:"-"`
 }
 
 func (widget *rssWidget) initialize() error {
@@ -73,6 +77,20 @@ func (widget *rssWidget) initialize() error {
 				widget.Style == "horizontal-cards-2"
 	}
 
+	if err := validateRSSSort(widget.Sort, widget.RarityBase, widget.RarityExponent); err != nil {
+		return err
+	}
+	widget.feedTiers = make(map[string]int)
+	for _, feed := range widget.FeedRequests {
+		if feed.Tier == nil {
+			continue
+		}
+		if existing, ok := widget.feedTiers[feed.URL]; ok && existing != *feed.Tier {
+			return fmt.Errorf("conflicting RSS tiers for feed %q: %d and %d", feed.URL, existing, *feed.Tier)
+		}
+		widget.feedTiers[feed.URL] = *feed.Tier
+	}
+
 	widget.NoItemsMessage = "No items were returned from the feeds."
 	widget.cachedFeeds = make(map[string]*cachedRSSFeed)
 
@@ -91,7 +109,14 @@ func (widget *rssWidget) update(ctx context.Context) {
 	}
 
 	if !widget.PreserveOrder {
-		items.sortByNewest()
+		switch widget.Sort {
+		case rssSortRarity:
+			items.sortByRarity(time.Now(), widget.RarityBase, widget.RarityExponent)
+		case rssSortTier:
+			items.sortByTier(widget.feedTiers)
+		default:
+			items.sortByNewest()
+		}
 	}
 
 	if len(items) > widget.Limit {
@@ -126,6 +151,7 @@ type cachedRSSFeed struct {
 type rssFeedItem struct {
 	ChannelName string
 	ChannelURL  string
+	feedURL     string
 	Title       string
 	Link        string
 	ImageURL    string
@@ -144,6 +170,7 @@ type rssFeedRequest struct {
 	ItemLinkPrefix      string               `yaml:"item-link-prefix"`
 	ThumbnailLinkPrefix string               `yaml:"thumbnail-link-prefix"`
 	Headers             map[string]string    `yaml:"headers"`
+	Tier                *int                 `yaml:"tier"`
 	Timeout             durationField        `yaml:"timeout"`
 	AllowInsecure       bool                 `yaml:"allow-insecure"`
 	BasicAuth           struct {
@@ -298,6 +325,7 @@ func (widget *rssWidget) fetchItemsFromFeedTask(ctx context.Context, request rss
 
 		rssItem := rssFeedItem{
 			ChannelURL: feed.Link,
+			feedURL:    request.URL,
 		}
 
 		if request.ItemLinkPrefix != "" {

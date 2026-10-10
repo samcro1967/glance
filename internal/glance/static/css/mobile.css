@@ -17,6 +17,11 @@
         flex-shrink: 1;
     }
 
+    /* Prevent hidden mobile columns from expanding the layout viewport. */
+    .page-columns {
+        overflow-x: clip;
+    }
+
     .page-column {
         display: none;
         animation: columnEntrance .0s cubic-bezier(0.25, 1, 0.5, 1) backwards;
