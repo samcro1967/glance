@@ -18,6 +18,10 @@ Display articles from one or more RSS or Atom feeds, with list and card layouts 
 
 ![RSS widget](../images/widgets/rss.png)
 
+**Mobile preview:**
+
+![Rss mobile preview](../images/widgets/mobile/rss.png)
+
 ## Styles
 
 The RSS widget supports four layouts:

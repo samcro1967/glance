@@ -17,6 +17,10 @@ Video thumbnails link to the same video as their title and follow the widget's `
 
 ![Videos widget using the default horizontal-card layout](../images/widgets/videos.png)
 
+**Mobile preview:**
+
+![Videos mobile preview](../images/widgets/mobile/videos.png)
+
 ## Configuration
 
 | Property | Type | Required | Default |

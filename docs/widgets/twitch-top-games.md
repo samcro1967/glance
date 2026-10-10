@@ -22,6 +22,10 @@ Preview:
 
 ![Twitch top games widget](../images/widgets/twitch-top-games.png)
 
+**Mobile preview:**
+
+![Twitch Top Games mobile preview](../images/widgets/mobile/twitch-top-games.png)
+
 ## Configuration
 
 This widget also supports the [shared widget properties](../widgets.md#shared-properties).

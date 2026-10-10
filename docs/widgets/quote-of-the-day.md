@@ -14,6 +14,10 @@ Preview:
 
 ![Quote of the Day widget](../images/widgets/quote-of-the-day.png)
 
+**Mobile preview:**
+
+![Quote Of The Day mobile preview](../images/widgets/mobile/quote-of-the-day.png)
+
 ## Configuration
 
 This widget supports the [shared widget properties](../widgets.md#shared-properties). It requires no API key. By default it refreshes shortly after midnight using `cache-cron: 5 0 * * *`; normal cache overrides remain available. Later provider failures preserve previously successful content through Glance stale/degraded behavior.

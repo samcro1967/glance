@@ -267,7 +267,7 @@ Use page or dashboard scope when a broader visual change intentionally requires 
     make visual-screenshots VISUAL_PAGE=appropriate-page
     make visual-screenshots VISUAL_DASHBOARD=appropriate-dashboard
 
-`VISUAL_WIDGET`, `VISUAL_PAGE`, and `VISUAL_DASHBOARD` are mutually exclusive. Canonical individual-widget capture is desktop-only. `VIEWPORT=desktop|mobile` may be used with page or dashboard QA capture; do not combine `VISUAL_WIDGET` with `VIEWPORT=mobile`.
+`VISUAL_WIDGET`, `VISUAL_PAGE`, and `VISUAL_DASHBOARD` are mutually exclusive. `VIEWPORT=desktop|mobile` selects the capture viewport for widget, page, or dashboard QA. Desktop widget captures isolate the selected widget; mobile widget captures preserve the full 430x900 viewport after navigating to the appropriate mobile column and bringing the widget into view.
 
 ## 9. Validate the source runtime before documentation capture
 
@@ -308,7 +308,7 @@ Browser-managed widget documentation images are registered in:
 testdata/visual/docs-images.json
 ```
 
-For a normal widget element capture, use the complete browser recipe:
+For a normal desktop widget element capture, use the complete browser recipe:
 
 ```json
 "widgets/example.png": {

@@ -19,6 +19,10 @@ Search the web from Glance using a built-in or custom search engine, with option
 
 ![Search widget with a configured YouTube bang](../images/widgets/search.png)
 
+**Mobile preview:**
+
+![Search mobile preview](../images/widgets/mobile/search.png)
+
 ## Keyboard shortcuts
 | Keys | Action | Condition |
 | ---- | ------ | --------- |

@@ -25,6 +25,10 @@ Preview:
 
 ![Releases widget](../images/widgets/releases.png)
 
+**Mobile preview:**
+
+![Releases mobile preview](../images/widgets/mobile/releases.png)
+
 ## Expanded view
 
 Use the expand control in the widget header to open a detailed release table showing repository, version, source, and relative release time for each displayed entry. Release-note links and existing warning indicators remain available in the expanded presentation.

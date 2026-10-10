@@ -10,6 +10,10 @@ Two widgets side by side in a `full` column:
 
 ![Two widgets displayed side by side with Split Column](../images/widgets/split-column.png)
 
+**Mobile preview:**
+
+![Split Column mobile preview](../images/widgets/mobile/split-column.png)
+
 <details>
 <summary>View <code>glance.yml</code></summary>
 <br>

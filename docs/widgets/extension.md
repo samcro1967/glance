@@ -7,6 +7,10 @@ Display content supplied by an external Glance extension endpoint. The widget su
 
 ![Extension widget rendered by the deterministic local fixture](../images/widgets/extension.png)
 
+**Mobile preview:**
+
+![Extension mobile preview](../images/widgets/mobile/extension.png)
+
 ## Quick start
 
 

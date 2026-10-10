@@ -20,6 +20,10 @@ Preview:
 
 ![Prometheus widget](../images/widgets/prometheus.png)
 
+**Mobile preview:**
+
+![Prometheus mobile preview](../images/widgets/mobile/prometheus.png)
+
 ## Configuration
 
 This widget also supports the [shared widget properties](../widgets.md#shared-properties).

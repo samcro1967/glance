@@ -10,9 +10,13 @@ Play standard 9 x 9 Sudoku directly in Glance. Puzzles are generated locally in 
 - type: sudoku
 ```
 
-Preview:
+Preview (desktop):
 
-![Sudoku widget](../images/widgets/sudoku.png)
+![Sudoku widget on desktop](../images/widgets/sudoku.png)
+
+Preview (mobile):
+
+![Sudoku widget on mobile](../images/widgets/mobile/sudoku.png)
 
 The default difficulty is `easy`. The widget also supports `medium` and `hard`:
 

@@ -15,6 +15,10 @@ Preview:
 
 ![NASA Astronomy Picture of the Day widget](../images/widgets/nasa-apod.png)
 
+**Mobile preview:**
+
+![Nasa Apod mobile preview](../images/widgets/mobile/nasa-apod.png)
+
 ## Expanded view
 
 Use the expand control in the widget header to open a larger APOD presentation with the HD image, date, available credit and copyright information, and the full explanation. Selecting the image itself continues to use the separate shared click-to-enlarge image viewer.

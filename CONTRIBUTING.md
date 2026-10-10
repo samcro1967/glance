@@ -278,7 +278,7 @@ See [Themes](docs/themes.md) for the public theme contract.
 
 UI and presentation changes should use the repository's canonical visual-QA system rather than unrelated manual screenshots.
 
-The visual registry covers every registered widget and maintains canonical page and isolated-widget screenshots.
+The visual registry covers every registered widget and maintains canonical page and widget screenshots. Desktop widget captures isolate the selected widget; mobile widget captures preserve the full 430x900 viewport, including the surrounding dashboard context and navigation.
 
 Use:
 
@@ -302,7 +302,7 @@ Review the resulting image changes as part of the code review. Generated screens
 
 ## Documentation screenshots
 
-Browser-managed documentation screenshots are generated from the deterministic Glance test fixture. Do not manually maintain replacements for images owned by that workflow.
+Browser-managed documentation screenshots are generated from the deterministic Glance test fixture. Desktop widget documentation images use isolated element captures, while mobile widget documentation images use full 430x900 viewport captures. Do not manually maintain replacements for images owned by that workflow.
 
 Managed browser screenshots live under:
 

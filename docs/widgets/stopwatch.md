@@ -14,9 +14,13 @@ Example:
   start-on-open: false
 ```
 
-Preview:
+Preview (desktop):
 
-![Stopwatch widget](../images/widgets/stopwatch.png)
+![Stopwatch widget on desktop](../images/widgets/stopwatch.png)
+
+Preview (mobile):
+
+![Stopwatch widget on mobile](../images/widgets/mobile/stopwatch.png)
 
 Use the play/pause control to start, pause, or resume the stopwatch. The reset control clears elapsed time and recorded laps. The lap control records the current elapsed time without stopping the stopwatch.
 

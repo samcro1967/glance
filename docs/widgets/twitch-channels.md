@@ -23,6 +23,10 @@ Preview:
 
 ![Twitch Channels widget](../images/widgets/twitch-channels.png)
 
+**Mobile preview:**
+
+![Twitch Channels mobile preview](../images/widgets/mobile/twitch-channels.png)
+
 ## Configuration
 
 This widget also supports the [shared widget properties](../widgets.md#shared-properties).

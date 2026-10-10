@@ -21,6 +21,10 @@ Fetch data from an HTTP API and render it with a Go template. Custom API support
 
 ![Custom API widget rendering data from an HTTP API](../images/widgets/custom-api.png)
 
+**Mobile preview:**
+
+![Custom Api mobile preview](../images/widgets/mobile/custom-api.png)
+
 ## Configuration
 
 | Property | Type | Required | Default |

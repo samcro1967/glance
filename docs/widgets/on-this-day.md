@@ -15,6 +15,10 @@ Preview:
 
 ![On This Day widget](../images/widgets/on-this-day.png)
 
+**Mobile preview:**
+
+![On This Day mobile preview](../images/widgets/mobile/on-this-day.png)
+
 ## Configuration
 
 This widget supports the [shared widget properties](../widgets.md#shared-properties) plus `limit`, which defaults to `3`. It requires no API key and refreshes shortly after midnight by default. Article links and thumbnails are optional enrichment; an event remains usable without either.

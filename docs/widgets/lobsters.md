@@ -17,6 +17,10 @@ Display posts from [Lobsters](https://lobste.rs) or another compatible Lobsters 
 
 ![Lobsters widget displaying a list of posts](../images/widgets/lobsters.png)
 
+**Mobile preview:**
+
+![Lobsters mobile preview](../images/widgets/mobile/lobsters.png)
+
 ## Configuration
 
 | Property | Type | Required | Default |

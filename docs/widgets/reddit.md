@@ -50,6 +50,10 @@ Supported values are `vertical-list`, `horizontal-cards`, and `vertical-cards`.
 
 ![Reddit widget using the vertical-list style](../images/widgets/reddit.png)
 
+**Mobile preview:**
+
+![Reddit mobile preview](../images/widgets/mobile/reddit.png)
+
 #### Horizontal cards
 
 

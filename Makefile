@@ -211,7 +211,7 @@ help:
 	@echo "  make lighthouse              Run informational Lighthouse analysis"
 	@echo "  make visual-screenshots [VISUAL_WIDGET=name] [VISUAL_DASHBOARD=name] [VISUAL_PAGE=name] [VIEWPORT=desktop|mobile]"
 	@echo "                                Capture canonical QA pages and widgets in the selected scope"
-	@echo "                                Widget/page/dashboard scopes are mutually exclusive; VISUAL_WIDGET is desktop-only"
+	@echo "                                Widget/page/dashboard scopes are mutually exclusive; mobile widget captures use full viewport"
 	@echo "  make visual-docs [VISUAL_IMAGE=file] [VISUAL_DASHBOARD=name] [VISUAL_PAGE=name]"
 	@echo "                                Stage selected documentation screenshots for review"
 	@echo "                                NEVER modifies docs/images"

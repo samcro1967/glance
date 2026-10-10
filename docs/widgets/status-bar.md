@@ -12,6 +12,10 @@ A page can contain one or multiple status bars in `head-widgets`, one or multipl
 
 ![Full-width Status Bar showing compact weather, market, RSS, and Custom API information](../images/widgets/status-bar.png)
 
+**Mobile preview:**
+
+![Status Bar mobile preview](../images/widgets/mobile/status-bar.png)
+
 ## Supported micro-widgets
 
 Status Bar and footer micro-widgets use the same shared registry. The currently registered types are `bookmark`, `clock`, `custom-api`, `docker`, `link`, `markets`, `monitor`, `rss`, and `weather`. Registering a micro-widget makes it eligible in both containers.

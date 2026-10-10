@@ -89,10 +89,6 @@ if (widgetFilter && MODE !== 'qa') {
   throw new Error('--widget is only supported in QA mode');
 }
 
-if (widgetFilter && qaViewportName !== 'desktop') {
-  throw new Error('--widget is only supported with the desktop QA viewport');
-}
-
 async function revealNestedGroupContent(locator) {
   const tabpanels = [];
   let current = locator;
@@ -226,6 +222,93 @@ async function openPage(page, route) {
   await settle(page);
 }
 
+async function captureMobileViewport(page, output, viewport = qaViewport) {
+  const png = await page.screenshot({ path: output, animations: 'disabled' });
+  const width = png.readUInt32BE(16);
+  const height = png.readUInt32BE(20);
+  if (width !== viewport.width || height !== viewport.height) {
+    throw new Error(`Invalid mobile screenshot dimensions for ${output}: ` +
+      `${width}x${height}, expected ${viewport.width}x${viewport.height}`);
+  }
+}
+
+async function captureMobileWidget(page, locator, output, viewport = QA_VIEWPORTS.mobile) {
+  const columnIndex = await locator.evaluate(element => {
+    const column = element.closest(".page-columns > .page-column");
+    if (!column) return -1;
+    return Array.from(column.parentElement.children)
+      .filter(child => child.classList.contains("page-column"))
+      .indexOf(column);
+  });
+
+  if (columnIndex >= 0) {
+    const radio = page.locator(".mobile-navigation-input").nth(columnIndex);
+    if (!(await radio.isChecked())) {
+      await radio.locator("xpath=..").click();
+    }
+  }
+
+  if (!(await locator.isVisible())) {
+    await revealNestedGroupContent(locator);
+  }
+  await locator.waitFor({ state: "visible", timeout: 15000 });
+
+  // Extend only the capture document so bottom widgets can scroll into view.
+  // The spacer is removed after capture; production layout is unchanged.
+  const spacer = await page.evaluate(height => {
+    const element = document.createElement("div");
+    element.dataset.visualCaptureSpacer = "true";
+    element.style.height = `${height}px`;
+    element.style.flexShrink = "0";
+    const content = document.querySelector(".page-content");
+    if (!content) throw new Error("Missing page content for mobile capture");
+    content.appendChild(element);
+    return true;
+  }, viewport.height * 2);
+
+  try {
+    await locator.evaluate(element => element.scrollIntoView({
+      block: "start", inline: "nearest", behavior: "instant"
+    }));
+
+    const geometry = await locator.evaluate(element => {
+      const rect = element.getBoundingClientRect();
+      const navigation = document.querySelector(".mobile-navigation");
+      const navigationTop = navigation
+        ? navigation.getBoundingClientRect().top
+        : window.innerHeight;
+      const visibleBottom = Math.min(window.innerHeight, navigationTop);
+      return {
+        top: rect.top,
+        bottom: rect.bottom,
+        left: rect.left,
+        right: rect.right,
+        visibleBottom,
+        scrollY: window.scrollY,
+        maxScroll: document.documentElement.scrollHeight - window.innerHeight
+      };
+    });
+
+    const intersects = geometry.bottom > 0 &&
+      geometry.top < geometry.visibleBottom &&
+      geometry.right > 0 && geometry.left < viewport.width;
+
+    if (!intersects) {
+      throw new Error(
+        `Mobile widget not positioned in viewport: ${JSON.stringify(geometry)}`
+      );
+    }
+
+    await captureMobileViewport(page, output, viewport);
+  } finally {
+    if (spacer) {
+      await page.evaluate(() => {
+        document.querySelector("[data-visual-capture-spacer]")?.remove();
+      });
+    }
+  }
+}
+
 async function captureQa(browser) {
   const qaPages = selectedQaPages();
   const widgetMappings = JSON.parse(fs.readFileSync(WIDGET_MAP, 'utf8'));
@@ -246,8 +329,15 @@ async function captureQa(browser) {
     ensureCleanDirectory(qaOutputRoot);
   }
 
-  const context = await browser.newContext({ viewport: qaViewport, deviceScaleFactor: 1 });
+  // Exercise phone viewport and touch semantics, not only narrow desktop width.
+  const context = await browser.newContext({
+    viewport: qaViewport,
+    deviceScaleFactor: 1,
+    isMobile: qaViewportName !== 'desktop',
+    hasTouch: qaViewportName !== 'desktop'
+  });
   const page = await context.newPage();
+  let capturedPages = 0;
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
 
@@ -258,54 +348,98 @@ async function captureQa(browser) {
       await openPage(page, route);
 
       if (qaViewportName !== 'desktop') {
-        await page.locator('.mobile-navigation-page-links-input').evaluate(input => {
-          input.checked = false;
-        });
+        const radios = page.locator('.mobile-navigation-input');
+        const columns = page.locator('.page-columns > .page-column');
+        const count = await radios.count();
+        if (count === 0 || count !== await columns.count()) {
+          throw new Error(`Mobile column controls mismatch: ${route}`);
+        }
 
+        const assertColumn = async index => {
+          const state = await page.evaluate(expected => {
+            const inputs = [...document.querySelectorAll('.mobile-navigation-input')];
+            const columns = [...document.querySelectorAll('.page-columns > .page-column')];
+            const visible = columns.map((column, i) => ({
+              index: i,
+              visible: column.getClientRects().length > 0 && getComputedStyle(column).display !== 'none'
+            })).filter(column => column.visible).map(column => column.index);
+            const widgets = columns[expected]
+              ? [...columns[expected].querySelectorAll('.widget')].filter(widget =>
+                  widget.getClientRects().length > 0 && getComputedStyle(widget).visibility !== 'hidden'
+                ).length
+              : 0;
+            return { checked: inputs.findIndex(input => input.checked), visible, widgets };
+          }, index);
+          if (state.checked !== index || state.visible.length !== 1 || state.visible[0] !== index || state.widgets === 0) {
+            throw new Error(`Invalid mobile column state for ${route}: expected=${index + 1} actual=${JSON.stringify(state)}`);
+          }
+        };
+
+        const initiallySelected = await radios.evaluateAll(inputs =>
+          inputs.findIndex(input => input.checked)
+        );
+        if (initiallySelected < 0) {
+          throw new Error(`No mobile column selected: ${route}`);
+        }
+        const menu = page.locator('.mobile-navigation-page-links-input');
+        if (await menu.isChecked()) {
+          await menu.locator('xpath=..').click();
+        }
         await page.waitForFunction(() => {
           const navigation = document.querySelector('.mobile-navigation');
-          if (navigation === null) {
-            return false;
-          }
-
-          const navigationHeight = parseFloat(
-            getComputedStyle(document.documentElement).getPropertyValue('--mobile-navigation-height')
-          );
-
-          if (!Number.isFinite(navigationHeight)) {
-            return false;
-          }
-
-          const top = navigation.getBoundingClientRect().top;
-          return Math.abs(top - (window.innerHeight - navigationHeight)) < 1;
+          const height = parseFloat(getComputedStyle(document.documentElement)
+            .getPropertyValue('--mobile-navigation-height'));
+          return navigation && Number.isFinite(height) &&
+            Math.abs(navigation.getBoundingClientRect().top - (window.innerHeight - height)) < 1;
         });
+        await assertColumn(initiallySelected);
+
+        const output = path.join(directory, `${name}.png`);
+        await captureMobileViewport(page, output);
+        capturedPages++;
+        console.log(`QA   ${dashboard}/${name}.png`);
+
+        for (let column = 0; column < count; column++) {
+          if (column === initiallySelected) continue;
+          await radios.nth(column).locator('xpath=..').click();
+          await columns.nth(column).waitFor({ state: 'visible', timeout: 5000 });
+          await assertColumn(column);
+          const filename = `${name}-column-${column + 1}.png`;
+          await captureMobileViewport(page, path.join(directory, filename));
+          capturedPages++;
+          console.log(`QA   ${dashboard}/${filename}`);
+        }
+
+        const activeColumn = await radios.evaluateAll(inputs =>
+          inputs.findIndex(input => input.checked)
+        );
+        await menu.locator('xpath=..').click();
+        if (!(await menu.isChecked())) {
+          throw new Error(`Mobile page navigation did not open: ${route}`);
+        }
+        // Wait until the expanded menu reaches its final viewport position.
+        await page.waitForFunction(() => {
+          const navigation = document.querySelector('.mobile-navigation');
+          if (!navigation) return false;
+          const rect = navigation.getBoundingClientRect();
+          return rect.top >= -1 && Math.abs(rect.bottom - window.innerHeight) < 1;
+        });
+        await assertColumn(activeColumn);
+        const filename = `${name}-navigation-expanded.png`;
+        await captureMobileViewport(page, path.join(directory, filename));
+        capturedPages++;
+        console.log(`QA   ${dashboard}/${filename}`);
+      } else {
+        const output = path.join(directory, `${name}.png`);
+        await page.screenshot({ path: output, fullPage: true });
+        capturedPages++;
+        console.log(`QA   ${dashboard}/${name}.png`);
       }
 
-      const output = path.join(directory, `${name}.png`);
-      await page.screenshot({
-        path: output,
-        fullPage: qaViewportName === 'desktop'
-      });
-      console.log(`QA   ${dashboard}/${name}.png`);
     }
   }
 
-  if (qaViewportName !== 'desktop') {
-    console.log('');
-    console.log(`Page screenshots:   ${qaPages.length}`);
-    console.log('Widget screenshots: skipped for non-desktop QA viewport');
-    console.log(`Total screenshots:  ${qaPages.length}`);
-
-    await context.close();
-
-    if (pageErrors.length) {
-      console.warn(`Browser page errors observed: ${pageErrors.length}`);
-    }
-
-    return;
-  }
-
-  const widgetDirectory = path.join(SCREENSHOT_ROOT, 'widgets');
+  const widgetDirectory = path.join(qaOutputRoot, 'widgets');
   fs.mkdirSync(widgetDirectory, { recursive: true });
 
   const allowedRoutes = selectedRoutes();
@@ -336,10 +470,16 @@ async function captureQa(browser) {
     for (const [widgetType, recipe] of widgets) {
       try {
         const locator = page.locator(recipe.selector).nth(recipe.nth || 0);
-        await locator.waitFor({ state: 'visible', timeout: 5000 });
-
         const output = path.join(widgetDirectory, `${widgetType}.png`);
-        await locator.screenshot({ path: output });
+        if (qaViewportName !== "desktop") {
+          await captureMobileWidget(page, locator, output);
+        } else {
+          if (!(await locator.isVisible())) {
+            await revealNestedGroupContent(locator);
+          }
+          await locator.waitFor({ state: "visible", timeout: 5000 });
+          await locator.screenshot({ path: output });
+        }
         console.log(`WIDGET ${widgetType}.png`);
       } catch (error) {
         widgetFailures.push({
@@ -357,7 +497,6 @@ async function captureQa(browser) {
   const capturedWidgets = expectedWidgets - widgetFailures.length;
 
   console.log('');
-  const capturedPages = widgetFilter ? 0 : qaPages.length;
 
   console.log(`Page screenshots:   ${capturedPages}`);
   console.log(`Widget screenshots: ${capturedWidgets}/${expectedWidgets}`);
@@ -443,9 +582,13 @@ async function captureDocs(browser) {
 
   for (const [filename, recipe] of browserMappings) {
     const viewport = recipe.viewport || DEFAULT_VIEWPORT;
+    const mobile = viewport.width === QA_VIEWPORTS.mobile.width &&
+      viewport.height === QA_VIEWPORTS.mobile.height;
     const context = await browser.newContext({
       viewport,
-      deviceScaleFactor: 1
+      deviceScaleFactor: 1,
+      isMobile: mobile,
+      hasTouch: mobile
     });
     const page = await context.newPage();
 
@@ -464,12 +607,15 @@ async function captureDocs(browser) {
       if (recipe.capture === 'element') {
         const locator = page.locator(recipe.selector).nth(recipe.nth || 0);
 
-        if (!(await locator.isVisible())) {
-          await revealNestedGroupContent(locator);
+        if (mobile) {
+          await captureMobileWidget(page, locator, output, viewport);
+        } else {
+          if (!(await locator.isVisible())) {
+            await revealNestedGroupContent(locator);
+          }
+          await locator.waitFor({ state: "visible", timeout: 15000 });
+          await locator.screenshot({ path: output });
         }
-
-        await locator.waitFor({ state: 'visible', timeout: 15000 });
-        await locator.screenshot({ path: output });
       } else if (recipe.capture === 'page') {
         await page.screenshot({
           path: output,
