@@ -31,6 +31,10 @@ Weather supports [expanded widget views](../expanded-views.md). Use the expand a
 
 ![Weather widget showing current conditions, details, hourly temperatures, and a 7-day forecast](../images/widgets/weather.png)
 
+**Mobile preview:**
+
+![Weather mobile preview](../images/widgets/mobile/weather.png)
+
 The widget can display four independently configurable sections: current conditions, weather details, an hourly temperature and precipitation graph, and a 7-day forecast. All four sections are enabled by default.
 
 In the hourly graph, each bar represents a 2 hour interval. The background highlight represents daylight between sunrise and sunset, and precipitation markers identify periods with a high chance of precipitation. You can hover over the bars to view the exact temperature for that time.

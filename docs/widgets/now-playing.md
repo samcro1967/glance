@@ -17,6 +17,10 @@ Preview:
 
 ![Now Playing widget](../images/widgets/now-playing.png)
 
+**Mobile preview:**
+
+![Now Playing mobile preview](../images/widgets/mobile/now-playing.png)
+
 ## Expanded view
 
 Use the expand control in the widget header to open detailed playback-session cards. The expanded view can show artwork, title and subtitle, playback state, user, media type, play method, client and device information, and playback progress from the same normalized session data used by the compact widget.

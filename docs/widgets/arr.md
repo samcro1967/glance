@@ -18,6 +18,10 @@ Preview:
 
 ![ARR widget](../images/widgets/arr.png)
 
+**Mobile preview:**
+
+![Arr mobile preview](../images/widgets/mobile/arr.png)
+
 ## Configuration
 
 This widget also supports the [shared widget properties](../widgets.md#shared-properties).

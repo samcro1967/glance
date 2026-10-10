@@ -25,6 +25,10 @@ Sources can be remote HTTP/HTTPS URLs or local files. Events from all available 
 
 ![ICS Events widget showing upcoming iCalendar events](../images/widgets/ics-events.png)
 
+**Mobile preview:**
+
+![Ics Events mobile preview](../images/widgets/mobile/ics-events.png)
+
 ## Configuration
 
 This widget also supports the [shared widget properties](../widgets.md#shared-properties).

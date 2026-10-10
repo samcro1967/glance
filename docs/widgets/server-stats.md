@@ -29,6 +29,10 @@ In the event that the CPU temperature goes over 80°C, a flame icon will appear 
 
 ![Server Stats widget](../images/widgets/server-stats.png)
 
+**Mobile preview:**
+
+![Server Stats mobile preview](../images/widgets/mobile/server-stats.png)
+
 ## Expanded view
 
 Use the expand control in the widget header to open detailed cards for the configured servers. The expanded view shows reachability, platform and uptime information, CPU load and temperature, RAM and optional swap usage, and each visible mountpoint with its individual storage usage.

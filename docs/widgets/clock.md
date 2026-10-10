@@ -22,6 +22,10 @@ Display a clock showing the current time and date. Optionally, also display the 
 
 ![Clock widget with local time and additional timezones](../images/widgets/clock.png)
 
+**Mobile preview:**
+
+![Clock mobile preview](../images/widgets/mobile/clock.png)
+
 ## Configuration
 
 This widget also supports the [shared widget properties](../widgets.md#shared-properties).

@@ -14,6 +14,10 @@ Display stories from [Hacker News](https://news.ycombinator.com/) with configura
 
 ![Hacker News widget displaying a list of stories](../images/widgets/hacker-news.png)
 
+**Mobile preview:**
+
+![Hacker News mobile preview](../images/widgets/mobile/hacker-news.png)
+
 ## Configuration
 
 | Property | Type | Required | Default |

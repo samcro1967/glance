@@ -513,6 +513,33 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+
+  if (url.pathname === "/web/20200615/http://dilbert.com/strip/2020-06-15") {
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(
+      "<!doctype html><html><body>" +
+      "<div class=\"comic-item-container js-comic\" " +
+      "data-id=\"2020-06-15\" data-title=\"Visual QA Office Comic\">" +
+      "<img class=\"img-responsive img-comic\" width=\"900\" height=\"300\" " +
+      "src=\"/visual-dilbert/comic.png\">" +
+      "</div></body></html>"
+    );
+    return;
+  }
+
+  if (url.pathname === "/visual-dilbert/comic.png") {
+    const image = fs.readFileSync(
+      path.join(__dirname, "dilbert-comic.png")
+    );
+    res.writeHead(200, {
+      "Content-Type": "image/png",
+      "Content-Length": image.length,
+      "Cache-Control": "public, max-age=3600"
+    });
+    res.end(image);
+    return;
+  }
+
   res.writeHead(404, { 'Content-Type': 'text/plain' });
   res.end('Not found');
 });

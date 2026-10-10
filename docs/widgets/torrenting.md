@@ -27,6 +27,10 @@ Preview:
 
 ![Torrenting widget](../images/widgets/torrenting.png)
 
+**Mobile preview:**
+
+![Torrenting mobile preview](../images/widgets/mobile/torrenting.png)
+
 ## Configuration
 
 This widget also supports the [shared widget properties](../widgets.md#shared-properties).

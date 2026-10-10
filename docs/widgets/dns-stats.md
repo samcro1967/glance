@@ -20,6 +20,10 @@ Preview:
 
 ![DNS Stats widget](../images/widgets/dns-stats.png)
 
+**Mobile preview:**
+
+![Dns Stats mobile preview](../images/widgets/mobile/dns-stats.png)
+
 > [!NOTE]
 >
 > The available summary metrics depend on the provider. AdGuard Home reports average latency; Pi-hole and Technitium report blocked-domain totals; Blocky can report both latency and denylist cache entries.

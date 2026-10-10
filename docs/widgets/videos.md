@@ -15,7 +15,11 @@ Video thumbnails link to the same video as their title and follow the widget's `
     - UCBJycsmduvYEL83R_U4JriQ
 ```
 
-![Videos widget using the default horizontal-card layout](../images/widgets/videos.png)
+![Videos widget using the grid-cards layout](../images/widgets/videos.png)
+
+**Mobile preview:**
+
+![Videos mobile preview](../images/widgets/mobile/videos.png)
 
 ## Configuration
 
@@ -65,10 +69,18 @@ Sets the maximum number of videos displayed after results from all configured ch
 
 Supported values are `horizontal-cards`, `vertical-list`, and `grid-cards`.
 
+#### Horizontal cards
+
+![Videos horizontal-cards layout](../images/widgets/videos-horizontal-cards.png)
+
 #### Vertical list
+
+![Videos vertical-list layout](../images/widgets/videos-vertical-list.png)
 
 
 #### Grid cards
+
+![Videos grid-cards layout](../images/widgets/videos.png)
 
 
 ### `collapse-after`

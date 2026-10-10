@@ -19,6 +19,10 @@ Preview:
 
 ![Calculator widget](../images/widgets/calculator.png)
 
+**Mobile preview:**
+
+![Calculator mobile preview](../images/widgets/mobile/calculator.png)
+
 No external service or network connection is required. Calculations are performed locally in the browser.
 
 The widget has no required configuration properties beyond the standard [shared widget properties](../widgets.md#shared-properties).

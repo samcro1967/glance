@@ -30,6 +30,10 @@ Render GitHub Flavored Markdown from inline configuration or a file accessible t
 
 ![Markdown widget rendering formatted text](../images/widgets/markdown.png)
 
+**Mobile preview:**
+
+![Markdown mobile preview](../images/widgets/mobile/markdown.png)
+
 ## Configuration
 | Property | Type | Required | Default |
 | --- | --- | --- | --- |

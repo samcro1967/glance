@@ -21,6 +21,10 @@ Preview:
 
 ![Timer widget](../images/widgets/timer.png)
 
+**Mobile preview:**
+
+![Timer mobile preview](../images/widgets/mobile/timer.png)
+
 To edit a timer, click its name or target date and time. To reorder timers, drag and drop them by grabbing the top side of a timer. Use the trash icon to delete a timer.
 
 Countdowns display days, hours, and minutes as applicable. Once a target time has passed, the timer remains visible and shows the elapsed time followed by `ago`.

@@ -10,7 +10,17 @@ A page can contain one or multiple status bars in `head-widgets`, one or multipl
 
 ## Preview
 
+**Ticker mode:**
+
 ![Full-width Status Bar showing compact weather, market, RSS, and Custom API information](../images/widgets/status-bar.png)
+
+**Wrap mode:**
+
+![Status Bar in wrap mode](../images/widgets/status-bar-wrap.png)
+
+**Mobile preview:**
+
+![Status Bar mobile preview](../images/widgets/mobile/status-bar.png)
 
 ## Supported micro-widgets
 

@@ -19,6 +19,10 @@ Preview:
 
 ![Unit Converter widget](../images/widgets/unit-converter.png)
 
+**Mobile preview:**
+
+![Unit Converter mobile preview](../images/widgets/mobile/unit-converter.png)
+
 The widget includes 35 conversion categories and 379 units covering common measurement, scientific, digital-information, electrical, and fuel-economy conversions.
 
 No external service or network connection is required. The conversion catalog is built into Glance and conversions are performed locally in the browser.
