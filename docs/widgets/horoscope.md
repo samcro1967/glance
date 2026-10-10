@@ -29,6 +29,10 @@ Recommended grouped presentation:
 
 The default provider is `free-horoscope-api`, which currently exposes free keyless JSON endpoints for all twelve zodiac signs. No birthday, birth year, birth time, location, account, or API key is sent by this widget.
 
+**Mobile preview:**
+
+![Horoscope mobile preview](../images/widgets/mobile/horoscope.png)
+
 ## Configuration
 
 This widget also supports the [shared widget properties](../widgets.md#shared-properties).

@@ -333,6 +333,38 @@ for widget, (page, styles) in {
         if f"../images/{filename}" not in document:
             fail(f"{filename}: not referenced by {widget} documentation")
 
+# Every registered widget must have a dedicated mobile documentation recipe.
+# The browser capture path uses mobile emulation and viewport screenshots.
+MOBILE_VIEWPORT = {"width": 430, "height": 900}
+mobile_expected = {f"widgets/mobile/{widget}.png" for widget in registered}
+mobile_actual = {name for name in docs_images if name.startswith("widgets/mobile/")}
+missing_mobile = sorted(mobile_expected - mobile_actual)
+unknown_mobile = sorted(mobile_actual - mobile_expected)
+invalid_mobile = []
+for widget in sorted(registered):
+    name = f"widgets/mobile/{widget}.png"
+    recipe = docs_images.get(name)
+    canonical = widget_recipes.get(widget)
+    if not isinstance(recipe, dict) or not isinstance(canonical, dict):
+        continue
+    if (
+        recipe.get("kind") != "browser"
+        or recipe.get("capture") != "element"
+        or recipe.get("viewport") != MOBILE_VIEWPORT
+        or recipe.get("route") != canonical.get("route")
+        or recipe.get("selector") != canonical.get("selector")
+        or recipe.get("nth", 0) != canonical.get("nth", 0)
+    ):
+        invalid_mobile.append(name)
+if missing_mobile or unknown_mobile or invalid_mobile:
+    fail(
+        "mobile widget screenshot contract failed: "
+        + f"missing={missing_mobile}, unknown={unknown_mobile}, "
+        + f"invalid={invalid_mobile}"
+    )
+print(f"Mobile widget screenshot mappings: {len(mobile_expected)}/{len(registered)}")
+
+
 browser_images = set()
 static_images = set()
 invalid_docs_recipes = []

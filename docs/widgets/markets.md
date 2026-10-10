@@ -31,6 +31,12 @@ Preview:
 
 ![Markets mobile preview](../images/widgets/mobile/markets.png)
 
+The `stocks` widget type is a compatibility alias for `markets` and uses the same implementation and configuration options.
+
+**Stocks mobile preview:**
+
+![Stocks mobile preview](../images/widgets/mobile/stocks.png)
+
 ## Expanded view
 
 Use the expand control in the widget header to open a larger market overview. Each configured market is presented with its symbol and name, current value, daily percentage change, and a larger version of its chart while retaining configured symbol and chart links.
