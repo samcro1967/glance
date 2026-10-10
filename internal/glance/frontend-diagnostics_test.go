@@ -765,6 +765,8 @@ func TestFrontendRuntimeDiagnosticsActiveResultClassification(t *testing.T) {
 		"web_vitals_snapshot",
 		"lcp_attribution",
 		"cls_attribution",
+		"cls_excluded_shift",
+		"cls_excluded_shift_context",
 		"cls_layout_context",
 		"performance_snapshot_complete",
 		"long_task_capture_start",
