@@ -7,6 +7,10 @@ Render trusted HTML directly inside a Glance page.
 
 ![HTML widget](../images/widgets/html.png)
 
+**Mobile preview:**
+
+![Html mobile preview](../images/widgets/mobile/html.png)
+
 ## Quick start
 
 ```yaml

@@ -14,6 +14,10 @@ Preview:
 
 ![Animal of the Day widget](../images/widgets/animal-of-the-day.png)
 
+**Mobile preview:**
+
+![Animal Of The Day mobile preview](../images/widgets/mobile/animal-of-the-day.png)
+
 ## Configuration
 
 This widget supports the [shared widget properties](../widgets.md#shared-properties). It requires no API key and refreshes shortly after midnight by default. Photo attribution and license information are displayed. Candidates whose default photo has no supported Creative Commons license are excluded. Conservation status is shown when iNaturalist provides it.

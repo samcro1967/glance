@@ -48,15 +48,25 @@ Supported values are `vertical-list`, `horizontal-cards`, and `vertical-cards`.
 
 #### Vertical list
 
-![Reddit widget using the vertical-list style](../images/widgets/reddit.png)
+![Reddit widget using the vertical-list style](../images/widgets/reddit-vertical-list.png)
+
+**Mobile preview:**
+
+![Reddit mobile preview](../images/widgets/mobile/reddit.png)
 
 #### Horizontal cards
+
+![Reddit horizontal-cards layout](../images/widgets/reddit.png)
 
 
 #### Vertical cards
 
+![Reddit vertical-cards layout](../images/widgets/reddit-vertical-cards.png)
+
 
 ### `show-thumbnails`
+
+![Reddit vertical-list layout with thumbnails enabled](../images/widgets/reddit-vertical-list-thumbnails.png)
 
 Shows thumbnails when using `vertical-list` and Reddit provides a usable thumbnail URL.
 

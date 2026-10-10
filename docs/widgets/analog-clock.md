@@ -24,6 +24,10 @@ Display an analog clock showing the current time. Optionally, display the date, 
 
 ![Analog Clock widget with date and numerical dial markers](../images/widgets/analog-clock.png)
 
+**Mobile preview:**
+
+![Analog Clock mobile preview](../images/widgets/mobile/analog-clock.png)
+
 ## Configuration
 
 This widget also supports the [shared widget properties](../widgets.md#shared-properties).

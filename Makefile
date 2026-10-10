@@ -6,7 +6,7 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: help deps build goreleaser-check frontend-audit frontend-unit frontend-check validate validate-all test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-restart test-instance-status test-instance-stop test-prod-start test-prod-restart test-prod-status test-prod-stop test-container-restart test test-race test-count test-race-count fuzz fuzz-all fmt-check diff-check staged-check docs-check check coverage vuln image-vuln status staged-diff upstream-status upstream-dev-status branch abandon park push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-retry release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-nonruntime deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final lint lighthouse performance-check performance
+.PHONY: export help deps build goreleaser-check frontend-audit frontend-unit frontend-check validate validate-all test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-restart test-instance-status test-instance-stop test-prod-start test-prod-restart test-prod-status test-prod-stop test-container-restart test test-race test-count test-race-count fuzz fuzz-all fmt-check diff-check staged-check docs-check check coverage vuln image-vuln status staged-diff upstream-status upstream-dev-status branch abandon park push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-retry release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-nonruntime deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final lint lighthouse performance-check performance
 
 COUNT ?= 10
 FUZZTIME ?= 30s
@@ -57,6 +57,7 @@ IMAGE_WORKFLOW ?= 344869583
 RELEASE_WORKFLOW ?= 344853462
 BRANCH ?= $(shell git branch --show-current 2>/dev/null)
 NEW_BRANCH ?=
+EXPORT_FILE ?=
 
 DEV_BRANCH ?= dev
 STABLE_BRANCH ?= main
@@ -103,6 +104,7 @@ help:
 	@echo "  make ship-nonruntime TITLE='Description' [BODY_FILE=file]"
 	@echo "                                Complete guarded non-runtime workflow; no release or deployment"
 	@echo "  make workflow-status          Show repository, release, CI, image, and deployment state"
+	@echo "  make export [EXPORT_FILE=path] Export clean committed HEAD as a source ZIP"
 	@echo
 	@echo "NORMAL ORDER:"
 	@echo "  1. make branch NEW_BRANCH=feature/name"
@@ -211,7 +213,7 @@ help:
 	@echo "  make lighthouse              Run informational Lighthouse analysis"
 	@echo "  make visual-screenshots [VISUAL_WIDGET=name] [VISUAL_DASHBOARD=name] [VISUAL_PAGE=name] [VIEWPORT=desktop|mobile]"
 	@echo "                                Capture canonical QA pages and widgets in the selected scope"
-	@echo "                                Widget/page/dashboard scopes are mutually exclusive; VISUAL_WIDGET is desktop-only"
+	@echo "                                Widget/page/dashboard scopes are mutually exclusive; mobile widget captures use full viewport"
 	@echo "  make visual-docs [VISUAL_IMAGE=file] [VISUAL_DASHBOARD=name] [VISUAL_PAGE=name]"
 	@echo "                                Stage selected documentation screenshots for review"
 	@echo "                                NEVER modifies docs/images"
@@ -412,6 +414,17 @@ vuln:
 
 image-vuln:
 	@image="$(IMAGE)"; grype="$(GRYPE)"; if [ -z "$$image" ]; then echo "IMAGE is required. Example: make image-vuln IMAGE=$(DEPLOY_DEV_IMAGE)"; exit 2; fi; if ! command -v "$$grype" >/dev/null 2>&1; then if [ -x "$(GRYPE_FALLBACK)" ]; then grype="$(GRYPE_FALLBACK)"; else echo "WARNING: CONTAINER VULNERABILITY SCAN UNAVAILABLE"; echo "Image: $$image"; echo "Grype executable was not found. Pipeline will continue without container vulnerability visibility."; exit 0; fi; fi; echo "=== CONTAINER VULNERABILITY SCAN ==="; echo "Image: $$image"; "$$grype" version || true; echo; if ! "$$grype" "$$image" --only-fixed; then echo; echo "WARNING: CONTAINER VULNERABILITY SCAN FAILED"; echo "Image: $$image"; echo "Security visibility is unavailable for this artifact. Pipeline will continue."; fi; echo; echo "Container vulnerability findings are informational. Pipeline will continue."
+
+export:
+	@set -euo pipefail; \
+	if [ -n "$$(git status --porcelain)" ]; then echo "Export requires a clean working tree."; git status --short; exit 1; fi; \
+	sha=$$(git rev-parse --short HEAD); \
+	name=glance-source-$$sha; \
+	file="$(EXPORT_FILE)"; \
+	if [ -z "$$file" ]; then file="$$name.zip"; fi; \
+	if [ -e "$$file" ]; then echo "Refusing to overwrite existing archive: $$file"; exit 1; fi; \
+	git archive --format=zip --prefix="$$name/" --output="$$file" HEAD; \
+	echo "Exported HEAD $$sha to $$file"
 
 status:
 	@echo "=== BRANCH ==="
@@ -2238,6 +2251,7 @@ test-instance-fixture-stop:
 test-instance-start:
 	@set -euo pipefail; \
 	$(MAKE) --no-print-directory test-all-stop >/dev/null; \
+	python3 testdata/visual/generate-calendar.py; \
 	$(MAKE) --no-print-directory test-instance-fixture-start; \
 	if ss -ltn "sport = :$(TEST_PORT)" 2>/dev/null | tail -n +2 | grep -q .; then \
 		echo "Test port $(TEST_PORT) is already in use."; \
@@ -2337,6 +2351,7 @@ test-instance-stop:
 			done; \
 		fi; \
 	fi; \
+	rm -f testdata/visual/generated-calendar.ics; \
 	rm -f "$(TEST_PID_FILE)" "$(TEST_BINARY)" "$(TEST_LOG)"; \
 	$(MAKE) --no-print-directory test-instance-fixture-stop; \
 	echo "Test instance stopped and runtime artifacts removed."; \

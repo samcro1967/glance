@@ -26,6 +26,10 @@ Groups can contain other groups for nested tab navigation. A `split-column` widg
 
 ![Group widget with multiple tabbed child widgets](../images/widgets/group.png)
 
+**Mobile preview:**
+
+![Group mobile preview](../images/widgets/mobile/group.png)
+
 ## Configuration
 
 This widget also supports the [shared widget properties](../widgets.md#shared-properties).

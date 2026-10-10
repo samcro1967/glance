@@ -44,6 +44,10 @@ Organize frequently used links into configurable groups with optional colors, ic
 
 ![Bookmarks widget with multiple groups of links](../images/widgets/bookmarks.png)
 
+**Mobile preview:**
+
+![Bookmarks mobile preview](../images/widgets/mobile/bookmarks.png)
+
 
 ## Configuration
 

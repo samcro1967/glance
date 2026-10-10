@@ -371,6 +371,78 @@
     "route": "/homelab-monitoring",
     "selector": ".visual-fixture-monitor"
   },
+  "widgets/reddit-vertical-cards.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "selector": ".visual-variant-reddit-vertical-cards"
+  },
+  "widgets/reddit-vertical-list-thumbnails.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "selector": ".visual-variant-reddit-vertical-list-thumbnails"
+  },
+  "widgets/reddit-vertical-list.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "selector": ".visual-variant-reddit-vertical-list"
+  },
+  "widgets/rss-detailed-list.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "selector": ".visual-variant-rss-detailed-list"
+  },
+  "widgets/rss-horizontal-cards-2.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "selector": ".visual-variant-rss-horizontal-cards-2"
+  },
+  "widgets/rss-vertical-list.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "selector": ".visual-variant-rss-vertical-list"
+  },
+  "widgets/split-column-four-columns.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/layout-composition",
+    "selector": ".visual-variant-split-column-four-columns"
+  },
+  "widgets/split-column-masonry.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/layout-composition",
+    "selector": ".visual-variant-split-column-masonry"
+  },
+  "widgets/split-column-three-columns.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/layout-composition",
+    "selector": ".visual-variant-split-column-three-columns"
+  },
+  "widgets/status-bar-wrap.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/layout-composition",
+    "selector": ".visual-variant-status-bar-wrap"
+  },
+  "widgets/videos-horizontal-cards.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "selector": ".visual-variant-videos-horizontal-cards"
+  },
+  "widgets/videos-vertical-list.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "selector": ".visual-variant-videos-vertical-list"
+  },
   "widgets/reddit.png": {
     "kind": "browser",
     "capture": "element",
@@ -832,5 +904,545 @@
     "route": "/feeds-content",
     "click": ".visual-fixture-videos [data-widget-expand]",
     "selector": ".widget-expand-dialog"
+  },
+  "widgets/mobile/sudoku.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/utilities",
+    "selector": ".visual-fixture-sudoku",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/stopwatch.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-stopwatch",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/2048.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/utilities",
+    "selector": ".visual-fixture-2048",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/analog-clock.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-analog-clock",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/animal-of-the-day.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/daily-discovery",
+    "selector": ".widget-type-animal-of-the-day",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/arr.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-arr",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/bookmarks.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/search-custom-content",
+    "selector": ".visual-fixture-bookmarks",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/calculator.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/utilities",
+    "selector": ".visual-fixture-calculator",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/calendar-legacy.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-calendar-legacy",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/calendar.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-calendar",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/change-detection.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-change-detection",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/clock.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-clock",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/custom-api.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/search-custom-content",
+    "selector": ".visual-fixture-custom-api",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/dilbert.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "selector": ".visual-fixture-dilbert",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/dns-stats.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-dns-stats",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/docker-containers.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-docker-containers",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/environment.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-environment",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/extension.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/search-custom-content",
+    "selector": ".visual-fixture-extension",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/group.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/layout-composition",
+    "selector": ".visual-fixture-group",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/hacker-news.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "selector": ".visual-fixture-hacker-news",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/html.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/search-custom-content",
+    "selector": ".visual-fixture-html-content",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/ics-events.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-ics-events",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/iframe.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/search-custom-content",
+    "selector": ".visual-fixture-iframe",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/latest-media.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-latest-media",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/lobsters.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "selector": ".visual-fixture-lobsters",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/markdown.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/search-custom-content",
+    "selector": ".visual-fixture-markdown",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/markets.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/markets-streaming",
+    "selector": ".visual-fixture-markets",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/media-history.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-media-history",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/minesweeper.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/utilities",
+    "selector": ".visual-fixture-minesweeper",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/monitor.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-monitor",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/nasa-apod.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/daily-discovery",
+    "selector": ".widget-type-nasa-apod",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/now-playing.png": {
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-now-playing",
+    "kind": "browser",
+    "capture": "element",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/on-this-day.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/daily-discovery",
+    "selector": ".widget-type-on-this-day",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/prometheus.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-prometheus",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/quote-of-the-day.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/daily-discovery",
+    "selector": ".widget-type-quote-of-the-day",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/reddit.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "selector": ".visual-fixture-reddit",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/releases.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/development-releases",
+    "selector": ".visual-fixture-releases",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/repository.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/development-releases",
+    "selector": ".visual-fixture-repository",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/rss.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "selector": ".visual-fixture-rss",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/search.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/search-custom-content",
+    "selector": ".visual-fixture-search",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/seerr.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-seerr",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/server-stats.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-server-stats",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/split-column.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/layout-composition",
+    "selector": ".visual-fixture-split-column",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/stack.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/layout-composition",
+    "selector": ".visual-fixture-stack",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/status-bar.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/layout-composition",
+    "selector": ".visual-fixture-status-bar",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/timer.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-timer",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/torrenting.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-torrenting",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/trivia.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/daily-discovery",
+    "selector": ".widget-type-trivia",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/twitch-channels.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/markets-streaming",
+    "selector": ".visual-fixture-twitch-channels",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/twitch-top-games.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/markets-streaming",
+    "selector": ".visual-fixture-twitch-top-games",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/unit-converter.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/utilities",
+    "selector": ".visual-fixture-unit-converter",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/videos.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/feeds-content",
+    "selector": ".visual-fixture-videos",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/weather.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/date-time-weather",
+    "selector": ".visual-fixture-weather",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
+  "widgets/mobile/word-of-the-day.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/daily-discovery",
+    "selector": ".widget-type-word-of-the-day",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
   }
 }

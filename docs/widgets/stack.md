@@ -53,6 +53,10 @@ In this example, the group has two tabs: `News` and `Social`. Selecting `News` d
 
 ![Group tabs containing vertically stacked child widgets](../images/widgets/stack.png)
 
+**Mobile preview:**
+
+![Stack mobile preview](../images/widgets/mobile/stack.png)
+
 
 ---
 

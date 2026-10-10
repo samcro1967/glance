@@ -14,6 +14,10 @@ Preview:
 
 ![Trivia widget](../images/widgets/trivia.png)
 
+**Mobile preview:**
+
+![Trivia mobile preview](../images/widgets/mobile/trivia.png)
+
 ## Configuration
 
 This widget supports the [shared widget properties](../widgets.md#shared-properties). It requires no API key. It refreshes shortly after midnight by default. Provider HTML entities are decoded before rendering and answer choices are shuffled once when fresh content is accepted.

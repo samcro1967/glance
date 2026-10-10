@@ -8,6 +8,10 @@ Example:
 
 ![iframe widget](../images/widgets/iframe.png)
 
+**Mobile preview:**
+
+![Iframe mobile preview](../images/widgets/mobile/iframe.png)
+
 ## Quick start
 
 

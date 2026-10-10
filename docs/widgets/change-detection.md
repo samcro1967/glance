@@ -18,6 +18,10 @@ Preview:
 
 ![ChangeDetection.io widget preview](../images/widgets/change-detection.png)
 
+**Mobile preview:**
+
+![Change Detection mobile preview](../images/widgets/mobile/change-detection.png)
+
 ## Configuration
 
 This widget also supports the [shared widget properties](../widgets.md#shared-properties).

@@ -25,6 +25,10 @@ To include pollen data:
 
 ![Environment widget showing air quality, UV, pollutant measurements, and pollen conditions](../images/widgets/environment.png)
 
+**Mobile preview:**
+
+![Environment mobile preview](../images/widgets/mobile/environment.png)
+
 The compact view emphasizes the current US AQI and UV index, followed by PM2.5, PM10, ozone, and nitrogen dioxide measurements. When pollen is configured, it also displays the current overall pollen risk and up to three active pollen species.
 
 Use the expand control in the widget header for additional detail. The expanded view includes US and European AQI, additional pollutant measurements, the available air-quality and UV forecast, the pollen forecast, and all currently active pollen species.

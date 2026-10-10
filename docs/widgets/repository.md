@@ -20,6 +20,10 @@ Preview:
 
 ![Repository widget](../images/widgets/repository.png)
 
+**Mobile preview:**
+
+![Repository mobile preview](../images/widgets/mobile/repository.png)
+
 ## Configuration
 
 This widget also supports the [shared widget properties](../widgets.md#shared-properties).

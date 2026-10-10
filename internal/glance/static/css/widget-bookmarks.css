@@ -38,7 +38,7 @@
 }
 
 .bookmarks-group-title {
-    color: var(--theme-heading-text-color, var(--theme-text-color, var(--color-text-base)));
+    color: var(--bookmarks-group-color);
 }
 
 .bookmarks-link {

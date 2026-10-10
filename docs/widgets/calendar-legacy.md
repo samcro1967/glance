@@ -15,6 +15,10 @@ Display a calendar.
 
 ![Legacy Calendar widget](../images/widgets/calendar-legacy.png)
 
+**Mobile preview:**
+
+![Calendar Legacy mobile preview](../images/widgets/mobile/calendar-legacy.png)
+
 > [!NOTE]
 >
 > This widget is deprecated and may be removed in a future version.

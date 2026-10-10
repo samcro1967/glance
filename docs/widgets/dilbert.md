@@ -14,6 +14,10 @@ Preview:
 
 ![Dilbert widget preview](../images/widgets/dilbert.png)
 
+**Mobile preview:**
+
+![Dilbert mobile preview](../images/widgets/mobile/dilbert.png)
+
 The comic is scaled to the available widget width. Click or keyboard-activate the comic to open a larger viewport-constrained view; press Escape, use the close button, or click the backdrop to close it.
 
 ## Configuration

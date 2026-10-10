@@ -14,6 +14,10 @@ Preview:
 
 ![Minesweeper widget](../images/widgets/minesweeper.png)
 
+**Mobile preview:**
+
+![Minesweeper mobile preview](../images/widgets/mobile/minesweeper.png)
+
 The default difficulty is `beginner`. The widget also supports `intermediate` and `expert`:
 
 ```yaml

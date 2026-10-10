@@ -17,6 +17,10 @@ Preview:
 
 ![Latest Media widget](../images/widgets/latest-media.png)
 
+**Mobile preview:**
+
+![Latest Media mobile preview](../images/widgets/mobile/latest-media.png)
+
 ## Expanded view
 
 Use the expand control in the widget header to open a richer view of the newest library additions. The expanded cards provide more room for artwork, title and subtitle, media type, duration, added date, and summary when those fields are available from the provider.

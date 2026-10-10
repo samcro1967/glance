@@ -35,6 +35,10 @@ Preview:
 
 ![Monitor widget](../images/widgets/monitor.png)
 
+**Mobile preview:**
+
+![Monitor mobile preview](../images/widgets/mobile/monitor.png)
+
 You can hover over the "ERROR" text to view more information.
 
 ## Critical status

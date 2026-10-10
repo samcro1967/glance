@@ -17,6 +17,10 @@ Preview:
 
 ![Seerr widget](../images/widgets/seerr.png)
 
+**Mobile preview:**
+
+![Seerr mobile preview](../images/widgets/mobile/seerr.png)
+
 ## Expanded view
 
 Use the expand control in the widget header to open a richer presentation of the configured Seerr view. Expanded cards provide more room for artwork, title and subtitle, status, date, media type, and summary when those fields are available.

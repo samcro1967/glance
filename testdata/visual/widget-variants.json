@@ -1,4 +1,61 @@
 {
+  "animal-of-the-day": {
+    "variants": ["standard"]
+  },
+  "arr": {
+    "variants": ["standard"]
+  },
+  "astrology": {
+    "variants": ["sun-moon", "planets", "aspects", "upcoming"]
+  },
+  "astronomy": {
+    "variants": ["sun-moon", "planets", "stars", "upcoming"]
+  },
+  "dilbert": {
+    "variants": ["standard"]
+  },
+  "environment": {
+    "variants": ["standard"]
+  },
+  "horoscope": {
+    "variants": ["daily", "weekly", "monthly"]
+  },
+  "latest-media": {
+    "variants": ["standard"]
+  },
+  "media-history": {
+    "variants": ["standard"]
+  },
+  "nasa-apod": {
+    "variants": ["standard"]
+  },
+  "now-playing": {
+    "variants": ["standard"]
+  },
+  "on-this-day": {
+    "variants": ["standard"]
+  },
+  "quote-of-the-day": {
+    "variants": ["standard"]
+  },
+  "seerr": {
+    "variants": ["standard"]
+  },
+  "stopwatch": {
+    "variants": ["standard"]
+  },
+  "sudoku": {
+    "variants": ["standard"]
+  },
+  "torrenting": {
+    "variants": ["standard"]
+  },
+  "trivia": {
+    "variants": ["standard"]
+  },
+  "word-of-the-day": {
+    "variants": ["standard"]
+  },
   "analog-clock": {
     "variants": ["standard"]
   },

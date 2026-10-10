@@ -1560,9 +1560,42 @@ async function main() {
       );
     }
 
-    const fixtureCalendarMonth = '2026-09';
+    const fixtureCalendarText = require("fs").readFileSync(
+      "testdata/visual/generated-calendar.ics",
+      "utf8"
+    );
+
+    const fixtureEventBlock = fixtureCalendarText
+      .split("BEGIN:VEVENT")
+      .find(block => block.includes("SUMMARY:Multi-day timed regression"));
+
+    if (!fixtureEventBlock) {
+      throw new Error("Multi-day timed regression fixture event is missing");
+    }
+
+    const fixtureStartMatch = fixtureEventBlock.match(
+      /^DTSTART:(\d{8})T/m
+    );
+    const fixtureEndMatch = fixtureEventBlock.match(
+      /^DTEND:(\d{8})T/m
+    );
+
+    if (!fixtureStartMatch || !fixtureEndMatch) {
+      throw new Error("Multi-day timed regression fixture dates are invalid");
+    }
+
+    const formatFixtureDate = value =>
+      `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}`;
+
+    const fixtureStartDate = formatFixtureDate(fixtureStartMatch[1]);
+    const fixtureEndDate = formatFixtureDate(fixtureEndMatch[1]);
+    const fixtureCalendarMonth = fixtureStartDate.slice(0, 7);
+
     const previousCalendarButton = calendar.locator(
       'button[aria-label="Previous month"]'
+    );
+    const nextCalendarButton = calendar.locator(
+      'button[aria-label="Next month"]'
     );
 
     for (let attempts = 0; attempts < 120; attempts++) {
@@ -1574,13 +1607,15 @@ async function main() {
         break;
       }
 
-      if (!displayedMonth || displayedMonth < fixtureCalendarMonth) {
-        throw new Error(
-          `Calendar cannot navigate backward from ${displayedMonth} to fixture month ${fixtureCalendarMonth}`
-        );
+      if (!displayedMonth) {
+        throw new Error("Calendar displayed month is missing");
       }
 
-      await previousCalendarButton.click();
+      if (displayedMonth < fixtureCalendarMonth) {
+        await nextCalendarButton.click();
+      } else {
+        await previousCalendarButton.click();
+      }
     }
 
     const fixtureDisplayedMonth = await calendar.getAttribute(
@@ -1593,7 +1628,7 @@ async function main() {
       );
     }
 
-    await calendar.locator('[data-calendar-date="2026-09-23"]').click();
+    await calendar.locator(`[data-calendar-date="${fixtureStartDate}"]`).click();
 
     const timedCalendarEvent = calendar.locator('.calendar-event', {
       hasText: 'Multi-day timed regression'
@@ -1611,7 +1646,7 @@ async function main() {
       throw new Error('Calendar timed event incorrectly used continuation layout');
     }
 
-    await calendar.locator('[data-calendar-date="2026-09-24"]').click();
+    await calendar.locator(`[data-calendar-date="${fixtureEndDate}"]`).click();
 
     const continuedCalendarEvent = calendar.locator('.calendar-event', {
       hasText: 'Multi-day timed regression'
