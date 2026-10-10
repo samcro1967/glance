@@ -24,3 +24,6 @@
 __pycache__/
 *.py[cod]
 .pprof/
+
+# Generated source archives
+/glance-source-*.zip
