@@ -1,3 +1,5 @@
+import { frontendDiagnosticError } from "./diagnostics.js";
+
 let chartModulePromise;
 
 export async function setupPresentation(root = document) {
@@ -31,6 +33,7 @@ export function refreshPresentationTheme() {
     chartModulePromise
         .then(({ refreshPresentationCharts }) => refreshPresentationCharts())
         .catch(error => {
+            frontendDiagnosticError("presentation_chart_theme_refresh_error", error);
             console.error("Failed to refresh Glance chart theme", error);
         });
 }
