@@ -2,7 +2,6 @@ package glance
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
@@ -103,7 +102,7 @@ func fetchPlexHistory(ctx context.Context, widget *mediaHistoryWidget) ([]mediaI
 		return nil, unexpectedHTTPStatusError(response)
 	}
 	var payload plexMediaResponse
-	if err = json.NewDecoder(response.Body).Decode(&payload); err != nil {
+	if err = decodeDefaultHTTPJSON(response.Body, &payload); err != nil {
 		return nil, fmt.Errorf("decoding Plex media history: %w", err)
 	}
 	items := make([]mediaItem, 0, len(payload.MediaContainer.Metadata))
@@ -132,7 +131,7 @@ func fetchJellyfinHistory(ctx context.Context, widget *mediaHistoryWidget) ([]me
 		return nil, unexpectedHTTPStatusError(response)
 	}
 	var payload jellyfinItemsResponse
-	if err = json.NewDecoder(response.Body).Decode(&payload); err != nil {
+	if err = decodeDefaultHTTPJSON(response.Body, &payload); err != nil {
 		return nil, fmt.Errorf("decoding %s media history: %w", widget.Service, err)
 	}
 	items := make([]mediaItem, 0, len(payload.Items))

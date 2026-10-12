@@ -2,7 +2,6 @@ package glance
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
@@ -208,7 +207,7 @@ func fetchPlexNowPlaying(ctx context.Context, widget *nowPlayingWidget) ([]nowPl
 		return nil, unexpectedHTTPStatusError(response)
 	}
 	var payload plexSessionsResponse
-	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+	if err := decodeDefaultHTTPJSON(response.Body, &payload); err != nil {
 		return nil, fmt.Errorf("decoding Plex now playing: %w", err)
 	}
 	items := make([]nowPlayingItem, 0, len(payload.MediaContainer.Metadata))
@@ -267,7 +266,7 @@ func fetchJellyfinNowPlaying(ctx context.Context, widget *nowPlayingWidget) ([]n
 		return nil, unexpectedHTTPStatusError(response)
 	}
 	var payload []jellyfinSession
-	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+	if err := decodeDefaultHTTPJSON(response.Body, &payload); err != nil {
 		return nil, fmt.Errorf("decoding %s now playing: %w", widget.Service, err)
 	}
 	items := make([]nowPlayingItem, 0, len(payload))
@@ -321,7 +320,7 @@ func fetchNavidromeNowPlaying(ctx context.Context, widget *nowPlayingWidget) ([]
 		return nil, unexpectedHTTPStatusError(response)
 	}
 	var payload navidromeNowPlayingResponse
-	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+	if err := decodeDefaultHTTPJSON(response.Body, &payload); err != nil {
 		return nil, fmt.Errorf("decoding Navidrome now playing: %w", err)
 	}
 	if payload.SubsonicResponse.Status != "ok" {

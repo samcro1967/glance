@@ -2,7 +2,6 @@ package glance
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
@@ -208,7 +207,7 @@ func fetchSeerrDetail(ctx context.Context, widget *seerrWidget, mediaType string
 		return seerrItem{}, unexpectedHTTPStatusError(response)
 	}
 	var value seerrMediaResult
-	if err := json.NewDecoder(response.Body).Decode(&value); err != nil {
+	if err := decodeDefaultHTTPJSON(response.Body, &value); err != nil {
 		return seerrItem{}, fmt.Errorf("decoding Seerr %s detail: %w", mediaType, err)
 	}
 	if value.MediaType == "" {
@@ -263,7 +262,7 @@ func decodeSeerrResponse(response *http.Response, view string) ([]seerrItem, err
 	switch view {
 	case "requests":
 		var page seerrRequestPage
-		if err := json.NewDecoder(response.Body).Decode(&page); err != nil {
+		if err := decodeDefaultHTTPJSON(response.Body, &page); err != nil {
 			return nil, err
 		}
 		items := make([]seerrItem, 0, len(page.Results))
@@ -273,7 +272,7 @@ func decodeSeerrResponse(response *http.Response, view string) ([]seerrItem, err
 		return items, nil
 	case "recently-added":
 		var page seerrMediaPage
-		if err := json.NewDecoder(response.Body).Decode(&page); err != nil {
+		if err := decodeDefaultHTTPJSON(response.Body, &page); err != nil {
 			return nil, err
 		}
 		items := make([]seerrItem, 0, len(page.Results))
@@ -283,7 +282,7 @@ func decodeSeerrResponse(response *http.Response, view string) ([]seerrItem, err
 		return items, nil
 	default:
 		var page seerrResultPage
-		if err := json.NewDecoder(response.Body).Decode(&page); err != nil {
+		if err := decodeDefaultHTTPJSON(response.Body, &page); err != nil {
 			return nil, err
 		}
 		items := make([]seerrItem, 0, len(page.Results))

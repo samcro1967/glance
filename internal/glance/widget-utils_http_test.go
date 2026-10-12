@@ -309,3 +309,19 @@ func TestFetchHTTPResponseBodyRejectsOversizedResponse(t *testing.T) {
 		t.Fatal("response body was not closed")
 	}
 }
+
+func TestDecodeDefaultHTTPJSONBoundsResponse(t *testing.T) {
+	var value map[string]string
+	err := decodeDefaultHTTPJSON(strings.NewReader(`{"value":"ok"}`), &value)
+	if err != nil || value["value"] != "ok" {
+		t.Fatalf("valid response: value=%v err=%v", value, err)
+	}
+	err = decodeDefaultHTTPJSON(strings.NewReader(strings.Repeat("x", int(defaultHTTPResponseBodyLimit)+1)), &value)
+	var oversized *httpResponseTooLargeError
+	if !errors.As(err, &oversized) {
+		t.Fatalf("oversized response error = %v, want *httpResponseTooLargeError", err)
+	}
+	if classifyRefreshFailure(err) != refreshFailureMalformed {
+		t.Fatalf("oversized response class = %s", classifyRefreshFailure(err))
+	}
+}

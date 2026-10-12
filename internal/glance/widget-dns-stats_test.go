@@ -648,6 +648,10 @@ func TestFetchPiholeSessionIDEmptySessionDoesNotExposeResponseMessage(t *testing
 		t.Fatalf("error exposed authentication password: %q", message)
 	}
 
+	if classifyRefreshFailure(err) != refreshFailureAuthentication || refreshFailureRetryable(err) {
+		t.Fatalf("empty session classification: %s retryable=%t", classifyRefreshFailure(err), refreshFailureRetryable(err))
+	}
+
 	const expected = "authentication response returned empty session ID"
 	if message != expected {
 		t.Fatalf(
