@@ -89,6 +89,12 @@ func (err *httpResponseTooLargeError) Error() string {
 	return fmt.Sprintf("HTTP response body exceeds %d byte limit", err.Limit)
 }
 
+type providerAuthenticationError struct {
+	Message string
+}
+
+func (err *providerAuthenticationError) Error() string { return err.Message }
+
 type httpStatusError struct {
 	StatusCode int
 	Status     string
@@ -137,6 +143,11 @@ func classifyRefreshFailure(err error) refreshFailureClass {
 
 	if errors.Is(err, context.DeadlineExceeded) {
 		return refreshFailureTransient
+	}
+
+	var authErr *providerAuthenticationError
+	if errors.As(err, &authErr) {
+		return refreshFailureAuthentication
 	}
 
 	var statusErr *httpStatusError
@@ -256,6 +267,14 @@ func readHTTPResponseBody(body io.Reader, limit int64) ([]byte, error) {
 
 func readDefaultHTTPResponseBody(body io.Reader) ([]byte, error) {
 	return readHTTPResponseBody(body, defaultHTTPResponseBodyLimit)
+}
+
+func decodeDefaultHTTPJSON(body io.Reader, target any) error {
+	data, err := readDefaultHTTPResponseBody(body)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, target)
 }
 
 func fetchHTTPResponseBody(client requestDoer, request *http.Request) ([]byte, error) {

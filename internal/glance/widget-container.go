@@ -42,16 +42,19 @@ func (widget *containerWidgetBase) _initializeWidgets() error {
 	return nil
 }
 
-func (container *containerWidgetBase) _update(ctx context.Context) {
+// refreshNestedWidgets preserves independent child error states.
+func refreshNestedWidgets(ctx context.Context, children widgets) error {
 	now := time.Now()
 	task := func(child widget) (struct{}, error) {
 		refreshWidgetIfNeeded(ctx, child, &now)
 		return struct{}{}, nil
 	}
+	_, _, err := workerPoolDo(newJob(task, children).withWorkers(widgetNestedConcurrency).withContext(ctx))
+	return err
+}
 
-	_, _, _ = workerPoolDo(
-		newJob(task, []widget(container.Widgets)).withWorkers(widgetNestedConcurrency).withContext(ctx),
-	)
+func (container *containerWidgetBase) _update(ctx context.Context) {
+	_ = refreshNestedWidgets(ctx, container.Widgets)
 }
 
 func (widget *containerWidgetBase) _setProviders(providers *widgetProviders) {

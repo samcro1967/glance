@@ -105,10 +105,10 @@ func (widget *statusBarWidget) initialize() error {
 }
 
 func (statusBar *statusBarWidget) update(ctx context.Context) {
-	now := time.Now()
-	task := func(child widget) (struct{}, error) { refreshWidgetIfNeeded(ctx, child, &now); return struct{}{}, nil }
-	_, _, _ = workerPoolDo(newJob(task, widgets(statusBar.Widgets)).withWorkers(widgetNestedConcurrency).withContext(ctx))
+	// Child errors stay with children; parent cancellation is reflected by ctx.
+	_ = refreshNestedWidgets(ctx, statusBar.Widgets.asWidgets())
 }
+
 func (widget *statusBarWidget) setProviders(providers *widgetProviders) {
 	widget.widgetBase.setProviders(providers)
 	for _, child := range widget.Widgets {

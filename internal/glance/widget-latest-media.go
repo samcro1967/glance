@@ -2,7 +2,6 @@ package glance
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
@@ -170,7 +169,7 @@ func fetchPlexLatest(ctx context.Context, widget *latestMediaWidget) ([]mediaIte
 		return nil, unexpectedHTTPStatusError(response)
 	}
 	var payload plexMediaResponse
-	if err = json.NewDecoder(response.Body).Decode(&payload); err != nil {
+	if err = decodeDefaultHTTPJSON(response.Body, &payload); err != nil {
 		return nil, fmt.Errorf("decoding Plex latest media: %w", err)
 	}
 	items := make([]mediaItem, 0, len(payload.MediaContainer.Metadata))
@@ -198,7 +197,7 @@ func fetchJellyfinLatest(ctx context.Context, widget *latestMediaWidget) ([]medi
 		return nil, unexpectedHTTPStatusError(response)
 	}
 	var payload jellyfinItemsResponse
-	if err = json.NewDecoder(response.Body).Decode(&payload); err != nil {
+	if err = decodeDefaultHTTPJSON(response.Body, &payload); err != nil {
 		return nil, fmt.Errorf("decoding %s latest media: %w", widget.Service, err)
 	}
 	items := make([]mediaItem, 0, len(payload.Items))
@@ -230,7 +229,7 @@ func fetchNavidromeLatest(ctx context.Context, widget *latestMediaWidget) ([]med
 		return nil, unexpectedHTTPStatusError(response)
 	}
 	var payload navidromeResponse
-	if err = json.NewDecoder(response.Body).Decode(&payload); err != nil {
+	if err = decodeDefaultHTTPJSON(response.Body, &payload); err != nil {
 		return nil, fmt.Errorf("decoding Navidrome latest media: %w", err)
 	}
 	if payload.SubsonicResponse.Status != "ok" {

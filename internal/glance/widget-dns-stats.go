@@ -951,7 +951,7 @@ func fetchPiholeSessionID(ctx context.Context, instanceURL string, client *http.
 	}
 
 	if jsonResponse.Session.SID == "" {
-		return "", errors.New("authentication response returned empty session ID")
+		return "", &providerAuthenticationError{Message: "authentication response returned empty session ID"}
 	}
 
 	return jsonResponse.Session.SID, nil

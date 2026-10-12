@@ -610,6 +610,12 @@ func TestClassifyRefreshFailure(t *testing.T) {
 			retryable: true,
 		},
 		{
+			name:      "provider authentication",
+			err:       fmt.Errorf("login: %w", &providerAuthenticationError{Message: "rejected credentials"}),
+			wantClass: refreshFailureAuthentication,
+			retryable: false,
+		},
+		{
 			name:      "unknown",
 			err:       errors.New("provider-specific failure"),
 			wantClass: refreshFailureUnknown,
