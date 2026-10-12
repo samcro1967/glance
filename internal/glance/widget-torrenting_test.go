@@ -167,3 +167,14 @@ func TestTorrentingWidgetRenderDoesNotExposeCredentials(t *testing.T) {
 		}
 	}
 }
+
+func TestQBittorrentRejectedCredentialsAreNonRetryable(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("Fails."))
+	}))
+	defer server.Close()
+	err := loginQBittorrent(context.Background(), mustQBittorrentTestClient(t), server.URL, "user", "bad-password")
+	if err == nil || classifyRefreshFailure(err) != refreshFailureAuthentication || refreshFailureRetryable(err) {
+		t.Fatalf("login rejection: error=%v class=%s retryable=%t", err, classifyRefreshFailure(err), refreshFailureRetryable(err))
+	}
+}

@@ -2,7 +2,6 @@ package glance
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
@@ -191,7 +190,7 @@ func fetchQBittorrentOnce(ctx context.Context, client *http.Client, endpoint, ap
 	}
 
 	var torrents []qBittorrentTorrent
-	if err := json.NewDecoder(response.Body).Decode(&torrents); err != nil {
+	if err := decodeDefaultHTTPJSON(response.Body, &torrents); err != nil {
 		return nil, fmt.Errorf("decoding qBittorrent torrents: %w", err)
 	}
 	return torrents, nil
@@ -220,7 +219,7 @@ func loginQBittorrent(ctx context.Context, client *http.Client, server, username
 			return fmt.Errorf("reading qBittorrent login response: %w", err)
 		}
 		if strings.EqualFold(strings.TrimSpace(string(body)), "Fails.") {
-			return errors.New("qBittorrent login rejected credentials")
+			return &providerAuthenticationError{Message: "qBittorrent login rejected credentials"}
 		}
 	}
 	return nil

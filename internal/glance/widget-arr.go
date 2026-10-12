@@ -260,7 +260,7 @@ func decodeARRResponse(response *http.Response, service, view string) ([]arrItem
 		switch service {
 		case "radarr":
 			var values []arrMovie
-			if err := json.NewDecoder(response.Body).Decode(&values); err != nil {
+			if err := decodeDefaultHTTPJSON(response.Body, &values); err != nil {
 				return nil, err
 			}
 			items := make([]arrItem, 0, len(values))
@@ -271,7 +271,7 @@ func decodeARRResponse(response *http.Response, service, view string) ([]arrItem
 			return items, nil
 		case "sonarr":
 			var values []arrEpisode
-			if err := json.NewDecoder(response.Body).Decode(&values); err != nil {
+			if err := decodeDefaultHTTPJSON(response.Body, &values); err != nil {
 				return nil, err
 			}
 			items := make([]arrItem, 0, len(values))
@@ -282,7 +282,7 @@ func decodeARRResponse(response *http.Response, service, view string) ([]arrItem
 			return items, nil
 		case "lidarr":
 			var values []arrAlbum
-			if err := json.NewDecoder(response.Body).Decode(&values); err != nil {
+			if err := decodeDefaultHTTPJSON(response.Body, &values); err != nil {
 				return nil, err
 			}
 			items := make([]arrItem, 0, len(values))
@@ -295,7 +295,7 @@ func decodeARRResponse(response *http.Response, service, view string) ([]arrItem
 	}
 	if view == "recent" {
 		var page arrHistoryPage
-		if err := json.NewDecoder(response.Body).Decode(&page); err != nil {
+		if err := decodeDefaultHTTPJSON(response.Body, &page); err != nil {
 			return nil, err
 		}
 		items := make([]arrItem, 0, len(page.Records))
@@ -312,7 +312,7 @@ func decodeARRResponse(response *http.Response, service, view string) ([]arrItem
 		return items, nil
 	}
 	var page arrWantedPage
-	if err := json.NewDecoder(response.Body).Decode(&page); err != nil {
+	if err := decodeDefaultHTTPJSON(response.Body, &page); err != nil {
 		return nil, err
 	}
 	items := make([]arrItem, 0, len(page.Records))
