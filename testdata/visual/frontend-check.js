@@ -47,6 +47,11 @@ async function openPage(page, route, coveragePath = "") {
     timeout: 10000
   });
 
+  const footer = page.locator('footer.footer');
+  if (await footer.count() && await footer.evaluate(el => getComputedStyle(el).visibility) !== 'visible') {
+    throw new Error('Footer hidden after successful page-content loading');
+  }
+
   const pageContent = page.locator('#page-content');
   await pageContent.waitFor({
     state: 'attached',
@@ -1878,6 +1883,11 @@ async function main() {
     const failedPageBodySentinel = 'PAGE_CONTENT_500_BODY_MUST_NOT_BE_RENDERED';
 
     await page.route(failedPageContentURL, async route => {
+      const footer = page.locator('footer.footer');
+      await footer.waitFor({ state: 'attached' });
+      if (await footer.evaluate(el => getComputedStyle(el).visibility) !== 'hidden') {
+        throw new Error('Footer visible while page content is loading');
+      }
       await route.fulfill({
         status: 500,
         contentType: 'text/plain',
@@ -1955,6 +1965,9 @@ async function main() {
       );
     }
 
+    if (await page.locator('footer.footer').evaluate(el => getComputedStyle(el).visibility) !== 'visible') {
+      throw new Error('Footer hidden after page-content HTTP failure');
+    }
     console.log('PASS page-content HTTP failure recovery');
 
     const timedOutPageContentURL = `${BASE_URL}/api/pages/feeds-content/content/`;
@@ -2024,6 +2037,9 @@ async function main() {
       throw new Error('Page-content timeout did not reach frontend diagnostics');
     }
 
+    if (await page.locator('footer.footer').evaluate(el => getComputedStyle(el).visibility) !== 'visible') {
+      throw new Error('Footer hidden after page-content timeout');
+    }
     console.log('PASS page-content timeout recovery');
 
     if (browserErrors.length > 0) {
