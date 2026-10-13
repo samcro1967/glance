@@ -7,8 +7,9 @@ import (
 )
 
 var (
-	bookmarksWidgetTemplate     = mustParseTemplate("bookmarks.html", "widget-base.html")
-	bookmarksWidgetGridTemplate = mustParseTemplate("bookmarks-grid.html", "widget-base.html")
+	bookmarksWidgetTemplate           = mustParseTemplate("bookmarks.html", "widget-base.html")
+	bookmarksWidgetHorizontalTemplate = mustParseTemplate("bookmarks-horizontal.html", "widget-base.html")
+	bookmarksWidgetGridTemplate       = mustParseTemplate("bookmarks-grid.html", "widget-base.html")
 )
 
 type bookmarkLink struct {
@@ -97,8 +98,11 @@ func (widget *bookmarksWidget) initialize() error {
 	}
 
 	template := bookmarksWidgetTemplate
-	if widget.Style == "grid-cards" {
+	switch widget.Style {
+	case "grid-cards":
 		template = bookmarksWidgetGridTemplate
+	case "horizontal":
+		template = bookmarksWidgetHorizontalTemplate
 	}
 
 	widget.cachedHTML = widget.renderTemplate(widget, template)

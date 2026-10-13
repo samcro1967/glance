@@ -60,7 +60,7 @@
     "variants": ["standard"]
   },
   "bookmarks": {
-    "variants": ["standard"]
+    "variants": ["standard", "horizontal"]
   },
   "calculator": {
     "variants": ["standard"]

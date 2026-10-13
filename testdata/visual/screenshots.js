@@ -264,7 +264,7 @@ async function waitForDilbertImage(page, locator) {
   }
 }
 
-async function captureMobileWidget(page, locator, output, viewport = QA_VIEWPORTS.mobile) {
+async function captureMobileWidget(page, locator, output, viewport = QA_VIEWPORTS.mobile, capture = "viewport") {
   const columnIndex = await locator.evaluate(element => {
     const column = element.closest(".page-columns > .page-column");
     if (!column) return -1;
@@ -332,7 +332,11 @@ async function captureMobileWidget(page, locator, output, viewport = QA_VIEWPORT
     }
 
     await waitForDilbertImage(page, locator);
-    await captureMobileViewport(page, output, viewport);
+    if (capture === "element") {
+      await locator.screenshot({ path: output, animations: "disabled" });
+    } else {
+      await captureMobileViewport(page, output, viewport);
+    }
   } finally {
     if (spacer) {
       await page.evaluate(() => {
@@ -641,7 +645,7 @@ async function captureDocs(browser) {
         const locator = page.locator(recipe.selector).nth(recipe.nth || 0);
 
         if (mobile) {
-          await captureMobileWidget(page, locator, output, viewport);
+          await captureMobileWidget(page, locator, output, viewport, recipe.mobileCapture || "viewport");
         } else {
           if (!(await locator.isVisible())) {
             await revealNestedGroupContent(locator);
