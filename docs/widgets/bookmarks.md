@@ -58,6 +58,26 @@ Organize frequently used links into configurable groups with optional colors, ic
 
 ### `style`
 
+Set to `horizontal` to display compact icon-and-title links from left to right, wrapping automatically as the available width changes. Groups remain separate, and descriptions, icons, link targets, and arrow settings work as in the default vertical style. The default style remains vertical.
+
+```yaml
+- type: bookmarks
+  style: horizontal
+  groups:
+    - title: Shortcuts
+      links:
+        - title: GitHub
+          url: https://github.com/
+          icon: si:github
+        - title: Go
+          url: https://go.dev/
+          icon: si:go
+```
+
+![Bookmarks horizontal style](../images/widgets/bookmarks-horizontal.png)
+
+![Bookmarks horizontal style on mobile](../images/widgets/mobile/bookmarks-horizontal.png)
+
 Set to `grid-cards` to display bookmark links as square application cards. Cards automatically wrap based on the available widget width, while bookmark groups remain separate. Grid-card links always open in a new tab.
 
 ```yaml

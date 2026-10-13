@@ -794,6 +794,26 @@ pages:
 
       - size: full
         widgets:
+          - type: bookmarks
+            title: Bookmarks Horizontal
+            css-class: visual-fixture-bookmarks-horizontal
+            style: horizontal
+            groups:
+              - title: Development
+                links:
+                  - title: Glance
+                    url: https://github.com/glanceapp/glance
+                    icon: si:github
+                  - title: Go
+                    url: https://go.dev/
+                    icon: si:go
+                  - title: YAML
+                    url: https://yaml.org/
+                    icon: si:yaml
+                  - title: MDN Web Docs
+                    url: https://developer.mozilla.org/
+                    icon: si:mdnwebdocs
+
           - type: custom-api
             title: Custom API - Native Presentation
             css-class: visual-fixture-custom-api

@@ -104,3 +104,29 @@
     width: 100%;
     text-align: center;
 }
+
+/* Compact horizontal links retain the standard bookmark presentation. */
+.bookmarks-horizontal-groups {
+    display: grid;
+    gap: 2.4rem;
+}
+
+.bookmarks-horizontal-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 1rem 2rem;
+}
+
+.bookmarks-horizontal-list > li {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.bookmarks-horizontal-list > li > div {
+    min-width: 0;
+}
+
+.bookmarks-horizontal-list .bookmarks-link {
+    overflow-wrap: anywhere;
+}

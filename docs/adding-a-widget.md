@@ -349,6 +349,18 @@ Prefer the ordinary interaction-free recipe for the canonical widget image. Add 
 
 Do not manually create or copy a browser-managed documentation screenshot into `docs/images`.
 
+For a visually distinct desktop/mobile style variant, register the desktop
+image as `widgets/<widget>-<style>.png` and the mobile image as
+`widgets/mobile/<widget>-<style>.png`. Use the same deterministic fixture
+selector, add `viewport: {"width": 430, "height": 900}` and
+`mobileCapture: "element"` to the mobile recipe for a tightly cropped widget.
+The standard canonical mobile capture remains a full-viewport screenshot.
+Reference both images in the widget documentation and use the scoped
+`VISUAL_IMAGE` staging and promotion targets below for each one. See
+[`testdata/visual/README.md`](../testdata/visual/README.md) for the full recipe
+and repeatable workflow.
+
+
 ## 11. Capture only the new documentation screenshot during development
 
 When adding one widget, prefer the scoped documentation-image workflow rather than regenerating or promoting every managed documentation image.
