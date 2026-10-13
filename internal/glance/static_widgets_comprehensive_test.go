@@ -338,6 +338,8 @@ func TestComprehensiveBookmarksStyles(t *testing.T) {
 	}{
 		{name: "default", wantClass: "dynamic-columns", notClass: "bookmarks-grid-card"},
 		{name: "grid-cards", style: "grid-cards", wantClass: "bookmarks-grid-card", notClass: "dynamic-columns"},
+		{name: "horizontal", style: "horizontal", wantClass: "bookmarks-horizontal-list", notClass: "bookmarks-grid-card"},
+		{name: "unknown-preserves-default", style: "unknown", wantClass: "dynamic-columns", notClass: "bookmarks-horizontal-list"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			w := &bookmarksWidget{

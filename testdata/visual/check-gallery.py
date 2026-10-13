@@ -338,8 +338,16 @@ for widget, (page, styles) in {
 MOBILE_VIEWPORT = {"width": 430, "height": 900}
 mobile_expected = {f"widgets/mobile/{widget}.png" for widget in registered}
 mobile_actual = {name for name in docs_images if name.startswith("widgets/mobile/")}
+# Additional mobile captures must correspond to declared widget visual variants.
+mobile_variants = {
+    f"widgets/mobile/{widget}-{variant}.png"
+    for widget, entry in variants.items()
+    if isinstance(entry, dict) and isinstance(entry.get("variants"), list)
+    for variant in entry["variants"]
+    if variant != "standard"
+}
 missing_mobile = sorted(mobile_expected - mobile_actual)
-unknown_mobile = sorted(mobile_actual - mobile_expected)
+unknown_mobile = sorted(mobile_actual - mobile_expected - mobile_variants)
 invalid_mobile = []
 for widget in sorted(registered):
     name = f"widgets/mobile/{widget}.png"
@@ -354,6 +362,26 @@ for widget in sorted(registered):
         or recipe.get("route") != canonical.get("route")
         or recipe.get("selector") != canonical.get("selector")
         or recipe.get("nth", 0) != canonical.get("nth", 0)
+    ):
+        invalid_mobile.append(name)
+for name in sorted((mobile_actual & mobile_variants) - mobile_expected):
+    recipe = docs_images[name]
+    widget_and_variant = name.removeprefix("widgets/mobile/").removesuffix(".png")
+    widget = next((w for w in registered if widget_and_variant.startswith(w + "-")), None)
+    document = DOCS_ROOT / "widgets" / f"{widget}.md" if widget else None
+    if (
+        not isinstance(recipe, dict)
+        or recipe.get("kind") != "browser"
+        or recipe.get("capture") != "element"
+        or recipe.get("viewport") != MOBILE_VIEWPORT
+        or recipe.get("mobileCapture") != "element"
+        or not isinstance(recipe.get("selector"), str)
+        or not recipe["selector"].strip()
+        or not isinstance(recipe.get("route"), str)
+        or not recipe["route"].startswith("/")
+        or document is None
+        or not document.is_file()
+        or f"../images/{name}" not in document.read_text()
     ):
         invalid_mobile.append(name)
 if missing_mobile or unknown_mobile or invalid_mobile:
@@ -500,6 +528,16 @@ for filename, recipe in docs_images.items():
             invalid_docs_recipes.append(
                 f"{filename}: nth must be a non-negative integer"
             )
+
+    mobile_capture = recipe.get("mobileCapture")
+    if mobile_capture is not None and (
+        mobile_capture != "element"
+        or capture != "element"
+        or recipe.get("viewport") != MOBILE_VIEWPORT
+    ):
+        invalid_docs_recipes.append(
+            f"{filename}: mobileCapture requires mobile element capture and value 'element'"
+        )
 
     viewport = recipe.get("viewport")
 

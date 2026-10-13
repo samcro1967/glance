@@ -1494,5 +1494,22 @@
       "width": 430,
       "height": 900
     }
+  },
+  "widgets/bookmarks-horizontal.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/search-custom-content",
+    "selector": ".visual-fixture-bookmarks-horizontal"
+  },
+  "widgets/mobile/bookmarks-horizontal.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/search-custom-content",
+    "selector": ".visual-fixture-bookmarks-horizontal",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    },
+    "mobileCapture": "element"
   }
 }
