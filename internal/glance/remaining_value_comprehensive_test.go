@@ -1038,32 +1038,27 @@ func TestRemainingValueDockerReleasesAndServerStatsUpdates(t *testing.T) {
 
 func TestRemainingValueRedditFetchUpdateTokenAndRender(t *testing.T) {
 	oldClient := redditHTTPClient
-	oldLoid := getRedditLoidCookie
+	oldGuestToken := getRedditGuestToken
 
 	t.Cleanup(func() {
 		redditHTTPClient = oldClient
-		getRedditLoidCookie = oldLoid
+		getRedditGuestToken = oldGuestToken
 	})
 
-	getRedditLoidCookie = func(
+	getRedditGuestToken = func(
 		context.Context,
 		string,
 		requestDoer,
 	) (string, error) {
-		return "test-loid", nil
+		return "test-token", nil
 	}
 
 	redditHTTPClient = &http.Client{
 		Transport: priorityRoundTripper(
 			func(r *http.Request) (*http.Response, error) {
-				cookie, err := r.Cookie("loid")
-				if err != nil ||
-					cookie.Value != "test-loid" {
-					t.Fatalf(
-						"loid cookie=%#v err=%v",
-						cookie,
-						err,
-					)
+				token := r.Header.Get("Authorization")
+				if token != "Bearer test-token" {
+					t.Fatalf("unexpected Reddit authorization header: %q", token)
 				}
 
 				body := `{
