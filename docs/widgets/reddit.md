@@ -112,6 +112,8 @@ request-url-template: https://your.proxy/?url={REQUEST-URL}
 > [!NOTE]
 >
 > When `request-url-template` is configured, it takes precedence over the `proxy` setting for Reddit content requests.
+>
+> Anonymous Reddit requests normally use a guest bearer token obtained from Reddit. For security, Glance does not acquire or forward that token when `request-url-template` is configured. The configured endpoint must handle Reddit authentication itself if required.
 
 ### `proxy`
 

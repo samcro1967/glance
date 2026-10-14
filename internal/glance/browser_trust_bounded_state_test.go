@@ -122,20 +122,20 @@ func TestRedditProxyRouteIdentityDoesNotExposeCredentials(t *testing.T) {
 	}
 }
 
-func TestRedditLoidRouteStateIsBounded(t *testing.T) {
-	redditLoidRoutes.Lock()
-	redditLoidRoutes.states = make(map[string]*redditLoidRouteState)
-	redditLoidRoutes.Unlock()
+func TestRedditGuestTokenRouteStateIsBounded(t *testing.T) {
+	redditGuestTokenRoutes.Lock()
+	redditGuestTokenRoutes.states = make(map[string]*redditGuestTokenRouteState)
+	redditGuestTokenRoutes.Unlock()
 
-	for index := 0; index < redditLoidRouteStateLimit+16; index++ {
-		redditLoidRouteStateFor(fmt.Sprintf("route-%d", index))
+	for index := 0; index < redditGuestTokenRouteStateLimit+16; index++ {
+		redditGuestTokenRouteStateFor(fmt.Sprintf("route-%d", index))
 	}
 
-	redditLoidRoutes.Lock()
-	got := len(redditLoidRoutes.states)
-	redditLoidRoutes.Unlock()
-	if got != redditLoidRouteStateLimit {
-		t.Fatalf("route states = %d, want %d", got, redditLoidRouteStateLimit)
+	redditGuestTokenRoutes.Lock()
+	got := len(redditGuestTokenRoutes.states)
+	redditGuestTokenRoutes.Unlock()
+	if got != redditGuestTokenRouteStateLimit {
+		t.Fatalf("route states = %d, want %d", got, redditGuestTokenRouteStateLimit)
 	}
 }
 
