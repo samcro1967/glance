@@ -369,7 +369,7 @@ func (d *redditChallengeTestDoer) Do(request *http.Request) (*http.Response, err
 
 	case 2:
 		header := make(http.Header)
-		header.Add("Set-Cookie", "loid=test-loid; Path=/")
+		header.Add("Set-Cookie", "token_v2=test-token; Path=/")
 
 		return &http.Response{
 			StatusCode: http.StatusOK,
@@ -383,16 +383,153 @@ func (d *redditChallengeTestDoer) Do(request *http.Request) (*http.Response, err
 	}
 }
 
-func TestFetchRedditLoidCookieUsesSelectedClientForEntireChallenge(t *testing.T) {
-	client := &redditChallengeTestDoer{}
+func TestRedditGuestBearerRequestDestination(t *testing.T) {
+	oldClient := redditHTTPClient
+	oldToken := getRedditGuestToken
+	t.Cleanup(func() {
+		redditHTTPClient = oldClient
+		getRedditGuestToken = oldToken
+	})
 
-	loid, err := fetchRedditLoidCookie(t.Context(), client)
-	if err != nil {
-		t.Fatalf("unexpected LOID fetch error: %v", err)
+	tokenCalls := 0
+	getRedditGuestToken = func(ctx context.Context, route string, client requestDoer) (string, error) {
+		tokenCalls++
+		if route != "direct" {
+			t.Fatalf("guest token route = %q, want direct", route)
+		}
+		return "guest-test-token", nil
 	}
 
-	if loid != "test-loid" {
-		t.Fatalf("LOID = %q, want %q", loid, "test-loid")
+	redditHTTPClient = &http.Client{
+		Transport: priorityRoundTripper(func(r *http.Request) (*http.Response, error) {
+			if r.URL.Scheme != "https" || r.URL.Host != "oauth.reddit.com" {
+				t.Fatalf("Reddit destination = %s, want https://oauth.reddit.com", r.URL)
+			}
+			if got := r.Header.Get("Authorization"); got != "Bearer guest-test-token" {
+				t.Fatalf("Authorization = %q, want guest bearer token", got)
+			}
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     make(http.Header),
+				Body:       io.NopCloser(strings.NewReader(`{"data":{"children":[{"data":{"id":"one","title":"One","ups":1,"created":1,"permalink":"/r/test/one"}}]}}`)),
+				Request:    r,
+			}, nil
+		}),
+	}
+
+	widget := &redditWidget{Subreddit: "test", SortBy: "hot"}
+	posts, err := widget.fetchSubredditPosts(t.Context())
+	if err != nil {
+		t.Fatalf("fetch Reddit posts: %v", err)
+	}
+	if len(posts) != 1 || tokenCalls != 1 {
+		t.Fatalf("posts = %d, guest token calls = %d; want 1 each", len(posts), tokenCalls)
+	}
+}
+
+func TestRedditAppOAuthBypassesGuestToken(t *testing.T) {
+	oldClient := redditHTTPClient
+	oldToken := getRedditGuestToken
+	t.Cleanup(func() {
+		redditHTTPClient = oldClient
+		getRedditGuestToken = oldToken
+	})
+
+	getRedditGuestToken = func(context.Context, string, requestDoer) (string, error) {
+		t.Fatal("application OAuth must not acquire a guest token")
+		return "", nil
+	}
+
+	redditHTTPClient = &http.Client{
+		Transport: priorityRoundTripper(func(r *http.Request) (*http.Response, error) {
+			if r.URL.Host != "oauth.reddit.com" {
+				t.Fatalf("OAuth destination = %s", r.URL)
+			}
+			if got := r.Header.Get("Authorization"); got != "Bearer application-test-token" {
+				t.Fatalf("application Authorization = %q", got)
+			}
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     make(http.Header),
+				Body:       io.NopCloser(strings.NewReader(`{"data":{"children":[{"data":{"id":"one","title":"One","ups":1,"created":1,"permalink":"/r/test/one"}}]}}`)),
+				Request:    r,
+			}, nil
+		}),
+	}
+
+	widget := &redditWidget{Subreddit: "test", SortBy: "hot"}
+	widget.AppAuth.enabled = true
+	widget.AppAuth.Name = "test-app"
+	widget.AppAuth.accessToken = "application-test-token"
+	widget.AppAuth.tokenExpiresAt = time.Now().Add(time.Hour)
+
+	posts, err := widget.fetchSubredditPosts(t.Context())
+	if err != nil {
+		t.Fatalf("fetch Reddit posts with application OAuth: %v", err)
+	}
+	if len(posts) != 1 {
+		t.Fatalf("posts = %d, want 1", len(posts))
+	}
+}
+
+func TestRedditRequestTemplateDoesNotForwardGuestToken(t *testing.T) {
+	oldClient := redditHTTPClient
+	oldToken := getRedditGuestToken
+	t.Cleanup(func() {
+		redditHTTPClient = oldClient
+		getRedditGuestToken = oldToken
+	})
+
+	getRedditGuestToken = func(context.Context, string, requestDoer) (string, error) {
+		t.Fatal("custom request template must not acquire a guest token")
+		return "", nil
+	}
+
+	redditHTTPClient = &http.Client{
+		Transport: priorityRoundTripper(func(r *http.Request) (*http.Response, error) {
+			if r.URL.Host != "proxy.example.invalid" {
+				t.Fatalf("template destination = %s", r.URL)
+			}
+			if got := r.Header.Get("Authorization"); got != "" {
+				t.Fatalf("unexpected credential forwarded to template: %q", got)
+			}
+			if !strings.Contains(r.URL.Query().Get("url"), "oauth.reddit.com/r/test/hot.json") {
+				t.Fatalf("unexpected wrapped Reddit URL: %s", r.URL)
+			}
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     make(http.Header),
+				Body:       io.NopCloser(strings.NewReader(`{"data":{"children":[{"data":{"id":"one","title":"One","ups":1,"created":1,"permalink":"/r/test/one"}}]}}`)),
+				Request:    r,
+			}, nil
+		}),
+	}
+
+	widget := &redditWidget{
+		Subreddit:          "test",
+		SortBy:             "hot",
+		RequestURLTemplate: "https://proxy.example.invalid/fetch?url={REQUEST-URL}",
+	}
+
+	posts, err := widget.fetchSubredditPosts(t.Context())
+	if err != nil {
+		t.Fatalf("fetch Reddit posts through request template: %v", err)
+	}
+	if len(posts) != 1 {
+		t.Fatalf("posts = %d, want 1", len(posts))
+	}
+}
+
+func TestFetchRedditGuestTokenUsesSelectedClientForEntireChallenge(t *testing.T) {
+	client := &redditChallengeTestDoer{}
+
+	token, err := fetchRedditGuestToken(t.Context(), client)
+	if err != nil {
+		t.Fatalf("unexpected guest-token fetch error: %v", err)
+	}
+
+	if token != "test-token" {
+		t.Fatalf("guest token = %q, want %q", token, "test-token")
 	}
 
 	client.mu.Lock()
@@ -428,36 +565,36 @@ func TestFetchRedditLoidCookieUsesSelectedClientForEntireChallenge(t *testing.T)
 	}
 }
 
-func resetRedditLoidRoutesForTest() {
-	redditLoidRoutes.Lock()
-	redditLoidRoutes.states = make(map[string]*redditLoidRouteState)
-	redditLoidRoutes.Unlock()
+func resetRedditGuestTokenRoutesForTest() {
+	redditGuestTokenRoutes.Lock()
+	redditGuestTokenRoutes.states = make(map[string]*redditGuestTokenRouteState)
+	redditGuestTokenRoutes.Unlock()
 }
 
-func TestGetRedditLoidCookieCachesWithinSameRoute(t *testing.T) {
-	resetRedditLoidRoutesForTest()
-	t.Cleanup(resetRedditLoidRoutesForTest)
+func TestGetRedditGuestTokenCachesWithinSameRoute(t *testing.T) {
+	resetRedditGuestTokenRoutesForTest()
+	t.Cleanup(resetRedditGuestTokenRoutesForTest)
 
 	client := &redditChallengeTestDoer{}
 	route := "proxy:http://proxy.example:8080"
 
-	first, err := getRedditLoidCookie(t.Context(), route, client)
+	first, err := getRedditGuestToken(t.Context(), route, client)
 	if err != nil {
-		t.Fatalf("first LOID fetch failed: %v", err)
+		t.Fatalf("first guest-token fetch failed: %v", err)
 	}
 
-	second, err := getRedditLoidCookie(t.Context(), route, client)
+	second, err := getRedditGuestToken(t.Context(), route, client)
 	if err != nil {
-		t.Fatalf("second LOID fetch failed: %v", err)
+		t.Fatalf("second guest-token fetch failed: %v", err)
 	}
 
-	if first != "test-loid" || second != "test-loid" {
+	if first != "test-token" || second != "test-token" {
 		t.Fatalf(
-			"LOIDs = %q, %q; want %q, %q",
+			"guest tokens = %q, %q; want %q, %q",
 			first,
 			second,
-			"test-loid",
-			"test-loid",
+			"test-token",
+			"test-token",
 		)
 	}
 
@@ -467,43 +604,43 @@ func TestGetRedditLoidCookieCachesWithinSameRoute(t *testing.T) {
 
 	if requests != 2 {
 		t.Fatalf(
-			"challenge requests = %d, want 2 after two same-route LOID requests",
+			"challenge requests = %d, want 2 after two same-route guest-token requests",
 			requests,
 		)
 	}
 }
 
-func TestGetRedditLoidCookieIsolatesDirectAndProxyRoutes(t *testing.T) {
-	resetRedditLoidRoutesForTest()
-	t.Cleanup(resetRedditLoidRoutesForTest)
+func TestGetRedditGuestTokenIsolatesDirectAndProxyRoutes(t *testing.T) {
+	resetRedditGuestTokenRoutesForTest()
+	t.Cleanup(resetRedditGuestTokenRoutesForTest)
 
 	directClient := &redditChallengeTestDoer{}
 	proxyClient := &redditChallengeTestDoer{}
 
-	directLoid, err := getRedditLoidCookie(
+	directToken, err := getRedditGuestToken(
 		t.Context(),
 		"direct",
 		directClient,
 	)
 	if err != nil {
-		t.Fatalf("direct LOID fetch failed: %v", err)
+		t.Fatalf("direct guest-token fetch failed: %v", err)
 	}
 
-	proxyLoid, err := getRedditLoidCookie(
+	proxyToken, err := getRedditGuestToken(
 		t.Context(),
 		"proxy:http://proxy.example:8080",
 		proxyClient,
 	)
 	if err != nil {
-		t.Fatalf("proxy LOID fetch failed: %v", err)
+		t.Fatalf("proxy guest-token fetch failed: %v", err)
 	}
 
-	if directLoid != "test-loid" {
-		t.Fatalf("direct LOID = %q, want %q", directLoid, "test-loid")
+	if directToken != "test-token" {
+		t.Fatalf("direct guest token = %q, want %q", directToken, "test-token")
 	}
 
-	if proxyLoid != "test-loid" {
-		t.Fatalf("proxy LOID = %q, want %q", proxyLoid, "test-loid")
+	if proxyToken != "test-token" {
+		t.Fatalf("proxy guest token = %q, want %q", proxyToken, "test-token")
 	}
 
 	directClient.mu.Lock()
@@ -523,29 +660,29 @@ func TestGetRedditLoidCookieIsolatesDirectAndProxyRoutes(t *testing.T) {
 	}
 }
 
-func TestGetRedditLoidCookieIsolatesProxyRoutes(t *testing.T) {
-	resetRedditLoidRoutesForTest()
-	t.Cleanup(resetRedditLoidRoutesForTest)
+func TestGetRedditGuestTokenIsolatesProxyRoutes(t *testing.T) {
+	resetRedditGuestTokenRoutesForTest()
+	t.Cleanup(resetRedditGuestTokenRoutesForTest)
 
 	proxyA := &redditChallengeTestDoer{}
 	proxyB := &redditChallengeTestDoer{}
 
-	_, err := getRedditLoidCookie(
+	_, err := getRedditGuestToken(
 		t.Context(),
 		"proxy:http://proxy-a.example:8080",
 		proxyA,
 	)
 	if err != nil {
-		t.Fatalf("proxy A LOID fetch failed: %v", err)
+		t.Fatalf("proxy A guest-token fetch failed: %v", err)
 	}
 
-	_, err = getRedditLoidCookie(
+	_, err = getRedditGuestToken(
 		t.Context(),
 		"proxy:http://proxy-b.example:8080",
 		proxyB,
 	)
 	if err != nil {
-		t.Fatalf("proxy B LOID fetch failed: %v", err)
+		t.Fatalf("proxy B guest-token fetch failed: %v", err)
 	}
 
 	proxyA.mu.Lock()
@@ -565,7 +702,7 @@ func TestGetRedditLoidCookieIsolatesProxyRoutes(t *testing.T) {
 	}
 }
 
-func TestFetchRedditLoidCookiePropagatesCancellation(t *testing.T) {
+func TestFetchRedditGuestTokenPropagatesCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
@@ -581,7 +718,7 @@ func TestFetchRedditLoidCookiePropagatesCancellation(t *testing.T) {
 		return nil, context.Canceled
 	})
 
-	_, err := fetchRedditLoidCookie(ctx, client)
+	_, err := fetchRedditGuestToken(ctx, client)
 	if err == nil {
 		t.Fatal("expected cancellation error")
 	}

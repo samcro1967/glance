@@ -178,7 +178,7 @@ func (widget *redditWidget) fetchSubredditPosts(ctx context.Context) (forumPostL
 	app := &widget.AppAuth
 
 	if !app.enabled {
-		baseURL = "https://www.reddit.com"
+		baseURL = "https://oauth.reddit.com"
 		headers = http.Header{
 			"User-Agent": []string{getBrowserUserAgentHeader()},
 		}
@@ -212,13 +212,13 @@ func (widget *redditWidget) fetchSubredditPosts(ctx context.Context) (forumPostL
 		requestURL = fmt.Sprintf("%s/r/%s/%s.json?%s", baseURL, widget.Subreddit, widget.SortBy, query.Encode())
 	}
 
-	loidRoute := "direct"
+	tokenRoute := "direct"
 
 	if widget.RequestURLTemplate != "" {
 		requestURL = strings.ReplaceAll(widget.RequestURLTemplate, "{REQUEST-URL}", requestURL)
 	} else if widget.Proxy.client != nil {
 		client = widget.Proxy.client
-		loidRoute = redditProxyRouteIdentity(widget.Proxy.URL)
+		tokenRoute = redditProxyRouteIdentity(widget.Proxy.URL)
 	}
 
 	request, err := http.NewRequestWithContext(ctx, "GET", requestURL, nil)
@@ -227,11 +227,13 @@ func (widget *redditWidget) fetchSubredditPosts(ctx context.Context) (forumPostL
 	}
 	request.Header = headers
 
-	loid, err := getRedditLoidCookie(ctx, loidRoute, client)
-	if err != nil {
-		return nil, fmt.Errorf("solving Reddit challenge: %w", err)
+	if !app.enabled && widget.RequestURLTemplate == "" {
+		token, err := getRedditGuestToken(ctx, tokenRoute, client)
+		if err != nil {
+			return nil, fmt.Errorf("solving Reddit guest challenge: %w", err)
+		}
+		request.Header.Set("Authorization", "Bearer "+token)
 	}
-	request.AddCookie(&http.Cookie{Name: "loid", Value: loid})
 
 	responseJson, err := decodeJsonFromRequest[subredditResponseJson](client, request)
 	if err != nil {
@@ -394,25 +396,24 @@ func parseRedditChallengeForm(body []byte) (string, string, string, error) {
 	return string(challengeMatches[1]), string(tokenMatches[1]), string(origRMatches[1]), nil
 }
 
-// Allows widget instances using the same request route to share a LOID cookie,
-// since we don't want to draw too much attention by making unnecessary requests
-// to the flow that obtains the cookie required to access the .json endpoints.
-// Direct requests and distinct proxies use separate cookies so the challenge and
-// subsequent Reddit requests remain on the same network route.
-const redditLoidRouteStateLimit = 128
+// Share guest bearer tokens between widgets using the same request route,
+// avoiding unnecessary Reddit challenge requests. Direct requests and distinct
+// proxies maintain separate tokens so challenge and content requests use the
+// same network route.
+const redditGuestTokenRouteStateLimit = 128
 
-type redditLoidRouteState struct {
+type redditGuestTokenRouteState struct {
 	mu         sync.Mutex
 	lastUpdate time.Time
 	lastAccess time.Time
-	loid       string
+	token      string
 }
 
-var redditLoidRoutes = struct {
+var redditGuestTokenRoutes = struct {
 	sync.Mutex
-	states map[string]*redditLoidRouteState
+	states map[string]*redditGuestTokenRouteState
 }{
-	states: make(map[string]*redditLoidRouteState),
+	states: make(map[string]*redditGuestTokenRouteState),
 }
 
 func redditProxyRouteIdentity(proxyURL string) string {
@@ -420,71 +421,71 @@ func redditProxyRouteIdentity(proxyURL string) string {
 	return fmt.Sprintf("proxy:%x", sum[:16])
 }
 
-func redditLoidRouteStateFor(route string) *redditLoidRouteState {
+func redditGuestTokenRouteStateFor(route string) *redditGuestTokenRouteState {
 	now := time.Now()
 
-	redditLoidRoutes.Lock()
-	defer redditLoidRoutes.Unlock()
+	redditGuestTokenRoutes.Lock()
+	defer redditGuestTokenRoutes.Unlock()
 
-	if state := redditLoidRoutes.states[route]; state != nil {
+	if state := redditGuestTokenRoutes.states[route]; state != nil {
 		state.lastAccess = now
 		return state
 	}
 
-	if len(redditLoidRoutes.states) >= redditLoidRouteStateLimit {
+	if len(redditGuestTokenRoutes.states) >= redditGuestTokenRouteStateLimit {
 		var oldestRoute string
 		var oldestAccess time.Time
-		for candidateRoute, state := range redditLoidRoutes.states {
+		for candidateRoute, state := range redditGuestTokenRoutes.states {
 			if oldestRoute == "" || state.lastAccess.Before(oldestAccess) {
 				oldestRoute = candidateRoute
 				oldestAccess = state.lastAccess
 			}
 		}
-		delete(redditLoidRoutes.states, oldestRoute)
+		delete(redditGuestTokenRoutes.states, oldestRoute)
 	}
 
-	state := &redditLoidRouteState{lastAccess: now}
-	redditLoidRoutes.states[route] = state
+	state := &redditGuestTokenRouteState{lastAccess: now}
+	redditGuestTokenRoutes.states[route] = state
 	return state
 }
 
-var getRedditLoidCookie = func(
+var getRedditGuestToken = func(
 	ctx context.Context,
 	route string,
 	client requestDoer,
 ) (string, error) {
-	state := redditLoidRouteStateFor(route)
+	state := redditGuestTokenRouteStateFor(route)
 
 	state.mu.Lock()
 	defer state.mu.Unlock()
 
-	// Limit LOID cookie caching to six hours so an invalid cookie does not persist for
+	// Limit guest-token caching to six hours so an invalid token does not persist for
 	// an extended period; this flow has no explicit forced-refresh mechanism.
-	if time.Since(state.lastUpdate) < 6*time.Hour && state.loid != "" {
-		return state.loid, nil
+	if time.Since(state.lastUpdate) < 6*time.Hour && state.token != "" {
+		return state.token, nil
 	}
 
-	loid, err := fetchRedditLoidCookie(ctx, client)
+	token, err := fetchRedditGuestToken(ctx, client)
 	if err != nil {
-		if state.loid != "" {
+		if state.token != "" {
 			slog.Warn(
-				"Failed to refresh Reddit LOID cookie; using cached value",
+				"Failed to refresh Reddit guest token; using cached value",
 				"route",
 				route,
 				"error",
 				err,
 			)
-			return state.loid, nil
+			return state.token, nil
 		}
 		return "", err
 	}
 
 	state.lastUpdate = time.Now()
-	state.loid = loid
-	return loid, nil
+	state.token = token
+	return token, nil
 }
 
-func fetchRedditLoidCookie(ctx context.Context, client requestDoer) (string, error) {
+func fetchRedditGuestToken(ctx context.Context, client requestDoer) (string, error) {
 	request, err := http.NewRequestWithContext(ctx, "GET", "https://www.reddit.com/", nil)
 	if err != nil {
 		return "", err
@@ -543,12 +544,12 @@ func fetchRedditLoidCookie(ctx context.Context, client requestDoer) (string, err
 	}
 
 	for _, cookie := range response.Cookies() {
-		if cookie.Name == "loid" {
+		if cookie.Name == "token_v2" {
 			return cookie.Value, nil
 		}
 	}
 
-	return "", errors.New("no loid cookie found")
+	return "", errors.New("no token_v2 cookie found")
 }
 
 func (widget *redditWidget) setDefaultLimit(value int) {
