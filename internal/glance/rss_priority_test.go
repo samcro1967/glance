@@ -1,6 +1,7 @@
 package glance
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -147,6 +148,104 @@ func TestPriorityRSSFeedTaskHonorsCustomHeadersAndItemPrefix(t *testing.T) {
 	}
 	if !strings.Contains(items[0].Title, "Hello") {
 		t.Fatalf("title = %q", items[0].Title)
+	}
+}
+
+func TestPriorityRSSFeedTaskChannelURLResolution(t *testing.T) {
+	tests := []struct {
+		name        string
+		channelLink string
+		wantChannel string
+		wantItem    string
+	}{
+		{
+			name:        "absolute channel link",
+			channelLink: "https://example.com/news",
+			wantChannel: "https://example.com/news",
+			wantItem:    "https://example.com/article",
+		},
+		{
+			name:        "root relative channel link",
+			channelLink: "/news",
+			wantChannel: "/news",
+			wantItem:    "/article",
+		},
+		{
+			name:        "path relative channel link",
+			channelLink: "news",
+			wantChannel: "news",
+			wantItem:    "/article",
+		},
+		{
+			name:        "missing channel link",
+			wantChannel: "",
+			wantItem:    "/article",
+		},
+		{
+			name:        "unsafe channel link",
+			channelLink: "javascript:alert(1)",
+			wantChannel: "",
+			wantItem:    "/article",
+		},
+		{
+			name:        "malformed channel link",
+			channelLink: "https://[::1",
+			wantChannel: "",
+			wantItem:    "/article",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/rss+xml")
+				_, _ = fmt.Fprintf(w,
+					"<rss version=\"2.0\"><channel><title>Feed</title><link>%s</link><item><title>Article</title><link>/article</link></item></channel></rss>",
+					tt.channelLink,
+				)
+			}))
+			defer server.Close()
+
+			widget := &rssWidget{}
+			if err := widget.initialize(); err != nil {
+				t.Fatal(err)
+			}
+
+			requestURL := server.URL + "/feeds/latest.xml"
+			items, err := widget.fetchItemsFromFeedTask(t.Context(), rssFeedRequest{URL: requestURL})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(items) != 1 {
+				t.Fatalf("items = %d, want 1", len(items))
+			}
+
+			wantChannel := tt.wantChannel
+			if tt.channelLink == "" {
+				wantChannel = server.URL
+			} else if strings.HasPrefix(wantChannel, "/") {
+				wantChannel = server.URL + wantChannel
+			} else if wantChannel == "news" {
+				wantChannel = server.URL + "/feeds/news"
+			}
+
+			if items[0].ChannelURL != wantChannel {
+				t.Errorf("ChannelURL = %q, want %q", items[0].ChannelURL, wantChannel)
+			}
+
+			wantItem := tt.wantItem
+			if strings.HasPrefix(wantItem, "/") {
+				if tt.channelLink == "https://example.com/news" {
+					wantItem = "https://example.com" + wantItem
+				} else {
+					wantItem = server.URL + wantItem
+				}
+			}
+
+			if items[0].Link != wantItem {
+				t.Errorf("item Link = %q, want %q", items[0].Link, wantItem)
+			}
+		})
 	}
 }
 

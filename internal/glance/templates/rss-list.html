@@ -8,7 +8,7 @@
         <ul class="list-horizontal-text glance-list-row-meta flex-nowrap">
             <li {{ dynamicRelativeTimeAttrs .PublishedAt }}></li>
             <li class="min-width-0">
-                <a class="block text-truncate" href="{{ .ChannelURL }}"{{ if $.OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }}>{{ .ChannelName }}</a>
+                {{ if .ChannelURL }}<a class="block text-truncate" href="{{ .ChannelURL }}"{{ if $.OpenLinksInNewTab }} target="_blank" rel="noreferrer"{{ end }}>{{ .ChannelName }}</a>{{ else }}<span class="block text-truncate">{{ .ChannelName }}</span>{{ end }}
             </li>
         </ul>
     </li>
