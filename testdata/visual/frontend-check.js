@@ -929,7 +929,70 @@ async function main() {
     console.log("PASS grouped child expanded view lifecycle");
     console.log("PASS grouped child tab interaction");
 
+    const assertThemePickerAccessibility = async (expectedTheme) => {
+      const state = await page.evaluate(() => {
+        const presets = Array.from(
+          document.querySelectorAll(".theme-choices .theme-preset")
+        ).map(preset => ({
+          key: preset.dataset.key,
+          current: preset.classList.contains("current"),
+          pressed: preset.getAttribute("aria-pressed")
+        }));
+
+        return {
+          presets,
+          previews: Array.from(
+            document.querySelectorAll(".current-theme-preview .theme-preset")
+          ).map(preview => ({
+            pressed: preview.getAttribute("aria-pressed"),
+            label: preview.getAttribute("aria-label")
+          }))
+        };
+      });
+
+      if (state.presets.length === 0) {
+        throw new Error("No selectable theme presets found");
+      }
+
+      const keys = [...new Set(state.presets.map(preset => preset.key))];
+
+      for (const key of keys) {
+        const matching = state.presets.filter(preset => preset.key === key);
+
+        if (matching.length !== 2) {
+          throw new Error(
+            `Expected desktop and mobile copies of ${key}: ${JSON.stringify(matching)}`
+          );
+        }
+      }
+
+      for (const preset of state.presets) {
+        const isActive = preset.key === expectedTheme;
+        const expectedPressed = isActive ? "true" : "false";
+
+        if (preset.pressed !== expectedPressed || preset.current !== isActive) {
+          throw new Error(
+            `Theme accessibility mismatch: ${JSON.stringify(preset)}`
+          );
+        }
+      }
+
+      if (state.previews.length === 0) {
+        throw new Error("No current-theme preview buttons found");
+      }
+
+      for (const preview of state.previews) {
+        if (preview.pressed !== null) {
+          throw new Error(
+            `Theme preview incorrectly exposes aria-pressed: ${JSON.stringify(preview)}`
+          );
+        }
+      }
+    };
+
     const initialTheme = await page.locator('html').getAttribute('data-theme');
+    await assertThemePickerAccessibility(initialTheme);
+
     const desktopThemePreset = page.locator(
       '.header-container .theme-choices .theme-preset:not(.current)'
     ).first();
@@ -991,6 +1054,9 @@ async function main() {
     if (await currentTargetPresets.count() < 1) {
       throw new Error(`Theme picker did not mark ${targetTheme} as current`);
     }
+
+    await assertThemePickerAccessibility(targetTheme);
+    console.log("PASS theme picker accessibility state synchronization");
 
     await openPage(page, '/themes/theme-components', coveragePath);
 

@@ -10,6 +10,75 @@ import (
 	"testing"
 )
 
+func TestRSSChannelURLTemplateRendering(t *testing.T) {
+	tests := []struct {
+		name       string
+		style      string
+		channelURL string
+		newTab     bool
+		wantLink   bool
+	}{
+		{name: "list valid channel", channelURL: "https://example.com/news", wantLink: true},
+		{name: "list valid channel new tab", channelURL: "https://example.com/news", newTab: true, wantLink: true},
+		{name: "list invalid channel", channelURL: ""},
+		{name: "detailed valid channel", style: "detailed-list", channelURL: "https://example.com/news", wantLink: true},
+		{name: "detailed valid channel new tab", style: "detailed-list", channelURL: "https://example.com/news", newTab: true, wantLink: true},
+		{name: "detailed invalid channel", style: "detailed-list", channelURL: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			widget := &rssWidget{
+				widgetBase: widgetBase{
+					Type:              "rss",
+					ContentAvailable:  true,
+					OpenLinksInNewTab: tt.newTab,
+				},
+				Style: tt.style,
+				Items: rssFeedItemList{
+					{
+						ChannelName: "Example Channel",
+						ChannelURL:  tt.channelURL,
+						Title:       "Example Article",
+						Link:        "https://example.com/article",
+					},
+				},
+			}
+
+			rendered := string(widget.Render())
+			if widget.Error != nil {
+				t.Fatalf("RSS template rendering failed: %v", widget.Error)
+			}
+
+			if !strings.Contains(rendered, "Example Channel") {
+				t.Fatalf("rendered RSS missing channel name: %s", rendered)
+			}
+
+			channelAnchor := "<a class=\"block text-truncate\" href=\"https://example.com/news\""
+			channelSpan := "<span class=\"block text-truncate\">Example Channel</span>"
+
+			if tt.wantLink {
+				if !strings.Contains(rendered, channelAnchor) {
+					t.Errorf("rendered RSS missing channel link: %s", rendered)
+				}
+				if strings.Contains(rendered, channelSpan) {
+					t.Errorf("rendered RSS unexpectedly contains plain-text channel: %s", rendered)
+				}
+				if tt.newTab && !strings.Contains(rendered, "target=\"_blank\" rel=\"noreferrer\"") {
+					t.Errorf("rendered RSS missing new-tab attributes: %s", rendered)
+				}
+			} else {
+				if !strings.Contains(rendered, channelSpan) {
+					t.Errorf("rendered RSS missing plain-text channel: %s", rendered)
+				}
+				if strings.Contains(rendered, channelAnchor) || strings.Contains(rendered, "href=\"\"") {
+					t.Errorf("rendered RSS contains invalid channel link: %s", rendered)
+				}
+			}
+		})
+	}
+}
+
 const testRSSFeed = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
 	<channel>
