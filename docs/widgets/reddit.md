@@ -152,6 +152,8 @@ Controls the time period when `sort-by` is `top`. Supported values are `hour`, `
 
 Searches within the configured subreddit instead of loading its normal listing.
 
+**Due to changes in Reddit API access, `search` requires `app-auth` to be configured.** Without application authentication, the widget reports a configuration error.
+
 ![Reddit search field syntax examples](../images/instructions/reddit-field-search.png)
 
 ### `extra-sort-by`

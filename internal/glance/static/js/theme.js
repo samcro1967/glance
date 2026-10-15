@@ -108,15 +108,21 @@ function initThemePicker(pageData) {
     let themePreviewElems = document.getElementsByClassName("current-theme-preview");
     let isLoading = false;
 
+    function syncThemePreset() {
+        presetElems.forEach((preset) => {
+            const isActive = preset.dataset.key == pageData.theme;
+            preset.classList.toggle("current", isActive);
+            preset.setAttribute("aria-pressed", isActive ? "true" : "false");
+        });
+    }
+
+    syncThemePreset();
+
     presetElems.forEach((presetElement) => {
         const themeKey = presetElement.dataset.key;
 
         if (themeKey === undefined) {
             return;
-        }
-
-        if (themeKey == pageData.theme) {
-            presetElement.classList.add("current");
         }
 
         presetElement.addEventListener("click", () => {
@@ -126,17 +132,16 @@ function initThemePicker(pageData) {
             isLoading = true;
             changeTheme(pageData, themeKey, function() {
                 pageData.theme = themeKey;
-                presetElems.forEach((e) => { e.classList.remove("current"); });
+                syncThemePreset();
 
                 Array.from(themePreviewElems).forEach((preview) => {
-                    preview.querySelector(".theme-preset").replaceWith(
-                        presetElement.cloneNode(true)
-                    );
-                })
+                    const button = preview.querySelector(".theme-preset");
+                    const clone = presetElement.cloneNode(true);
 
-                presetElems.forEach((e) => {
-                    if (e.dataset.key != themeKey) return;
-                    e.classList.add("current");
+                    clone.removeAttribute("aria-pressed");
+                    clone.setAttribute("aria-label", "Change theme");
+
+                    button.replaceWith(clone);
                 });
             }).finally(() => {
                 isLoading = false;

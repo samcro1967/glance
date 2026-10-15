@@ -92,6 +92,10 @@ func (widget *redditWidget) initialize() error {
 		a.enabled = true
 	}
 
+	if !a.enabled && widget.Search != "" {
+		return errors.New("due to changes in Reddit API, the search property works only when app-auth is configured")
+	}
+
 	widget.
 		withTitle("r/" + widget.Subreddit).
 		withTitleURL("https://www.reddit.com/r/" + widget.Subreddit + "/").

@@ -297,6 +297,69 @@ func TestRedditWidgetInitializeEnablesCompleteAppAuth(t *testing.T) {
 	}
 }
 
+func TestRedditWidgetInitializeSearchAuthentication(t *testing.T) {
+	tests := []struct {
+		name       string
+		search     string
+		authName   string
+		authID     string
+		authSecret string
+		wantError  string
+	}{
+		{
+			name: "ordinary listing without authentication",
+		},
+		{
+			name:      "search without authentication",
+			search:    "example",
+			wantError: "due to changes in Reddit API, the search property works only when app-auth is configured",
+		},
+		{
+			name:      "search with incomplete authentication",
+			search:    "example",
+			authName:  "test-app",
+			authID:    "test-id",
+			wantError: "application name, client ID and client secret are required",
+		},
+		{
+			name:       "search with complete authentication",
+			search:     "example",
+			authName:   "test-app",
+			authID:     "test-id",
+			authSecret: "test-secret",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			widget := &redditWidget{
+				Subreddit: "example",
+				Search:    tt.search,
+			}
+			widget.AppAuth.Name = tt.authName
+			widget.AppAuth.ID = tt.authID
+			widget.AppAuth.Secret = tt.authSecret
+
+			err := widget.initialize()
+
+			if tt.wantError != "" {
+				if err == nil || err.Error() != tt.wantError {
+					t.Fatalf("initialize() error = %v, want %q", err, tt.wantError)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected initialization error: %v", err)
+			}
+
+			if widget.AppAuth.enabled != (tt.authSecret != "") {
+				t.Fatalf("app-auth enabled = %v, unexpected for configuration", widget.AppAuth.enabled)
+			}
+		})
+	}
+}
+
 func TestRedditWidgetParseCustomCommentsURL(t *testing.T) {
 	widget := &redditWidget{
 		CommentsURLTemplate: "https://comments.example.invalid/{SUBREDDIT}/{POST-ID}/{POST-PATH}",

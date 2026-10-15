@@ -320,11 +320,25 @@ func (widget *rssWidget) fetchItemsFromFeedTask(ctx context.Context, request rss
 
 	items := make(rssFeedItemList, 0, len(feed.Items))
 
+	channelURL := ""
+	if strings.TrimSpace(feed.Link) == "" {
+		parsed, err := url.Parse(request.URL)
+		if err == nil && validRSSURL(parsed) {
+			parsed.Path = ""
+			parsed.RawPath = ""
+			parsed.RawQuery = ""
+			parsed.Fragment = ""
+			channelURL = parsed.String()
+		}
+	} else {
+		channelURL = resolveRSSURL(feed.Link, request.URL)
+	}
+
 	for i := range feed.Items {
 		item := feed.Items[i]
 
 		rssItem := rssFeedItem{
-			ChannelURL: feed.Link,
+			ChannelURL: channelURL,
 			feedURL:    request.URL,
 		}
 
