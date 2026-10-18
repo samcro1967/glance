@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import html
 import re
 import sys
+from html.parser import HTMLParser
 from pathlib import Path
+from urllib.parse import unquote, urlsplit
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -83,13 +86,17 @@ BACK_TO_TOP = "[Back to top]"
 
 
 def markdown_files() -> list[Path]:
-    return [
-        CONFIGURATION,
-        WIDGET_INDEX,
-        EXAMPLE_INDEX,
-        *sorted(WIDGETS.glob("*.md")),
-        *sorted(EXAMPLES.rglob("*.md")),
+    """Return maintained first-party Markdown documentation.
+
+    Third-party dependencies and generated files are intentionally excluded.
+    """
+    paths = [
+        *ROOT.glob("*.md"),
+        *(ROOT / ".github").glob("*.md"),
+        *DOCS.rglob("*.md"),
+        ROOT / "testdata" / "visual" / "README.md",
     ]
+    return sorted({path.resolve() for path in paths if path.is_file()})
 
 
 def strip_fenced_code(text: str) -> str:
@@ -108,22 +115,48 @@ def strip_fenced_code(text: str) -> str:
 
 
 def anchor_for_heading(heading: str) -> str:
-    value = heading.strip().lower()
+    value = html.unescape(heading.strip().lower())
     value = re.sub(r"<[^>]+>", "", value)
     value = re.sub(r"[*_`~]", "", value)
-    value = re.sub(r"[^a-z0-9 _-]", "", value)
-    value = value.replace(" ", "-")
-    return value.strip("-")
+    value = re.sub(r"[^\w -]", "", value)
+    return value.replace(" ", "-")
+
+
+class LinkParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.links: list[str] = []
+        self.ids: set[str] = set()
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        values = dict(attrs)
+        if values.get("id"):
+            self.ids.add(values["id"])
+        if tag == "a":
+            if values.get("name"):
+                self.ids.add(values["name"])
+            if values.get("href"):
+                self.links.append(values["href"])
 
 
 def anchors(path: Path) -> set[str]:
     clean = strip_fenced_code(path.read_text(encoding="utf-8"))
     result: set[str] = set()
+    counts: dict[str, int] = {}
+
+    parser = LinkParser()
+    parser.feed(clean)
+    result.update(parser.ids)
 
     for line in clean.splitlines():
         match = HEADING_RE.match(line)
-        if match:
-            result.add(anchor_for_heading(match.group(2)))
+        if not match:
+            continue
+
+        base = anchor_for_heading(match.group(2))
+        count = counts.get(base, 0)
+        counts[base] = count + 1
+        result.add(base if count == 0 else f"{base}-{count}")
 
     return result
 
@@ -187,22 +220,27 @@ def validate_local_links(errors: list[str]) -> None:
     for path in markdown_files():
         text = path.read_text(encoding="utf-8")
 
-        for raw_target in LINK_RE.findall(text):
-            target = raw_target.strip()
+        clean = strip_fenced_code(text)
+        parser = LinkParser()
+        parser.feed(clean)
+
+        for raw_target in [*LINK_RE.findall(clean), *parser.links]:
+            target = html.unescape(raw_target.strip())
 
             if not target:
                 continue
 
-            if target.startswith(("http://", "https://", "mailto:")):
+            parsed = urlsplit(target)
+            if parsed.scheme or parsed.netloc:
                 continue
 
             if target.startswith("#"):
                 destination = path
-                fragment = target[1:]
+                fragment = unquote(parsed.fragment)
             else:
-                location, separator, fragment = target.partition("#")
+                location = unquote(parsed.path)
+                fragment = unquote(parsed.fragment)
                 destination = (path.parent / location).resolve()
-                fragment = fragment if separator else ""
 
                 if not destination.exists():
                     fail(

@@ -375,6 +375,7 @@ staged-check:
 
 docs-check:
 	python3 scripts/check_docs.py
+	python3 -m unittest discover -s scripts -p test_check_docs.py -v
 
 check: test test-race build fmt-check diff-check staged-check docs-check lint frontend-audit frontend-unit
 
