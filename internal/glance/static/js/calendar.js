@@ -364,32 +364,28 @@ function Dates(firstDay, selectDate) {
         eventIndex,
         animate
     ) => {
-        if (
-            !animate ||
-            lastRenderedMonth === undefined ||
-            datesWithinSameMonth(displayedMonth, lastRenderedMonth)
-        ) {
-            updateFullMonth(
-                now,
-                displayedMonth,
-                selectedDate,
-                eventIndex
-            );
-            return;
-        }
+        const monthChanged =
+            lastRenderedMonth !== undefined &&
+            !datesWithinSameMonth(displayedMonth, lastRenderedMonth);
 
-        const next = displayedMonth > lastRenderedMonth;
+        const next = monthChanged && displayedMonth > lastRenderedMonth;
 
-        dates.animateUpdate(
-            () => updateFullMonth(
-                now,
-                displayedMonth,
-                selectedDate,
-                eventIndex
-            ),
-            next ? datesExitLeft : datesExitRight,
-            next ? datesEntranceRight : datesEntranceLeft
+        // An earlier transition must not move the grid or leave stale
+        // animation callbacks active after a newer calendar update.
+        dates.getAnimations().forEach(animation => animation.cancel());
+
+        // Keep the interactive date grid synchronized with Calendar state.
+        // The old exit-first animation deferred this update until onfinish.
+        updateFullMonth(
+            now,
+            displayedMonth,
+            selectedDate,
+            eventIndex
         );
+
+        if (animate && monthChanged) {
+            dates.animate(next ? datesEntranceRight : datesEntranceLeft);
+        }
     };
 
     const dateButtons = repeat(

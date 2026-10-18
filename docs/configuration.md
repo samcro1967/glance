@@ -1380,6 +1380,26 @@ columns:
 
 Widgets are the individual components used to build Glance pages. See the [widget catalog and reference](widgets.md) for available widgets, shared widget properties, examples, and configuration details.
 
+## Playwright
+
+An optional top-level `playwright` section provides a shared Chromium CDP
+endpoint and Reddit credentials for widgets with `use-playwright: true`.
+
+```yaml
+playwright:
+  endpoint: http://playwright:9223
+  reddit:
+    username: ${REDDIT_USERNAME}
+    password: ${secret:reddit_password}
+```
+
+Use the existing Glance `${VAR}` and `${secret:name}` interpolation mechanisms;
+no additional credential store is required. Credentials support automated login
+and session recovery. Both credentials may be omitted when an existing authenticated Chromium profile is available. See the [Playwright setup guide](playwright.md) for Docker Compose, connectivity, troubleshooting, and security.
+Do not expose the CDP relay to the public Internet. Persist Chromium's user profile separately from Glance so an existing
+authenticated session survives container restarts. If Reddit requests fail,
+Glance reports widget errors and retains its normal last-good-content behavior.
+
 ---
 
 [Glance README](../README.md) · [Widgets](widgets.md) · [Themes](themes.md) · [Preconfigured pages](preconfigured-pages.md) · [Back to top](#configuring-glance)

@@ -222,6 +222,20 @@ func (w *videosWidget) fetchYoutubeChannelUploads(
 				}
 			}
 		}
+		if err != nil && !includeShorts && strings.HasPrefix(id, "UC") && ctx.Err() == nil {
+			playlistErr := err
+			channelURL := "https://www.youtube.com/feeds/videos.xml?channel_id=" + id
+			channelRequest, channelRequestErr := http.NewRequestWithContext(ctx, "GET", channelURL, nil)
+			if channelRequestErr != nil {
+				err = errors.Join(playlistErr, channelRequestErr)
+			} else {
+				// Channel feeds may contain Shorts when uploads playlists are unavailable.
+				response, err = decodeXmlFromRequest[youtubeFeedResponseXml](defaultHTTPClient, channelRequest)
+				if err != nil {
+					err = errors.Join(playlistErr, err)
+				}
+			}
+		}
 
 		if err != nil {
 			cached, ok := w.cachedVideoLists.Load(id)

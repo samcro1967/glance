@@ -29,20 +29,22 @@ var (
 
 type redditWidget struct {
 	widgetBase          `yaml:",inline"`
-	Posts               forumPostList     `yaml:"-"`
-	Subreddit           string            `yaml:"subreddit"`
-	Proxy               proxyOptionsField `yaml:"proxy"`
-	Style               string            `yaml:"style"`
-	ShowThumbnails      bool              `yaml:"show-thumbnails"`
-	ShowFlairs          bool              `yaml:"show-flairs"`
-	SortBy              string            `yaml:"sort-by"`
-	TopPeriod           string            `yaml:"top-period"`
-	Search              string            `yaml:"search"`
-	ExtraSortBy         string            `yaml:"extra-sort-by"`
-	CommentsURLTemplate string            `yaml:"comments-url-template"`
-	Limit               int               `yaml:"limit"`
-	CollapseAfter       int               `yaml:"collapse-after"`
-	RequestURLTemplate  string            `yaml:"request-url-template"`
+	Posts               forumPostList       `yaml:"-"`
+	Subreddit           string              `yaml:"subreddit"`
+	Proxy               proxyOptionsField   `yaml:"proxy"`
+	Style               string              `yaml:"style"`
+	ShowThumbnails      bool                `yaml:"show-thumbnails"`
+	ShowFlairs          bool                `yaml:"show-flairs"`
+	SortBy              string              `yaml:"sort-by"`
+	TopPeriod           string              `yaml:"top-period"`
+	Search              string              `yaml:"search"`
+	ExtraSortBy         string              `yaml:"extra-sort-by"`
+	CommentsURLTemplate string              `yaml:"comments-url-template"`
+	Limit               int                 `yaml:"limit"`
+	CollapseAfter       int                 `yaml:"collapse-after"`
+	RequestURLTemplate  string              `yaml:"request-url-template"`
+	UsePlaywright       bool                `yaml:"use-playwright"`
+	browserConfig       redditBrowserConfig `yaml:"-"`
 
 	AppAuth struct {
 		Name   string `yaml:"name"`
@@ -92,7 +94,13 @@ func (widget *redditWidget) initialize() error {
 		a.enabled = true
 	}
 
-	if !a.enabled && widget.Search != "" {
+	if widget.UsePlaywright {
+		if err := validateRedditBrowserConfig(widget); err != nil {
+			return err
+		}
+	}
+
+	if !a.enabled && !widget.UsePlaywright && widget.Search != "" {
 		return errors.New("due to changes in Reddit API, the search property works only when app-auth is configured")
 	}
 
@@ -173,6 +181,18 @@ func (widget *redditWidget) parseCustomCommentsURL(subreddit, postId, postPath s
 	return template
 }
 
+func redditFetchError(err error, usePlaywright bool) error {
+	var statusErr *httpStatusError
+	if !usePlaywright && errors.As(err, &statusErr) && statusErr.StatusCode == http.StatusForbidden {
+		return fmt.Errorf(
+			"fetching Reddit posts: %w; Reddit may be restricting API access. See the Reddit widget documentation for authentication options, including Playwright",
+			err,
+		)
+	}
+
+	return fmt.Errorf("fetching Reddit posts: %w", err)
+}
+
 func (widget *redditWidget) fetchSubredditPosts(ctx context.Context) (forumPostList, error) {
 	var client requestDoer = redditHTTPClient
 	var baseURL string
@@ -231,7 +251,7 @@ func (widget *redditWidget) fetchSubredditPosts(ctx context.Context) (forumPostL
 	}
 	request.Header = headers
 
-	if !app.enabled && widget.RequestURLTemplate == "" {
+	if !widget.UsePlaywright && !app.enabled && widget.RequestURLTemplate == "" {
 		token, err := getRedditGuestToken(ctx, tokenRoute, client)
 		if err != nil {
 			return nil, fmt.Errorf("solving Reddit guest challenge: %w", err)
@@ -239,9 +259,14 @@ func (widget *redditWidget) fetchSubredditPosts(ctx context.Context) (forumPostL
 		request.Header.Set("Authorization", "Bearer "+token)
 	}
 
-	responseJson, err := decodeJsonFromRequest[subredditResponseJson](client, request)
+	var responseJson subredditResponseJson
+	if widget.UsePlaywright {
+		responseJson, err = fetchRedditBrowserListing(ctx, widget.browserConfig, widget.browserRequestURL())
+	} else {
+		responseJson, err = decodeJsonFromRequest[subredditResponseJson](client, request)
+	}
 	if err != nil {
-		return nil, fmt.Errorf("fetching Reddit posts: %w", err)
+		return nil, redditFetchError(err, widget.UsePlaywright)
 	}
 
 	if len(responseJson.Data.Children) == 0 {

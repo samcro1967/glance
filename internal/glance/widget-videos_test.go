@@ -404,7 +404,7 @@ func TestVideosFetchYoutubeChannelUploadsDoesNotFallbackForExplicitPlaylist(t *t
 	}
 }
 
-func TestVideosFetchYoutubeChannelUploadsFallbackPreservesBothFailures(t *testing.T) {
+func TestVideosFetchYoutubeChannelUploadsFallsBackToChannelFeed(t *testing.T) {
 	const channelID = "UC123456"
 
 	originalClient := defaultHTTPClient
@@ -412,14 +412,97 @@ func TestVideosFetchYoutubeChannelUploadsFallbackPreservesBothFailures(t *testin
 		defaultHTTPClient = originalClient
 	})
 
-	var requestCount int
+	var requested []string
 
 	defaultHTTPClient = &http.Client{
 		Transport: youtubeFallbackRoundTripper(func(request *http.Request) (*http.Response, error) {
-			requestCount++
+			if playlistID := request.URL.Query().Get("playlist_id"); playlistID != "" {
+				requested = append(requested, playlistID)
+				return &http.Response{
+					StatusCode: http.StatusNotFound,
+					Status:     "404 Not Found",
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader("not found")),
+					Request:    request,
+				}, nil
+			}
 
-			playlistID := request.URL.Query().Get("playlist_id")
-			return nil, errors.New("failed " + playlistID)
+			channel := request.URL.Query().Get("channel_id")
+			requested = append(requested, channel)
+
+			if channel != channelID {
+				t.Fatalf("unexpected channel ID %q", channel)
+			}
+
+			body := `<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <author>
+    <name>Recovered Channel</name>
+    <uri>https://www.youtube.com/channel/UC123456</uri>
+  </author>
+  <entry>
+    <title>Recovered Video</title>
+    <published>2026-10-17T20:00:00+00:00</published>
+    <link href="https://www.youtube.com/watch?v=recovered123"/>
+  </entry>
+</feed>`
+
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Status:     "200 OK",
+				Header:     make(http.Header),
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Request:    request,
+			}, nil
+		}),
+	}
+
+	widget := &videosWidget{}
+	widget.cacheDuration = time.Hour
+
+	videos, err := widget.fetchYoutubeChannelUploads(
+		context.Background(),
+		[]string{channelID},
+		"",
+		false,
+	)
+	if err != nil {
+		t.Fatalf("channel fallback failed: %v", err)
+	}
+
+	expected := []string{"UULF123456", "UU123456", channelID}
+	if len(requested) != len(expected) {
+		t.Fatalf("requests = %#v, want %#v", requested, expected)
+	}
+	for i := range expected {
+		if requested[i] != expected[i] {
+			t.Fatalf("request %d = %q, want %q", i, requested[i], expected[i])
+		}
+	}
+
+	if len(videos) != 1 || videos[0].Title != "Recovered Video" {
+		t.Fatalf("unexpected recovered videos: %#v", videos)
+	}
+}
+
+func TestVideosFetchYoutubeChannelUploadsFallbackPreservesAllFailures(t *testing.T) {
+	const channelID = "UC123456"
+
+	originalClient := defaultHTTPClient
+	t.Cleanup(func() {
+		defaultHTTPClient = originalClient
+	})
+
+	var requested []string
+
+	defaultHTTPClient = &http.Client{
+		Transport: youtubeFallbackRoundTripper(func(request *http.Request) (*http.Response, error) {
+			id := request.URL.Query().Get("playlist_id")
+			if id == "" {
+				id = request.URL.Query().Get("channel_id")
+			}
+			requested = append(requested, id)
+			return nil, errors.New("failed " + id)
 		}),
 	}
 
@@ -433,27 +516,26 @@ func TestVideosFetchYoutubeChannelUploadsFallbackPreservesBothFailures(t *testin
 		false,
 	)
 	if err == nil {
-		t.Fatal("expected both YouTube feed attempts to fail")
+		t.Fatal("expected all YouTube feed attempts to fail")
 	}
-
 	if !errors.Is(err, errNoContent) {
 		t.Fatalf("error does not preserve no-content classification: %v", err)
 	}
-
 	if videos != nil {
 		t.Fatalf("videos = %#v, want nil", videos)
 	}
 
-	if requestCount != 2 {
-		t.Fatalf("got %d requests, want 2", requestCount)
+	expected := []string{"UULF123456", "UU123456", channelID}
+	if len(requested) != len(expected) {
+		t.Fatalf("requests = %#v, want %#v", requested, expected)
 	}
-
-	if !strings.Contains(err.Error(), "failed UULF123456") {
-		t.Fatalf("error missing primary UULF failure: %v", err)
-	}
-
-	if !strings.Contains(err.Error(), "failed UU123456") {
-		t.Fatalf("error missing fallback UU failure: %v", err)
+	for i := range expected {
+		if requested[i] != expected[i] {
+			t.Fatalf("request %d = %q, want %q", i, requested[i], expected[i])
+		}
+		if !strings.Contains(err.Error(), "failed "+expected[i]) {
+			t.Fatalf("error missing failure for %q: %v", expected[i], err)
+		}
 	}
 }
 
