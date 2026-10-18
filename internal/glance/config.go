@@ -59,6 +59,8 @@ type config struct {
 		Access    authAccessConfig           `yaml:"access"`
 	} `yaml:"auth"`
 
+	Playwright redditBrowserConfig `yaml:"playwright"`
+
 	Analytics analyticsConfig `yaml:"analytics"`
 
 	Document struct {
@@ -554,14 +556,14 @@ func newConfigFromParsedYAML(parsed *parsedYAMLConfig) (*config, error) {
 
 	for p := range config.Pages {
 		for w := range config.Pages[p].HeadWidgets {
-			candidate := config.Pages[p].HeadWidgets[w]
+			candidate := configureRedditBrowser(config.Pages[p].HeadWidgets[w], config.Playwright)
 			defaultsSummary, initialized := initializeConfiguredWidget(candidate, config.WidgetDefaults)
 			config.Pages[p].HeadWidgets[w] = initialized
 			defaultsLogSummary.add(defaultsSummary)
 		}
 
 		for w := range config.Pages[p].BottomWidgets {
-			candidate := config.Pages[p].BottomWidgets[w]
+			candidate := configureRedditBrowser(config.Pages[p].BottomWidgets[w], config.Playwright)
 			defaultsSummary, initialized := initializeConfiguredWidget(candidate, config.WidgetDefaults)
 			config.Pages[p].BottomWidgets[w] = initialized
 			defaultsLogSummary.add(defaultsSummary)
@@ -569,7 +571,7 @@ func newConfigFromParsedYAML(parsed *parsedYAMLConfig) (*config, error) {
 
 		for c := range config.Pages[p].Columns {
 			for w := range config.Pages[p].Columns[c].Widgets {
-				candidate := config.Pages[p].Columns[c].Widgets[w]
+				candidate := configureRedditBrowser(config.Pages[p].Columns[c].Widgets[w], config.Playwright)
 				defaultsSummary, initialized := initializeConfiguredWidget(candidate, config.WidgetDefaults)
 				config.Pages[p].Columns[c].Widgets[w] = initialized
 				defaultsLogSummary.add(defaultsSummary)

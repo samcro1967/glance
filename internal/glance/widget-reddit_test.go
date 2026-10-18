@@ -2,6 +2,7 @@ package glance
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -852,6 +853,57 @@ func TestParseRedditChallengeFormMissingFields(t *testing.T) {
 
 			if err.Error() != tt.want {
 				t.Fatalf("error = %q, want %q", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestRedditFetchErrorGuidance(t *testing.T) {
+	tests := []struct {
+		name          string
+		err           error
+		usePlaywright bool
+		wantGuidance  bool
+	}{
+		{
+			name:         "HTTP 403 suggests authentication",
+			err:          &httpStatusError{StatusCode: http.StatusForbidden, Status: "403 Forbidden"},
+			wantGuidance: true,
+		},
+		{
+			name:          "Playwright HTTP 403 retains original error",
+			err:           &httpStatusError{StatusCode: http.StatusForbidden, Status: "403 Forbidden"},
+			usePlaywright: true,
+		},
+		{
+			name: "HTTP 429 does not suggest authentication",
+			err:  &httpStatusError{StatusCode: http.StatusTooManyRequests, Status: "429 Too Many Requests"},
+		},
+		{
+			name: "unrelated errors remain unchanged",
+			err:  errors.New("connection failed"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := redditFetchError(tt.err, tt.usePlaywright)
+			if !errors.Is(got, tt.err) {
+				t.Fatalf("original error not preserved: %v", got)
+			}
+
+			hasGuidance := strings.Contains(got.Error(), "Reddit may be restricting API access")
+			if hasGuidance != tt.wantGuidance {
+				t.Fatalf("guidance = %t, want %t: %v", hasGuidance, tt.wantGuidance, got)
+			}
+
+			if tt.wantGuidance {
+				if classifyRefreshFailure(got) != refreshFailureAuthorization {
+					t.Fatalf("HTTP 403 classification changed: %v", got)
+				}
+				if !strings.Contains(got.Error(), "403 Forbidden") {
+					t.Fatalf("HTTP status missing: %v", got)
+				}
 			}
 		})
 	}

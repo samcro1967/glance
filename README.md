@@ -118,6 +118,7 @@ The repository provides several levels of configuration documentation:
 * [`docs/glance.yml`](docs/glance.yml) — a fuller starting configuration that can be copied and customized.
 * [Configuration documentation](docs/configuration.md) — page structure, shared configuration, widget defaults, server settings, branding, themes, and other top-level options.
 * [Widget catalog](docs/widgets.md) — configuration and examples for individual widgets.
+* [Playwright browser integration](docs/playwright.md) — optional shared Chromium setup, authentication, troubleshooting, and security.
 * [Theme documentation](docs/themes.md) — native themes, presets, page overrides, and custom styling.
 * [`test-instance.yml`](test-instance.yml) — the comprehensive development, regression, and visual-QA fixture. It demonstrates a broad portion of the supported configuration surface, but is intended for testing and reference rather than as a production starting configuration.
 

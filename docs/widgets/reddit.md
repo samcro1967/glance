@@ -35,6 +35,7 @@ When thumbnails are enabled, thumbnail images link to the post discussion and fo
 | `search` | string | no | — |
 | `extra-sort-by` | string | no | — |
 | `app-auth` | object | no | — |
+| `use-playwright` | boolean | no | `false` |
 
 All widgets also support the [shared widget properties](../widgets.md#shared-properties).
 
@@ -174,6 +175,33 @@ Use `app-auth` to authenticate through a Reddit application:
 ```
 
 If `app-auth` is used, `name`, `id`, and `secret` must all be provided.
+
+## Browser-backed Reddit requests
+
+Set `use-playwright: true` on individual Reddit widgets to fetch Reddit JSON
+through a shared authenticated Chromium profile. Configure the CDP relay and
+Reddit account once in the root configuration (see [Playwright](../configuration.md#playwright)). For Docker Compose setup, persistent profiles, and troubleshooting, see the [Playwright browser guide](../playwright.md).
+
+```yaml
+- type: reddit
+  subreddit: selfhosted
+  sort-by: new
+  use-playwright: true
+```
+
+Browser mode is opt-in. Without it, Reddit uses the existing HTTP, proxy, or
+application-authentication path. Browser mode cannot be combined with
+`app-auth`, `proxy`, or `request-url-template`. Browser-backed search uses the
+Reddit browser session instead of requiring `app-auth`.
+
+The browser must have a persistent profile and expose its CDP relay only on a
+trusted private network. On an expired session Glance attempts one coordinated
+login using the configured credentials. Login challenges requiring human action
+are reported as refresh errors; Glance does not bypass CAPTCHA or MFA.
+
+The endpoint must be reachable from the **Glance container**. For example,
+`http://playwright:9223` requires both containers on the same Docker network.
+Avoid `127.0.0.1:9222` unless Chromium runs inside the Glance container.
 
 ---
 
