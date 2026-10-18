@@ -4,6 +4,8 @@ go 1.27.2
 
 require (
 	github.com/arran4/golang-ical v0.3.6
+	github.com/chromedp/cdproto v0.157.8
+	github.com/chromedp/chromedp v0.21.0
 	github.com/coreos/go-oidc/v3 v3.18.0
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/go-sprout/sprout v1.1.1
@@ -29,6 +31,7 @@ require (
 	github.com/andybalholm/brotli v1.2.3 // indirect
 	github.com/ebitengine/purego v0.11.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
+	github.com/go-json-experiment/json v0.0.0-20260213210345-44df1a37e875 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/klauspost/compress v1.20.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20260802145828-341c2f0c90b5 // indirect

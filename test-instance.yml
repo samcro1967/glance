@@ -17,6 +17,9 @@ server:
     allowed-origins:
       - http://127.0.0.1:18089
 
+playwright:
+  endpoint: http://127.0.0.1:9222
+
 branding:
   app-name: "Glance Test"
 
@@ -719,10 +722,11 @@ pages:
             collapse-after: -1
 
           - type: reddit
-            title: Reddit - Horizontal Cards
+            title: Reddit - Horizontal Cards (Playwright)
             css-class: visual-fixture-reddit
             subreddit: selfhosted
             style: horizontal-cards
+            use-playwright: true
             limit: 8
             collapse-after: 6
 

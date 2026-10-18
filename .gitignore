@@ -27,3 +27,6 @@ __pycache__/
 
 # Generated source archives
 /glance-source-*.zip
+
+# Private authenticated Reddit integration fixture
+/test-reddit.yml
