@@ -33,6 +33,14 @@ In the event that the CPU temperature goes over 80°C, a flame icon will appear 
 
 ![Server Stats mobile preview](../images/widgets/mobile/server-stats.png)
 
+## CPU load
+
+On Linux, the CPU value represents the 1-minute system load average divided by the number of logical CPU cores, expressed as a percentage. The popover also shows the corresponding 15-minute average. Values are capped at 100% and truncated to whole numbers.
+
+Linux load average includes runnable tasks and tasks in uninterruptible sleep, commonly waiting for disk I/O. Consequently, heavy disk activity can raise this value even when actual CPU utilization is low. This is a measure of system load rather than a direct measurement of CPU utilization.
+
+The local Windows collector uses a separate calculation without dividing by the logical CPU count. For remote servers, Glance displays the values supplied by the agent without recalculating them.
+
 ## Expanded view
 
 Use the expand control in the widget header to open detailed cards for the configured servers. The expanded view shows reachability, platform and uptime information, CPU load and temperature, RAM and optional swap usage, and each visible mountpoint with its individual storage usage.
