@@ -633,46 +633,123 @@ var configVariablePattern = regexp.MustCompile(`(^|.)\$\{(?:([a-zA-Z]+):)?([a-zA
 // ${secret:api_key}                           - value gets loaded from /run/secrets/api_key
 // ${readFileFromEnv:PATH_TO_SECRET}    - value gets loaded from the file path specified in the environment variable PATH_TO_SECRET
 //
-// findYAMLCommentStart returns the index of the YAML comment start (# preceded
-// by whitespace or at the start of a line) while respecting quoted strings.
-// Returns -1 if there is no comment on the line.
-func findYAMLCommentStart(line []byte) int {
-	inSingle := false
-	inDouble := false
+// A block scalar header may include anchors/tags and either ordering of the
+// indentation and chomping indicators. Match only a complete scalar header,
+// never a pipe or greater-than character embedded in ordinary text.
+var yamlVariableBlockHeader = regexp.MustCompile(`(?:^|:[ \t]+|-[ \t]+)(?:[&!][^ \t]+[ \t]+)*[|>]([1-9][-+]?|[-+][1-9]?)?[ \t]*$`)
 
+// Variable expansion precedes YAML decoding. Keep source-line context here so
+// hashes inside multiline scalars remain content without changing source maps.
+type yamlVariableScanState struct {
+	quote              byte
+	flowDepth          int
+	blockParentIndent  int
+	blockContentIndent int
+	inBlock            bool
+}
+
+// commentStart returns -1 for scalar content and the start of real comments.
+// Block indentation is explicit or inferred from the first nonblank content
+// line; a dedent returns to ordinary YAML scanning on that same line.
+func (state *yamlVariableScanState) commentStart(line []byte) int {
+	indent := len(line) - len(bytes.TrimLeft(line, " "))
+	if state.inBlock {
+		if len(bytes.TrimSpace(line)) == 0 {
+			return -1
+		}
+		if state.blockContentIndent == 0 && indent > state.blockParentIndent {
+			state.blockContentIndent = indent
+		}
+		if state.blockContentIndent > 0 && indent >= state.blockContentIndent {
+			return -1
+		}
+		state.inBlock = false
+	}
+
+	comment := -1
+	scalarStart := true
 	for i := 0; i < len(line); i++ {
-		switch {
-		case inSingle:
-			if line[i] == '\'' {
-				if i+1 < len(line) && line[i+1] == '\'' {
+		c := line[i]
+		if state.quote != 0 {
+			if state.quote == '"' && c == '\\' {
+				i++
+			} else if c == state.quote {
+				if c == '\'' && i+1 < len(line) && line[i+1] == '\'' {
 					i++
 				} else {
-					inSingle = false
+					state.quote = 0
 				}
 			}
-		case inDouble:
-			if line[i] == '\\' {
-				if i+1 < len(line) {
-					i++
-				}
-			} else if line[i] == '"' {
-				inDouble = false
+			scalarStart = false
+			continue
+		}
+		if c == '#' && (i == 0 || line[i-1] == ' ' || line[i-1] == '\t') {
+			comment = i
+			break
+		}
+		switch {
+		case c == ' ' || c == '\t' || c == '\r':
+		case scalarStart && (c == '&' || c == '!'):
+			// Node properties precede scalars; quotes within property names do
+			// not begin a quoted scalar. The YAML decoder validates the syntax.
+			for i+1 < len(line) && line[i+1] != ' ' && line[i+1] != '\t' {
+				i++
 			}
+		case scalarStart && (c == '\'' || c == '"'):
+			state.quote = c
+		case scalarStart && (c == '[' || c == '{'):
+			state.flowDepth++
+			scalarStart = true
+		case state.flowDepth > 0 && (c == ']' || c == '}'):
+			state.flowDepth--
+			scalarStart = false
+		case state.flowDepth > 0 && c == ',':
+			scalarStart = true
+		case c == ':' && (i+1 == len(line) || bytes.ContainsAny(line[i+1:i+2], " \t\"'[{")):
+			scalarStart = true
+		case scalarStart && (c == '-' || c == '?') && i+1 < len(line) && (line[i+1] == ' ' || line[i+1] == '\t'):
 		default:
-			switch line[i] {
-			case '\'':
-				inSingle = true
-			case '"':
-				inDouble = true
-			case '#':
-				if i == 0 || line[i-1] == ' ' || line[i-1] == '\t' {
-					return i
+			scalarStart = false
+		}
+	}
+
+	content := line
+	if comment >= 0 {
+		content = line[:comment]
+	}
+	content = bytes.TrimSuffix(content, []byte("\r"))
+	if state.quote == 0 && state.flowDepth == 0 {
+		if match := yamlVariableBlockHeader.FindSubmatch(content); match != nil {
+			// In "- head: |", the key belongs to the mapping after the dash.
+			// In "- |", the block belongs to the sequence at the dash itself.
+			parent := indent
+			rest := content[indent:]
+			for len(rest) > 1 && rest[0] == '-' && (rest[1] == ' ' || rest[1] == '\t') {
+				trimmed := bytes.TrimLeft(rest[1:], " \t")
+				if header := yamlVariableBlockHeader.FindIndex(trimmed); header != nil && header[0] == 0 {
+					break
+				}
+				parent += len(rest) - len(trimmed)
+				rest = trimmed
+			}
+			state.inBlock = true
+			state.blockParentIndent = parent
+			state.blockContentIndent = 0
+			for _, c := range match[1] {
+				if c >= '1' && c <= '9' {
+					state.blockContentIndent = parent + int(c-'0')
 				}
 			}
 		}
 	}
+	return comment
+}
 
-	return -1
+// findYAMLCommentStart retains the single-line contract used by diagnostics and
+// tests. Full-document variable expansion shares one scanner across all lines.
+func findYAMLCommentStart(line []byte) int {
+	var state yamlVariableScanState
+	return state.commentStart(line)
 }
 
 func parseConfigVariables(contents []byte) ([]byte, error) {
@@ -722,12 +799,13 @@ func parseConfigVariablesWithSources(contents []byte, parsed *parsedYAMLConfig) 
 		return []byte(prefix + parsedValue)
 	}
 
-	// Process line by line so we can skip YAML comments, which should not
-	// have their variables expanded (fixes #948).
+	// Scan original source lines before substitution. Multiline scalar context
+	// must survive line boundaries, while generated line numbers remain stable.
+	var scan yamlVariableScanState
 	lines := bytes.Split(contents, []byte("\n"))
 	for i, line := range lines {
 		generatedLine = i + 1
-		commentIdx := findYAMLCommentStart(line)
+		commentIdx := scan.commentStart(line)
 		if commentIdx >= 0 {
 			// Only apply variable substitution to the part before the comment
 			lines[i] = append(

@@ -3264,3 +3264,71 @@ func TestNewConfigFromParsedYAMLReportsReservedPageSlugSource(t *testing.T) {
 		t.Fatalf("diagnostic location = %s:%d, want %s:3", diagnostic.File, diagnostic.Line, mainPath)
 	}
 }
+
+func TestParseConfigVariablesScalarContext(t *testing.T) {
+	t.Setenv("TEST_SCALAR_VALUE", "expanded")
+	t.Setenv("MISSING_SCALAR_COMMENT", "")
+	// Missing variables must remain untouched only in actual YAML comments.
+	if err := os.Unsetenv("MISSING_SCALAR_COMMENT"); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct{ name, input, want string }{
+		{"literal", "head: |\n  # ${TEST_SCALAR_VALUE}\n", "head: |\n  # expanded\n"},
+		{"folded", "head: >\n  # ${TEST_SCALAR_VALUE}\n", "head: >\n  # expanded\n"},
+		{"anchored tagged", "head: &shared !!str |\n  # ${TEST_SCALAR_VALUE}\n", "head: &shared !!str |\n  # expanded\n"},
+		{"explicit indentation", "head: |2-\n  # ${TEST_SCALAR_VALUE}\n", "head: |2-\n  # expanded\n"},
+		{"reverse indicators", "head: >-2\n  # ${TEST_SCALAR_VALUE}\n", "head: >-2\n  # expanded\n"},
+		{"sequence scalar", "items:\n- |\n  # ${TEST_SCALAR_VALUE}\n", "items:\n- |\n  # expanded\n"},
+		{"sequence mapping", "- head: |\n    # ${TEST_SCALAR_VALUE}\n  sibling: value # ${MISSING_SCALAR_COMMENT}\n", "- head: |\n    # expanded\n  sibling: value # ${MISSING_SCALAR_COMMENT}\n"},
+		{"nested sequence", "- - head: |\n      # ${TEST_SCALAR_VALUE}\n    sibling: value # ${MISSING_SCALAR_COMMENT}\n", "- - head: |\n      # expanded\n    sibling: value # ${MISSING_SCALAR_COMMENT}\n"},
+		{"inferred indentation", "head: |\n    # ${TEST_SCALAR_VALUE}\n  # ${MISSING_SCALAR_COMMENT}\nnext: value\n", "head: |\n    # expanded\n  # ${MISSING_SCALAR_COMMENT}\nnext: value\n"},
+		{"blank line", "head: |\n\n  # ${TEST_SCALAR_VALUE}\nnext: value # ${MISSING_SCALAR_COMMENT}\n", "head: |\n\n  # expanded\nnext: value # ${MISSING_SCALAR_COMMENT}\n"},
+		{"block header comment", "head: | # ${MISSING_SCALAR_COMMENT}\n  # ${TEST_SCALAR_VALUE}\n", "head: | # ${MISSING_SCALAR_COMMENT}\n  # expanded\n"},
+		{"double quoted multiline", "head: \"first\n  # ${TEST_SCALAR_VALUE}\n  last\" # ${MISSING_SCALAR_COMMENT}\n", "head: \"first\n  # expanded\n  last\" # ${MISSING_SCALAR_COMMENT}\n"},
+		{"single quoted multiline", "head: 'first\n  # ${TEST_SCALAR_VALUE}\n  last' # ${MISSING_SCALAR_COMMENT}\n", "head: 'first\n  # expanded\n  last' # ${MISSING_SCALAR_COMMENT}\n"},
+		{"escaped double quote", "head: \"say \\\" # ${TEST_SCALAR_VALUE}\" # ${MISSING_SCALAR_COMMENT}\n", "head: \"say \\\" # expanded\" # ${MISSING_SCALAR_COMMENT}\n"},
+		{"doubled single quote", "head: 'say '' # ${TEST_SCALAR_VALUE}' # ${MISSING_SCALAR_COMMENT}\n", "head: 'say '' # expanded' # ${MISSING_SCALAR_COMMENT}\n"},
+		{"plain apostrophe", "head: don't expand # ${MISSING_SCALAR_COMMENT}\nnext: ${TEST_SCALAR_VALUE}\n", "head: don't expand # ${MISSING_SCALAR_COMMENT}\nnext: expanded\n"},
+		{"plain embedded quote", "head: say \"hello # ${MISSING_SCALAR_COMMENT}\nnext: ${TEST_SCALAR_VALUE}\n", "head: say \"hello # ${MISSING_SCALAR_COMMENT}\nnext: expanded\n"},
+		{"flow quoted scalars", "head: {\"key\":\"# ${TEST_SCALAR_VALUE}\"} # ${MISSING_SCALAR_COMMENT}\n", "head: {\"key\":\"# expanded\"} # ${MISSING_SCALAR_COMMENT}\n"},
+		{"escaped variable in block", "head: |\n  # \\${TEST_SCALAR_VALUE}\n", "head: |\n  # ${TEST_SCALAR_VALUE}\n"},
+		{"no final newline", "head: |\n  # ${TEST_SCALAR_VALUE}", "head: |\n  # expanded"},
+		{"CRLF block", "head: |\r\n  # ${TEST_SCALAR_VALUE}\r\nnext: value # ${MISSING_SCALAR_COMMENT}\r\n", "head: |\r\n  # expanded\r\nnext: value # ${MISSING_SCALAR_COMMENT}\r\n"},
+		{"sequence explicit indentation", "- head: |2\n    # ${TEST_SCALAR_VALUE}\n  sibling: value # ${MISSING_SCALAR_COMMENT}\n", "- head: |2\n    # expanded\n  sibling: value # ${MISSING_SCALAR_COMMENT}\n"},
+		{"sequence scalar explicit indentation", "- |2\n  # ${TEST_SCALAR_VALUE}\n", "- |2\n  # expanded\n"},
+		{"comment after folded block", "head: >\n  value ${TEST_SCALAR_VALUE}\n# ${MISSING_SCALAR_COMMENT}\nnext: value\n", "head: >\n  value expanded\n# ${MISSING_SCALAR_COMMENT}\nnext: value\n"},
+		{"plain comma quote", "head: say, \"hello # ${MISSING_SCALAR_COMMENT}\nnext: ${TEST_SCALAR_VALUE}\n", "head: say, \"hello # ${MISSING_SCALAR_COMMENT}\nnext: expanded\n"},
+		{"flow sequence", "head: [\"# ${TEST_SCALAR_VALUE}\", '# ${TEST_SCALAR_VALUE}'] # ${MISSING_SCALAR_COMMENT}\n", "head: [\"# expanded\", '# expanded'] # ${MISSING_SCALAR_COMMENT}\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := parseConfigVariables([]byte(tc.input))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(got) != tc.want {
+				t.Fatalf("got %q; want %q", got, tc.want)
+			}
+			// Except for the deliberately escaped variable, the result must
+			// remain valid YAML with the same scalar/comment boundaries.
+			var decoded any
+			if err := yaml.Unmarshal(got, &decoded); err != nil {
+				t.Fatalf("expanded YAML: %v", err)
+			}
+		})
+	}
+}
+
+func TestParseConfigVariablesScalarSourceDiagnostic(t *testing.T) {
+	t.Setenv("MISSING_SCALAR_CONTENT", "")
+	if err := os.Unsetenv("MISSING_SCALAR_CONTENT"); err != nil {
+		t.Fatal(err)
+	}
+	for _, header := range []string{"head: |", "head: &shared >-", "head: \"first"} {
+		input := header + "\n  # ${MISSING_SCALAR_CONTENT}\n"
+		parsed := &parsedYAMLConfig{Sources: []configSourceLocation{{File: "included.yml", Line: 20}, {File: "included.yml", Line: 21}}}
+		_, err := parseConfigVariablesWithSources([]byte(input), parsed)
+		if err == nil || !strings.Contains(err.Error(), "included.yml:21:") || !strings.Contains(err.Error(), "MISSING_SCALAR_CONTENT") {
+			t.Fatalf("header %q: missing scalar source diagnostic: %v", header, err)
+		}
+	}
+}
