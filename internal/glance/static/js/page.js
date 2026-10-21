@@ -1,4 +1,5 @@
 import { setupPresentation } from './presentation.js';
+import { setupDecorations } from './decorations.js';
 import { cleanupPopoversWithin, setupPopovers } from './popover.js';
 import { setupMasonries } from './masonry.js';
 import { throttledDebounce, isElementVisible, openURLInNewTab } from './utils.js';
@@ -1214,6 +1215,7 @@ function markPageContentReady(pageElement) {
 async function setupPage() {
     const setupStarted = performance.now();
     frontendDiagnostic("page_setup_start");
+    runFrontendDiagnosticStage("decorations", () => setupDecorations());
 
     runFrontendDiagnosticStage(
         "theme_picker",

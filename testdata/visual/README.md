@@ -81,3 +81,49 @@ visual capture first, then the project's normal `make check` and `make validate`
 gates before integration. The canonical QA screenshots in
 `testdata/visual/screenshots/` are separate and need not duplicate every
 style variant.
+
+## Decoration runtime profiles
+
+Decorations are global, so their captures use public alternate configurations
+under `testdata/decorations/`, each including the unchanged canonical fixture.
+Browser documentation recipes may specify `testConfig` pointing to one of
+these committed files. The capture runner switches profiles through
+`make test-instance-start TEST_CONFIG=...` when required; the outer managed
+runner stops the final runtime on success or failure. Ordinary recipes restore
+`test-instance.yml` when needed. This works for scoped and aggregate captures.
+
+The production renderer and real configuration are used; no decoration HTML
+is injected for screenshots. Captures require all footer artwork to load.
+Use viewport page captures (`fullPage: false`) to show fixed edge lights:
+
+    make visual-docs VISUAL_IMAGE=pages/decorations-halloween.png
+    make visual-docs-promote VISUAL_IMAGE=pages/decorations-halloween.png
+
+Inspect staged images before promotion. Every built-in design has a profile
+and managed documentation image. Do not add decorations to widget registries.
+
+For interactive review:
+
+    make test-instance-start TEST_CONFIG=testdata/decorations/halloween.yml
+
+Open `http://127.0.0.1:18080/screenshots/docs-overview`. Stop it with
+`make test-instance-stop` when finished. `make frontend-check` also exercises
+the automatic profile on desktop and mobile, controlling the browser clock to
+cross midnight and enter a schedule gap. It uses the normal production date
+selection with no test-only runtime configuration switches.
+
+Use `TEST_CONFIG=testdata/decorations/halloween-animated.yml` for interactive
+Halloween animation review. The ordinary `halloween.yml` profile deliberately
+sets `animation: false` to keep documentation captures stable. Reduced-motion
+preferences suppress twinkling in either profile.
+
+Stage all decoration images, without touching other documentation captures:
+
+    make visual-docs VISUAL_DECORATIONS=true
+
+After visually reviewing the staged set, promote it with:
+
+    make visual-docs-promote VISUAL_DECORATIONS=true
+
+`VISUAL_DECORATIONS=true` is mutually exclusive with image, page and dashboard
+scope. Promotion requires every decoration image to be staged.

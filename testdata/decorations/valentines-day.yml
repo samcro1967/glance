@@ -1,0 +1,8 @@
+# Public source-runtime decoration profile.
+$include: ../../test-instance.yml
+decorations:
+  enabled: true
+  theme: valentines-day
+  lights: true
+  footer-icons: true
+  animation: false

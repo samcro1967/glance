@@ -1,0 +1,91 @@
+# Built-in decoration designs. This catalog is embedded at build time.
+# Add a unique name, 1-8 hex colors, and shared Glance icon references.
+# auto and custom are reserved. Dates belong in user configuration.
+halloween:
+  light-colors: ["#ff7518", "#9146ff"]
+  footer-left-icon: twemoji:1f383
+  footer-right-icon: twemoji:1f47b
+thanksgiving:
+  light-colors: ["#cc5500", "#daa520", "#ffd9a0"]
+  footer-left-icon: twemoji:1f983
+  footer-right-icon: twemoji:1f341
+christmas:
+  light-colors: ["#e53935", "#43a047", "#ffe7b0"]
+  footer-left-icon: twemoji:1f384
+  footer-right-icon: twemoji:1f381
+new-year:
+  light-colors: ["#ffd700", "#ffffff"]
+  footer-left-icon: twemoji:1f389
+  footer-right-icon: twemoji:1f386
+valentines-day:
+  light-colors: ["#e53955", "#ff85b3"]
+  footer-left-icon: twemoji:2764
+  footer-right-icon: twemoji:1f498
+st-patricks-day:
+  light-colors: ["#32b85a", "#ffd700"]
+  footer-left-icon: twemoji:2618
+  footer-right-icon: twemoji:1f308
+easter:
+  light-colors: ["#c7a4ff", "#ffb8d1", "#a8e6b0"]
+  footer-left-icon: twemoji:1f430
+  footer-right-icon: twemoji:1f95a
+independence-day:
+  light-colors: ["#e53935", "#ffffff", "#3879ff"]
+  footer-left-icon: twemoji:1f1fa-1f1f8
+  footer-right-icon: twemoji:1f386
+autumn:
+  light-colors: ["#cc5500", "#daa520", "#b84824"]
+  footer-left-icon: twemoji:1f341
+  footer-right-icon: twemoji:1f342
+winter:
+  light-colors: ["#a5d8ff", "#ffffff"]
+  footer-left-icon: twemoji:2744
+  footer-right-icon: twemoji:26c4
+spring:
+  light-colors: ["#ff9fc9", "#a8e6b0", "#c7a4ff"]
+  footer-left-icon: twemoji:1f338
+  footer-right-icon: twemoji:1f98b
+summer:
+  light-colors: ["#ffd54f", "#39c6e6", "#ff8a50"]
+  footer-left-icon: twemoji:1f31e
+  footer-right-icon: twemoji:1f3d6
+martin-luther-king-day:
+  light-colors: ["#ffffff", "#d4af37", "#7cb9e8"]
+  footer-left-icon: twemoji:1f54a
+  footer-right-icon: twemoji:2696
+presidents-day:
+  light-colors: ["#e53935", "#ffffff", "#3879ff"]
+  footer-left-icon: twemoji:1f1fa-1f1f8
+  footer-right-icon: twemoji:1f3db
+memorial-day:
+  light-colors: ["#b93c3c", "#ffffff", "#4369ad"]
+  footer-left-icon: twemoji:1f1fa-1f1f8
+  footer-right-icon: twemoji:1f339
+juneteenth:
+  light-colors: ["#e53935", "#43a047", "#ffd54f"]
+  footer-left-icon: twemoji:1f54a
+  footer-right-icon: twemoji:1f31f
+labor-day:
+  light-colors: ["#ffd54f", "#ffffff", "#4285d4"]
+  footer-left-icon: twemoji:1f528
+  footer-right-icon: twemoji:1f527
+columbus-day:
+  light-colors: ["#4285d4", "#ffffff", "#ffd54f"]
+  footer-left-icon: twemoji:26f5
+  footer-right-icon: twemoji:1f9ed
+indigenous-peoples-day:
+  light-colors: ["#c76b35", "#e5bc65", "#6b9e64"]
+  footer-left-icon: twemoji:1f31e
+  footer-right-icon: twemoji:1f343
+veterans-day:
+  light-colors: ["#b93c3c", "#ffffff", "#4369ad"]
+  footer-left-icon: twemoji:1f1fa-1f1f8
+  footer-right-icon: twemoji:1f396
+mothers-day:
+  light-colors: ["#ff85b3", "#ffc4de", "#d6a5ed"]
+  footer-left-icon: twemoji:1f490
+  footer-right-icon: twemoji:2764
+fathers-day:
+  light-colors: ["#4285d4", "#7bc8e8", "#ffffff"]
+  footer-left-icon: twemoji:1f454
+  footer-right-icon: twemoji:1f499

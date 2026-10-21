@@ -324,6 +324,13 @@ Inherited HTTP headers are merged with more-specific headers, with the more-spec
 
 `widget-defaults` is additive and optional. A valid configuration that does not use it continues to use the existing widget-specific syntax and built-in defaults. Existing names such as `same-tab` remain valid and do not produce deprecation warnings merely because `new-tab` is the canonical hierarchical capability name.
 
+## Decorations
+
+Optional global lights and footer artwork are configured under `decorations`.
+See [Decorations](decorations.md) for presets, custom designs, annual schedules,
+defaults, artwork sources, and complete examples. Decorations are independent
+of the existing Glance theme picker.
+
 ## Icons
 
 The common widget `icon` property adds an optional icon immediately before the widget title. It accepts a direct image URL or an icon name from one of the supported libraries using the prefixes below. The same icon syntax is also used by widget-specific item and service icons, such as Monitor entries, Bookmarks, and Docker containers.
@@ -334,11 +341,17 @@ icon: sh:immich # sh for selfh.st icons https://selfh.st/icons/
 icon: di:immich # di for Dashboard icons https://github.com/homarr-labs/dashboard-icons
 icon: hla:linux # hla for Homelab SVG Assets https://github.com/loganmarchione/homelab-svg-assets
 icon: mdi:camera # mdi for Material Design icons https://pictogrammers.com/library/mdi/
+icon: twemoji:1f383 # Twemoji jack-o'-lantern (Unicode codepoint)
 ```
 
 Widget title icons are rendered only when the widget has a non-empty title. When `title-url` is configured, the icon and title are part of the same link. `hide-header: true` suppresses the title icon together with the header. Group child icons appear in their group tabs, while widgets inside a Stack render title icons in their normal headers.
 
 Title icons participate in `widget-defaults`, so they can be configured globally, by widget type, or on an individual widget using the normal precedence rules. An explicit empty value (`icon: ""`) suppresses an inherited title icon. Widget-specific item or service icons remain independent of the widget title icon.
+
+The `twemoji:` prefix accepts a lowercase Unicode codepoint sequence, such as
+`twemoji:1f47b` (ghost) or `twemoji:1f1fa-1f1f8` (US flag). It loads pinned
+Twemoji SVG artwork from jsDelivr without automatic color inversion. See
+[artwork sources and attribution](decorations.md#artwork-and-preset-maintenance).
 
 Prefix an icon value with `auto-invert ` to automatically invert it for dark themes. The `si:` and `mdi:` prefixes enable auto-inversion automatically.
 
