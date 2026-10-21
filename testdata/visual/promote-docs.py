@@ -18,6 +18,7 @@ group = parser.add_mutually_exclusive_group()
 group.add_argument("--dashboard")
 group.add_argument("--page")
 group.add_argument("--image")
+group.add_argument("--decorations", action="store_true")
 args = parser.parse_args()
 
 visual_pages = json.loads(
@@ -83,7 +84,9 @@ browser_images = {
     if recipe.get("kind") == "browser"
 }
 
-if args.image:
+if args.decorations:
+    selected_browser_images = {name for name in browser_images if recipes[name].get("testConfig")}
+elif args.image:
     selected_browser_images = {args.image}
 else:
     selected_browser_images = {
@@ -132,7 +135,7 @@ staged_images = {
     if path.is_file()
 }
 
-if args.image:
+if args.image or args.decorations:
     missing = sorted(selected_browser_images - staged_images)
     extra = []
 elif allowed_routes is None:

@@ -1,6 +1,6 @@
 module github.com/samcro1967/glance
 
-go 1.27.2
+go 1.27.3
 
 require (
 	github.com/arran4/golang-ical v0.3.6

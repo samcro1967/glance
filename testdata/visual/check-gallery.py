@@ -449,6 +449,14 @@ for filename, recipe in docs_images.items():
             f"{filename}: browser-managed image must be PNG"
         )
 
+    profile = recipe.get("testConfig")
+    if profile is not None and (
+        not isinstance(profile, str)
+        or not re.fullmatch(r"testdata/decorations/[a-z0-9-]+\.yml", profile)
+        or not (ROOT / profile).is_file()
+    ):
+        invalid_docs_recipes.append(f"{filename}: invalid decoration testConfig")
+
     capture = recipe.get("capture")
 
     click = recipe.get("click")

@@ -163,6 +163,8 @@ func newCustomIconField(value string) customIconField {
 	}
 
 	switch prefix {
+	case "twemoji":
+		field.URL = template.URL("https://cdn.jsdelivr.net/gh/jdecked/twemoji@" + twemojiVersion + "/assets/svg/" + icon + ".svg")
 	case "si":
 		field.AutoInvert = true
 		field.URL = template.URL("https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/" + basename + ".svg")

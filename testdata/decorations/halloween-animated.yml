@@ -1,0 +1,8 @@
+# Interactive review profile. Documentation captures keep animation disabled.
+$include: ../../test-instance.yml
+decorations:
+  enabled: true
+  theme: halloween
+  lights: true
+  footer-icons: true
+  animation: true

@@ -1511,5 +1511,184 @@
       "height": 900
     },
     "mobileCapture": "element"
+  },
+  "pages/decorations-halloween.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-overview",
+    "fullPage": false,
+    "testConfig": "testdata/decorations/halloween.yml"
+  },
+  "pages/decorations-thanksgiving.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-overview",
+    "fullPage": false,
+    "testConfig": "testdata/decorations/thanksgiving.yml"
+  },
+  "pages/decorations-christmas.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-overview",
+    "fullPage": false,
+    "testConfig": "testdata/decorations/christmas.yml"
+  },
+  "pages/decorations-new-year.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-overview",
+    "fullPage": false,
+    "testConfig": "testdata/decorations/new-year.yml"
+  },
+  "pages/decorations-valentines-day.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-overview",
+    "fullPage": false,
+    "testConfig": "testdata/decorations/valentines-day.yml"
+  },
+  "pages/decorations-st-patricks-day.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-overview",
+    "fullPage": false,
+    "testConfig": "testdata/decorations/st-patricks-day.yml"
+  },
+  "pages/decorations-easter.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-overview",
+    "fullPage": false,
+    "testConfig": "testdata/decorations/easter.yml"
+  },
+  "pages/decorations-independence-day.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-overview",
+    "fullPage": false,
+    "testConfig": "testdata/decorations/independence-day.yml"
+  },
+  "pages/decorations-autumn.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-overview",
+    "fullPage": false,
+    "testConfig": "testdata/decorations/autumn.yml"
+  },
+  "pages/decorations-winter.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-overview",
+    "fullPage": false,
+    "testConfig": "testdata/decorations/winter.yml"
+  },
+  "pages/decorations-custom.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-overview",
+    "fullPage": false,
+    "testConfig": "testdata/decorations/custom.yml"
+  },
+  "instructions/decorations-footer.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/screenshots/docs-overview",
+    "selector": ".decoration-footer-center",
+    "testConfig": "testdata/decorations/halloween.yml"
+  },
+  "pages/decorations-mobile.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-overview",
+    "fullPage": false,
+    "viewport": {
+      "width": 430,
+      "height": 900
+    },
+    "testConfig": "testdata/decorations/halloween.yml"
+  },
+  "pages/decorations-spring.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-overview",
+    "fullPage": false,
+    "testConfig": "testdata/decorations/spring.yml"
+  },
+  "pages/decorations-summer.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-overview",
+    "fullPage": false,
+    "testConfig": "testdata/decorations/summer.yml"
+  },
+  "pages/decorations-martin-luther-king-day.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-overview",
+    "fullPage": false,
+    "testConfig": "testdata/decorations/martin-luther-king-day.yml"
+  },
+  "pages/decorations-presidents-day.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-overview",
+    "fullPage": false,
+    "testConfig": "testdata/decorations/presidents-day.yml"
+  },
+  "pages/decorations-memorial-day.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-overview",
+    "fullPage": false,
+    "testConfig": "testdata/decorations/memorial-day.yml"
+  },
+  "pages/decorations-juneteenth.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-overview",
+    "fullPage": false,
+    "testConfig": "testdata/decorations/juneteenth.yml"
+  },
+  "pages/decorations-labor-day.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-overview",
+    "fullPage": false,
+    "testConfig": "testdata/decorations/labor-day.yml"
+  },
+  "pages/decorations-columbus-day.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-overview",
+    "fullPage": false,
+    "testConfig": "testdata/decorations/columbus-day.yml"
+  },
+  "pages/decorations-indigenous-peoples-day.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-overview",
+    "fullPage": false,
+    "testConfig": "testdata/decorations/indigenous-peoples-day.yml"
+  },
+  "pages/decorations-veterans-day.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-overview",
+    "fullPage": false,
+    "testConfig": "testdata/decorations/veterans-day.yml"
+  },
+  "pages/decorations-mothers-day.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-overview",
+    "fullPage": false,
+    "testConfig": "testdata/decorations/mothers-day.yml"
+  },
+  "pages/decorations-fathers-day.png": {
+    "kind": "browser",
+    "capture": "page",
+    "route": "/screenshots/docs-overview",
+    "fullPage": false,
+    "testConfig": "testdata/decorations/fathers-day.yml"
   }
 }

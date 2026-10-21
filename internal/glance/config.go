@@ -61,7 +61,8 @@ type config struct {
 
 	Playwright redditBrowserConfig `yaml:"playwright"`
 
-	Analytics analyticsConfig `yaml:"analytics"`
+	Analytics   analyticsConfig   `yaml:"analytics"`
+	Decorations decorationsConfig `yaml:"decorations"`
 
 	Document struct {
 		Head template.HTML `yaml:"head"`
@@ -520,6 +521,9 @@ func newConfigFromParsedYAML(parsed *parsedYAMLConfig) (*config, error) {
 	semanticSources, err := parseConfigSemanticSources(contents)
 	if err != nil {
 		return nil, configDiagnosticFromYAMLError(parsed, err)
+	}
+	if err := config.Decorations.validate(parsed); err != nil {
+		return nil, err
 	}
 
 	recoverConfiguredThemeErrors(config, parsed, semanticSources)

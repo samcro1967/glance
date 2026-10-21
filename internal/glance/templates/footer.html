@@ -1,5 +1,6 @@
 {{ if not .App.Config.Branding.HideFooter }}
 <footer class="footer flex items-center flex-column color-base">
+{{ if and .Page .App.Config.Decorations.Enabled }}<div class="decoration-footer-center"><span data-decoration-footer="left" aria-hidden="true" hidden></span>{{ end }}
 {{ if eq "" .App.Config.Branding.CustomFooter }}
     <div>
         <a class="size-h3" href="https://github.com/samcro1967/glance" target="_blank" rel="noreferrer">Glance</a>
@@ -19,6 +20,7 @@
 {{ else }}
     {{ .App.Config.Branding.CustomFooter }}
 {{ end }}
+{{ if and .Page .App.Config.Decorations.Enabled }}<span data-decoration-footer="right" aria-hidden="true" hidden></span></div>{{ end }}
 {{ if .Page }}
     {{ with .App.Config.FooterMicroWidgets }}
         {{ if or .Left .Right }}

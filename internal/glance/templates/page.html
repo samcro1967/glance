@@ -50,6 +50,10 @@
 {{ end }}
 
 {{ define "document-body" }}
+{{ if .App.Config.Decorations.Enabled }}
+<script type="application/json" id="decoration-config">{{ .App.DecorationConfig }}</script>
+<div id="decorations" aria-hidden="true"></div>
+{{ end }}
 <div class="flex flex-column body-content">
     {{ if not .Page.HideDesktopNavigation }}
     <div class="header-container content-bounds{{ if .Page.DesktopNavigationWidth }} content-bounds-{{ .Page.DesktopNavigationWidth }} {{ end }}">

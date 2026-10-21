@@ -1,0 +1,7 @@
+$include: ../../test-instance.yml
+decorations:
+  enabled: true
+  theme: custom
+  light-colors: ["#cc5500", "#daa520"]
+  footer-left-icon: twemoji:1f341
+  footer-right-icon: twemoji:1f342

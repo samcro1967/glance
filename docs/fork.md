@@ -459,6 +459,14 @@ The intent is to keep the fork maintainable, transparent, upstream-compatible, a
 
 See the [configuration documentation](configuration.md#configuring-glance) for details on using the additional widgets and functionality.
 
+## Seasonal decorations
+
+[Decorations](decorations.md) add opt-in viewport lights and footer artwork,
+with built-in designs, custom shared-icon references, and browser-local annual
+scheduling. Presets live in an embedded YAML catalog; Twemoji extends the shared
+icon resolver without bundling artwork or an additional JavaScript library.
+Decoration timers belong to the page lifecycle, not the widget scheduler.
+
 ---
 
 [Glance README](../README.md) · [Contributing](../CONTRIBUTING.md) · [Configuration](configuration.md) · [Widgets](widgets.md) · [Back to top](#about-this-fork)

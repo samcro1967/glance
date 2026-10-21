@@ -1,0 +1,89 @@
+/* Decorative palettes intentionally belong to the decoration catalog, not to
+   semantic UI colors. This layer never changes widget or theme variables. */
+#decorations {
+    position: fixed;
+    inset: 0;
+    /* Above fixed desktop/mobile navigation (10/11), below popovers (20).
+       Pointer events remain disabled so the strand cannot block controls. */
+    z-index: 12;
+    pointer-events: none;
+    overflow: hidden;
+    contain: layout paint;
+}
+
+/* One wire owns the entire perimeter, including the rounded corners. */
+.decoration-wire {
+    position: absolute;
+    top: max(2px, env(safe-area-inset-top, 0px));
+    right: max(2px, env(safe-area-inset-right, 0px));
+    bottom: max(2px, env(safe-area-inset-bottom, 0px));
+    left: max(2px, env(safe-area-inset-left, 0px));
+    border: 1px solid var(--color-text-subdue);
+    border-radius: 12px;
+    box-sizing: border-box;
+    pointer-events: none;
+}
+
+.decoration-edge {
+    position: absolute;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    gap: 12px;
+    pointer-events: none;
+}
+
+.decoration-edge-top, .decoration-edge-bottom {
+    left: max(12px, env(safe-area-inset-left, 0px));
+    right: max(12px, env(safe-area-inset-right, 0px));
+    height: 12px;
+}
+.decoration-edge-top { top: max(2px, env(safe-area-inset-top, 0px)); }
+.decoration-edge-bottom { bottom: max(2px, env(safe-area-inset-bottom, 0px)); transform: rotate(180deg); }
+.decoration-edge-left, .decoration-edge-right {
+    top: max(16px, env(safe-area-inset-top, 0px));
+    bottom: max(16px, env(safe-area-inset-bottom, 0px));
+    width: 12px;
+    flex-direction: column;
+}
+.decoration-edge-left { left: max(2px, env(safe-area-inset-left, 0px)); }
+.decoration-edge-right { right: max(2px, env(safe-area-inset-right, 0px)); transform: rotate(180deg); }
+.decoration-bulb {
+    display: block;
+    flex-shrink: 0;
+    width: 5px;
+    height: 9px;
+    border-radius: 40% 40% 50% 50%;
+    background-color: var(--decoration-color);
+    box-shadow: 0 0 6px 2px var(--decoration-color);
+    transform: rotate(12deg);
+}
+.decoration-edge-left .decoration-bulb, .decoration-edge-right .decoration-bulb { transform: rotate(-78deg); }
+.decoration-animated .decoration-bulb {
+    animation: decoration-glow var(--decoration-duration, 4s) ease-in-out infinite alternate;
+    animation-delay: var(--decoration-delay);
+}
+@keyframes decoration-glow { from { opacity: 0.65; } to { opacity: 1; } }
+.decoration-footer-center {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    max-width: 100%;
+    text-align: center;
+}
+[data-decoration-footer] { flex: 0 0 auto; pointer-events: none; }
+[data-decoration-footer][hidden] { display: none; }
+.decoration-footer-icon { display: block; width: 28px; height: 28px; object-fit: contain; }
+@media (max-width: 1190px) {
+    .decoration-footer-center { gap: 8px; padding-inline: 12px; }
+    .decoration-footer-icon { width: 22px; height: 22px; }
+    /* Keep the continuous wire above the fixed mobile navigation as well. */
+    .decoration-wire { bottom: calc(var(--mobile-navigation-height) + env(safe-area-inset-bottom, 0px) + 2px); }
+    /* Leave the fixed mobile navigation clear of the bottom strand. */
+    .decoration-edge-bottom { bottom: calc(var(--mobile-navigation-height) + env(safe-area-inset-bottom, 0px) + 2px); }
+    .decoration-edge-left, .decoration-edge-right { bottom: calc(var(--mobile-navigation-height) + env(safe-area-inset-bottom, 0px) + 16px); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .decoration-animated .decoration-bulb { animation: none; }
+}

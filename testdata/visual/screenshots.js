@@ -14,6 +14,7 @@
 'use strict';
 
 const fs = require('fs');
+const { createRuntimeSelector } = require('./decoration-runtime');
 const path = require('path');
 const { chromium } = require('playwright');
 
@@ -61,6 +62,7 @@ const pageFilter = optionValue('page');
 const imageFilter = optionValue('image');
 const widgetFilter = optionValue('widget');
 const viewportFilter = optionValue('viewport');
+const decorationFilter = process.argv.includes('--decorations');
 const qaViewportName = viewportFilter || 'desktop';
 const qaViewport = QA_VIEWPORTS[qaViewportName];
 
@@ -74,15 +76,15 @@ if (viewportFilter && MODE !== 'qa') {
   throw new Error('--viewport is only supported in QA mode');
 }
 
-const selectedFilters = [dashboardFilter, pageFilter, imageFilter, widgetFilter]
+const selectedFilters = [dashboardFilter, pageFilter, imageFilter, widgetFilter, decorationFilter]
   .filter(Boolean);
 
 if (selectedFilters.length > 1) {
-  throw new Error('--dashboard, --page, --image, and --widget are mutually exclusive');
+  throw new Error('--dashboard, --page, --image, --widget, and --decorations are mutually exclusive');
 }
 
-if (imageFilter && MODE !== 'docs') {
-  throw new Error('--image is only supported in docs mode');
+if ((imageFilter || decorationFilter) && MODE !== 'docs') {
+  throw new Error('--image and --decorations are only supported in docs mode');
 }
 
 if (widgetFilter && MODE !== 'qa') {
@@ -567,9 +569,10 @@ async function captureQa(browser) {
 }
 
 async function captureDocs(browser) {
+  const selectRuntime = createRuntimeSelector();
   const mappings = JSON.parse(fs.readFileSync(DOCS_MAP, 'utf8'));
-  const selective = Boolean(dashboardFilter || pageFilter || imageFilter);
-  const allowedRoutes = imageFilter ? null : selectedRoutes();
+  const selective = Boolean(dashboardFilter || pageFilter || imageFilter || decorationFilter);
+  const allowedRoutes = imageFilter || decorationFilter ? null : selectedRoutes();
 
   if (imageFilter) {
     const recipe = mappings[imageFilter];
@@ -595,7 +598,7 @@ async function captureDocs(browser) {
     .filter(([filename, recipe]) =>
       recipe.kind === 'browser' &&
       (
-        imageFilter
+        decorationFilter ? Boolean(recipe.testConfig) : imageFilter
           ? filename === imageFilter
           : (!allowedRoutes || allowedRoutes.has(recipe.route))
       )
@@ -618,6 +621,7 @@ async function captureDocs(browser) {
   }
 
   for (const [filename, recipe] of browserMappings) {
+    selectRuntime(recipe.testConfig || 'test-instance.yml');
     const viewport = recipe.viewport || DEFAULT_VIEWPORT;
     const mobile = viewport.width === QA_VIEWPORTS.mobile.width &&
       viewport.height === QA_VIEWPORTS.mobile.height;
@@ -631,6 +635,10 @@ async function captureDocs(browser) {
 
     try {
       await openPage(page, recipe.route);
+      if (recipe.testConfig) {
+        await page.waitForFunction(() => document.querySelectorAll('.decoration-edge').length === 4);
+        await page.waitForFunction(() => document.querySelectorAll('.decoration-footer-icon').length === 2 && [...document.querySelectorAll('.decoration-footer-icon')].every(img => img.complete && img.naturalWidth > 0));
+      }
 
       if (recipe.click) {
         const trigger = page.locator(recipe.click).nth(recipe.clickNth || 0);
