@@ -218,6 +218,13 @@ func fetchRemoteServerInfo(ctx context.Context, infoReq *serverStatsRequest) (*s
 		return nil, err
 	}
 
+	// JSON null is valid JSON, but is not server information. Reject it here
+	// so the existing refresh path marks the server unreachable and reports
+	// partial or total failure instead of publishing a successful nil result.
+	if info == nil {
+		return nil, fmt.Errorf("remote system info response is null")
+	}
+
 	infoReq.SystemInfoRequest.Filter(info)
 
 	return info, nil

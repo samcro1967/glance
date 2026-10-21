@@ -33,6 +33,7 @@ See **[About the samcro1967 Glance fork](docs/fork.md)** for the complete record
 The fork extends Glance across several areas while preserving upstream-compatible defaults and configuration where practical:
 
 * **Dashboard functionality** — additional native widgets, nested groups, stacks, medium columns, named dashboards, bottom widgets, footer micro-widgets, status bars, page navigation icons, and expanded Weather and Calendar functionality.
+* **Seasonal decorations** — optional edge lights and footer icons with built-in presets, custom designs, and annual scheduling; see [Decorations](docs/decorations.md).
 * **Configuration and presentation** — hierarchical widget defaults, widget title icons, a comprehensive semantic theme system, page-level theme overrides, named theme presets, density controls, and shared native presentation primitives.
 * **Custom API capabilities** — expanded template helpers, Sprout functions, dynamic request controls, stale-content fallback, lifecycle-aware subrequests, and opt-in native metrics, cards, tables, charts, controls, and state presentation.
 * **Refresh and runtime reliability** — automatic background widget recovery, progressive retry behavior, stale and degraded-state handling, cancellation-aware refreshes, bounded concurrency, live widget updates, configuration reload hardening, and explicit lifecycle ownership.

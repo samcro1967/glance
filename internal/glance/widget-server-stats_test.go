@@ -390,3 +390,60 @@ func TestServerStatsUpdateCancellation(t *testing.T) {
 		)
 	}
 }
+
+func TestFetchRemoteServerInfoRejectsNull(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte("null"))
+	}))
+	defer server.Close()
+	for _, options := range []*sysinfo.SystemInfoRequest{nil, {MountpointOrder: sysinfo.MountpointOrderName}} {
+		info, err := fetchRemoteServerInfo(context.Background(), &serverStatsRequest{
+			URL: server.URL, Timeout: durationField(time.Second), SystemInfoRequest: options,
+		})
+		if info != nil || err == nil || !strings.Contains(err.Error(), "response is null") {
+			t.Fatalf("null response: info=%v, error=%v", info, err)
+		}
+	}
+}
+
+func TestServerStatsUpdateNullResponseFailureState(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.HasPrefix(r.URL.Path, "/healthy/") {
+			_, _ = w.Write([]byte(`{"hostname":"healthy"}`))
+		} else {
+			_, _ = w.Write([]byte("null"))
+		}
+	}))
+	defer server.Close()
+	for _, partial := range []bool{false, true} {
+		widget := &serverStatsWidget{Servers: []serverStatsRequest{{
+			Type: "remote", URL: server.URL, Timeout: durationField(time.Second),
+		}}}
+		if partial {
+			widget.Servers = append(widget.Servers, serverStatsRequest{Type: "remote", URL: server.URL + "/healthy", Timeout: durationField(time.Second)})
+		}
+		widget.Type = "server-stats"
+		widget.ContentAvailable = true
+		widget.withCacheDuration(time.Minute)
+		widget.update(context.Background())
+		if widget.Servers[0].IsReachable || widget.Servers[0].Info == nil || !widget.refreshDegraded {
+			t.Fatalf("null server did not enter safe unreachable/degraded state: %+v", widget.Servers[0])
+		}
+		if partial {
+			if widget.Error != nil || !errors.Is(widget.Notice, errPartialContent) || !widget.Servers[1].IsReachable {
+				t.Fatalf("partial failure: error=%v, notice=%v", widget.Error, widget.Notice)
+			}
+		} else if !errors.Is(widget.Error, errNoContent) || widget.Notice != nil {
+			t.Fatalf("total failure: error=%v, notice=%v", widget.Error, widget.Notice)
+		}
+		// A later valid response must clear the failure using the same refresh
+		// lifecycle, rather than leaving a server permanently unreachable.
+		widget.Servers[0].URL = server.URL + "/healthy"
+		widget.update(context.Background())
+		if !widget.Servers[0].IsReachable || widget.Error != nil || widget.Notice != nil || widget.refreshDegraded {
+			t.Fatalf("recovery did not clear failure: error=%v, notice=%v", widget.Error, widget.Notice)
+		}
+	}
+}

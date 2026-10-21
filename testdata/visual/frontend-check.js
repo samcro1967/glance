@@ -2380,6 +2380,7 @@ async function main() {
     await collectCoverage(mobilePage, coveragePath);
     await mobileContext.close();
 
+    await require('./decorations-browser').runDecorationChecks(browser, BASE_URL);
     writeCoverage(coveragePath);
   } finally {
     if (browser) await browser.close();

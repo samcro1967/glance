@@ -214,10 +214,10 @@ help:
 	@echo "  make visual-screenshots [VISUAL_WIDGET=name] [VISUAL_DASHBOARD=name] [VISUAL_PAGE=name] [VIEWPORT=desktop|mobile]"
 	@echo "                                Capture canonical QA pages and widgets in the selected scope"
 	@echo "                                Widget/page/dashboard scopes are mutually exclusive; mobile widget captures use full viewport"
-	@echo "  make visual-docs [VISUAL_IMAGE=file] [VISUAL_DASHBOARD=name] [VISUAL_PAGE=name]"
+	@echo "  make visual-docs [VISUAL_DECORATIONS=true] [VISUAL_IMAGE=file] [VISUAL_DASHBOARD=name] [VISUAL_PAGE=name]"
 	@echo "                                Stage selected documentation screenshots for review"
 	@echo "                                NEVER modifies docs/images"
-	@echo "  make visual-docs-promote [VISUAL_IMAGE=file] [VISUAL_DASHBOARD=name] [VISUAL_PAGE=name]"
+	@echo "  make visual-docs-promote [VISUAL_DECORATIONS=true] [VISUAL_IMAGE=file] [VISUAL_DASHBOARD=name] [VISUAL_PAGE=name]"
 	@echo "                                Promote selected approved staged images into docs/images"
 	@echo "  make visual-all               Capture QA + stage documentation screenshots"
 	@echo "                                NEVER promotes documentation images"
@@ -2955,7 +2955,7 @@ frontend-audit:
 
 frontend-unit:
 	@echo "=== FRONTEND UNIT TESTS ==="
-	@node --test testdata/visual/reddit-auth.test.mjs testdata/visual/personal-state.test.mjs testdata/visual/minesweeper.test.mjs testdata/visual/sudoku.test.mjs testdata/visual/2048.test.mjs testdata/visual/presentation.test.mjs
+	@node --test testdata/visual/reddit-auth.test.mjs testdata/visual/personal-state.test.mjs testdata/visual/minesweeper.test.mjs testdata/visual/sudoku.test.mjs testdata/visual/2048.test.mjs testdata/visual/presentation.test.mjs testdata/visual/decorations.test.mjs testdata/visual/decoration-runtime.test.mjs
 
 frontend-check:
 	@echo "=== FRONTEND REGRESSION CHECK ==="
@@ -2977,7 +2977,7 @@ visual-docs:
 	@echo "=== VISUAL DOCUMENTATION STAGING CONTRACT ==="
 	@python3 testdata/visual/check-gallery.py --allow-missing-browser-images
 	@echo "=== VISUAL DOCUMENTATION SCREENSHOTS - STAGING ONLY ==="
-	@bash testdata/visual/run.sh docs $(if $(VISUAL_DASHBOARD),--dashboard=$(VISUAL_DASHBOARD)) $(if $(VISUAL_PAGE),--page=$(VISUAL_PAGE)) $(if $(VISUAL_IMAGE),--image=$(VISUAL_IMAGE))
+	@bash testdata/visual/run.sh docs $(if $(filter true,$(VISUAL_DECORATIONS)),--decorations) $(if $(VISUAL_DASHBOARD),--dashboard=$(VISUAL_DASHBOARD)) $(if $(VISUAL_PAGE),--page=$(VISUAL_PAGE)) $(if $(VISUAL_IMAGE),--image=$(VISUAL_IMAGE))
 	@echo
 	@echo "Documentation captures are staged only."
 	@echo "Review testdata/visual/docs-staging before promotion."
@@ -2986,7 +2986,7 @@ visual-docs-promote:
 	@echo "=== VISUAL DOCUMENTATION PROMOTION CONTRACT ==="
 	@python3 testdata/visual/check-gallery.py --allow-missing-browser-images
 	@echo "=== PROMOTE APPROVED DOCUMENTATION SCREENSHOTS ==="
-	@python3 testdata/visual/promote-docs.py $(if $(VISUAL_DASHBOARD),--dashboard=$(VISUAL_DASHBOARD)) $(if $(VISUAL_PAGE),--page=$(VISUAL_PAGE)) $(if $(VISUAL_IMAGE),--image=$(VISUAL_IMAGE))
+	@python3 testdata/visual/promote-docs.py $(if $(filter true,$(VISUAL_DECORATIONS)),--decorations) $(if $(VISUAL_DASHBOARD),--dashboard=$(VISUAL_DASHBOARD)) $(if $(VISUAL_PAGE),--page=$(VISUAL_PAGE)) $(if $(VISUAL_IMAGE),--image=$(VISUAL_IMAGE))
 
 visual-all: visual-check
 	@echo "=== VISUAL QA + STAGED DOCUMENTATION SCREENSHOTS ==="
