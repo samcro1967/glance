@@ -242,6 +242,7 @@ help:
 	@echo "  make frontend-audit           Audit frontend architecture contracts"
 	@echo "  make frontend-unit            Run targeted frontend JavaScript unit tests"
 	@echo "  make frontend-check           Run frontend regression checks"
+	@echo "  make widget-loading-check     Check cold widget loading and late SSE delivery"
 	@echo "  make frontend-coverage        Run frontend JavaScript execution coverage"
 	@echo "  make check                    Tests + race + build + format + whitespace + docs + lint + frontend audit"
 	@echo "  make lint                     Run correctness-oriented Go static analysis"
@@ -2955,7 +2956,7 @@ frontend-audit:
 
 frontend-unit:
 	@echo "=== FRONTEND UNIT TESTS ==="
-	@node --test testdata/visual/reddit-auth.test.mjs testdata/visual/personal-state.test.mjs testdata/visual/minesweeper.test.mjs testdata/visual/sudoku.test.mjs testdata/visual/2048.test.mjs testdata/visual/presentation.test.mjs testdata/visual/decorations.test.mjs testdata/visual/decoration-runtime.test.mjs
+	@node --test testdata/visual/page-readiness.test.mjs testdata/visual/widget-loading.test.mjs testdata/visual/reddit-auth.test.mjs testdata/visual/personal-state.test.mjs testdata/visual/minesweeper.test.mjs testdata/visual/sudoku.test.mjs testdata/visual/2048.test.mjs testdata/visual/presentation.test.mjs testdata/visual/decorations.test.mjs testdata/visual/decoration-runtime.test.mjs
 
 frontend-check:
 	@echo "=== FRONTEND REGRESSION CHECK ==="
@@ -2999,3 +3000,7 @@ visual-final: visual-all
 	@echo
 	@echo "=== VERIFY FINAL VISUAL CONTRACT ==="
 	@$(MAKE) --no-print-directory visual-check
+
+.PHONY: widget-loading-check
+widget-loading-check:
+	@bash testdata/visual/run.sh widget-loading

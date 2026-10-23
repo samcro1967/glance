@@ -186,14 +186,14 @@ func serveApp(configPath string) error {
 		"config", configPath,
 	)
 
-	parsedConfig, err := parseYAMLIncludesWithSources(configPath)
-	if err != nil {
-		return fmt.Errorf("parsing config: %w", err)
+	startupCtx, stopStartupSignals := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	parsedConfig, initialConfig, err := loadStartupConfig(startupCtx, configPath)
+	stopStartupSignals()
+	if errors.Is(err, context.Canceled) {
+		return nil
 	}
-
-	initialConfig, err := newConfigFromParsedYAML(parsedConfig)
 	if err != nil {
-		return fmt.Errorf("validating config file: %w", err)
+		return err
 	}
 	logRecoverableConfigErrors(initialConfig.recoverableErrors)
 

@@ -1405,6 +1405,11 @@ pages:
 		},
 	}
 
+	// These fixtures represent completed successful fetches. Pending children
+	// intentionally render loading items instead of provider data.
+	markets.withError(nil)
+	rss.withError(nil)
+
 	items := statusBar.CompactItems()
 	if len(items) != 2 {
 		t.Fatalf("CompactItems() length = %d, want 2", len(items))

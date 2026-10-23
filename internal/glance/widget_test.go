@@ -483,6 +483,7 @@ func newRenderSynchronizationTestWidget() *renderSynchronizationTestWidget {
 		renderBlock: make(chan struct{}),
 	}
 
+	widget.ContentAvailable = true
 	widget.Type = "render-synchronization-test"
 	widget.withCacheDuration(time.Hour)
 
@@ -586,56 +587,43 @@ func TestRenderWidgetUsesCommittedSnapshotDuringActiveRefresh(t *testing.T) {
 	}
 }
 
-func TestRenderWidgetWaitsForFirstRenderDuringActiveRefresh(t *testing.T) {
+func TestRenderWidgetShowsLoadingDuringFirstRefresh(t *testing.T) {
 	widget := newRenderSynchronizationTestWidget()
+	widget.ContentAvailable = false
 	now := time.Now()
-
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	refreshDone := make(chan struct{})
 	go func() {
 		defer close(refreshDone)
-		refreshWidgetIfNeeded(context.Background(), widget, &now)
+		refreshWidgetIfNeeded(ctx, widget, &now)
 	}()
-
 	select {
 	case <-widget.updateStart:
 	case <-time.After(time.Second):
 		t.Fatal("refresh did not start")
 	}
-
-	renderDone := make(chan struct{})
-	go func() {
-		defer close(renderDone)
-		renderWidget(widget)
-	}()
-
+	rendered := make(chan template.HTML, 1)
+	go func() { rendered <- renderWidget(widget) }()
+	select {
+	case html := <-rendered:
+		if !strings.Contains(string(html), "Loading…") || strings.Contains(string(html), "ERROR") {
+			t.Fatalf("first render = %s", html)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("first render blocked behind fetch")
+	}
 	select {
 	case <-widget.renderStart:
-		t.Fatal("first render started while refresh still held the widget lock")
-	case <-renderDone:
-		t.Fatal("first render returned without a committed snapshot")
-	case <-time.After(25 * time.Millisecond):
+		t.Fatal("provider renderer ran before initial content existed")
+	default:
 	}
-
 	close(widget.updateBlock)
-
+	close(widget.renderBlock)
 	select {
 	case <-refreshDone:
 	case <-time.After(time.Second):
-		t.Fatal("refresh did not complete")
-	}
-
-	select {
-	case <-widget.renderStart:
-	case <-time.After(time.Second):
-		t.Fatal("first render did not start after refresh completed")
-	}
-
-	close(widget.renderBlock)
-
-	select {
-	case <-renderDone:
-	case <-time.After(time.Second):
-		t.Fatal("first render did not complete")
+		t.Fatal("refresh did not finish")
 	}
 }
 

@@ -51,7 +51,7 @@ type calendarWidget struct {
 }
 
 func (widget *calendarWidget) initialize() error {
-	widget.withTitle("Calendar").withError(nil)
+	widget.withTitle("Calendar")
 
 	if widget.CollapseAfter == 0 || widget.CollapseAfter < -1 {
 		widget.CollapseAfter = -1
@@ -70,6 +70,7 @@ func (widget *calendarWidget) initialize() error {
 	}
 
 	if len(widget.Sources) == 0 {
+		widget.withError(nil)
 		widget.cachedHTML = widget.renderTemplate(widget, calendarWidgetTemplate)
 		return nil
 	}

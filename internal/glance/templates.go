@@ -18,6 +18,8 @@ var globalTemplateFunctions = template.FuncMap{
 	"formatApproxNumber":    formatApproxNumber,
 	"formatNumber":          intl.Sprint,
 	"renderWidget":          renderWidget,
+	"widgetIsLoading":       widgetPresentationLoading,
+	"renderWidgetNotice":    renderWidgetNotice,
 	"videoCardTemplateData": videoCardTemplateDataFor,
 	"safeCSS": func(str string) template.CSS {
 		return template.CSS(str)

@@ -110,15 +110,19 @@ func refreshDueWidgetIfAvailable(
 		}
 		return
 	}
-	defer widget.unlockRefresh()
+	refreshed := false
+	func() {
+		defer widget.unlockRefresh()
+		if !widget.requiresUpdate(now) {
+			return
+		}
+		refreshWidget(ctx, widget, now)
+		refreshed = true
+	}()
 
-	if !widget.requiresUpdate(now) {
-		return
-	}
-
-	refreshWidget(ctx, widget, now)
-
-	if liveUpdates != nil {
+	// Publish only after releasing the fetch lock. Otherwise a fast content
+	// request can receive the old loading snapshot with no later completion event.
+	if refreshed && liveUpdates != nil {
 		liveUpdates.publish(widget.GetID())
 	}
 }

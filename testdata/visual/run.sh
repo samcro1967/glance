@@ -7,6 +7,11 @@ MODE="${1:-qa}"
 shift || true
 
 case "$MODE" in
+    widget-loading)
+        RUNNER="testdata/visual/widget-loading-browser.js"
+        RUNNER_ARGS=()
+        ACTIVITY="Widget loading browser check"
+        ;;
     frontend)
         RUNNER="testdata/visual/frontend-check.js"
         RUNNER_ARGS=()
@@ -70,7 +75,11 @@ make test-instance-stop >/dev/null 2>&1 || true
 
 echo
 echo "=== START TEST INSTANCE + FIXTURE API ==="
-make test-instance-start
+if [ "$MODE" = "widget-loading" ]; then
+    make test-instance-start TEST_CONFIG=testdata/widget-loading.yml
+else
+    make test-instance-start
+fi
 
 echo
 if [ "$MODE" = "frontend" ] || [ "$MODE" = "frontend-coverage" ]; then
