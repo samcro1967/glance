@@ -569,6 +569,7 @@ func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime) (*appli
 	for _, widget := range app.refreshWidgets {
 		app.widgetByID[widget.GetID()] = widget
 	}
+	app.registerStatusBarTargets()
 	app.widgetReloadFingerprints, err = captureWidgetReloadFingerprints(app.refreshWidgets)
 	if err != nil {
 		return nil, fmt.Errorf("capturing widget reload fingerprints: %w", err)
@@ -1179,7 +1180,7 @@ func (a *application) handleWidgetExpandedRequest(w http.ResponseWriter, r *http
 
 	a.setAuthenticatedDynamicResponseHeaders(w)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write([]byte(expanded.RenderExpanded()))
+	_, _ = w.Write([]byte(renderExpandedWidget(widget, expanded, base)))
 }
 
 func (a *application) handleWidgetRequest(w http.ResponseWriter, r *http.Request) {

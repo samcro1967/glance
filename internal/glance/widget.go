@@ -216,6 +216,9 @@ func refreshWidgetIfNeeded(ctx context.Context, widget widget, now *time.Time) {
 
 func refreshWidget(ctx context.Context, widget widget, schedulerNow *time.Time) {
 	base, hasBase := widgetBaseOf(widget)
+	if hasBase {
+		captureWidgetPresentation(widget, base)
+	}
 	started := time.Now()
 
 	if hasBase {
@@ -240,6 +243,12 @@ func refreshWidget(ctx context.Context, widget widget, schedulerNow *time.Time) 
 	widget.update(ctx)
 
 	if hasBase {
+		if ctx.Err() == nil {
+			base.initialRefreshCompleted = true
+		}
+		base.renderSnapshotMu.Lock()
+		base.renderSnapshotCurrent = false
+		base.renderSnapshotMu.Unlock()
 		finished := time.Now()
 
 		base.refreshTelemetryMu.Lock()
@@ -266,10 +275,6 @@ func renderWidget(widget widget) template.HTML {
 		ID:   widget.GetID(),
 		Type: widget.GetType(),
 	}
-	if hasBase {
-		attribution.Title = base.Title
-	}
-
 	if hasBase && !widget.tryLockRefresh() {
 		base.renderSnapshotMu.RLock()
 		snapshot := base.renderSnapshot
@@ -290,14 +295,19 @@ func renderWidget(widget widget) template.HTML {
 
 	defer widget.unlockRefresh()
 
+	if hasBase {
+		attribution.Title = base.Title
+	}
 	renderStarted := time.Now()
-	rendered := widget.Render()
+	rendered := renderCommittedWidget(widget)
 	renderDiagnostics.recordWidgetRender(time.Since(renderStarted), attribution)
 
 	if hasBase {
 		base.renderSnapshotMu.Lock()
 		base.renderSnapshot = rendered
 		base.renderSnapshotReady = true
+		base.renderSnapshotCurrent = true
+		base.snapshotLoading = base.IsLoading()
 		base.renderSnapshotMu.Unlock()
 	}
 
@@ -314,51 +324,56 @@ const (
 )
 
 type widgetBase struct {
-	ID                  uint64               `yaml:"-"`
-	Providers           *widgetProviders     `yaml:"-"`
-	Type                string               `yaml:"type"`
-	Title               string               `yaml:"title"`
-	Icon                customIconField      `yaml:"icon"`
-	TitleURL            string               `yaml:"title-url"`
-	HideHeader          bool                 `yaml:"hide-header"`
-	CSSClass            string               `yaml:"css-class"`
-	CustomCacheDuration durationField        `yaml:"cache"`
-	CustomCacheCron     string               `yaml:"cache-cron"`
-	OpenLinksInNewTab   bool                 `yaml:"-"`
-	ContentAvailable    bool                 `yaml:"-"`
-	Critical            bool                 `yaml:"-"`
-	configuredFields    yamlConfiguredFields `yaml:"-"`
-	configLine          int                  `yaml:"-"`
-	WIP                 bool                 `yaml:"-"`
-	ExpandedView        bool                 `yaml:"-"`
-	Error               error                `yaml:"-"`
-	Notice              error                `yaml:"-"`
-	templateBuffer      bytes.Buffer         `yaml:"-"`
-	cacheDuration       time.Duration        `yaml:"-"`
-	cacheCronSchedule   cron.Schedule        `yaml:"-"`
-	cacheType           cacheType            `yaml:"-"`
-	nextUpdate          time.Time            `yaml:"-"`
-	updateRetriedTimes  int                  `yaml:"-"`
-	refreshDegraded     bool                 `yaml:"-"`
-	refreshFailureClass refreshFailureClass  `yaml:"-"`
-	refreshFailureCount int                  `yaml:"-"`
-	lastRefreshError    string               `yaml:"-"`
-	lastRefreshAttempt  time.Time            `yaml:"-"`
-	lastRefreshSuccess  time.Time            `yaml:"-"`
-	lastRefreshFailure  time.Time            `yaml:"-"`
-	lastRefreshDuration time.Duration        `yaml:"-"`
-	refreshStartedAt    time.Time            `yaml:"-"`
-	refreshAttempts     uint64               `yaml:"-"`
-	refreshSuccesses    uint64               `yaml:"-"`
-	refreshFailures     uint64               `yaml:"-"`
-	refreshLockSkips    uint64               `yaml:"-"`
-	lastSchedulerLag    time.Duration        `yaml:"-"`
-	maxSchedulerLag     time.Duration        `yaml:"-"`
-	refreshTelemetryMu  sync.Mutex           `yaml:"-"`
-	renderSnapshotMu    sync.RWMutex         `yaml:"-"`
-	renderSnapshot      template.HTML        `yaml:"-"`
-	renderSnapshotReady bool                 `yaml:"-"`
-	refreshMu           sync.Mutex           `yaml:"-"`
+	ID                      uint64                 `yaml:"-"`
+	Providers               *widgetProviders       `yaml:"-"`
+	Type                    string                 `yaml:"type"`
+	Title                   string                 `yaml:"title"`
+	Icon                    customIconField        `yaml:"icon"`
+	TitleURL                string                 `yaml:"title-url"`
+	HideHeader              bool                   `yaml:"hide-header"`
+	CSSClass                string                 `yaml:"css-class"`
+	CustomCacheDuration     durationField          `yaml:"cache"`
+	CustomCacheCron         string                 `yaml:"cache-cron"`
+	OpenLinksInNewTab       bool                   `yaml:"-"`
+	ContentAvailable        bool                   `yaml:"-"`
+	Critical                bool                   `yaml:"-"`
+	configuredFields        yamlConfiguredFields   `yaml:"-"`
+	configLine              int                    `yaml:"-"`
+	WIP                     bool                   `yaml:"-"`
+	ExpandedView            bool                   `yaml:"-"`
+	Error                   error                  `yaml:"-"`
+	Notice                  error                  `yaml:"-"`
+	templateBuffer          bytes.Buffer           `yaml:"-"`
+	cacheDuration           time.Duration          `yaml:"-"`
+	cacheCronSchedule       cron.Schedule          `yaml:"-"`
+	cacheType               cacheType              `yaml:"-"`
+	nextUpdate              time.Time              `yaml:"-"`
+	updateRetriedTimes      int                    `yaml:"-"`
+	refreshDegraded         bool                   `yaml:"-"`
+	refreshFailureClass     refreshFailureClass    `yaml:"-"`
+	refreshFailureCount     int                    `yaml:"-"`
+	lastRefreshError        string                 `yaml:"-"`
+	lastRefreshAttempt      time.Time              `yaml:"-"`
+	lastRefreshSuccess      time.Time              `yaml:"-"`
+	lastRefreshFailure      time.Time              `yaml:"-"`
+	lastRefreshDuration     time.Duration          `yaml:"-"`
+	refreshStartedAt        time.Time              `yaml:"-"`
+	refreshAttempts         uint64                 `yaml:"-"`
+	refreshSuccesses        uint64                 `yaml:"-"`
+	refreshFailures         uint64                 `yaml:"-"`
+	refreshLockSkips        uint64                 `yaml:"-"`
+	lastSchedulerLag        time.Duration          `yaml:"-"`
+	maxSchedulerLag         time.Duration          `yaml:"-"`
+	refreshTelemetryMu      sync.Mutex             `yaml:"-"`
+	renderSnapshotMu        sync.RWMutex           `yaml:"-"`
+	renderSnapshot          template.HTML          `yaml:"-"`
+	snapshotLoading         bool                   `yaml:"-"`
+	initialRefreshCompleted bool                   `yaml:"-"`
+	renderSnapshotCurrent   bool                   `yaml:"-"`
+	compactSnapshot         []statusBarCompactItem `yaml:"-"`
+	expandedSnapshot        template.HTML          `yaml:"-"`
+	renderSnapshotReady     bool                   `yaml:"-"`
+	refreshMu               sync.Mutex             `yaml:"-"`
 }
 
 type widgetProviders struct {

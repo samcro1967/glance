@@ -253,6 +253,8 @@ pages:
 		t.Fatalf("widget type = %T, want *customAPIWidget", widget)
 	}
 	customAPI.CompiledExpandedHTML = template.HTML("<div>pre-rendered-expanded-content</div>")
+	// The injected content represents a completed successful fetch.
+	customAPI.withError(nil)
 
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(
@@ -493,6 +495,11 @@ pages:
 
 			event.WriteString(line)
 			if line == "\n" {
+				// Connection comments are transport framing, not widget events.
+				if event.String() == ": connected\n\n" {
+					event.Reset()
+					continue
+				}
 				readDone <- event.String()
 				return
 			}
@@ -559,6 +566,11 @@ pages:
 
 			event.WriteString(line)
 			if line == "\n" {
+				// Connection comments are transport framing, not widget events.
+				if event.String() == ": connected\n\n" {
+					event.Reset()
+					continue
+				}
 				readDone <- event.String()
 				return
 			}
@@ -638,6 +650,11 @@ pages:
 
 			event.WriteString(line)
 			if line == "\n" {
+				// Connection comments are transport framing, not widget events.
+				if event.String() == ": connected\n\n" {
+					event.Reset()
+					continue
+				}
 				readDone <- event.String()
 				return
 			}
@@ -714,6 +731,11 @@ pages:
 
 			event.WriteString(line)
 			if line == "\n" {
+				// Connection comments are transport framing, not widget events.
+				if event.String() == ": connected\n\n" {
+					event.Reset()
+					continue
+				}
 				readDone <- event.String()
 				return
 			}

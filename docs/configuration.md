@@ -9,6 +9,7 @@
 - [Getting started](#preconfigured-page)
 - [Configuration file](#the-config-file)
   - [Startup configuration recovery](#startup-configuration-recovery)
+  - [Widget loading and refresh](#widget-loading-and-refresh)
   - [Auto reload](#auto-reload)
   - [Environment variables & secrets](#environment-variables)
   - [Including other config files](#including-other-config-files)
@@ -71,6 +72,32 @@ startup. This recovery mode does not change CLI validation or printing commands.
 After successful startup, rejected reloads continue serving the last working
 dashboard through the existing reload mechanism.
 
+
+### Widget loading and refresh
+
+The page becomes visible once its HTML and structural controls are ready. Optional
+widget enhancements initialize independently afterward, so a slow module or stored-state
+request does not keep the entire page behind its loading indicator. Individual controls
+become interactive as their initialization finishes.
+
+Refreshable widgets show a loading indicator while their first result is queued
+or being fetched. Static widgets render immediately. A successful empty result is
+loaded content, not a pending fetch. Invalid widget configuration and completed
+fetch failures remain errors; a later retry does not hide the previous failure.
+
+During subsequent fetches, Glance serves the previous committed presentation
+without waiting for the provider. Existing content, partial-result notices, and
+failure indicators retain their normal meanings. Current monitoring results that
+report an unhealthy service remain visible. Cards, grouped children, footer
+micro-widgets, status bars, and expanded views share the presentation boundary.
+Status-bar child completion updates its containing bar without scheduling a
+second provider request. When the live-update connection opens, pending visible
+widgets are reconciled so completion before subscription cannot strand a loader.
+
+The caches are in memory. Container/process restarts require fresh provider
+requests; compatible configuration reloads continue to reuse unchanged widgets.
+No loading configuration is required. Loading text remains available to assistive
+technology, and spinner animation respects reduced-motion preferences.
 
 ### Auto reload
 Automatic config reload is supported, meaning that you can make changes to the config file and have them take effect on save without having to restart the container/service. Reloads are transactional: Glance prepares the replacement application while the current application continues serving requests, switches to the new configuration only after it has been successfully constructed, and then retires the previous application generation. Changes to `server.host` or `server.port` are rejected during automatic reload because they change the process listener and therefore require a manual restart. Making changes to environment variables does not trigger a reload and also requires manual restart. Deleting a config file will stop that file from being watched, even if it is recreated.

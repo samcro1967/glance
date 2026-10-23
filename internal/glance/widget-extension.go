@@ -86,7 +86,7 @@ func (widget *extensionWidget) update(ctx context.Context) {
 }
 
 func (widget *extensionWidget) Render() template.HTML {
-	return widget.cachedHTML
+	return widget.renderTemplate(widget, extensionWidgetTemplate)
 }
 
 type extensionType int

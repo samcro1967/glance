@@ -10,7 +10,9 @@
         {{ else if .Notice }}
         <div class="notice-icon notice-icon-minor" title="{{ .Notice }}"></div>
         {{ end }}
-        {{ if eq .Kind "error" }}
+        {{ if eq .Kind "loading" }}
+            <span class="status-bar-primary">{{ .ErrorTitle }}</span><span class="widget-loading" data-widget-state="loading" role="status" aria-busy="true"><span class="loading-icon widget-loading-icon" aria-hidden="true"></span>Loading…</span>
+        {{ else if eq .Kind "error" }}
             <span class="status-bar-primary">{{ .ErrorTitle }}</span>
             <span class="color-negative">Unavailable</span>
         {{ else if eq .Kind "weather" }}

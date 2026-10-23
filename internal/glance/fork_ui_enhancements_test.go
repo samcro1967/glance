@@ -31,7 +31,7 @@ func TestMonitorDescriptionConfiguration(t *testing.T) {
 func TestForkUIEnhancementTemplateContracts(t *testing.T) {
 	checks := map[string][]string{
 		"static/css/site.css":                    {`.footer-micro-clock`, `min-width: 77px`, `min-height: 25.5px`},
-		"static/js/page.js":                      {`markPageContentReady(pageElement)`, `footer_micro_clocks`},
+		"static/js/page.js":                      {`markPageContentReady()`, `footer_micro_clocks`},
 		"static/js/relative-time.js":             {`window.addEventListener("pagehide", handlePageHide)`, `window.addEventListener("pageshow", handlePageShow)`, `clearScheduledUpdate()`},
 		"static/js/diagnostics.js":               {`frontendDiagnosticResourceTimingMetrics`, `slowest_fetch_to_request_ms`, `slowest_dns_ms`, `slowest_connect_ms`, `slowest_tls_ms`, `slowest_ttfb_ms`, `slowest_download_ms`, `parent: frontendDiagnosticElementDescriptor`, `previous: frontendDiagnosticElementDescriptor`, `previous_rect_current: frontendDiagnosticElementRect`, `frontendDiagnosticLayoutContext`, `cls_layout_context`, `.content-bounds.grow`, `.bottom-widgets`},
 		"templates/video-card-contents.html":     {`href="{{ .Video.Url | safeExternalURL }}"`, `if .OpenLinksInNewTab`},
