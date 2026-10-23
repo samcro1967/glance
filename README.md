@@ -162,6 +162,22 @@ Glance will be available on port `8080`. To inspect its logs:
 docker compose logs glance
 ```
 
+If the main configuration or an included file is missing, unreadable, or invalid
+at startup, Glance keeps running and displays a configuration recovery page on
+port `8080`. It shows the affected filename and line number when available,
+troubleshooting steps, and bundled documentation. It does not create or overwrite
+your configuration. Correct the files and Glance retries automatically every two
+seconds, then starts the dashboard with your configured server settings.
+
+The recovery page is unauthenticated and uses port `8080` without a base URL;
+publish that container port to reach it. It displays safe error summaries rather
+than configuration values. Detailed errors remain in the container logs. A `503`
+response indicates that the configuration still needs attention. Failed reloads
+after a successful startup continue serving the last working dashboard.
+
+See [startup configuration recovery](docs/configuration.md#startup-configuration-recovery)
+for behavior and limitations.
+
 ### Container tags
 
 Two container-image channels serve different purposes:

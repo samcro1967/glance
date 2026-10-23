@@ -8,6 +8,7 @@
 
 - [Getting started](#preconfigured-page)
 - [Configuration file](#the-config-file)
+  - [Startup configuration recovery](#startup-configuration-recovery)
   - [Auto reload](#auto-reload)
   - [Environment variables & secrets](#environment-variables)
   - [Including other config files](#including-other-config-files)
@@ -37,13 +38,46 @@ Configure the widgets, add more of them, add extra pages, etc. Make it your own!
 
 ## The config file
 
+### Startup configuration recovery
+
+If reading or validating configuration fails at startup, Glance serves a recovery
+page on `0.0.0.0:8080` (all interfaces), without a base URL. This includes missing or
+unreadable main files, missing includes, malformed YAML, unresolved variables, and
+invalid structural settings. The page identifies the affected file and line when
+the existing configuration diagnostics can locate them. Some errors have no
+meaningful line number. Safe summaries appear in the browser; detailed errors
+remain in the container logs because parser messages can contain sensitive values.
+
+The recovery page is unauthenticated and exposes only recovery guidance and
+bundled documentation, including the starter configuration. No configuration is
+created or overwritten. It returns HTTP `503 Service Unavailable` so HTTP health
+checks can distinguish a running process from a usable dashboard. Documentation
+requests return their normal HTTP status codes.
+
+Glance rereads configuration every two seconds, including when directories or
+included files did not previously exist. Repeated identical errors are not logged
+on every retry. The browser page refreshes every five seconds. After recovery,
+Glance closes the recovery listener and starts normally using the corrected host,
+port, base URL, and authentication. Open the configured address if it differs from
+the recovery address. Existing recoverable item-level errors still allow a
+degraded dashboard and do not activate the recovery page.
+
+Publish container port `8080` to reach recovery even if your normal dashboard uses
+another port. A proxy configured only for another port or base URL may need
+adjustment. Failure to bind the recovery listener remains fatal and is logged.
+Application initialization failures after configuration validation (for example,
+OIDC discovery or persistence failures) and normal listener failures still stop
+startup. This recovery mode does not change CLI validation or printing commands.
+After successful startup, rejected reloads continue serving the last working
+dashboard through the existing reload mechanism.
+
 
 ### Auto reload
 Automatic config reload is supported, meaning that you can make changes to the config file and have them take effect on save without having to restart the container/service. Reloads are transactional: Glance prepares the replacement application while the current application continues serving requests, switches to the new configuration only after it has been successfully constructed, and then retires the previous application generation. Changes to `server.host` or `server.port` are rejected during automatic reload because they change the process listener and therefore require a manual restart. Making changes to environment variables does not trigger a reload and also requires manual restart. Deleting a config file will stop that file from being watched, even if it is recreated.
 
 > [!NOTE]
 >
-> Glance distinguishes recoverable item-level configuration errors from structural, routing, security, persistence, and process-level failures. Recoverable errors in widgets, footer micro-widgets, analytics, themes, widget defaults, and the optional custom assets path are reported with source information where available while Glance continues with the remaining valid configuration or a safe fallback. The `config:validate` command remains strict and returns a failure for these errors so they are not silently accepted during validation. Malformed YAML, unresolved includes or configuration variables, invalid routing/authentication/authorization configuration, unsupported personal-state document versions, and listener-defining server failures remain fatal during startup. Corrupt or empty personal-state files are quarantined and replaced with an empty store so ancillary browser state cannot prevent startup. During automatic reload, unrecoverable candidate configurations are rejected and the currently running application generation continues serving requests.
+> Glance distinguishes recoverable item-level configuration errors from structural, routing, security, persistence, and process-level failures. Recoverable errors in widgets, footer micro-widgets, analytics, themes, widget defaults, and the optional custom assets path are reported with source information where available while Glance continues with the remaining valid configuration or a safe fallback. The `config:validate` command remains strict and returns a failure for these errors so they are not silently accepted during validation. Malformed YAML, unresolved includes or configuration variables, and invalid routing/authentication/authorization settings detected during configuration validation activate startup configuration recovery. Application initialization failures such as unsupported personal-state document versions, and listener failures, remain fatal during startup. Corrupt or empty personal-state files are quarantined and replaced with an empty store so ancillary browser state cannot prevent startup. During automatic reload, unrecoverable candidate configurations are rejected and the currently running application generation continues serving requests.
 
 > [!CAUTION]
 >
