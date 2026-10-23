@@ -1,3 +1,5 @@
+import { createPageReadiness, runPageEnhancements } from "./page-readiness.js";
+import { reconcileLoadingWidgets } from "./widget-loading.js";
 import { setupPresentation } from './presentation.js';
 import { setupDecorations } from './decorations.js';
 import { cleanupPopoversWithin, setupPopovers } from './popover.js';
@@ -272,6 +274,13 @@ function syncGroupCriticalStates() {
 
         for (let t = 0; t < titles.length; t++) {
             const tab = tabs[t];
+            // Group headers survive child replacements. Keep their existing
+            // expansion handlers, enabling the control when loading finishes.
+            const expandButton = titles[t].parentElement.querySelector("[data-widget-expand]");
+            if (expandButton !== null) {
+                expandButton.disabled = tab === undefined ||
+                    tab.querySelector(':scope > [data-widget-state="loading"]') !== null;
+            }
             const critical =
                 tab !== undefined &&
                 tab.querySelector(
@@ -508,10 +517,13 @@ function setupCollapsibleGrids(root = document) {
     return cleanupCallbacks;
 }
 
-const contentReadyCallbacks = [];
+const pageReadiness = createPageReadiness(
+    document.getElementById("page"),
+    error => frontendDiagnosticError("page_ready_callback_error", error)
+);
 
 function afterContentReady(callback) {
-    contentReadyCallbacks.push(callback);
+    pageReadiness.afterReady(callback);
 }
 
 async function setupCalendars(root = document) {
@@ -704,26 +716,8 @@ async function initializeContentRoot(root, diagnostics = false) {
         return callback();
     };
 
-    cleanupCallbacks.push(
-        ...await runAsyncStage("presentation", () => setupPresentation(root))
-    );
     runStage("popovers", () => setupPopovers(root));
 
-    cleanupCallbacks.push(
-        ...await runAsyncStage("calendars", () => setupCalendars(root))
-    );
-    cleanupCallbacks.push(
-        ...await runAsyncStage("stopwatches", () => setupStopwatches(root))
-    );
-    cleanupCallbacks.push(
-        ...await runAsyncStage("minesweepers", () => setupMinesweepers(root))
-    );
-    cleanupCallbacks.push(
-        ...await runAsyncStage("sudokus", () => setupSudokus(root))
-    );
-    cleanupCallbacks.push(
-        ...await runAsyncStage("2048_games", () => setup2048Games(root))
-    );
     cleanupCallbacks.push(
         ...runStage("carousels", () => setupCarousels(root))
     );
@@ -755,6 +749,18 @@ async function initializeContentRoot(root, diagnostics = false) {
     updateRelativeTimeForElements(
         root.querySelectorAll("[data-dynamic-relative-time]")
     );
+
+    // Structural controls are ready before the first await. Optional modules
+    // then initialize independently; a slow import cannot hold unrelated ones.
+    const enhancements = await runPageEnhancements([
+        ["presentation", () => runAsyncStage("presentation", () => setupPresentation(root))],
+        ["calendars", () => runAsyncStage("calendars", () => setupCalendars(root))],
+        ["stopwatches", () => runAsyncStage("stopwatches", () => setupStopwatches(root))],
+        ["minesweepers", () => runAsyncStage("minesweepers", () => setupMinesweepers(root))],
+        ["sudokus", () => runAsyncStage("sudokus", () => setupSudokus(root))],
+        ["2048_games", () => runAsyncStage("2048_games", () => setup2048Games(root))],
+    ], (name, error) => frontendDiagnosticError(`widget_initialize_${name}_error`, error));
+    for (const callbacks of enhancements) cleanupCallbacks.push(...callbacks);
 
     return cleanupCallbacks;
 }
@@ -1053,6 +1059,8 @@ function setupLiveWidgetUpdates() {
         currentEvents.addEventListener("open", () => {
             cancelRecovery(currentEvents, "native_reopen");
 
+            reconcileLoadingWidgets(document, refreshLiveWidget);
+
             frontendDiagnostic("live_updates_open", {
                 state: currentEvents.readyState,
             });
@@ -1207,9 +1215,8 @@ function setupLiveWidgetUpdates() {
     connect();
 }
 
-function markPageContentReady(pageElement) {
-    pageElement.classList.add("content-ready");
-    pageElement.setAttribute("aria-busy", "false");
+function markPageContentReady() {
+    pageReadiness.reveal();
 }
 
 async function setupPage() {
@@ -1237,7 +1244,7 @@ async function setupPage() {
             pageLoadError.hidden = false;
         }
 
-        markPageContentReady(pageElement);
+        markPageContentReady();
         return;
     }
 
@@ -1249,51 +1256,46 @@ async function setupPage() {
     });
 
     try {
-        await initializeContentRoot(document, true);
-
         runFrontendDiagnosticStage("clocks", () => setupClocks());
         runFrontendDiagnosticStage("footer_micro_clocks", () => setupFooterMicroClocks());
         runFrontendDiagnosticStage("analog_clocks", () => setupAnalogClocks());
-        await runFrontendDiagnosticAsyncStage(
-            "timers",
-            () => setupTimers()
-        );
-        await runFrontendDiagnosticAsyncStage(
-            "todos",
-            () => setupTodos()
-        );
-        await runFrontendDiagnosticAsyncStage(
-            "unit_converters",
-            () => setupUnitConverters()
-        );
-        await runFrontendDiagnosticAsyncStage(
-            "calculators",
-            () => setupCalculators()
-        );
         runFrontendDiagnosticStage("search_boxes", () => setupSearchBoxes());
         runFrontendDiagnosticStage("groups", () => setupGroups());
-        runFrontendDiagnosticStage(
-            "relative_time",
-            () => setupDynamicRelativeTime()
-        );
-        runFrontendDiagnosticStage(
-            "live_updates",
-            () => setupLiveWidgetUpdates()
-        );
+        runFrontendDiagnosticStage("relative_time", () => setupDynamicRelativeTime());
+
+        // This runs structural setup synchronously, then waits for independent
+        // optional modules. Attach failure handling before yielding to the browser.
+        const contentInitialization = initializeContentRoot(document, true).catch(error => {
+            frontendDiagnosticError("page_content_initialize_error", error);
+        });
+
+        markPageContentReady();
+        frontendDiagnostic("page_content_ready", {
+            elapsedMS: performance.now() - setupStarted,
+        }, true);
+
+        setTimeout(() => setupTruncatedElementTitles(), 50);
+        setTimeout(() => document.body.classList.add("page-columns-transitioned"), 300);
+
+        // Give the browser a rendering opportunity before starting other widget
+        // families. This also works in background tabs where animation frames pause.
+        await new Promise(resolve => setTimeout(resolve, 0));
+
+        await runPageEnhancements([
+            ["live_updates", async () => {
+                // Preserve the DOM initialization/replacement boundary. Persistent
+                // controls below are static widgets and do not delay live updates.
+                await contentInitialization;
+                runFrontendDiagnosticStage("live_updates", () => setupLiveWidgetUpdates());
+            }],
+            ["timers", () => runFrontendDiagnosticAsyncStage("timers", () => setupTimers())],
+            ["todos", () => runFrontendDiagnosticAsyncStage("todos", () => setupTodos())],
+            ["unit_converters", () => runFrontendDiagnosticAsyncStage("unit_converters", () => setupUnitConverters())],
+            ["calculators", () => runFrontendDiagnosticAsyncStage("calculators", () => setupCalculators())],
+        ], (name, error) => frontendDiagnosticError(`page_initialize_${name}_error`, error));
     } finally {
-        markPageContentReady(pageElement);
-
-        for (let i = 0; i < contentReadyCallbacks.length; i++) {
-            contentReadyCallbacks[i]();
-        }
-
-        setTimeout(() => {
-            setupTruncatedElementTitles();
-        }, 50);
-
-        setTimeout(() => {
-            document.body.classList.add("page-columns-transitioned");
-        }, 300);
+        markPageContentReady();
+        pageElement.dataset.enhancementsReady = "true";
 
         frontendDiagnostic("page_setup_complete", {
             elapsedMS: performance.now() - setupStarted,

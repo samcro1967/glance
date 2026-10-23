@@ -153,9 +153,10 @@ func (s *liveUpdateSubscription) close() {
 }
 
 type liveUpdateBroker struct {
-	mu          sync.Mutex
-	subscribers map[*liveUpdateSubscription]struct{}
-	closed      bool
+	mu            sync.Mutex
+	subscribers   map[*liveUpdateSubscription]struct{}
+	closed        bool
+	renderTargets map[uint64][]uint64
 
 	subscriptions               uint64
 	unsubscriptions             uint64
@@ -213,13 +214,16 @@ func (b *liveUpdateBroker) publish(widgetID uint64) {
 	}
 
 	b.widgetPublishes++
+	targets := append([]uint64{widgetID}, b.renderTargets[widgetID]...)
 	for subscriber := range b.subscribers {
-		accepted, coalesced := subscriber.publish(widgetID)
-		if accepted {
-			b.widgetSubscriberMatches++
-		}
-		if coalesced {
-			b.widgetCoalesced++
+		for _, target := range targets {
+			accepted, coalesced := subscriber.publish(target)
+			if accepted {
+				b.widgetSubscriberMatches++
+			}
+			if coalesced {
+				b.widgetCoalesced++
+			}
 		}
 	}
 }
@@ -388,12 +392,17 @@ func (a *application) handleLiveUpdatesRequest(w http.ResponseWriter, r *http.Re
 		)
 	}
 
-	// Commit and flush the response immediately so EventSource knows that
-	// the connection has been established even when no widget is currently
-	// due for refresh.
+	// Send body bytes as well as headers: some clients and intermediaries wait
+	// for the first SSE frame before exposing an open connection. The comment
+	// establishes the stream without dispatching a widget event or waiting for
+	// the 30-second heartbeat.
 	w.WriteHeader(http.StatusOK)
 	if err := responseController.SetWriteDeadline(time.Now().Add(liveUpdateWriteTimeout)); err != nil {
 		logWriteDeadlineFailure("initial", err)
+		return
+	}
+	if _, err := io.WriteString(w, ": connected\n\n"); err != nil {
+		logFlushFailure("initial_body", err)
 		return
 	}
 	if err := responseController.Flush(); err != nil {

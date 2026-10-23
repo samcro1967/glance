@@ -147,8 +147,45 @@ const dockerContainers = [
   }
 ];
 
+let widgetLoadingReleased = false;
+let widgetLoadingResponses = [];
+
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${HOST}:${PORT}`);
+
+  if (url.pathname === "/widget-loading/reset") {
+    widgetLoadingReleased = false;
+    sendJson(res, { ok: true });
+    return;
+  }
+  if (url.pathname === "/widget-loading/release") {
+    widgetLoadingReleased = true;
+    for (const send of widgetLoadingResponses.splice(0)) send();
+    sendJson(res, { ok: true });
+    return;
+  }
+  if (url.pathname === "/widget-loading/data") {
+    const send = () => {
+      if (res.destroyed) return;
+      if (url.searchParams.has("fail")) {
+        res.writeHead(503, { "Content-Type": "text/plain" });
+        res.end("Intentional fixture failure");
+      } else {
+        sendJson(res, url.searchParams.has("compact")
+          ? { items: [{ line1: "Ready compact" }] }
+          : { value: "Ready fixture" });
+      }
+    };
+    if (widgetLoadingReleased) send();
+    else {
+      widgetLoadingResponses.push(send);
+      res.once("close", () => {
+        widgetLoadingResponses = widgetLoadingResponses.filter(item => item !== send);
+      });
+    }
+    return;
+  }
+
 
   if (url.pathname === '/micro-custom-api') {
     sendJson(res, {

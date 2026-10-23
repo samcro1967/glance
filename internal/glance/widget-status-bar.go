@@ -134,7 +134,7 @@ func (widget *statusBarWidget) CompactItems() []statusBarCompactItem {
 		if !ok {
 			continue
 		}
-		items = append(items, micro.MicroItems(widget.OpenLinksInNewTab)...)
+		items = append(items, renderCompactItems(micro, widget.OpenLinksInNewTab)...)
 	}
 	return items
 }

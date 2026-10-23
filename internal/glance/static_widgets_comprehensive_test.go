@@ -533,6 +533,10 @@ func TestComprehensiveGroupChildExpandedViews(t *testing.T) {
 		t.Fatal("group child headers should remain hidden")
 	}
 
+	// Expansion controls are available after initial content has loaded.
+	expandable.withError(nil)
+	compact.withError(nil)
+
 	rendered := string(group.Render())
 
 	for _, expected := range []string{
@@ -741,7 +745,7 @@ func TestStatusBarTickerBrowserContract(t *testing.T) {
 		`event.target.closest("a")`,
 		`link.blur()`,
 		`"status_bar_tickers"`,
-		`await initializeContentRoot(document, true)`,
+		`const contentInitialization = initializeContentRoot(document, true)`,
 	}
 
 	for _, fragment := range required {

@@ -218,5 +218,6 @@ func (a *application) applyWidgetReloadReusePlan(plan widgetReloadReusePlan) {
 			}
 		}
 	}
+	a.registerStatusBarTargets()
 	a.widgetReloadFingerprints = reusedFingerprints
 }

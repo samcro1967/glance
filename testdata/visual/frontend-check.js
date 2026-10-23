@@ -47,6 +47,10 @@ async function openPage(page, route, coveragePath = "") {
     timeout: 10000
   });
 
+  // Visibility is deliberately earlier than optional widget initialization.
+  // Interaction regression checks below require the enhancements to settle.
+  await page.locator('#page[data-enhancements-ready="true"]').waitFor({ state: 'attached', timeout: 10000 });
+
   const footer = page.locator('footer.footer');
   if (await footer.count() && await footer.evaluate(el => getComputedStyle(el).visibility) !== 'visible') {
     throw new Error('Footer hidden after successful page-content loading');

@@ -1,0 +1,38 @@
+server:
+  host: 127.0.0.1
+  port: 18080
+footer-micro-widgets:
+  left:
+    - type: custom-api
+      position: 1
+      timeout: 30s
+      url: http://127.0.0.1:18089/widget-loading/data?compact=1
+pages:
+  - name: Home
+    head-widgets:
+      - type: status-bar
+        mode: wrap
+        widgets:
+          - type: custom-api
+            timeout: 30s
+            url: http://127.0.0.1:18089/widget-loading/data?compact=1
+    columns:
+      - size: full
+        widgets:
+          - type: markdown
+            source: Static fixture is ready.
+          - type: calculator
+          - type: unit-converter
+          - type: group
+            widgets:
+              - type: custom-api
+                title: Delayed success
+                expanded-template: '<p>Expanded {{ .JSON.String "value" }}</p>'
+                timeout: 30s
+                url: http://127.0.0.1:18089/widget-loading/data
+                template: '<p>{{ .JSON.String "value" }}</p>'
+              - type: custom-api
+                title: Delayed failure
+                timeout: 30s
+                url: http://127.0.0.1:18089/widget-loading/data?fail=1
+                template: '<p>{{ .JSON.String "value" }}</p>'

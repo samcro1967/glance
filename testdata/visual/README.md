@@ -127,3 +127,16 @@ After visually reviewing the staged set, promote it with:
 
 `VISUAL_DECORATIONS=true` is mutually exclusive with image, page and dashboard
 scope. Promotion requires every decoration image to be staged.
+
+## Widget loading lifecycle
+
+Run `make widget-loading-check` to exercise the delayed local fixture on desktop
+and mobile. The check covers cold initial loading, static content, grouped
+widgets, footer summaries, status bars, a completed provider failure, reduced
+motion, and completion before SSE subscription. It uses the canonical Makefile
+test runtime and stops that runtime and its fixture server on exit. No production
+configuration or external provider is used.
+
+The widget loading check also holds the calculator module pending while asserting
+that the page is visible, group tabs and the converter work, and live results arrive.
+One case rejects that module to verify failure isolation.

@@ -449,3 +449,11 @@
         animation: none;
     }
 }
+
+/* Shared pending state for cards, footer summaries and status bars. */
+.widget-loading { display: flex; align-items: center; gap: 0.75rem; min-height: 3rem; color: var(--color-text-subdue); }
+.widget-loading-icon { font-size: 0.75em; flex-shrink: 0; }
+.widget-state { display: inline-flex; align-items: center; gap: 0.5rem; }
+@media (prefers-reduced-motion: reduce) {
+    .widget-loading-icon { animation: none; }
+}
