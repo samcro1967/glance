@@ -1894,6 +1894,21 @@ async function main() {
 
     await disclosureButton.waitFor({ state: 'visible', timeout: 10000 });
 
+    await disclosureButton.evaluate(async (button) => {
+      const originalFont = button.style.fontFamily;
+      try {
+        button.style.fontFamily = 'serif';
+        await document.fonts.load('12px "JetBrains Mono"');
+        const icon = button.querySelector('.expand-toggle-button-icon');
+        const style = getComputedStyle(icon, '::before');
+        if (!style.fontFamily.includes('JetBrains Mono') || !style.content.includes('\uE0B1')) {
+          throw new Error('Disclosure icon lost its bundled glyph font under custom typography');
+        }
+      } finally {
+        button.style.fontFamily = originalFont;
+      }
+    });
+
     if (await disclosureButton.getAttribute('aria-expanded') !== 'false') {
       throw new Error('Disclosure control does not report collapsed initial state');
     }

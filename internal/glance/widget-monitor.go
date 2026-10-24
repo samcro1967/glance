@@ -2,6 +2,7 @@ package glance
 
 import (
 	"context"
+	"fmt"
 	"html/template"
 	"slices"
 	"strconv"
@@ -64,6 +65,12 @@ func (widget *monitorWidget) setProviders(providers *widgetProviders) {
 func (widget *monitorWidget) initialize() error {
 	widget.withTitle("Monitor").withCacheDuration(5 * time.Minute)
 
+	for i, site := range widget.Sites {
+		if site.SiteStatusRequest == nil || (site.DefaultURL == "" && site.CheckURL == "") {
+			return fmt.Errorf("site %d (%q): url or check-url is required", i+1, site.Title)
+		}
+	}
+
 	return nil
 }
 
@@ -93,7 +100,7 @@ func (widget *monitorWidget) update(ctx context.Context) {
 
 		if status.Error != nil && site.ErrorURL != "" {
 			site.URL = site.ErrorURL
-		} else {
+		} else if site.SiteStatusRequest != nil {
 			site.URL = site.DefaultURL
 		}
 
@@ -190,7 +197,7 @@ func fetchStatusForSites(ctx context.Context, requests []*SiteStatusRequest) ([]
 
 func (widget *monitorWidget) setDefaultTimeout(value durationField) {
 	for i := range widget.Sites {
-		if !widget.Sites[i].configuredFields["timeout"] {
+		if widget.Sites[i].SiteStatusRequest != nil && !widget.Sites[i].configuredFields["timeout"] {
 			widget.Sites[i].Timeout = value
 		}
 	}
@@ -198,7 +205,7 @@ func (widget *monitorWidget) setDefaultTimeout(value durationField) {
 
 func (widget *monitorWidget) setDefaultAllowInsecure(value bool) {
 	for i := range widget.Sites {
-		if !widget.Sites[i].configuredFields["allow-insecure"] {
+		if widget.Sites[i].SiteStatusRequest != nil && !widget.Sites[i].configuredFields["allow-insecure"] {
 			widget.Sites[i].AllowInsecure = value
 		}
 	}

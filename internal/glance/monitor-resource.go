@@ -3,6 +3,7 @@ package glance
 import (
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -60,6 +61,11 @@ func monitorResourceRequestKey(request *SiteStatusRequest) [32]byte {
 }
 
 func fetchMonitorSiteResource(ctx context.Context, request *SiteStatusRequest) (siteStatus, error) {
+	// Keep invalid requests in the normal per-site failure path, including callers
+	// outside configuration initialization. Never hash a nil request.
+	if request == nil {
+		return siteStatus{Error: errors.New("monitor site request is missing")}, nil
+	}
 	key := monitorResourceRequestKey(request)
 
 	return monitorResourceCache.Get(

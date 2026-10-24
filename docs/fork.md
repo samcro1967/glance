@@ -181,6 +181,13 @@ The fork's differences from upstream span both user-visible functionality and un
 
 ### Incorporated upstream and platform correctness fixes
 
+- **Monitor request safety** — Validates missing site request configuration before refresh, preserves check-url-only configurations, and guards default application and direct refresh paths against nil requests. Invalid configuration uses the existing source-aware widget error presentation. Informed by [Dynacat PR #194](https://github.com/Panonim/dynacat/pull/194), adapted to this fork’s configuration, defaults, and shared resource architecture.
+
+- **Markets quote-series validation** — Rejects provider results with missing, null, or empty quote-series arrays before indexing them, retaining valid symbols through the existing partial-content and no-content failure handling. Identified during the fork audit and protected by regression tests.
+
+- **Collapse icon font compatibility** — Explicitly uses the bundled JetBrains Mono font for the shared expand/collapse chevron so custom typography cannot remove its glyph. Based on upstream [PR #1098](https://github.com/glanceapp/glance/pull/1098), with browser regression coverage under custom typography.
+
+
 - **Popover viewport containment** — Clamps shared popover positioning to the visible viewport after above/below placement and gives oversized popover content an internal vertical scroll region so content remains reachable when neither side can contain it. Adapted and extended from [`Gloweet/glance` commit `0e12085`](https://github.com/Gloweet/glance/commit/0e12085f3bdd0533ac3c07327205bd936f9bcca4).
 
 - **Server Stats dynamic multi-drive display** — Renders progress values for every configured or discovered mountpoint instead of limiting the visible combined disk bar to the first two mountpoints, matching the existing backend and popover support for arbitrary mountpoint counts. Adapted from the presentation portion of [`ToTt0G/glance` commit `c5d6059`](https://github.com/ToTt0G/glance/commit/c5d6059376a9f930d8f73c94f539591f76dca196); its separate host-root remapping changes are intentionally not incorporated.

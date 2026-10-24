@@ -187,6 +187,15 @@ func fetchMarketsDataFromYahoo(ctx context.Context, marketRequests []marketReque
 		}
 
 		result := &response.Chart.Result[0]
+		// A successful JSON decode does not guarantee a quote series exists.
+		// Treat this symbol as failed while retaining other usable symbols.
+		if len(result.Indicators.Quote) == 0 {
+			failed++
+			if firstFailure == nil {
+				firstFailure = errors.New("market response contains no quote series")
+			}
+			continue
+		}
 		prices := result.Indicators.Quote[0].Close
 
 		if len(prices) > marketChartDays {
