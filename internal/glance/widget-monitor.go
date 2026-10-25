@@ -2,6 +2,7 @@ package glance
 
 import (
 	"context"
+	"fmt"
 	"html/template"
 	"slices"
 	"strconv"
@@ -44,6 +45,7 @@ func (site *monitorSite) UnmarshalYAML(node *yaml.Node) error {
 
 type monitorWidget struct {
 	widgetBase      `yaml:",inline"`
+	searchTargets   searchTargetSnapshot
 	Sites           []monitorSite `yaml:"sites"`
 	Style           string        `yaml:"style"`
 	ShowFailingOnly bool          `yaml:"show-failing-only"`
@@ -64,6 +66,13 @@ func (widget *monitorWidget) setProviders(providers *widgetProviders) {
 func (widget *monitorWidget) initialize() error {
 	widget.withTitle("Monitor").withCacheDuration(5 * time.Minute)
 
+	for i, site := range widget.Sites {
+		if site.SiteStatusRequest == nil || (site.DefaultURL == "" && site.CheckURL == "") {
+			return fmt.Errorf("site %d (%q): url or check-url is required", i+1, site.Title)
+		}
+	}
+
+	widget.publishSearchTargets()
 	return nil
 }
 
@@ -80,6 +89,7 @@ func (widget *monitorWidget) update(ctx context.Context) {
 		return
 	}
 
+	defer widget.publishSearchTargets()
 	widget.HasFailing = false
 
 	for i := range widget.Sites {
@@ -93,7 +103,7 @@ func (widget *monitorWidget) update(ctx context.Context) {
 
 		if status.Error != nil && site.ErrorURL != "" {
 			site.URL = site.ErrorURL
-		} else {
+		} else if site.SiteStatusRequest != nil {
 			site.URL = site.DefaultURL
 		}
 
@@ -190,7 +200,7 @@ func fetchStatusForSites(ctx context.Context, requests []*SiteStatusRequest) ([]
 
 func (widget *monitorWidget) setDefaultTimeout(value durationField) {
 	for i := range widget.Sites {
-		if !widget.Sites[i].configuredFields["timeout"] {
+		if widget.Sites[i].SiteStatusRequest != nil && !widget.Sites[i].configuredFields["timeout"] {
 			widget.Sites[i].Timeout = value
 		}
 	}
@@ -198,7 +208,7 @@ func (widget *monitorWidget) setDefaultTimeout(value durationField) {
 
 func (widget *monitorWidget) setDefaultAllowInsecure(value bool) {
 	for i := range widget.Sites {
-		if !widget.Sites[i].configuredFields["allow-insecure"] {
+		if widget.Sites[i].SiteStatusRequest != nil && !widget.Sites[i].configuredFields["allow-insecure"] {
 			widget.Sites[i].AllowInsecure = value
 		}
 	}

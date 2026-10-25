@@ -95,6 +95,59 @@ async function flushWrites() {
     await new Promise(resolve => setTimeout(resolve, 0));
 }
 
+test("Search server-only history never migrates or falls back to browser state", async () => {
+    const requests = [];
+    await withEnvironment({ storage: { "search-home": JSON.stringify([{ query: "anonymous", at: 123 }]) }, fetchImpl: async (url, options = {}) => {
+        requests.push(options.method || "GET");
+        return response(404);
+    } }, async ({ createPersonalState, localStorage }) => {
+        const state = createPersonalState("search", "home", { storage: "server" });
+        assert.deepEqual(await state.load([], Array.isArray), []);
+        assert.deepEqual(requests, ["GET"]);
+        assert.ok(localStorage.getItem("search-home"));
+    });
+});
+
+test("Search browser mode stays local even when server state is enabled", async () => {
+    await withEnvironment({ enabled: true }, async ({ createPersonalState, localStorage }) => {
+        const state = createPersonalState("search", "scoped-home", { storage: "browser" });
+        state.save([{ query: "local", at: 123 }]);
+        assert.deepEqual(await state.load([], Array.isArray), [{ query: "local", at: 123 }]);
+        assert.ok(localStorage.getItem("search-scoped-home"));
+    });
+});
+
+test("Search server storage failure is reported without leaking provider or query text", async () => {
+    let failures = 0;
+    await withEnvironment({ fetchImpl: async () => { throw new Error("private query from response"); } }, async ({ createPersonalState, diagnosticEvents }) => {
+        const state = createPersonalState("search", "home", { storage: "server", onError: () => failures++ });
+        assert.deepEqual(await state.load([], Array.isArray), []);
+        state.save([{ query: "secret", at: 123 }]);
+        await flushWrites();
+        assert.equal(failures, 2);
+        assert.equal(JSON.stringify(diagnosticEvents).includes("private query"), false);
+        assert.equal(JSON.stringify(diagnosticEvents).includes("secret"), false);
+    });
+});
+
+test("Search requires explicit server availability and keeps navigation writes alive", async () => {
+    await withEnvironment({ enabled: false }, async ({ createPersonalState, localStorage }) => {
+        let failures = 0;
+        const state = createPersonalState("search", "home", { storage: "server", onError: () => failures++ });
+        assert.deepEqual(await state.load([], Array.isArray), []);
+        state.save([]);
+        assert.equal(failures, 2);
+        assert.equal(localStorage.getItem("search-home"), null);
+    });
+    await withEnvironment({ fetchImpl: async (url, options) => {
+        assert.equal(options.keepalive, true);
+        return response(204);
+    } }, async ({ createPersonalState }) => {
+        createPersonalState("search", "home", { storage: "server", keepalive: true }).save([]);
+        await flushWrites();
+    });
+});
+
 test("disabled mode keeps existing localStorage behavior", async () => {
     await withEnvironment(
         {

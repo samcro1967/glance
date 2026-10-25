@@ -3,11 +3,14 @@
 {{ define "widget-content-classes" }}widget-content-frameless{{ end }}
 
 {{ define "widget-content" }}
-<div class="search widget-content-frame padding-inline-widget flex gap-15 items-center" data-default-search-url="{{ .SearchEngine }}" data-new-tab="{{ .NewTab }}" data-target="{{ .Target }}" data-open-domains="{{ .OpenDomains }}">
+<div class="search widget-content-frame padding-inline-widget flex gap-15 items-center" data-widget="{{ .ID }}" data-default-search-url="{{ .SearchEngine }}" data-new-tab="{{ .NewTab }}" data-target="{{ .Target }}" data-open-domains="{{ .OpenDomains }}" data-local-search="{{ if .LocalSearch.Sources }}true{{ else }}false{{ end }}" data-suggestions="{{ .Suggestions }}" data-results-limit="{{ .ResultsLimit }}" data-focus-key="{{ .FocusKey }}" data-use-layout="{{ .UseLayout }}" data-history-storage="{{ .History.Storage }}" data-history-id="{{ .History.ID }}" data-history-limit="{{ .History.Limit }}" data-history-retention="{{ .History.RetentionDays }}">
     <div class="search-bangs">
         {{ range .Bangs }}
-        <input type="hidden" data-shortcut="{{ .Shortcut }}" data-title="{{ .Title }}" data-url="{{ .URL }}">
+        <input type="hidden" data-shortcut="{{ .Shortcut }}" data-title="{{ .Title }}" data-url="{{ .URL }}" data-raw-query="{{ .RawQuery }}">
         {{ end }}
+    </div>
+    <div class="search-shortcuts" hidden>
+        {{ range .Shortcuts }}<input type="hidden" data-title="{{ .Title }}" data-url="{{ .URL }}" data-alias="{{ .Alias }}">{{ end }}
     </div>
 
     <div class="search-icon-container">
@@ -16,9 +19,14 @@
         </svg>
     </div>
 
-    <input class="search-input" type="text" placeholder="{{ .Placeholder }}" autocomplete="off"{{ if .Autofocus }} autofocus{{ end }}>
+    <input class="search-input" type="text" aria-label="{{ .Title }}" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="search-results-{{ .ID }}" placeholder="{{ .Placeholder }}" autocomplete="off"{{ if .Autofocus }} autofocus{{ end }}>
 
     <div class="search-bang glance-button"></div>
-    <kbd class="hide-on-mobile" title="Press [S] to focus the search input">S</kbd>
+    {{ if ne .FocusKey "none" }}<kbd class="hide-on-mobile" title="Focus search">{{ .FocusKey }}</kbd>{{ end }}
+    <div class="search-dropdown" hidden>
+        <div class="search-results" id="search-results-{{ .ID }}" role="listbox" aria-label="Search results"></div>
+        <div class="search-history-actions" hidden><button type="button" class="search-clear-history">Clear history</button><button type="button" class="search-remove-history" hidden>Remove selected history</button></div>
+        <div class="search-status" role="status" aria-live="polite"></div>
+    </div>
 </div>
 {{ end }}
