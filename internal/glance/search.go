@@ -4,6 +4,7 @@ package glance
 // They never refresh widgets, persist queries, or put user-specific data in the
 // shared render cache. Authorization is evaluated for every request.
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -19,6 +20,71 @@ var searchSuggestionEngines = map[string]string{
 	"duckduckgo": "https://duckduckgo.com/ac/?q={QUERY}&type=list",
 	"bing":       "https://api.bing.com/osjson.aspx?query={QUERY}",
 	"startpage":  "https://www.startpage.com/suggestions?q={QUERY}&format=opensearch",
+}
+
+// Compile the administrator-controlled destination once. Search input may fill
+// query parameter values only; it cannot select a host, path, or parameter name.
+func parseSearchSuggestionEndpoint(configured string) (*url.URL, error) {
+	endpoint, err := url.Parse(configured)
+	if err != nil || endpoint.Host == "" || endpoint.Hostname() == "" ||
+		(endpoint.Scheme != "http" && endpoint.Scheme != "https") || endpoint.User != nil ||
+		endpoint.Fragment != "" || strings.Contains(endpoint.Path, "{QUERY}") || strings.Contains(endpoint.Host, "{QUERY}") {
+		return nil, errors.New("suggestion-engine must be an HTTP(S) endpoint with {QUERY} only in query parameter values")
+	}
+	parameters, err := url.ParseQuery(endpoint.RawQuery)
+	if err != nil {
+		return nil, errors.New("suggestion-engine has invalid query parameters")
+	}
+	hasPlaceholder := false
+	for name, values := range parameters {
+		if strings.Contains(name, "{QUERY}") {
+			return nil, errors.New("suggestion-engine cannot contain {QUERY} in parameter names")
+		}
+		for _, value := range values {
+			hasPlaceholder = hasPlaceholder || strings.Contains(value, "{QUERY}")
+		}
+	}
+	if !hasPlaceholder {
+		return nil, errors.New("suggestion-engine requires {QUERY} in a query parameter value")
+	}
+	return endpoint, nil
+}
+
+func newSearchSuggestionRequest(ctx context.Context, endpoint *url.URL, query string) (*http.Request, error) {
+	if endpoint == nil {
+		return nil, errors.New("suggestion endpoint is not configured")
+	}
+	// Construct the request from configuration alone. Only RawQuery receives user
+	// input, encoded with url.Values; the destination fields remain untouched.
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	parameters := endpoint.Query()
+	for name, values := range parameters {
+		for i, value := range values {
+			values[i] = strings.ReplaceAll(value, "{QUERY}", query)
+		}
+		parameters[name] = values
+	}
+	request.URL.RawQuery = parameters.Encode()
+	return request, nil
+}
+
+func newSearchSuggestionHTTPClient(endpoint *url.URL) *http.Client {
+	// Keep the shared observed transport and timeout, but do not allow a remote
+	// provider to redirect requests to another origin or embed URL credentials.
+	client := *defaultHTTPClient
+	client.CheckRedirect = func(request *http.Request, via []*http.Request) error {
+		if len(via) >= 10 {
+			return errors.New("suggestion provider exceeded redirect limit")
+		}
+		if endpoint == nil || request.URL.User != nil || !extensionURLsShareOrigin(endpoint, request.URL) {
+			return errors.New("suggestion provider redirect is outside the configured origin")
+		}
+		return nil
+	}
+	return &client
 }
 
 func validSearchHistoryPayload(body []byte) bool {
@@ -334,15 +400,12 @@ func (a *application) handleSearchSuggestions(w http.ResponseWriter, r *http.Req
 		http.Error(w, "Query must be 2–512 bytes", http.StatusBadRequest)
 		return
 	}
-	// Only the configured endpoint is used; callers cannot turn this into an
-	// arbitrary URL proxy. Request cancellation propagates to the shared client.
-	endpoint := strings.ReplaceAll(widget.SuggestionEngine, "{QUERY}", url.QueryEscape(query))
-	request, err := http.NewRequestWithContext(r.Context(), http.MethodGet, endpoint, nil)
+	request, err := newSearchSuggestionRequest(r.Context(), widget.suggestionEndpoint, query)
 	if err != nil {
 		http.Error(w, "Suggestion request unavailable", http.StatusBadGateway)
 		return
 	}
-	response, err := defaultHTTPClient.Do(request)
+	response, err := newSearchSuggestionHTTPClient(widget.suggestionEndpoint).Do(request)
 	if err != nil {
 		http.Error(w, "Suggestion provider unavailable", http.StatusBadGateway)
 		return

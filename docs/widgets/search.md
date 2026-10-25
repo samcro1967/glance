@@ -159,7 +159,7 @@ suggestion-engine: duckduckgo
 
 Suggestions are disabled by default. Supported presets are `google`, `duckduckgo`, `bing`, and `startpage`. The suggestion provider is independent of the search engine: for Brave, Kagi, Perplexity, or a custom search engine, set `suggestion-engine` explicitly. For supported presets, omission uses the selected search engine.
 
-A custom HTTP(S) endpoint must contain `{QUERY}` and return either OpenSearch JSON (`["query", ["first", "second"]]`) or DuckDuckGo phrase objects (`[{"phrase":"first"}]`). Configure only endpoints you trust; the server makes requests to that configured destination. The browser cannot supply an arbitrary endpoint. Provider availability and throttling can change.
+A custom HTTP(S) endpoint must contain `{QUERY}` in a query parameter value, such as `https://suggest.example/complete?q={QUERY}`, and return either OpenSearch JSON (`["query", ["first", "second"]]`) or DuckDuckGo phrase objects (`[{"phrase":"first"}]`). Placeholders in the URL path, host, or parameter names are rejected. Configure only endpoints you trust; the server makes requests to that configured destination. The browser cannot supply an arbitrary endpoint. Redirects must retain the configured scheme, host, and effective port; cross-origin redirects and URL credentials are rejected. Set the final endpoint directly if a provider normally redirects to another origin. Provider availability and throttling can change.
 
 Requests start after two characters and a 200 ms pause, stop for active bangs, and are cancelled when input changes or loses focus. Late responses are discarded. Responses are limited to 256 KiB, concurrent provider work to four requests per Search widget, and request duration by the shared HTTP client's timeout. Failures show a contained message while normal search and other result sources continue working. Suggestion text is displayed as text, never HTML.
 
@@ -186,6 +186,8 @@ Server history requires authentication and [server personal-state storage](../co
 `results-limit` caps the combined dropdown at 1–20 results (default 8). The input is an accessible combobox with arrow-key selection and result announcements. Enter submits the typed query unless a result is selected or an exact alias matches. Ctrl/Meta toggles tab behavior. IME composition does not accidentally submit or trigger suggestions.
 
 `focus-key` accepts a lowercase letter or `none` to disable the page shortcut. With `use-layout: false`, the shortcut follows the physical key position (S by default). With `use-layout: true`, it follows the character produced by the active keyboard layout. Editing inputs, textareas, selects, and contenteditable fields suppresses the shortcut. With several matching widgets, the first visible one receives focus.
+
+All final Search destinations, including custom search templates and raw bangs, must resolve to HTTP(S) URLs without embedded credentials. Executable schemes such as `javascript:` and `data:` are rejected before either same-tab or new-tab navigation. Root-relative local links remain supported. Raw-query mode controls query encoding; it does not bypass destination validation.
 
 ### Complete example
 

@@ -34,6 +34,25 @@ async function checkSearch(page) {
     return previous;
   });
   try {
+    // Tamper with DOM-supplied templates to exercise the final navigation sink,
+    // rather than depending on server template escaping to reject the payload.
+    const originalEngine = await widget.getAttribute('data-default-search-url');
+    try {
+      const originalPageURL = page.url();
+      const popupCount = await page.evaluate(() => window.__searchOpened.length);
+      for (const template of ['javascript:window.__searchScriptRan=true', 'data:text/html,<script>window.__searchScriptRan=true</script>']) {
+        await widget.evaluate((element, value) => { element.dataset.defaultSearchUrl = value; }, template);
+        await input.fill('security probe');
+        await input.press('Enter');
+        await input.press('Control+Enter');
+        if (page.url() !== originalPageURL || await page.evaluate(() => window.__searchScriptRan === true || window.__searchOpened.length !== 0)) throw new Error('Unsafe Search template reached a navigation sink');
+        if (!(await widget.locator('.search-status').textContent()).includes('HTTP or HTTPS')) throw new Error('Unsafe Search destination did not show a contained error');
+      }
+      if (await page.evaluate(() => window.__searchOpened.length) !== popupCount) throw new Error('Unsafe Search template opened a popup');
+    } finally {
+      await widget.evaluate((element, value) => { element.dataset.defaultSearchUrl = value; }, originalEngine);
+      await input.fill('');
+    }
     await input.fill('qa');
     await input.press('Enter');
     if (await lastURL() !== 'https://example.invalid/search-shortcut') throw new Error('Search exact alias did not navigate');

@@ -35,24 +35,25 @@ type searchHistoryConfig struct {
 }
 
 type searchWidget struct {
-	widgetBase       `yaml:",inline"`
-	cachedHTML       template.HTML       `yaml:"-"`
-	SearchEngine     string              `yaml:"search-engine"`
-	Bangs            []SearchBang        `yaml:"bangs"`
-	NewTab           bool                `yaml:"new-tab"`
-	Target           string              `yaml:"target"`
-	Autofocus        bool                `yaml:"autofocus"`
-	Placeholder      string              `yaml:"placeholder"`
-	OpenDomains      bool                `yaml:"open-domains"`
-	Shortcuts        []searchShortcut    `yaml:"shortcuts"`
-	LocalSearch      searchLocalConfig   `yaml:"local-search"`
-	Suggestions      bool                `yaml:"suggestions"`
-	SuggestionEngine string              `yaml:"suggestion-engine"`
-	History          searchHistoryConfig `yaml:"history"`
-	UseLayout        bool                `yaml:"use-layout"`
-	FocusKey         string              `yaml:"focus-key"`
-	ResultsLimit     int                 `yaml:"results-limit"`
-	suggestionSlots  chan struct{}
+	widgetBase         `yaml:",inline"`
+	cachedHTML         template.HTML       `yaml:"-"`
+	SearchEngine       string              `yaml:"search-engine"`
+	Bangs              []SearchBang        `yaml:"bangs"`
+	NewTab             bool                `yaml:"new-tab"`
+	Target             string              `yaml:"target"`
+	Autofocus          bool                `yaml:"autofocus"`
+	Placeholder        string              `yaml:"placeholder"`
+	OpenDomains        bool                `yaml:"open-domains"`
+	Shortcuts          []searchShortcut    `yaml:"shortcuts"`
+	LocalSearch        searchLocalConfig   `yaml:"local-search"`
+	Suggestions        bool                `yaml:"suggestions"`
+	SuggestionEngine   string              `yaml:"suggestion-engine"`
+	History            searchHistoryConfig `yaml:"history"`
+	UseLayout          bool                `yaml:"use-layout"`
+	FocusKey           string              `yaml:"focus-key"`
+	ResultsLimit       int                 `yaml:"results-limit"`
+	suggestionSlots    chan struct{}
+	suggestionEndpoint *url.URL
 }
 
 func convertSearchUrl(url string) string {
@@ -160,10 +161,11 @@ func (widget *searchWidget) initializeSearchOptions() error {
 		if endpoint, ok := searchSuggestionEngines[widget.SuggestionEngine]; ok {
 			widget.SuggestionEngine = endpoint
 		}
-		endpoint, err := url.Parse(widget.SuggestionEngine)
-		if err != nil || endpoint.Host == "" || (endpoint.Scheme != "http" && endpoint.Scheme != "https") || !strings.Contains(widget.SuggestionEngine, "{QUERY}") || endpoint.User != nil || endpoint.Fragment != "" {
-			return fmt.Errorf("suggestion-engine must be google, duckduckgo, bing, startpage, or an HTTP(S) URL containing {QUERY}")
+		endpoint, err := parseSearchSuggestionEndpoint(widget.SuggestionEngine)
+		if err != nil {
+			return err
 		}
+		widget.suggestionEndpoint = endpoint
 	}
 	if widget.History.Storage == "" {
 		widget.History.Storage = "off"

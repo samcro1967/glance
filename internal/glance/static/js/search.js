@@ -1,6 +1,6 @@
 import { frontendDiagnosticError } from "./diagnostics.js";
 import { createPersonalState } from "./personal-state.js";
-import { rankSearchResults, pruneSearchHistory, searchTemplateURL, safeSearchURL } from "./search-model.js";
+import { rankSearchResults, pruneSearchHistory, searchTemplateURL, safeSearchURL, searchNavigationURL } from "./search-model.js";
 
 const SEARCH_DOMAIN_PATTERN = /^(https?:\/\/\S+|[a-z0-9-]+(\.[a-z0-9-]+)+(:\d+)?([/?#]\S*)?)$/i;
 const searchControllers = new Set();
@@ -167,13 +167,21 @@ function initializeSearchBox(widget) {
         void changeHistory(items => [{ query, at: Date.now() }, ...items.filter(item => item.query !== query)]);
     }
 
-    function navigate(url, event, resultTarget = null) {
+    function navigate(value, event, resultTarget = null, submittedQuery = null) {
+        const url = searchNavigationURL(value, window.location.href);
+        if (url === null || (url.protocol !== "http:" && url.protocol !== "https:")) {
+            networkMessage = "Search destination must use HTTP or HTTPS.";
+            reportFailure("search_navigation_rejected");
+            render();
+            return;
+        }
+        if (submittedQuery !== null) remember(submittedQuery);
         const modified = event.ctrlKey || event.metaKey;
         const useNewTab = resultTarget === null ? newTab !== modified : (resultTarget !== "_self") !== modified;
         if (useNewTab) {
-            const openedWindow = window.open(url, resultTarget && resultTarget !== "_self" ? resultTarget : target);
+            const openedWindow = window.open(url.href, resultTarget && resultTarget !== "_self" ? resultTarget : target);
             if (openedWindow != null) openedWindow.focus();
-        } else window.location.href = url;
+        } else window.location.href = url.href;
         lastQuery = input.value.trim();
         input.value = "";
         updateBang();
@@ -207,8 +215,7 @@ function initializeSearchBox(widget) {
         if (openDomains && currentBang == null && SEARCH_DOMAIN_PATTERN.test(query)) {
             url = query.includes("://") ? query : "https://" + query;
         } else url = searchTemplateURL(template, query, currentBang?.raw === true);
-        remember(currentBang ? input.value.trim() : query);
-        navigate(url, event);
+        navigate(url, event, null, currentBang ? input.value.trim() : query);
     }
 
     function update() {
