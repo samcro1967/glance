@@ -1,16 +1,116 @@
 package glance
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
+
+func TestSearchSuggestionDestinationRemainsConfigured(t *testing.T) {
+	endpoint, err := parseSearchSuggestionEndpoint("https://suggest.example/complete?fixed=yes&q={QUERY}&copy=prefix-{QUERY}")
+	if err != nil {
+		t.Fatal(err)
+	}
+	original := endpoint.String()
+	for _, query := range []string{"https://evil.example/private", "//127.0.0.1/admin", "@evil.example/#", "a&url=http://127.0.0.1", "../private?x=1", "a+b /%#?", "東京"} {
+		request, err := newSearchSuggestionRequest(context.Background(), endpoint, query)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if request.URL.Scheme != "https" || request.URL.Host != "suggest.example" || request.URL.Path != "/complete" || request.URL.User != nil || request.URL.Fragment != "" {
+			t.Fatalf("query changed request destination: %q", query)
+		}
+		if request.URL.Query().Get("q") != query || request.URL.Query().Get("copy") != "prefix-"+query || request.URL.Query().Get("fixed") != "yes" || len(request.URL.Query()) != 3 {
+			t.Fatalf("query escaped its parameter value: %q", query)
+		}
+	}
+	if endpoint.String() != original {
+		t.Fatal("shared endpoint mutated by request construction")
+	}
+	for _, configured := range searchSuggestionEngines {
+		if _, err := parseSearchSuggestionEndpoint(configured); err != nil {
+			t.Fatalf("preset rejected: %v", err)
+		}
+	}
+	for _, configured := range []string{"https://{QUERY}/complete", "https://example.com/{QUERY}", "https://example.com/?{QUERY}=q", "https://user:pass@example.com/?q={QUERY}", "https://example.com/?q={QUERY}#fragment", "https://example.com/?q=literal", "file:///tmp?q={QUERY}"} {
+		if _, err := parseSearchSuggestionEndpoint(configured); err == nil {
+			t.Errorf("unsafe template accepted: %s", configured)
+		}
+	}
+}
+
+func TestSearchSuggestionRedirectPolicy(t *testing.T) {
+	endpoint, err := parseSearchSuggestionEndpoint("https://suggest.example/complete?q={QUERY}")
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := newSearchSuggestionHTTPClient(endpoint)
+	for _, destination := range []string{"https://evil.example/", "http://suggest.example/", "https://suggest.example:444/", "https://user:pass@suggest.example/"} {
+		target, _ := url.Parse(destination)
+		if client.CheckRedirect(&http.Request{URL: target}, []*http.Request{{URL: endpoint}}) == nil {
+			t.Fatalf("redirect accepted: %s", destination)
+		}
+	}
+	allowed, _ := url.Parse("https://suggest.example:443/other?q=hello")
+	if err := client.CheckRedirect(&http.Request{URL: allowed}, []*http.Request{{URL: endpoint}}); err != nil {
+		t.Fatalf("same-origin redirect rejected: %v", err)
+	}
+	if client.CheckRedirect(&http.Request{URL: allowed}, make([]*http.Request, 10)) == nil {
+		t.Fatal("redirect loop limit missing")
+	}
+	if client.Timeout != defaultHTTPClient.Timeout || client.Transport != defaultHTTPClient.Transport {
+		t.Fatal("suggestion client lost shared HTTP behavior")
+	}
+}
+
+func TestSearchSuggestionCrossOriginRedirectNeverReachesTarget(t *testing.T) {
+	var called atomic.Bool
+	destination := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { called.Store(true); w.WriteHeader(http.StatusOK) }))
+	defer destination.Close()
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/same" {
+			_, _ = io.WriteString(w, `["query",["safe"]]`)
+			return
+		}
+		if r.URL.Query().Get("q") == "same" {
+			http.Redirect(w, r, "/same", http.StatusFound)
+			return
+		}
+		http.Redirect(w, r, destination.URL, http.StatusFound)
+	}))
+	defer provider.Close()
+	endpoint, err := parseSearchSuggestionEndpoint(provider.URL + "/complete?q={QUERY}")
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := newSearchSuggestionHTTPClient(endpoint)
+	request, _ := newSearchSuggestionRequest(context.Background(), endpoint, "cross")
+	if response, err := client.Do(request); err == nil {
+		_ = response.Body.Close()
+		t.Fatal("cross-origin redirect followed")
+	}
+	if called.Load() {
+		t.Fatal("request reached cross-origin target")
+	}
+	request, _ = newSearchSuggestionRequest(context.Background(), endpoint, "same")
+	response, err := client.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = response.Body.Close() }()
+	if response.StatusCode != http.StatusOK {
+		t.Fatal("same-origin redirect did not succeed")
+	}
+}
 
 func TestSearchOptionsDefaultsAndValidation(t *testing.T) {
 	defaults := &searchWidget{}

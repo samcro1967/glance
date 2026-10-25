@@ -4,7 +4,17 @@ import fs from "node:fs/promises";
 import test from "node:test";
 
 const source = await fs.readFile("internal/glance/static/js/search-model.js", "utf8");
-const { searchScore, rankSearchResults, pruneSearchHistory, searchTemplateURL, safeSearchURL } = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
+const { searchScore, rankSearchResults, pruneSearchHistory, searchTemplateURL, safeSearchURL, searchNavigationURL } = await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);
+
+test("the final navigation boundary rejects executable schemes from all Search sources", () => {
+    const base = "https://glance.example/base/hearth";
+    for (const value of ["javascript:alert(1)", "JaVaScRiPt:alert(1)", "java\nscript:alert(1)", "data:text/html,<script>alert(1)</script>", "vbscript:msgbox(1)", "file:///etc/passwd", "blob:https://glance.example/id", "//evil.example", "/\\evil.example", "https://user:pass@example.com"]) {
+        assert.equal(searchNavigationURL(value, base), null, value);
+    }
+    assert.equal(searchNavigationURL("/base/docs", base).href, "https://glance.example/base/docs");
+    assert.equal(searchNavigationURL(searchTemplateURL("https://github.com/!QUERY!", "owner/repo", true), base).href, "https://github.com/owner/repo");
+    assert.equal(searchNavigationURL("https://example.com/?q=javascript%3Aalert(1)", base).protocol, "https:");
+});
 
 test("ranking prioritizes exact aliases, then prefixes, substrings and abbreviations", () => {
     const items = [
