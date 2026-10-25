@@ -718,6 +718,8 @@ async function initializeContentRoot(root, diagnostics = false) {
 
     runStage("popovers", () => setupPopovers(root));
 
+    cleanupCallbacks.push(...runStage("search_boxes", () => setupSearchBoxes(root, registerLiveWidgetCleanup)));
+
     cleanupCallbacks.push(
         ...runStage("carousels", () => setupCarousels(root))
     );
@@ -1259,7 +1261,6 @@ async function setupPage() {
         runFrontendDiagnosticStage("clocks", () => setupClocks());
         runFrontendDiagnosticStage("footer_micro_clocks", () => setupFooterMicroClocks());
         runFrontendDiagnosticStage("analog_clocks", () => setupAnalogClocks());
-        runFrontendDiagnosticStage("search_boxes", () => setupSearchBoxes());
         runFrontendDiagnosticStage("groups", () => setupGroups());
         runFrontendDiagnosticStage("relative_time", () => setupDynamicRelativeTime());
 

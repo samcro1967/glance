@@ -153,6 +153,12 @@ let widgetLoadingResponses = [];
 const server = http.createServer((req, res) => {
   const url = new URL(req.url, `http://${HOST}:${PORT}`);
 
+  if (url.pathname === '/search-suggestions') {
+    const query = url.searchParams.get('q') || '';
+    sendJson(res, [query, [`${query} suggestion`, '<img src=x onerror=alert(1)>']]);
+    return;
+  }
+
   if (url.pathname === "/widget-loading/reset") {
     widgetLoadingReleased = false;
     sendJson(res, { ok: true });

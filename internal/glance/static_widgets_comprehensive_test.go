@@ -889,8 +889,8 @@ func TestSearchOpenDomainsBrowserContract(t *testing.T) {
 		`const openDomains = widget.dataset.openDomains === "true";`,
 		`openDomains && currentBang == null && SEARCH_DOMAIN_PATTERN.test(query)`,
 		`query.includes("://") ? query : "https://" + query`,
-		`searchUrlTemplate.replace("!QUERY!", encodeURIComponent(query))`,
-		`const openedWindow = window.open(url, target);`,
+		`searchTemplateURL(template, query, currentBang?.raw === true)`,
+		`const openedWindow = window.open(`,
 		`if (openedWindow != null)`,
 		`openedWindow.focus();`,
 	}
@@ -913,7 +913,7 @@ func TestSearchOpenDomainsBrowserContract(t *testing.T) {
 	pageSource := string(pageJS)
 	for _, fragment := range []string{
 		`import { setupSearchBoxes } from './search.js';`,
-		`runFrontendDiagnosticStage("search_boxes", () => setupSearchBoxes());`,
+		`runStage("search_boxes", () => setupSearchBoxes(root, registerLiveWidgetCleanup))`,
 	} {
 		if !strings.Contains(pageSource, fragment) {
 			t.Fatalf("page.js missing Search composition contract fragment %q", fragment)

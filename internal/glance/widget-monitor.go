@@ -45,6 +45,7 @@ func (site *monitorSite) UnmarshalYAML(node *yaml.Node) error {
 
 type monitorWidget struct {
 	widgetBase      `yaml:",inline"`
+	searchTargets   searchTargetSnapshot
 	Sites           []monitorSite `yaml:"sites"`
 	Style           string        `yaml:"style"`
 	ShowFailingOnly bool          `yaml:"show-failing-only"`
@@ -71,6 +72,7 @@ func (widget *monitorWidget) initialize() error {
 		}
 	}
 
+	widget.publishSearchTargets()
 	return nil
 }
 
@@ -87,6 +89,7 @@ func (widget *monitorWidget) update(ctx context.Context) {
 		return
 	}
 
+	defer widget.publishSearchTargets()
 	widget.HasFailing = false
 
 	for i := range widget.Sites {

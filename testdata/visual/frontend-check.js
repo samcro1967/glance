@@ -1746,6 +1746,8 @@ async function main() {
 
     await openPage(page, '/search-custom-content', coveragePath);
 
+    await require('./search-check').checkSearch(page);
+
     const presentationWidget = page.locator('.visual-fixture-custom-api');
     const expandButton = presentationWidget.locator('[data-widget-expand]');
     await expandButton.waitFor({ state: 'visible', timeout: 10000 });

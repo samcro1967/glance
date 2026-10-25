@@ -661,6 +661,7 @@ type templateRequestData struct {
 	AuthDisplayName     string
 	AuthDescription     string
 	LoginMessage        string
+	SearchHistoryScope  string
 }
 
 type templateData struct {
@@ -761,6 +762,9 @@ func (a *application) renderPage(
 		DashboardPath: dashboardPath,
 	}
 	a.populateTemplateRequestData(&data.Request, r, page)
+	// Browser history is separated by signed-in identity. Anonymous browser
+	// history has a distinct scope and is never migrated into server history.
+	data.Request.SearchHistoryScope = personalStateIdentityKey(session.AuthorizationIdentity)
 
 	if a.RequiresAuth && session.DisplayName != "" {
 		data.Request.AuthDisplayName = session.DisplayName
@@ -1270,6 +1274,8 @@ func (a *application) router() http.Handler {
 
 	mux.HandleFunc("GET /api/widgets/{widget}/content/{$}", a.handleWidgetContentRequest)
 	mux.HandleFunc("GET /api/widgets/{widget}/expanded/{$}", a.handleWidgetExpandedRequest)
+	mux.HandleFunc("GET /api/search/{widget}/targets", a.handleSearchTargets)
+	mux.HandleFunc("GET /api/search/{widget}/suggestions", a.handleSearchSuggestions)
 	mux.HandleFunc("GET /api/resource-proxy/{resource}", a.handleResourceProxyRequest)
 	mux.HandleFunc("GET /api/live-updates", a.handleLiveUpdatesRequest)
 	mux.HandleFunc("POST /api/frontend-diagnostics", a.handleFrontendDiagnosticsRequest)

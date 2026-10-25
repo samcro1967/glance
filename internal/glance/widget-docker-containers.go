@@ -21,13 +21,14 @@ var (
 
 type dockerContainersWidget struct {
 	widgetBase           `yaml:",inline"`
-	HideByDefault        bool                         `yaml:"hide-by-default"`
-	RunningOnly          bool                         `yaml:"running-only"`
-	Category             string                       `yaml:"category"`
-	SockPath             string                       `yaml:"sock-path"`
-	FormatContainerNames bool                         `yaml:"format-container-names"`
-	GroupBy              string                       `yaml:"group-by"`
-	Style                string                       `yaml:"style"`
+	HideByDefault        bool   `yaml:"hide-by-default"`
+	RunningOnly          bool   `yaml:"running-only"`
+	Category             string `yaml:"category"`
+	SockPath             string `yaml:"sock-path"`
+	FormatContainerNames bool   `yaml:"format-container-names"`
+	GroupBy              string `yaml:"group-by"`
+	Style                string `yaml:"style"`
+	searchTargets        searchTargetSnapshot
 	Containers           dockerContainerList          `yaml:"-"`
 	Groups               []dockerContainerGroup       `yaml:"-"`
 	LabelOverrides       map[string]map[string]string `yaml:"containers"`
@@ -71,6 +72,7 @@ func (widget *dockerContainersWidget) update(ctx context.Context) {
 	}
 	widget.Containers = containers
 	widget.Critical = containers.hasWarning()
+	widget.publishSearchTargets()
 }
 
 func (widget *dockerContainersWidget) Render() template.HTML {

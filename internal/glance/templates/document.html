@@ -11,6 +11,8 @@
         createdAt: {{ .App.CreatedAt.Unix }},
         frontendDiagnostics: {{ .App.Config.Server.FrontendDiagnostics }},
         personalStateEnabled: {{ .App.Config.Server.PersonalState.Enabled }},
+        dashboard: "{{ .DashboardPath }}",
+        searchHistoryScope: "{{ .Request.SearchHistoryScope }}",
     };
     </script>
     <title>{{ block "document-title" . }}{{ end }}</title>

@@ -2956,6 +2956,7 @@ frontend-audit:
 
 frontend-unit:
 	@echo "=== FRONTEND UNIT TESTS ==="
+	@node --test testdata/visual/search.test.mjs
 	@node --test testdata/visual/page-readiness.test.mjs testdata/visual/widget-loading.test.mjs testdata/visual/reddit-auth.test.mjs testdata/visual/personal-state.test.mjs testdata/visual/minesweeper.test.mjs testdata/visual/sudoku.test.mjs testdata/visual/2048.test.mjs testdata/visual/presentation.test.mjs testdata/visual/decorations.test.mjs testdata/visual/decoration-runtime.test.mjs
 
 frontend-check:

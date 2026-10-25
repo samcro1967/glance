@@ -212,7 +212,7 @@ func quarantinePersonalStateFile(path string) (string, error) {
 }
 
 func validatePersonalStateKey(namespace, id string) error {
-	if namespace != "todo" && namespace != "timer" {
+	if namespace != "todo" && namespace != "timer" && namespace != "search" {
 		return errors.New("unsupported personal state namespace")
 	}
 	if id == "" || len(id) > personalStateMaxIDLength {
@@ -293,6 +293,10 @@ func (a *application) handlePersonalStatePostRequest(w http.ResponseWriter, r *h
 	}
 	if len(body) == 0 || !json.Valid(body) {
 		http.Error(w, "personal state payload must be valid JSON", http.StatusBadRequest)
+		return
+	}
+	if namespace == "search" && !validSearchHistoryPayload(body) {
+		http.Error(w, "invalid search history payload", http.StatusBadRequest)
 		return
 	}
 
