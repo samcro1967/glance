@@ -51,3 +51,16 @@ export function safeSearchURL(value) {
         return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password;
     } catch { return false; }
 }
+
+// Final navigation boundary for every Search source, including raw bangs and
+// DOM-provided templates. Returning a parsed URL avoids checking one string and
+// subsequently navigating a differently interpreted value.
+export function searchNavigationURL(value, baseURL) {
+    if (!safeSearchURL(value)) return null;
+    try {
+        const url = new URL(value, baseURL);
+        if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+        if (url.username || url.password) return null;
+        return url;
+    } catch { return null; }
+}
