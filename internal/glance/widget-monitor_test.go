@@ -7,7 +7,55 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
+
+func TestMonitorMissingRequestBeforeDefaultsAndInitialization(t *testing.T) {
+	var widget monitorWidget
+	if err := yaml.Unmarshal([]byte("sites:\n  - title: Missing URL\n"), &widget); err != nil {
+		t.Fatal(err)
+	}
+	if widget.Sites[0].SiteStatusRequest != nil {
+		t.Fatal("expected presentation-only site to leave request nil")
+	}
+	// Configuration applies defaults before initialize; neither setter may panic.
+	widget.setDefaultTimeout(durationField(time.Second))
+	widget.setDefaultAllowInsecure(true)
+	if err := widget.initialize(); err == nil || !strings.Contains(err.Error(), "site 1") {
+		t.Fatalf("expected site-specific configuration error, got %v", err)
+	}
+}
+
+func TestMonitorRequestConfiguration(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		request *SiteStatusRequest
+		invalid bool
+	}{
+		{"missing request", nil, true},
+		{"empty request", &SiteStatusRequest{}, true},
+		{"url", &SiteStatusRequest{DefaultURL: "https://example.invalid"}, false},
+		{"check-url only", &SiteStatusRequest{CheckURL: "https://example.invalid/health"}, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			widget := &monitorWidget{Sites: []monitorSite{{Title: "Service", SiteStatusRequest: test.request}}}
+			if err := widget.initialize(); (err != nil) != test.invalid {
+				t.Fatalf("initialize error = %v, invalid = %t", err, test.invalid)
+			}
+		})
+	}
+}
+
+func TestMonitorMissingRequestRefresh(t *testing.T) {
+	// Direct refresh callers must receive a visible failed site even if they
+	// bypass the normal configuration validation boundary.
+	widget := &monitorWidget{Sites: []monitorSite{{Title: "Missing request"}}}
+	widget.update(context.Background())
+	if !widget.HasFailing || !widget.Critical || widget.Sites[0].Status == nil || widget.Sites[0].Status.Error == nil {
+		t.Fatal("missing request was not published as a critical failed site")
+	}
+}
 
 func TestStatusCodeToText(t *testing.T) {
 	tests := []struct {

@@ -1746,6 +1746,8 @@ async function main() {
 
     await openPage(page, '/search-custom-content', coveragePath);
 
+    await require('./search-check').checkSearch(page);
+
     const presentationWidget = page.locator('.visual-fixture-custom-api');
     const expandButton = presentationWidget.locator('[data-widget-expand]');
     await expandButton.waitFor({ state: 'visible', timeout: 10000 });
@@ -1893,6 +1895,21 @@ async function main() {
     const disclosureItems = disclosureList.locator('.collapsible-item');
 
     await disclosureButton.waitFor({ state: 'visible', timeout: 10000 });
+
+    await disclosureButton.evaluate(async (button) => {
+      const originalFont = button.style.fontFamily;
+      try {
+        button.style.fontFamily = 'serif';
+        await document.fonts.load('12px "JetBrains Mono"');
+        const icon = button.querySelector('.expand-toggle-button-icon');
+        const style = getComputedStyle(icon, '::before');
+        if (!style.fontFamily.includes('JetBrains Mono') || !style.content.includes('\uE0B1')) {
+          throw new Error('Disclosure icon lost its bundled glyph font under custom typography');
+        }
+      } finally {
+        button.style.fontFamily = originalFont;
+      }
+    });
 
     if (await disclosureButton.getAttribute('aria-expanded') !== 'false') {
       throw new Error('Disclosure control does not report collapsed initial state');

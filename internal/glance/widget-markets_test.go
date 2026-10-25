@@ -3,9 +3,32 @@ package glance
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strings"
 	"testing"
 )
+
+func TestMarketsMissingQuoteSeries(t *testing.T) {
+	for _, indicators := range []string{`{}`, `{"quote":null}`, `{"quote":[]}`} {
+		t.Run(indicators, func(t *testing.T) {
+			resetYahooMarketResourceCache(t)
+			wave3Transport(t, func(request *http.Request) (*http.Response, error) {
+				if strings.Contains(request.URL.Path, "GOOD") {
+					return yahooMarketResourceTestResponse(request, "GOOD"), nil
+				}
+				return wave3Response(200, `{"chart":{"result":[{"meta":{"regularMarketPrice":123},"indicators":`+indicators+`}]}}`, nil), nil
+			})
+			markets, err := fetchMarketsDataFromYahoo(context.Background(), []marketRequest{{Symbol: "BAD"}, {Symbol: "GOOD"}})
+			if len(markets) != 1 || markets[0].Symbol != "GOOD" || !errors.Is(err, errPartialContent) {
+				t.Fatalf("mixed result = %#v, error = %v", markets, err)
+			}
+			markets, err = fetchMarketsDataFromYahoo(context.Background(), []marketRequest{{Symbol: "BAD"}})
+			if markets != nil || !errors.Is(err, errNoContent) || !strings.Contains(err.Error(), "no quote series") {
+				t.Fatalf("failed result = %#v, error = %v", markets, err)
+			}
+		})
+	}
+}
 
 func TestMarketPreviousClose(t *testing.T) {
 	tests := []struct {

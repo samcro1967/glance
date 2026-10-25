@@ -775,11 +775,31 @@ pages:
             title: Search
             css-class: visual-fixture-search
             search-engine: google
+            new-tab: true
             autofocus: false
+            results-limit: 12
+            shortcuts:
+              - title: QA destination
+                alias: qa
+                url: https://example.invalid/search-shortcut
+            local-search:
+              sources: [pages, bookmarks, monitor, docker-containers]
+              scope: dashboard
+            suggestions: true
+            suggestion-engine: http://127.0.0.1:18089/search-suggestions?q={QUERY}
+            history:
+              storage: browser
+              id: visual-search
+              retention-days: 30
+              limit: 50
             bangs:
               - title: GitHub
                 shortcut: "!gh"
                 url: https://github.com/search?q={QUERY}
+              - title: Repository path
+                shortcut: "!path"
+                url: https://github.com/{QUERY}
+                raw-query: true
 
           - type: bookmarks
             title: Bookmarks

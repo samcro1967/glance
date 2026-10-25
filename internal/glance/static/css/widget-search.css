@@ -123,6 +123,43 @@
     display: none;
 }
 
+/* Widget content containers and themed backdrop filters create stacking
+ * contexts. Raise the containing widget (and composition-widget ancestors),
+ * not just the dropdown, so later cards cannot cover the open results. */
+.widget:has(.search-input[aria-expanded="true"]) {
+    position: relative;
+    z-index: 2;
+}
+
+.search-dropdown {
+    position: absolute;
+    z-index: 20;
+    inset-inline: 0;
+    top: calc(100% + 0.5rem);
+    padding: 0.5rem;
+    border: 1px solid var(--theme-control-border-color, var(--color-widget-content-border));
+    border-radius: var(--theme-control-radius, var(--border-radius));
+    background: var(--theme-control-background-color, var(--color-widget-background));
+    box-shadow: 0 0.5rem 2rem color-mix(in srgb, var(--theme-control-text-color, var(--color-text-highlight)) 15%, transparent);
+}
+
+.search-dropdown[hidden], .search-history-actions[hidden], .search-remove-history[hidden] { display: none; }
+.search-results { max-height: min(32rem, 45dvh); overflow-y: auto; overscroll-behavior: contain; }
+.search-result { padding: 0.8rem 1rem; cursor: pointer; border-radius: var(--theme-control-radius, var(--border-radius)); }
+.search-result:hover, .search-result[aria-selected="true"] { background: var(--theme-control-hover-background-color, var(--color-widget-content-border)); }
+.search-result-title { display: block; overflow-wrap: anywhere; color: var(--theme-control-text-color, var(--color-text-highlight)); }
+.search-result-detail, .search-status { display: block; font-size: var(--font-size-h5); color: var(--theme-control-muted-color, var(--color-text-subdue)); overflow-wrap: anywhere; }
+.search-status:empty { display: none; }
+.search-status { padding: 0.5rem 1rem; }
+.search-history-actions { display: flex; flex-wrap: wrap; gap: 1rem; padding: 0.5rem 1rem; }
+.search-history-actions button { font: inherit; color: var(--theme-control-text-color, var(--color-text-highlight)); background: transparent; border: 0; cursor: pointer; min-height: 4.4rem; text-decoration: underline; }
+.search kbd { text-transform: uppercase; cursor: pointer; }
+
+@media (max-width: 550px) {
+    .search-result { min-height: 4.4rem; }
+    .search-bang { max-width: 35%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .search-icon-container:hover > .search-icon,
     .search-bang {
