@@ -790,7 +790,7 @@ async function main() {
       trigger.dataset.popoverPosition = "above";
       trigger.dataset.popoverFocus = "";
       trigger.dataset.popoverHideDelay = "0";
-      trigger.dataset.popoverText = "Released January 1, 2026 (UTC)";
+      trigger.dataset.popoverText = "Released January 1, 2026";
       trigger.setAttribute("aria-label", `${trigger.textContent} — ${trigger.dataset.popoverText}`);
       footer.appendChild(trigger);
       const pageModule = document.querySelector('script[type="module"][src$="/js/page.js"]');
@@ -801,7 +801,7 @@ async function main() {
     const releaseDateTrigger = page.locator("[data-frontend-release-date-fixture]");
     await releaseDateTrigger.hover();
     await popoverContainer.waitFor({ state: "visible" });
-    if (await popoverContainer.locator(".popover-content").textContent() !== "Released January 1, 2026 (UTC)") {
+    if (await popoverContainer.locator(".popover-content").textContent() !== "Released January 1, 2026") {
       throw new Error("Release-date tooltip did not show its publication date on hover");
     }
     const tooltipOverflow = await popoverContainer.evaluate(element => {

@@ -41,7 +41,7 @@ func (result releaseStatusResult) InstalledReleaseTooltip() string {
 	if result.InstalledPublishedAt.IsZero() {
 		return ""
 	}
-	return "Released " + result.InstalledPublishedAt.UTC().Format("January 2, 2006") + " (UTC)"
+	return "Released " + result.InstalledPublishedAt.UTC().Format("January 2, 2006")
 }
 
 func (result releaseStatusResult) IsLatest() bool {
