@@ -778,6 +778,50 @@ async function main() {
 
     console.log("PASS shared popover viewport containment");
 
+    // The deterministic runtime is a dev build. Footer template tests cover
+    // release metadata; this fixture exercises its real shared popover contract.
+    await page.evaluate(async () => {
+      const footer = document.querySelector("footer.footer");
+      const trigger = document.createElement("button");
+      trigger.type = "button";
+      trigger.className = "footer-version";
+      trigger.textContent = "v1.2.3-samcro1967.r004";
+      trigger.dataset.frontendReleaseDateFixture = "true";
+      trigger.dataset.popoverType = "text";
+      trigger.dataset.popoverPosition = "above";
+      trigger.dataset.popoverFocus = "";
+      trigger.dataset.popoverHideDelay = "0";
+      trigger.dataset.popoverText = "Released January 1, 2026 (UTC)";
+      trigger.setAttribute("aria-label", `${trigger.textContent} — ${trigger.dataset.popoverText}`);
+      footer.appendChild(trigger);
+      const pageModule = document.querySelector('script[type="module"][src$="/js/page.js"]');
+      const { setupPopovers } = await import(new URL("./popover.js", pageModule.src).href);
+      setupPopovers(footer);
+      setupPopovers(footer);
+    });
+    const releaseDateTrigger = page.locator("[data-frontend-release-date-fixture]");
+    await releaseDateTrigger.hover();
+    await popoverContainer.waitFor({ state: "visible" });
+    if (await popoverContainer.locator(".popover-content").textContent() !== "Released January 1, 2026 (UTC)") {
+      throw new Error("Release-date tooltip did not show its publication date on hover");
+    }
+    await releaseDateTrigger.focus();
+    await page.mouse.move(0, 0);
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    if (!await popoverContainer.isVisible()) {
+      throw new Error("Release-date tooltip closed while its trigger retained keyboard focus");
+    }
+    await page.keyboard.press("Escape");
+    await popoverContainer.waitFor({ state: "hidden" });
+    await releaseDateTrigger.evaluate(element => element.blur());
+    await releaseDateTrigger.focus();
+    await popoverContainer.waitFor({ state: "visible" });
+    await releaseDateTrigger.evaluate(element => element.blur());
+    await popoverContainer.waitFor({ state: "hidden" });
+    await releaseDateTrigger.evaluate(element => element.remove());
+    await page.evaluate(() => window.scrollTo(0, 0));
+    console.log("PASS footer release-date tooltip hover, keyboard focus, Escape and blur");
+
     const group = page.locator('.visual-fixture-group');
     const groupTabs = group.locator('[role="tab"]');
     const groupPanels = group.locator('[role="tabpanel"]');

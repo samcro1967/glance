@@ -7,8 +7,9 @@
         {{- if eq "dev" .App.Version }}
             ({{ .App.Version }}{{ with .App.ShortRevision }} {{ . }}{{ end }})
         {{- else }}
-            {{ .App.Version }}
-            {{- with .App.ReleaseStatus }}
+            {{- $release := .App.ReleaseStatus }}
+            {{ if $release.InstalledReleaseTooltip }}<button type="button" class="footer-version cursor-help" data-popover-type="text" data-popover-position="above" data-popover-focus data-popover-text="{{ $release.InstalledReleaseTooltip }}" aria-label="{{ .App.Version }} — {{ $release.InstalledReleaseTooltip }}">{{ .App.Version }}</button>{{ else }}{{ .App.Version }}{{ end }}
+            {{- with $release }}
 				{{- if .IsLatest }}
 					· <span class="color-positive">Latest</span>
 				{{- else if .IsUpdateAvailable }}
