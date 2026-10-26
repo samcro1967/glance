@@ -50,8 +50,24 @@ function handleMouseEnter(event) {
 
 function handleMouseLeave(event) {
     clearTogglePopoverTimeout();
+    // Opted-in keyboard tooltips stay open while their trigger retains focus.
+    if (activeTarget?.hasAttribute("data-popover-focus") && activeTarget === document.activeElement) return;
     const target = activeTarget || event.target;
     togglePopoverTimeout = setTimeout(hidePopover, target.dataset.popoverHideDelay || defaultHideDelayMs);
+}
+
+function handleFocus(event) {
+    clearTogglePopoverTimeout();
+    if (activeTarget === event.currentTarget) return;
+    hidePopover();
+    pendingTarget = event.currentTarget;
+    showPopover();
+}
+
+function handleBlur(event) {
+    clearTogglePopoverTimeout();
+    if (pendingTarget === event.currentTarget) pendingTarget = null;
+    if (activeTarget === event.currentTarget) hidePopover();
 }
 
 function handleKeyboardActivation(event) {
@@ -256,6 +272,10 @@ export function setupPopovers(root = document) {
         }
 
         target.addEventListener("mouseleave", handleMouseLeave);
+        if (target.hasAttribute("data-popover-focus")) {
+            target.addEventListener("focus", handleFocus);
+            target.addEventListener("blur", handleBlur);
+        }
         target.dataset.popoverInitialized = "true";
     }
 }

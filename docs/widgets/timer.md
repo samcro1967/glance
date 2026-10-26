@@ -5,7 +5,7 @@
 
 Create countdown timers for specific dates and times. Timers can be added, edited, deleted, and reordered directly in the widget.
 
-Timer data is stored in the browser's local storage and is not stored or synchronized by the Glance server. Timers therefore remain specific to the browser and browser profile where they were created.
+Timer data is stored in the browser's local storage by default and remains specific to that browser profile. When authenticated [server-side personal state](../configuration.md#personal-state) is enabled, timer lists are stored on the server for that user and widget ID. See [`id`](#id) for migration and sharing behavior.
 
 Example:
 ## Quick start
@@ -48,7 +48,7 @@ When authenticated [server-side personal state](../configuration.md#personal-sta
 
 Whether target times are displayed in 12-hour or 24-hour format. Possible values are `12h` and `24h`.
 
-Dates and times entered in the widget are interpreted as local calendar time in the browser. The Timer widget does not perform server-side timezone conversion or synchronization.
+Dates and times entered in the widget are interpreted as local calendar time in the browser. Optional server-side storage does not change this interpretation or introduce server-side timezone conversion.
 
 
 ---
