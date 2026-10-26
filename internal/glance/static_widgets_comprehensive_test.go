@@ -805,7 +805,7 @@ func TestPopoverViewportContainmentContract(t *testing.T) {
 	}
 	cssSource := string(popoverCSS)
 	for _, fragment := range []string{
-		"max-height: calc(100vh - var(--content-bounds-padding) - var(--content-bounds-padding) - var(--triangle-margin))",
+		"max-height: calc(100vh - var(--content-bounds-padding) - var(--content-bounds-padding) - var(--triangle-margin) - 22px)",
 		"overflow-y: auto",
 	} {
 		if !strings.Contains(cssSource, fragment) {
