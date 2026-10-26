@@ -187,6 +187,8 @@ The fork's differences from upstream span both user-visible functionality and un
 
 ### Incorporated upstream and platform correctness fixes
 
+- **Flat market chart correctness** — Renders identical historical prices as a horizontal line at the chart midpoint instead of generating invalid SVG coordinates through division by zero. Changing histories retain existing scaling and padding, and empty or single-value histories remain unchanged. Adapted from upstream [PR #1103](https://github.com/glanceapp/glance/pull/1103) by [@HocVoNgThai](https://github.com/HocVoNgThai), with regression coverage for flat positive, zero, and negative values, increasing and decreasing histories, and short inputs.
+
 - **Monitor request safety** — Validates missing site request configuration before refresh, preserves check-url-only configurations, and guards default application and direct refresh paths against nil requests. Invalid configuration uses the existing source-aware widget error presentation. Informed by [Dynacat PR #194](https://github.com/Panonim/dynacat/pull/194), adapted to this fork’s configuration, defaults, and shared resource architecture.
 
 - **Markets quote-series validation** — Rejects provider results with missing, null, or empty quote-series arrays before indexing them, retaining valid symbols through the existing partial-content and no-content failure handling. Identified during the fork audit and protected by regression tests.
