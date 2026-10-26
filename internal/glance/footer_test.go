@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"strings"
 	"testing"
+	"time"
 )
 
 const (
@@ -177,6 +178,55 @@ func TestFooterReleaseStatusHiddenFooterUnaffected(t *testing.T) {
 
 	if strings.TrimSpace(rendered) != "" {
 		t.Fatalf("hidden footer rendered content: %q", rendered)
+	}
+}
+
+func TestFooterInstalledReleaseDateTooltip(t *testing.T) {
+	date := time.Date(2026, time.October, 26, 0, 30, 0, 0, time.FixedZone("+02", 2*60*60))
+	for _, status := range []releaseStatus{releaseStatusUnknown, releaseStatusLatest, releaseStatusUpdateAvailable} {
+		app := &application{Version: testInstalledForkVersion}
+		app.releaseStatus.set(releaseStatusResult{
+			Status:               status,
+			LatestVersion:        testLatestForkVersion,
+			ReleaseURL:           testLatestReleaseURL,
+			InstalledPublishedAt: date,
+		})
+		rendered := renderFooterForTest(t, app)
+		for _, want := range []string{
+			`class="footer-version cursor-help"`,
+			`type="button"`,
+			`data-popover-focus`,
+			`data-popover-position="above"`,
+			`data-popover-text="Released October 25, 2026 (UTC)"`,
+			`aria-label="` + testInstalledForkVersion + ` — Released October 25, 2026 (UTC)"`,
+			`>` + testInstalledForkVersion + `</button>`,
+		} {
+			if !strings.Contains(rendered, want) {
+				t.Fatalf("status %v: footer missing %q: %s", status, want, rendered)
+			}
+		}
+	}
+}
+
+func TestFooterOmitsUnavailableOrInapplicableReleaseDate(t *testing.T) {
+	for _, scenario := range []string{"missing date", "development", "custom footer", "hidden footer"} {
+		t.Run(scenario, func(t *testing.T) {
+			app := &application{Version: testInstalledForkVersion}
+			if scenario != "missing date" {
+				app.releaseStatus.set(releaseStatusResult{InstalledPublishedAt: time.Now()})
+			}
+			switch scenario {
+			case "development":
+				app.Version = "dev"
+			case "custom footer":
+				app.Config.Branding.CustomFooter = "Custom footer"
+			case "hidden footer":
+				app.Config.Branding.HideFooter = true
+			}
+			if rendered := renderFooterForTest(t, app); strings.Contains(rendered, "footer-version") || strings.Contains(rendered, "Released ") {
+				t.Fatalf("%s rendered a release tooltip: %s", scenario, rendered)
+			}
+		})
 	}
 }
 

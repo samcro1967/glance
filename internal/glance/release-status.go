@@ -2,8 +2,11 @@ package glance
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
+	"net/url"
 	"regexp"
 	"strconv"
 	"sync"
@@ -28,9 +31,17 @@ const (
 )
 
 type releaseStatusResult struct {
-	Status        releaseStatus
-	LatestVersion string
-	ReleaseURL    string
+	Status               releaseStatus
+	LatestVersion        string
+	ReleaseURL           string
+	InstalledPublishedAt time.Time
+}
+
+func (result releaseStatusResult) InstalledReleaseTooltip() string {
+	if result.InstalledPublishedAt.IsZero() {
+		return ""
+	}
+	return "Released " + result.InstalledPublishedAt.UTC().Format("January 2, 2006") + " (UTC)"
 }
 
 func (result releaseStatusResult) IsLatest() bool {
@@ -150,6 +161,51 @@ func checkForkReleaseStatus(
 	return result, nil
 }
 
+// Fetch the exact installed tag: the latest release may describe another version.
+// Publication dates are optional metadata and must never fall back to time.Now.
+func fetchInstalledForkReleaseDate(ctx context.Context, version string) (time.Time, error) {
+	if _, ok := parseForkReleaseVersion(version); !ok {
+		return time.Time{}, nil
+	}
+	requestURL := "https://api.github.com/repos/" + forkReleaseRepository + "/releases/tags/" + url.PathEscape(version)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("creating installed fork release request: %w", err)
+	}
+	response, err := decodeJsonFromRequest[githubReleaseResponseJson](defaultHTTPClient, request)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("fetching installed fork release: %w", err)
+	}
+	if response.TagName != version {
+		return time.Time{}, errors.New("installed fork release response has a different tag")
+	}
+	publishedAt, err := time.Parse(time.RFC3339, response.PublishedAt)
+	if err != nil || publishedAt.IsZero() {
+		return time.Time{}, errors.New("installed fork release has no valid publication date")
+	}
+	return publishedAt.UTC(), nil
+}
+
+// The checker is the sole writer. Retain confirmed installed-release metadata
+// independently of transient latest-release failures; retry missing dates on
+// the existing check schedule rather than adding a second background worker.
+func updateForkReleaseStatus(ctx context.Context, version string, cache *releaseStatusCache) {
+	publishedAt := cache.get().InstalledPublishedAt
+	if publishedAt.IsZero() {
+		var err error
+		publishedAt, err = fetchInstalledForkReleaseDate(ctx, version)
+		if err != nil {
+			slog.Warn("Failed to look up installed fork release date", "error", err)
+		}
+	}
+	result, err := checkForkReleaseStatus(ctx, version)
+	if err != nil {
+		slog.Warn("Failed to check for fork release updates", "error", err)
+	}
+	result.InstalledPublishedAt = publishedAt
+	cache.set(result)
+}
+
 func runForkReleaseStatusChecker(
 	ctx context.Context,
 	currentVersion string,
@@ -164,17 +220,7 @@ func runForkReleaseStatusChecker(
 	}
 
 	check := func() {
-		result, err := checkForkReleaseStatus(ctx, currentVersion)
-		if err != nil {
-			slog.Warn(
-				"Failed to check for fork release updates",
-				"error", err,
-			)
-			cache.set(releaseStatusResult{})
-			return
-		}
-
-		cache.set(result)
+		updateForkReleaseStatus(ctx, currentVersion, cache)
 	}
 
 	check()

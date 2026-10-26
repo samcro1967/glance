@@ -108,7 +108,7 @@ Automatic config reload is supported, meaning that you can make changes to the c
 
 > [!CAUTION]
 >
-> Reloading the configuration file clears your cached data, meaning that you have to request the data anew each time you do this. This can lead to rate limiting for some APIs if you do it too frequently. Having a cache that persists between reloads will be added in the future.
+> Compatible configuration reloads reuse unchanged refreshable widgets, preserving their cached data, committed presentation, refresh timing, and diagnostics. Changed widgets are rebuilt, and changing `server.base-url` or the resource-proxy allowlist disables widget reuse for that reload. Rebuilt widgets may require new provider requests, so frequent changes can still contribute to API rate limiting. Caches remain in memory and are not preserved across process or container restarts.
 
 ### Environment variables
 Inserting environment variables is supported anywhere in the config. This is done via the `${ENV_VAR}` syntax. Attempting to use an environment variable that does not exist is an unrecoverable configuration error: Glance will not start from that configuration, and an automatic reload will reject the candidate while the current application continues running. Example:
