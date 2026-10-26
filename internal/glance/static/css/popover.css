@@ -31,7 +31,12 @@
     border-radius: 5px;
     animation: popoverFrameEntrance 0.3s backwards cubic-bezier(0.16, 1, 0.3, 1);
     box-shadow: var(--shadow-properties) var(--shadow-color);
-    max-height: calc(100vh - var(--content-bounds-padding) - var(--content-bounds-padding) - var(--triangle-margin));
+}
+
+/* Keep the decorative arrow outside the scrolling area. The frame contributes
+   20px of padding and 2px of borders to the viewport height budget. */
+.popover-content {
+    max-height: calc(100vh - var(--content-bounds-padding) - var(--content-bounds-padding) - var(--triangle-margin) - 22px);
     overflow-y: auto;
 }
 

@@ -645,24 +645,23 @@ async function main() {
     const popoverFixture = page.locator("[data-frontend-check-popover-fixture]");
     const popoverTarget = popoverFixture.locator("button");
     const popoverContainer = page.locator(".popover-container");
-    const popoverFrame = popoverContainer.locator(".popover-frame");
 
     await popoverTarget.click();
     await popoverContainer.waitFor({ state: "visible" });
 
     let popoverGeometry = await popoverContainer.evaluate(element => {
       const rect = element.getBoundingClientRect();
-      const frame = element.querySelector(".popover-frame");
-      const frameStyle = getComputedStyle(frame);
+      const content = element.querySelector(".popover-content");
+      const contentStyle = getComputedStyle(content);
 
       return {
         top: rect.top,
         bottom: rect.bottom,
         viewportHeight: window.innerHeight,
         positionAbove: element.classList.contains("position-above"),
-        frameClientHeight: frame.clientHeight,
-        frameScrollHeight: frame.scrollHeight,
-        frameOverflowY: frameStyle.overflowY
+        contentClientHeight: content.clientHeight,
+        contentScrollHeight: content.scrollHeight,
+        contentOverflowY: contentStyle.overflowY
       };
     });
 
@@ -680,11 +679,11 @@ async function main() {
     }
 
     if (
-      popoverGeometry.frameOverflowY !== "auto" ||
-      popoverGeometry.frameScrollHeight <= popoverGeometry.frameClientHeight
+      popoverGeometry.contentOverflowY !== "auto" ||
+      popoverGeometry.contentScrollHeight <= popoverGeometry.contentClientHeight
     ) {
       throw new Error(
-        `Oversized popover is not internally scrollable: overflow=${popoverGeometry.frameOverflowY} client=${popoverGeometry.frameClientHeight}px scroll=${popoverGeometry.frameScrollHeight}px`
+        `Oversized popover is not internally scrollable: overflow=${popoverGeometry.contentOverflowY} client=${popoverGeometry.contentClientHeight}px scroll=${popoverGeometry.contentScrollHeight}px`
       );
     }
 
@@ -805,6 +804,18 @@ async function main() {
     if (await popoverContainer.locator(".popover-content").textContent() !== "Released January 1, 2026 (UTC)") {
       throw new Error("Release-date tooltip did not show its publication date on hover");
     }
+    const tooltipOverflow = await popoverContainer.evaluate(element => {
+      const frame = element.querySelector(".popover-frame");
+      const content = element.querySelector(".popover-content");
+      return {
+        frameOverflowY: getComputedStyle(frame).overflowY,
+        horizontal: content.scrollWidth > content.clientWidth,
+        vertical: content.scrollHeight > content.clientHeight
+      };
+    });
+    if (tooltipOverflow.frameOverflowY !== "visible" || tooltipOverflow.horizontal || tooltipOverflow.vertical) {
+      throw new Error(`Short release-date tooltip has a scrolling frame or overflowing content: ${JSON.stringify(tooltipOverflow)}`);
+    }
     await releaseDateTrigger.focus();
     await page.mouse.move(0, 0);
     await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
@@ -820,7 +831,7 @@ async function main() {
     await popoverContainer.waitFor({ state: "hidden" });
     await releaseDateTrigger.evaluate(element => element.remove());
     await page.evaluate(() => window.scrollTo(0, 0));
-    console.log("PASS footer release-date tooltip hover, keyboard focus, Escape and blur");
+    console.log("PASS footer release-date tooltip without overflow, hover, keyboard focus, Escape and blur");
 
     const group = page.locator('.visual-fixture-group');
     const groupTabs = group.locator('[role="tab"]');
