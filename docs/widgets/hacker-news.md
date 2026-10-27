@@ -56,6 +56,10 @@ Selects the Hacker News story feed. Supported values are `top`, `new`, and `best
 
 Applies an additional local sort after stories are fetched. The supported value is `engagement`, which favors stories with more points and comments while also prioritizing newer stories.
 
+## HTTP request timeout
+
+Configure `timeout` on the widget, or inherit it from global/type defaults. The built-in default is 5s; explicit `0s` selects the central 5s baseline. The limit applies per HTTP request rather than to the complete refresh. See [HTTP request timeouts](../request-timeouts.md) for supported scopes, precedence, cache behavior, and exceptions.
+
 ---
 
 [Widgets](../widgets.md) · [Configuration](../configuration.md) · [Back to top](#hacker-news)

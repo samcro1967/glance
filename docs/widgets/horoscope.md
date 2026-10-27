@@ -42,6 +42,7 @@ This widget also supports the [shared widget properties](../widgets.md#shared-pr
 | `signs` | list | yes | — |
 | `periods` | list | no | `daily` |
 | `provider` | string | no | `free-horoscope-api` |
+| `timeout` | duration | no | `5s` |
 
 ### `signs`
 
@@ -95,6 +96,22 @@ For a more compact tabbed presentation, configure focused instances inside a Gro
 
 By default, Horoscope refreshes once per day shortly after midnight using the Glance process timezone. This keeps daily readings aligned with the calendar without assuming an undocumented publication boundary for weekly or monthly content. The shared `cache` or `cache-cron` properties can override that behavior.
 
+### `timeout`
+
+Maximum time allowed for each provider HTTP request, including connection setup and reading the response body. Applies to daily, weekly, and monthly readings. Omitting this setting preserves the existing five-second default.
+
+Each sign and period is fetched separately, so this is a per-request limit rather than a limit for the entire refresh. Shutdown or configuration reload can cancel requests earlier.
+
+```yaml
+- type: horoscope
+  title: Weekly
+  signs: [cancer]
+  periods: [weekly]
+  timeout: 15s
+```
+
+Use the standard duration format, such as `15s` or `1m`. This setting does not change the refresh schedule or guarantee current provider content.
+
 ### `provider`
 
 `free-horoscope-api` is currently the only implemented provider and is therefore the default. The provider setting is explicit so additional legitimate horoscope sources can be added later without changing the public widget model.
@@ -102,6 +119,10 @@ By default, Horoscope refreshes once per day shortly after midnight using the Gl
 > [!NOTE]
 >
 > Horoscope readings are provider-authored entertainment content rather than standardized data. Different horoscope publishers can produce different readings for the same zodiac sign and period.
+
+## HTTP request timeout
+
+Configure `timeout` on the widget, or inherit it from global/type defaults. The built-in default is 5s; explicit `0s` selects the central 5s baseline. The limit applies per HTTP request rather than to the complete refresh. See [HTTP request timeouts](../request-timeouts.md) for supported scopes, precedence, cache behavior, and exceptions.
 
 ---
 

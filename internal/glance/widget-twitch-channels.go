@@ -15,6 +15,7 @@ var twitchChannelsWidgetTemplate = mustParseTemplate("twitch-channels.html", "wi
 
 type twitchChannelsWidget struct {
 	widgetBase      `yaml:",inline"`
+	Timeout         durationField   `yaml:"timeout"`
 	ChannelsRequest []string        `yaml:"channels"`
 	Channels        []twitchChannel `yaml:"-"`
 	CollapseAfter   int             `yaml:"collapse-after"`
@@ -39,7 +40,7 @@ func (widget *twitchChannelsWidget) initialize() error {
 }
 
 func (widget *twitchChannelsWidget) update(ctx context.Context) {
-	channels, err := fetchChannelsFromTwitch(ctx, widget.ChannelsRequest)
+	channels, err := fetchChannelsFromTwitch(ctx, widget.ChannelsRequest, widget.Timeout)
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
 		return
@@ -132,7 +133,7 @@ const twitchChannelStatusOperationRequestBody = `[
 
 // Channel status requests remain independent because Twitch does not expose a documented stable batch-operation limit for this request shape.
 
-func fetchChannelFromTwitchTask(ctx context.Context, channel string) (twitchChannel, error) {
+func fetchChannelFromTwitchTask(ctx context.Context, channel string, timeouts ...durationField) (twitchChannel, error) {
 	result := twitchChannel{
 		Login: strings.ToLower(channel),
 	}
@@ -145,7 +146,7 @@ func fetchChannelFromTwitchTask(ctx context.Context, channel string) (twitchChan
 
 	request.Header.Add("Client-ID", twitchGqlClientId)
 
-	response, err := decodeJsonFromRequest[[]twitchOperationResponse](defaultHTTPClient, request)
+	response, err := decodeJsonFromRequest[[]twitchOperationResponse](newProviderHTTPClient(timeouts...), request)
 	if err != nil {
 		return result, err
 	}
@@ -218,11 +219,11 @@ func fetchChannelFromTwitchTask(ctx context.Context, channel string) (twitchChan
 	return result, nil
 }
 
-func fetchChannelsFromTwitch(ctx context.Context, channelLogins []string) (twitchChannelList, error) {
+func fetchChannelsFromTwitch(ctx context.Context, channelLogins []string, timeouts ...durationField) (twitchChannelList, error) {
 	result := make(twitchChannelList, 0, len(channelLogins))
 
 	task := func(channel string) (twitchChannel, error) {
-		return fetchChannelFromTwitchTask(ctx, channel)
+		return fetchChannelFromTwitchTask(ctx, channel, timeouts...)
 	}
 
 	job := newJob(task, channelLogins).withWorkers(10).withContext(ctx)
@@ -273,4 +274,8 @@ func fetchChannelsFromTwitch(ctx context.Context, channelLogins []string) (twitc
 
 func (widget *twitchChannelsWidget) setDefaultCollapseAfter(value int) {
 	widget.CollapseAfter = value
+}
+
+func (widget *twitchChannelsWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
 }

@@ -54,9 +54,7 @@ func newHTTPClient(timeout durationField, allowInsecure bool) *http.Client {
 	baseClient := ternary(allowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
 	client := *baseClient
 
-	if timeout > 0 {
-		client.Timeout = time.Duration(timeout)
-	}
+	client.Timeout = resolveHTTPRequestTimeout(timeout)
 
 	return &client
 }
@@ -471,4 +469,44 @@ func workerPoolDo[I any, O any](job *workerPoolJob[I, O]) ([]O, []error, error) 
 	}
 
 	return results, errs, job.ctx.Err()
+}
+
+// resolveHTTPRequestTimeout returns the configured positive request budget.
+// Zero (including explicit 0s) uses the bounded shared default, never infinity.
+func resolveHTTPRequestTimeout(timeout durationField) time.Duration {
+	if timeout > 0 {
+		return time.Duration(timeout)
+	}
+	return defaultClientTimeout
+}
+
+// newProviderHTTPClient keeps the existing provider helper calls valid while
+// allowing widget-owned requests to pass their resolved timeout explicitly.
+// Provider helpers accept at most one timeout; omission uses the shared default.
+func newProviderHTTPClient(timeouts ...durationField) *http.Client {
+	var timeout durationField
+	if len(timeouts) > 0 {
+		timeout = timeouts[0]
+	}
+	return newHTTPClient(timeout, false)
+}
+
+// resourceTimeoutPolicy normalizes explicit default/zero budgets to one cache
+// identity. Different effective budgets must not share an in-flight request.
+func resourceTimeoutPolicy(timeouts ...durationField) durationField {
+	var timeout durationField
+	if len(timeouts) > 0 {
+		timeout = timeouts[0]
+	}
+	resolved := resolveHTTPRequestTimeout(timeout)
+	if resolved == defaultClientTimeout {
+		return 0
+	}
+	return durationField(resolved)
+}
+
+// resourceTimeoutKey includes the effective budget in string resource keys.
+// Length-prefixing prevents delimiter-containing resource names from colliding.
+func resourceTimeoutKey(resource string, timeouts ...durationField) string {
+	return fmt.Sprintf("%d:%s:%d", len(resource), resource, resourceTimeoutPolicy(timeouts...))
 }

@@ -312,3 +312,7 @@ func formatTorrentETA(seconds int64) string {
 	}
 	return fmt.Sprintf("%ds", int(duration/time.Second))
 }
+
+func (widget *torrentingWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
+}

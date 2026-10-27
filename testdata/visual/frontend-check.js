@@ -777,6 +777,60 @@ async function main() {
 
     console.log("PASS shared popover viewport containment");
 
+    // Exercise the real menu with signed-in content and larger typography.
+    const dashboardMenuTrigger = page.locator(".header-container .dashboard-switcher").first();
+    const dashboardMenuOriginal = await dashboardMenuTrigger.evaluate(trigger => {
+      const menu = trigger.querySelector(".dashboard-switcher-menu");
+      const original = { html: menu.innerHTML, style: menu.style.cssText };
+      menu.style.setProperty("--font-size-h4", "18px");
+      const identity = document.createElement("div");
+      identity.className = "dashboard-switcher-link";
+      const label = document.createElement("span");
+      const name = document.createElement("strong");
+      name.textContent = "operator@example.test";
+      const description = document.createElement("small");
+      description.textContent = "Signed in with Google";
+      label.append(name, document.createElement("br"), description);
+      identity.append(label);
+      const form = document.createElement("form");
+      const logout = document.createElement("button");
+      logout.type = "button";
+      logout.className = "dashboard-switcher-link dashboard-switcher-action";
+      logout.textContent = "Log out";
+      form.append(logout);
+      menu.append(identity, form);
+      return original;
+    });
+    await dashboardMenuTrigger.click();
+    await popoverContainer.waitFor({ state: "visible" });
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+    const dashboardMenuOverflow = await popoverContainer.evaluate(element => {
+      const content = element.querySelector(".popover-content");
+      const bounds = element.getBoundingClientRect();
+      return {
+        horizontal: content.scrollWidth > content.clientWidth,
+        vertical: content.scrollHeight > content.clientHeight,
+        clientWidth: content.clientWidth, scrollWidth: content.scrollWidth,
+        clientHeight: content.clientHeight, scrollHeight: content.scrollHeight,
+        left: bounds.left, right: bounds.right,
+        top: bounds.top, bottom: bounds.bottom,
+        viewportWidth: window.innerWidth, viewportHeight: window.innerHeight
+      };
+    });
+    if (dashboardMenuOverflow.horizontal || dashboardMenuOverflow.vertical ||
+        dashboardMenuOverflow.left < -1 || dashboardMenuOverflow.right > dashboardMenuOverflow.viewportWidth + 1 ||
+        dashboardMenuOverflow.top < -1 || dashboardMenuOverflow.bottom > dashboardMenuOverflow.viewportHeight + 1) {
+      throw new Error(`Short dashboard menu unnecessarily scrolls or escapes viewport: ${JSON.stringify(dashboardMenuOverflow)}`);
+    }
+    await page.keyboard.press("Escape");
+    await popoverContainer.waitFor({ state: "hidden" });
+    await dashboardMenuTrigger.evaluate((trigger, original) => {
+      const menu = trigger.querySelector(".dashboard-switcher-menu");
+      menu.innerHTML = original.html;
+      menu.style.cssText = original.style;
+    }, dashboardMenuOriginal);
+    console.log("PASS real dashboard menu without unnecessary scrollbars");
+
     // The deterministic runtime is a dev build. Footer template tests cover
     // release metadata; this fixture exercises its real shared popover contract.
     await page.evaluate(async () => {
@@ -790,7 +844,7 @@ async function main() {
       trigger.dataset.popoverPosition = "above";
       trigger.dataset.popoverFocus = "";
       trigger.dataset.popoverHideDelay = "0";
-      trigger.dataset.popoverText = "Released January 1, 2026 (UTC)";
+      trigger.dataset.popoverText = "Released January 1, 2026";
       trigger.setAttribute("aria-label", `${trigger.textContent} — ${trigger.dataset.popoverText}`);
       footer.appendChild(trigger);
       const pageModule = document.querySelector('script[type="module"][src$="/js/page.js"]');
@@ -801,7 +855,7 @@ async function main() {
     const releaseDateTrigger = page.locator("[data-frontend-release-date-fixture]");
     await releaseDateTrigger.hover();
     await popoverContainer.waitFor({ state: "visible" });
-    if (await popoverContainer.locator(".popover-content").textContent() !== "Released January 1, 2026 (UTC)") {
+    if (await popoverContainer.locator(".popover-content").textContent() !== "Released January 1, 2026") {
       throw new Error("Release-date tooltip did not show its publication date on hover");
     }
     const tooltipOverflow = await popoverContainer.evaluate(element => {

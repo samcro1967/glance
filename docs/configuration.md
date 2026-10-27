@@ -110,6 +110,16 @@ Automatic config reload is supported, meaning that you can make changes to the c
 >
 > Compatible configuration reloads reuse unchanged refreshable widgets, preserving their cached data, committed presentation, refresh timing, and diagnostics. Changed widgets are rebuilt, and changing `server.base-url` or the resource-proxy allowlist disables widget reuse for that reload. Rebuilt widgets may require new provider requests, so frequent changes can still contribute to API rate limiting. Caches remain in memory and are not preserved across process or container restarts.
 
+### Unknown and deprecated properties
+
+Glance warns about unknown configuration properties during startup and automatic reload while continuing to load the recognized settings. An unknown property is ignored by the running version; a spelling mistake, removed setting, or setting introduced in a newer release can therefore produce the same warning. These warnings do not disable an otherwise valid widget or activate startup configuration recovery.
+
+Warnings identify the original file and line, configuration path, property name, and widget type when applicable. Included files and YAML aliases retain their original source locations. Reused aliases produce one warning per source property and widget type in each configuration load. Property values and source snippets are not logged. Warnings are generated during configuration loading, not on widget refreshes.
+
+Property checks cover application, page, column, widget, nested widget, micro-widget, and widget-default settings. Shared inline properties and custom mapping or scalar forms remain supported. User-defined names in maps such as headers, Custom API options, subrequests, theme presets, and dashboards are allowed; structured values inside those maps are still checked against their configuration type.
+
+The `config:validate` command returns a nonzero exit status for unknown properties as well as existing configuration errors. Supported deprecated properties produce a warning without failing validation. The legacy `stocks` property on Markets widgets remains supported as a compatibility fallback; use `markets` instead. Deprecation warnings are based on known compatibility settings rather than guesses about an unknown property's history. Existing handling of invalid values, unknown widget types, and unrecoverable configuration errors remains unchanged.
+
 ### Environment variables
 Inserting environment variables is supported anywhere in the config. This is done via the `${ENV_VAR}` syntax. Attempting to use an environment variable that does not exist is an unrecoverable configuration error: Glance will not start from that configuration, and an automatic reload will reject the candidate while the current application continues running. Example:
 
@@ -343,7 +353,7 @@ Applicability and inheritance scope are validated. A capability is applied only 
 
 List capabilities such as `limit` and `collapse-after` are not global defaults. They are available only for compatible widget types. `basic-auth` is also intentionally not global and is available only for compatible type, instance, or child/source scopes.
 
-HTTP defaults apply only to widgets whose endpoint semantics support them. Provider-owned services do not automatically inherit generic HTTP configuration merely because they perform network requests.
+HTTP defaults apply only to widgets whose endpoint semantics support them. Timeout support is declared explicitly for server-fetching widgets, including provider-owned services; this does not automatically enable headers, authentication, or insecure TLS options. See [HTTP request timeouts](request-timeouts.md) for the complete scope table, centralized five-second baseline, and documented exceptions.
 
 #### Child and source settings
 

@@ -19,6 +19,7 @@ var releasesWidgetExpandedTemplate = mustParseTemplate("releases-expanded.html")
 
 type releasesWidget struct {
 	widgetBase     `yaml:",inline"`
+	Timeout        durationField     `yaml:"timeout"`
 	Releases       appReleaseList    `yaml:"-"`
 	Repositories   []*releaseRequest `yaml:"repositories"`
 	Token          string            `yaml:"token"`
@@ -53,7 +54,7 @@ func (widget *releasesWidget) initialize() error {
 }
 
 func (widget *releasesWidget) update(ctx context.Context) {
-	releases, err := fetchLatestReleases(ctx, widget.Repositories)
+	releases, err := fetchLatestReleases(ctx, widget.Repositories, widget.Timeout)
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
 		return
@@ -206,9 +207,9 @@ func (r *releaseRequest) providerBaseURL(defaultURL string) string {
 	return defaultURL
 }
 
-func fetchLatestReleases(ctx context.Context, requests []*releaseRequest) (appReleaseList, error) {
+func fetchLatestReleases(ctx context.Context, requests []*releaseRequest, timeouts ...durationField) (appReleaseList, error) {
 	task := func(request *releaseRequest) (*appRelease, error) {
-		return fetchLatestReleaseTask(ctx, request)
+		return fetchLatestReleaseTask(ctx, request, timeouts...)
 	}
 
 	job := newJob(task, requests).withWorkers(20).withContext(ctx)
@@ -261,18 +262,18 @@ func fetchLatestReleases(ctx context.Context, requests []*releaseRequest) (appRe
 	return releases, nil
 }
 
-func fetchLatestReleaseTask(ctx context.Context, request *releaseRequest) (*appRelease, error) {
+func fetchLatestReleaseTask(ctx context.Context, request *releaseRequest, timeouts ...durationField) (*appRelease, error) {
 	switch request.source {
 	case releaseSourceCodeberg:
-		return fetchLatestCodebergRelease(ctx, request)
+		return fetchLatestCodebergRelease(ctx, request, timeouts...)
 	case releaseSourceGithub:
-		return fetchLatestGithubRelease(ctx, request)
+		return fetchLatestGithubRelease(ctx, request, timeouts...)
 	case releaseSourceGitlab:
-		return fetchLatestGitLabRelease(ctx, request)
+		return fetchLatestGitLabRelease(ctx, request, timeouts...)
 	case releaseSourceGHCR:
-		return fetchLatestGHCRRelease(ctx, request)
+		return fetchLatestGHCRRelease(ctx, request, timeouts...)
 	case releaseSourceDockerHub:
-		return fetchLatestDockerHubRelease(ctx, request)
+		return fetchLatestDockerHubRelease(ctx, request, timeouts...)
 	}
 
 	return nil, errors.New("unsupported source")
@@ -287,7 +288,7 @@ type githubReleaseResponseJson struct {
 	} `json:"reactions"`
 }
 
-func fetchLatestGithubRelease(ctx context.Context, request *releaseRequest) (*appRelease, error) {
+func fetchLatestGithubRelease(ctx context.Context, request *releaseRequest, timeouts ...durationField) (*appRelease, error) {
 	var requestURL string
 	if !request.IncludePreleases {
 		requestURL = fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", request.Repository)
@@ -307,12 +308,12 @@ func fetchLatestGithubRelease(ctx context.Context, request *releaseRequest) (*ap
 	var response githubReleaseResponseJson
 
 	if !request.IncludePreleases {
-		response, err = decodeJsonFromRequest[githubReleaseResponseJson](defaultHTTPClient, httpRequest)
+		response, err = decodeJsonFromRequest[githubReleaseResponseJson](newProviderHTTPClient(timeouts...), httpRequest)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		responses, err := decodeJsonFromRequest[[]githubReleaseResponseJson](defaultHTTPClient, httpRequest)
+		responses, err := decodeJsonFromRequest[[]githubReleaseResponseJson](newProviderHTTPClient(timeouts...), httpRequest)
 		if err != nil {
 			return nil, err
 		}
@@ -373,7 +374,7 @@ func ghcrPackageVersionsURL(owner string, packageName string, organization bool)
 	return fmt.Sprintf("https://api.github.com/users/%s/packages/container/%s/versions?per_page=100", owner, packageName)
 }
 
-func fetchGHCRPackageVersions(ctx context.Context, requestURL string, token *string) ([]ghcrPackageVersionResponse, error) {
+func fetchGHCRPackageVersions(ctx context.Context, requestURL string, token *string, timeouts ...durationField) ([]ghcrPackageVersionResponse, error) {
 	httpRequest, err := http.NewRequestWithContext(ctx, "GET", requestURL, nil)
 	if err != nil {
 		return nil, err
@@ -381,22 +382,22 @@ func fetchGHCRPackageVersions(ctx context.Context, requestURL string, token *str
 	if token != nil {
 		httpRequest.Header.Add("Authorization", "Bearer "+*token)
 	}
-	return decodeJsonFromRequest[[]ghcrPackageVersionResponse](defaultHTTPClient, httpRequest)
+	return decodeJsonFromRequest[[]ghcrPackageVersionResponse](newProviderHTTPClient(timeouts...), httpRequest)
 }
 
-func fetchLatestGHCRRelease(ctx context.Context, request *releaseRequest) (*appRelease, error) {
+func fetchLatestGHCRRelease(ctx context.Context, request *releaseRequest, timeouts ...durationField) (*appRelease, error) {
 	owner, packageName, requestedTag, err := parseGHCRRepository(request.Repository)
 	if err != nil {
 		return nil, err
 	}
 
-	versions, err := fetchGHCRPackageVersions(ctx, ghcrPackageVersionsURL(owner, packageName, true), request.token)
+	versions, err := fetchGHCRPackageVersions(ctx, ghcrPackageVersionsURL(owner, packageName, true), request.token, timeouts...)
 	if err != nil {
 		var statusErr *httpStatusError
 		if !errors.As(err, &statusErr) || statusErr.StatusCode != http.StatusNotFound {
 			return nil, err
 		}
-		versions, err = fetchGHCRPackageVersions(ctx, ghcrPackageVersionsURL(owner, packageName, false), request.token)
+		versions, err = fetchGHCRPackageVersions(ctx, ghcrPackageVersionsURL(owner, packageName, false), request.token, timeouts...)
 		if err != nil {
 			return nil, err
 		}
@@ -450,7 +451,7 @@ const dockerHubRepoTagURLFormat = "https://hub.docker.com/r/%s/tags?name=%s"
 const dockerHubTagsURLFormat = "https://hub.docker.com/v2/namespaces/%s/repositories/%s/tags"
 const dockerHubSpecificTagURLFormat = "https://hub.docker.com/v2/namespaces/%s/repositories/%s/tags/%s"
 
-func fetchLatestDockerHubRelease(ctx context.Context, request *releaseRequest) (*appRelease, error) {
+func fetchLatestDockerHubRelease(ctx context.Context, request *releaseRequest, timeouts ...durationField) (*appRelease, error) {
 	nameParts := strings.Split(request.Repository, "/")
 
 	if len(nameParts) > 2 {
@@ -480,7 +481,7 @@ func fetchLatestDockerHubRelease(ctx context.Context, request *releaseRequest) (
 	var tag *dockerHubRepositoryTagResponse
 
 	if len(tagParts) == 1 {
-		response, err := decodeJsonFromRequest[dockerHubRepositoryTagsResponse](defaultHTTPClient, httpRequest)
+		response, err := decodeJsonFromRequest[dockerHubRepositoryTagsResponse](newProviderHTTPClient(timeouts...), httpRequest)
 		if err != nil {
 			return nil, err
 		}
@@ -491,7 +492,7 @@ func fetchLatestDockerHubRelease(ctx context.Context, request *releaseRequest) (
 
 		tag = &response.Results[0]
 	} else {
-		response, err := decodeJsonFromRequest[dockerHubRepositoryTagResponse](defaultHTTPClient, httpRequest)
+		response, err := decodeJsonFromRequest[dockerHubRepositoryTagResponse](newProviderHTTPClient(timeouts...), httpRequest)
 		if err != nil {
 			return nil, err
 		}
@@ -542,7 +543,7 @@ func gitLabReleaseURL(request *releaseRequest) string {
 	)
 }
 
-func fetchLatestGitLabRelease(ctx context.Context, request *releaseRequest) (*appRelease, error) {
+func fetchLatestGitLabRelease(ctx context.Context, request *releaseRequest, timeouts ...durationField) (*appRelease, error) {
 	httpRequest, err := http.NewRequestWithContext(
 		ctx,
 		"GET",
@@ -557,7 +558,7 @@ func fetchLatestGitLabRelease(ctx context.Context, request *releaseRequest) (*ap
 		httpRequest.Header.Add("PRIVATE-TOKEN", *request.token)
 	}
 
-	response, err := decodeJsonFromRequest[gitlabReleaseResponseJson](defaultHTTPClient, httpRequest)
+	response, err := decodeJsonFromRequest[gitlabReleaseResponseJson](newProviderHTTPClient(timeouts...), httpRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -585,7 +586,7 @@ func codebergReleaseURL(request *releaseRequest) string {
 	)
 }
 
-func fetchLatestCodebergRelease(ctx context.Context, request *releaseRequest) (*appRelease, error) {
+func fetchLatestCodebergRelease(ctx context.Context, request *releaseRequest, timeouts ...durationField) (*appRelease, error) {
 	httpRequest, err := http.NewRequestWithContext(
 		ctx,
 		"GET",
@@ -596,7 +597,7 @@ func fetchLatestCodebergRelease(ctx context.Context, request *releaseRequest) (*
 		return nil, err
 	}
 
-	response, err := decodeJsonFromRequest[codebergReleaseResponseJson](defaultHTTPClient, httpRequest)
+	response, err := decodeJsonFromRequest[codebergReleaseResponseJson](newProviderHTTPClient(timeouts...), httpRequest)
 	if err != nil {
 		return nil, err
 	}
@@ -616,4 +617,8 @@ func (widget *releasesWidget) setDefaultLimit(value int) {
 
 func (widget *releasesWidget) setDefaultCollapseAfter(value int) {
 	widget.CollapseAfter = value
+}
+
+func (widget *releasesWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
 }

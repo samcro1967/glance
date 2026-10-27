@@ -160,7 +160,7 @@ Whether to hide this mountpoint from the widget.
 | ---- | ---- | -------- | ------- |
 | url | string | yes |  |
 | token | string | no |  |
-| timeout | string | no | 3s |
+| timeout | string | no | 5s |
 | allow-insecure | boolean | no | false |
 
 #### `url`
@@ -175,6 +175,10 @@ The maximum time to wait for a response from the server. The value is a string a
 #### `allow-insecure`
 Whether to allow invalid/self-signed certificates when fetching statistics from a remote server.
 
+
+## HTTP request timeout
+
+Configure `timeout` on remote entries in `servers`, or inherit it from global/type defaults. The built-in default is 5s; explicit `0s` selects the central 5s baseline. The limit applies per HTTP request rather than to the complete refresh. See [HTTP request timeouts](../request-timeouts.md) for supported scopes, precedence, cache behavior, and exceptions.
 
 ---
 

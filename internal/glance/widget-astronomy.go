@@ -13,6 +13,7 @@ var astronomyWidgetExpandedTemplate = mustParseTemplate("astronomy-expanded.html
 
 type astronomyWidget struct {
 	widgetBase  `yaml:",inline"`
+	Timeout     durationField     `yaml:"timeout"`
 	Location    string            `yaml:"location"`
 	Latitude    *float64          `yaml:"latitude"`
 	Longitude   *float64          `yaml:"longitude"`
@@ -102,7 +103,7 @@ func (widget *astronomyWidget) update(ctx context.Context) {
 
 func (widget *astronomyWidget) resolveObserver(ctx context.Context) (astronomyObserver, error) {
 	if widget.Location != "" {
-		place, err := fetchOpenMeteoPlaceResource(ctx, widget.Location)
+		place, err := fetchOpenMeteoPlaceResource(ctx, widget.Location, widget.Timeout)
 		if err != nil {
 			return astronomyObserver{}, err
 		}
@@ -126,4 +127,8 @@ func (widget *astronomyWidget) FormatTime(value time.Time) string {
 }
 func (widget *astronomyWidget) FormatEventTime(value time.Time) string {
 	return formatAstronomyEventTime(value, widget.HourFormat)
+}
+
+func (widget *astronomyWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
 }

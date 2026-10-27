@@ -6,6 +6,7 @@ import "time"
 // user-observable widget defaults. User-configured global defaults, type
 // defaults, and explicit widget configuration override these values.
 var builtinWidgetDefaults = map[string]widgetDefaultValues{
+	"dilbert":           {Timeout: durationDefault(dilbertHTTPTimeout)},
 	"animal-of-the-day": {CacheCron: stringDefault("5 0 * * *")},
 	"quote-of-the-day":  {CacheCron: stringDefault("5 0 * * *")},
 	"on-this-day":       {Limit: intDefault(3), CacheCron: stringDefault("5 0 * * *")},
@@ -48,7 +49,7 @@ var builtinWidgetDefaults = map[string]widgetDefaultValues{
 	},
 	"monitor": {
 		Cache:   durationDefault(5 * time.Minute),
-		Timeout: durationDefault(3 * time.Second),
+		Timeout: durationDefault(defaultClientTimeout),
 	},
 	"prometheus": {
 		Cache: durationDefault(5 * time.Minute),
@@ -73,7 +74,7 @@ var builtinWidgetDefaults = map[string]widgetDefaultValues{
 	},
 	"server-stats": {
 		Cache:   durationDefault(15 * time.Second),
-		Timeout: durationDefault(3 * time.Second),
+		Timeout: durationDefault(defaultClientTimeout),
 	},
 	"twitch-channels": {
 		CollapseAfter: intDefault(5),

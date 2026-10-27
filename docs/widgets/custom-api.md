@@ -1239,6 +1239,10 @@ Glance owns the browser implementation of native tables and charts. Custom API c
 
 Invalid static table or chart configuration is rejected during widget initialization. Runtime enhancement failures are isolated to the affected presentation component where possible.
 
+## HTTP request timeout
+
+Configure `timeout` on the widget, or inherit it from global/type defaults. The built-in default is 5s; explicit `0s` selects the central 5s baseline. The limit applies per HTTP request rather than to the complete refresh. Type/global timeout defaults also apply to subrequests without explicit overrides, independently of an explicit primary-request timeout. See [HTTP request timeouts](../request-timeouts.md) for supported scopes, precedence, cache behavior, and exceptions.
+
 ---
 
 [Widgets](../widgets.md) · [Configuration](../configuration.md) · [Examples](../examples.md#custom-api) · [Glance README](../../README.md) · [Back to top](#custom-api)

@@ -1326,10 +1326,14 @@ func customAPIFuncParseTimeInLocation(layout, value string, loc *time.Location) 
 }
 
 func (widget *customAPIWidget) setDefaultTimeout(value durationField) {
-	if widget.widgetBase.configuredFields["timeout"] {
-		return
+	if !widget.widgetBase.configuredFields["timeout"] {
+		widget.Timeout = value
 	}
-	widget.Timeout = value
+	for _, request := range widget.Subrequests {
+		if request != nil && !request.configuredFields["timeout"] {
+			request.Timeout = value
+		}
+	}
 }
 
 func (widget *customAPIWidget) setDefaultAllowInsecure(value bool) {

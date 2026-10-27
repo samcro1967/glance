@@ -15,12 +15,13 @@ var repositoryWidgetExpandedTemplate = mustParseTemplate("repository-expanded.ht
 
 type repositoryWidget struct {
 	widgetBase          `yaml:",inline"`
-	RequestedRepository string     `yaml:"repository"`
-	Token               string     `yaml:"token"`
-	PullRequestsLimit   int        `yaml:"pull-requests-limit"`
-	IssuesLimit         int        `yaml:"issues-limit"`
-	CommitsLimit        int        `yaml:"commits-limit"`
-	Repository          repository `yaml:"-"`
+	Timeout             durationField `yaml:"timeout"`
+	RequestedRepository string        `yaml:"repository"`
+	Token               string        `yaml:"token"`
+	PullRequestsLimit   int           `yaml:"pull-requests-limit"`
+	IssuesLimit         int           `yaml:"issues-limit"`
+	CommitsLimit        int           `yaml:"commits-limit"`
+	Repository          repository    `yaml:"-"`
 }
 
 func (widget *repositoryWidget) initialize() error {
@@ -49,6 +50,7 @@ func (widget *repositoryWidget) update(ctx context.Context) {
 		widget.PullRequestsLimit,
 		widget.IssuesLimit,
 		widget.CommitsLimit,
+		widget.Timeout,
 	)
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
@@ -124,11 +126,12 @@ func fetchRepositoryDetailsFromGithub(
 	maxPRs int,
 	maxIssues int,
 	maxCommits int,
+	timeouts ...durationField,
 ) (repository, error) {
 	if token != "" {
-		return fetchRepositoryDetailsFromGithubGraphQL(ctx, repo, token, maxPRs, maxIssues, maxCommits)
+		return fetchRepositoryDetailsFromGithubGraphQL(ctx, repo, token, maxPRs, maxIssues, maxCommits, timeouts...)
 	}
-	return fetchRepositoryDetailsFromGithubREST(ctx, repo, token, maxPRs, maxIssues, maxCommits)
+	return fetchRepositoryDetailsFromGithubREST(ctx, repo, token, maxPRs, maxIssues, maxCommits, timeouts...)
 }
 
 func fetchRepositoryDetailsFromGithubREST(
@@ -138,6 +141,7 @@ func fetchRepositoryDetailsFromGithubREST(
 	maxPRs int,
 	maxIssues int,
 	maxCommits int,
+	timeouts ...durationField,
 ) (repository, error) {
 	repositoryRequest, err := http.NewRequestWithContext(
 		ctx,
@@ -229,7 +233,7 @@ func fetchRepositoryDetailsFromGithubREST(
 	go func() {
 		defer wg.Done()
 		repositoryResponse, detailsErr = decodeJsonFromRequest[githubRepositoryResponseJson](
-			defaultHTTPClient,
+			newProviderHTTPClient(timeouts...),
 			repositoryRequest,
 		)
 	}()
@@ -239,7 +243,7 @@ func fetchRepositoryDetailsFromGithubREST(
 		go func() {
 			defer wg.Done()
 			PRsResponse, PRsErr = decodeJsonFromRequest[githubTicketResponseJson](
-				defaultHTTPClient,
+				newProviderHTTPClient(timeouts...),
 				PRsRequest,
 			)
 		}()
@@ -250,7 +254,7 @@ func fetchRepositoryDetailsFromGithubREST(
 		go func() {
 			defer wg.Done()
 			issuesResponse, issuesErr = decodeJsonFromRequest[githubTicketResponseJson](
-				defaultHTTPClient,
+				newProviderHTTPClient(timeouts...),
 				issuesRequest,
 			)
 		}()
@@ -261,7 +265,7 @@ func fetchRepositoryDetailsFromGithubREST(
 		go func() {
 			defer wg.Done()
 			commitsResponse, commitsErr = decodeJsonFromRequest[[]gitHubCommitResponseJson](
-				defaultHTTPClient,
+				newProviderHTTPClient(timeouts...),
 				commitsRequest,
 			)
 		}()
@@ -366,4 +370,8 @@ func fetchRepositoryDetailsFromGithubREST(
 	}
 
 	return details, nil
+}
+
+func (widget *repositoryWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
 }

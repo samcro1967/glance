@@ -304,3 +304,7 @@ func parseMediaTime(value string) time.Time {
 	}
 	return time.Time{}
 }
+
+func (widget *latestMediaWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
+}

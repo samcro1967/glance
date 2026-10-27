@@ -98,6 +98,10 @@ Normally leave `at` unset so the widget follows the current time. A pinned RFC33
 >
 > Glance uses `github.com/starainrt/astro` for amateur-observing-level celestial calculations. Results are intended for dashboard and observing-assistance use, not professional navigation or high-precision occultation work.
 
+## HTTP request timeout
+
+Configure `timeout` on the widget, or inherit it from global/type defaults. The built-in default is 5s; explicit `0s` selects the central 5s baseline. The limit applies per HTTP request rather than to the complete refresh. It applies only to the HTTP location lookup; coordinate-based calculations are local. See [HTTP request timeouts](../request-timeouts.md) for supported scopes, precedence, cache behavior, and exceptions.
+
 ---
 
 [Widgets](../widgets.md) · [Configuration](../configuration.md) · [Back to top](#astronomy)

@@ -507,11 +507,7 @@ func fetchICSSource(ctx context.Context, source icsEventSource, cache *icsSource
 	}
 	cache.mutex.Unlock()
 
-	baseClient := ternary(source.AllowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
-	client := *baseClient
-	if source.Timeout > 0 {
-		client.Timeout = time.Duration(source.Timeout)
-	}
+	client := newHTTPClient(source.Timeout, source.AllowInsecure)
 
 	resp, err := client.Do(req)
 	if err != nil {

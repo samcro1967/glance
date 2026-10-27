@@ -42,41 +42,47 @@ var widgetRegistry = map[string]widgetDescriptor{
 		constructor: func() widget { return &analogClockWidget{} },
 	},
 	"weather": {
-		constructor: func() widget { return &weatherWidget{} },
+		constructor:  func() widget { return &weatherWidget{} },
+		capabilities: []widgetCapabilityDefinition{{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance}},
 	},
 	"environment": {
-		constructor: func() widget { return &environmentWidget{} },
+		constructor:  func() widget { return &environmentWidget{} },
+		capabilities: []widgetCapabilityDefinition{{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance}},
 	},
 	"astronomy": {
-		constructor: func() widget { return &astronomyWidget{} },
+		constructor:  func() widget { return &astronomyWidget{} },
+		capabilities: []widgetCapabilityDefinition{{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance}},
 	},
 	"astrology": {
 		constructor: func() widget { return &astrologyWidget{} },
 	},
 	"horoscope": {
-		constructor: func() widget { return &horoscopeWidget{} },
+		constructor:  func() widget { return &horoscopeWidget{} },
+		capabilities: []widgetCapabilityDefinition{{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance}},
 	},
 	"word-of-the-day": {
 		constructor:  func() widget { return &wordOfTheDayWidget{} },
-		capabilities: []widgetCapabilityDefinition{{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance}},
+		capabilities: []widgetCapabilityDefinition{{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance}, {widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance}},
 	},
 	"quote-of-the-day": {
 		constructor:  func() widget { return &quoteOfTheDayWidget{} },
-		capabilities: []widgetCapabilityDefinition{{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance}},
+		capabilities: []widgetCapabilityDefinition{{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance}, {widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance}},
 	},
 	"trivia": {
-		constructor: func() widget { return &triviaWidget{} },
+		constructor:  func() widget { return &triviaWidget{} },
+		capabilities: []widgetCapabilityDefinition{{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance}},
 	},
 	"on-this-day": {
 		constructor: func() widget { return &onThisDayWidget{} },
 		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 			{widgetCapabilityLimit, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 		},
 	},
 	"animal-of-the-day": {
 		constructor:  func() widget { return &animalOfTheDayWidget{} },
-		capabilities: []widgetCapabilityDefinition{{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance}},
+		capabilities: []widgetCapabilityDefinition{{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance}, {widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance}},
 	},
 	"bookmarks": {
 		constructor: func() widget { return &bookmarksWidget{} },
@@ -94,14 +100,17 @@ var widgetRegistry = map[string]widgetDescriptor{
 		constructor: func() widget { return &htmlWidget{} },
 	},
 	"dilbert": {
-		constructor: func() widget { return &dilbertWidget{} },
+		constructor:  func() widget { return &dilbertWidget{} },
+		capabilities: []widgetCapabilityDefinition{{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance}},
 	},
 	"nasa-apod": {
-		constructor: func() widget { return &nasaAPODWidget{} },
+		constructor:  func() widget { return &nasaAPODWidget{} },
+		capabilities: []widgetCapabilityDefinition{{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance}},
 	},
 	"hacker-news": {
 		constructor: func() widget { return &hackerNewsWidget{} },
 		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 			{widgetCapabilityLimit, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 			{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
@@ -110,6 +119,7 @@ var widgetRegistry = map[string]widgetDescriptor{
 	"releases": {
 		constructor: func() widget { return &releasesWidget{} },
 		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 			{widgetCapabilityLimit, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 			{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
@@ -118,6 +128,7 @@ var widgetRegistry = map[string]widgetDescriptor{
 	"videos": {
 		constructor: func() widget { return &videosWidget{} },
 		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 			{widgetCapabilityLimit, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 			{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
@@ -127,18 +138,21 @@ var widgetRegistry = map[string]widgetDescriptor{
 	"markets": {
 		constructor: func() widget { return &marketsWidget{} },
 		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 		},
 	},
 	"stocks": {
 		constructor: func() widget { return &marketsWidget{} },
 		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 		},
 	},
 	"reddit": {
 		constructor: func() widget { return &redditWidget{} },
 		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 			{widgetCapabilityLimit, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 			{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
@@ -170,6 +184,7 @@ var widgetRegistry = map[string]widgetDescriptor{
 	"twitch-top-games": {
 		constructor: func() widget { return &twitchGamesWidget{} },
 		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 			{widgetCapabilityLimit, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 			{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
@@ -178,6 +193,7 @@ var widgetRegistry = map[string]widgetDescriptor{
 	"twitch-channels": {
 		constructor: func() widget { return &twitchChannelsWidget{} },
 		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 			{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 		},
@@ -185,6 +201,7 @@ var widgetRegistry = map[string]widgetDescriptor{
 	"lobsters": {
 		constructor: func() widget { return &lobstersWidget{} },
 		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 			{widgetCapabilityLimit, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 			{widgetCapabilityCollapseAfter, widgetCapabilityScopeType | widgetCapabilityScopeInstance},
@@ -204,12 +221,14 @@ var widgetRegistry = map[string]widgetDescriptor{
 	"repository": {
 		constructor: func() widget { return &repositoryWidget{} },
 		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 		},
 	},
 	"search": {
 		constructor: func() widget { return &searchWidget{} },
 		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 		},
 	},
@@ -302,6 +321,7 @@ var widgetRegistry = map[string]widgetDescriptor{
 	"docker-containers": {
 		constructor: func() widget { return &dockerContainersWidget{} },
 		capabilities: []widgetCapabilityDefinition{
+			{widgetCapabilityTimeout, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeInstance},
 			{widgetCapabilityNewTab, widgetCapabilityScopeGlobal | widgetCapabilityScopeType | widgetCapabilityScopeChild},
 		},
 	},

@@ -26,10 +26,7 @@ func monitorResourceRequestKey(request *SiteStatusRequest) [32]byte {
 		url = request.CheckURL
 	}
 
-	timeout := request.Timeout
-	if timeout == 0 {
-		timeout = durationField(3 * time.Second)
-	}
+	timeout := resolveHTTPRequestTimeout(request.Timeout)
 
 	var builder strings.Builder
 
@@ -86,10 +83,7 @@ func fetchMonitorSiteResourceUncached(ctx context.Context, request *SiteStatusRe
 		url = request.CheckURL
 	}
 
-	timeout := time.Duration(request.Timeout)
-	if timeout == 0 {
-		timeout = 3 * time.Second
-	}
+	timeout := resolveHTTPRequestTimeout(request.Timeout)
 
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -109,10 +103,7 @@ func fetchMonitorSiteResourceUncached(ctx context.Context, request *SiteStatusRe
 		req.SetBasicAuth(request.BasicAuth.Username, request.BasicAuth.Password)
 	}
 
-	client := defaultHTTPClient
-	if request.AllowInsecure {
-		client = defaultInsecureHTTPClient
-	}
+	client := newHTTPClient(request.Timeout, request.AllowInsecure)
 
 	start := time.Now()
 	response, err := client.Do(req)

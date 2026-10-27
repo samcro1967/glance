@@ -23,7 +23,9 @@ type horoscopeReading struct {
 	Horoscope string
 }
 
-type freeHoroscopeAPIProvider struct{}
+type freeHoroscopeAPIProvider struct {
+	timeout durationField
+}
 
 type freeHoroscopeAPIResponse struct {
 	Data struct {
@@ -34,16 +36,16 @@ type freeHoroscopeAPIResponse struct {
 	} `json:"data"`
 }
 
-func newHoroscopeProvider(name string) (horoscopeProvider, error) {
+func newHoroscopeProvider(name string, timeout durationField) (horoscopeProvider, error) {
 	switch strings.ToLower(strings.TrimSpace(name)) {
 	case "", defaultHoroscopeProvider:
-		return freeHoroscopeAPIProvider{}, nil
+		return freeHoroscopeAPIProvider{timeout: timeout}, nil
 	default:
 		return nil, fmt.Errorf("unknown horoscope provider %q; valid providers are %s", name, defaultHoroscopeProvider)
 	}
 }
 
-func (freeHoroscopeAPIProvider) fetch(ctx context.Context, period, sign string) (horoscopeReading, error) {
+func (provider freeHoroscopeAPIProvider) fetch(ctx context.Context, period, sign string) (horoscopeReading, error) {
 	endpoint := fmt.Sprintf(
 		"%s/%s?sign=%s",
 		strings.TrimRight(freeHoroscopeAPIBaseURL, "/"),
@@ -56,7 +58,9 @@ func (freeHoroscopeAPIProvider) fetch(ctx context.Context, period, sign string) 
 		return horoscopeReading{}, fmt.Errorf("creating horoscope request: %w", err)
 	}
 
-	response, err := decodeJsonFromRequest[freeHoroscopeAPIResponse](defaultHTTPClient, request)
+	// Preserve the shared default and transport while applying the per-request timeout.
+	client := newHTTPClient(provider.timeout, false)
+	response, err := decodeJsonFromRequest[freeHoroscopeAPIResponse](client, request)
 	if err != nil {
 		return horoscopeReading{}, fmt.Errorf("fetching %s horoscope for %s: %w", period, sign, err)
 	}

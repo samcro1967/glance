@@ -131,6 +131,10 @@ Whether event links open in a new tab. The default is `true`.
 `new-tab` participates in the normal widget-default hierarchy and can be configured globally, for the Calendar widget type, or on an individual Calendar.
 
 
+## HTTP request timeout
+
+Configure `timeout` on HTTP entries in `sources`, or inherit it from global/type defaults. The built-in default is 5s; explicit `0s` selects the central 5s baseline. The limit applies per HTTP request rather than to the complete refresh. See [HTTP request timeouts](../request-timeouts.md) for supported scopes, precedence, cache behavior, and exceptions.
+
 ---
 
 [Widgets](../widgets.md) · [Configuration](../configuration.md) · [Back to top](#calendar)

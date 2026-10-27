@@ -20,11 +20,12 @@ var weatherWidgetExpandedTemplate = mustParseTemplate("weather-expanded.html")
 
 type weatherWidget struct {
 	widgetBase   `yaml:",inline"`
-	Location     string `yaml:"location"`
-	ShowAreaName bool   `yaml:"show-area-name"`
-	HideLocation bool   `yaml:"hide-location"`
-	HourFormat   string `yaml:"hour-format"`
-	Units        string `yaml:"units"`
+	Timeout      durationField `yaml:"timeout"`
+	Location     string        `yaml:"location"`
+	ShowAreaName bool          `yaml:"show-area-name"`
+	HideLocation bool          `yaml:"hide-location"`
+	HourFormat   string        `yaml:"hour-format"`
+	Units        string        `yaml:"units"`
 
 	ShowCurrentRaw  *bool `yaml:"show-current"`
 	ShowDetailsRaw  *bool `yaml:"show-details"`
@@ -79,7 +80,7 @@ func (widget *weatherWidget) initialize() error {
 
 func (widget *weatherWidget) update(ctx context.Context) {
 	if widget.Place == nil {
-		place, err := fetchOpenMeteoPlaceResource(ctx, widget.Location)
+		place, err := fetchOpenMeteoPlaceResource(ctx, widget.Location, widget.Timeout)
 		if !widget.canContinueUpdateAfterHandlingErr(err) {
 			return
 		}
@@ -87,7 +88,7 @@ func (widget *weatherWidget) update(ctx context.Context) {
 		widget.Place = place
 	}
 
-	weather, err := fetchOpenMeteoWeatherResource(ctx, widget.Place, widget.Units)
+	weather, err := fetchOpenMeteoWeatherResource(ctx, widget.Place, widget.Units, widget.Timeout)
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
 		return
@@ -325,7 +326,7 @@ func parsePlaceName(name string) (string, string) {
 	return parts[0] + ", " + expandCountryAbbreviations(parts[2]), strings.TrimSpace(parts[1])
 }
 
-func fetchOpenMeteoPlaceFromName(ctx context.Context, location string) (*openMeteoPlaceResponseJson, error) {
+func fetchOpenMeteoPlaceFromName(ctx context.Context, location string, timeouts ...durationField) (*openMeteoPlaceResponseJson, error) {
 	location, area := parsePlaceName(location)
 	requestUrl := fmt.Sprintf("https://geocoding-api.open-meteo.com/v1/search?name=%s&count=20&language=en&format=json", url.QueryEscape(location))
 
@@ -334,7 +335,7 @@ func fetchOpenMeteoPlaceFromName(ctx context.Context, location string) (*openMet
 		return nil, fmt.Errorf("creating places request: %w", err)
 	}
 
-	responseJson, err := decodeJsonFromRequest[openMeteoPlacesResponseJson](defaultHTTPClient, request)
+	responseJson, err := decodeJsonFromRequest[openMeteoPlacesResponseJson](newProviderHTTPClient(timeouts...), request)
 	if err != nil {
 		return nil, fmt.Errorf("fetching places data: %w", err)
 	}
@@ -372,8 +373,8 @@ func fetchOpenMeteoPlaceFromName(ctx context.Context, location string) (*openMet
 	return place, nil
 }
 
-func fetchWeatherForOpenMeteoPlace(ctx context.Context, place *openMeteoPlaceResponseJson, units string) (*weather, error) {
-	responseJson, err := fetchOpenMeteoWeatherResponse(ctx, place, units)
+func fetchWeatherForOpenMeteoPlace(ctx context.Context, place *openMeteoPlaceResponseJson, units string, timeouts ...durationField) (*weather, error) {
+	responseJson, err := fetchOpenMeteoWeatherResponse(ctx, place, units, timeouts...)
 	if err != nil {
 		return nil, err
 	}
@@ -381,7 +382,7 @@ func fetchWeatherForOpenMeteoPlace(ctx context.Context, place *openMeteoPlaceRes
 	return buildWeatherFromOpenMeteoResponse(responseJson, place), nil
 }
 
-func fetchOpenMeteoWeatherResponse(ctx context.Context, place *openMeteoPlaceResponseJson, units string) (*openMeteoWeatherResponseJson, error) {
+func fetchOpenMeteoWeatherResponse(ctx context.Context, place *openMeteoPlaceResponseJson, units string, timeouts ...durationField) (*openMeteoWeatherResponseJson, error) {
 	query := url.Values{}
 
 	temperatureUnit := "celsius"
@@ -433,7 +434,7 @@ func fetchOpenMeteoWeatherResponse(ctx context.Context, place *openMeteoPlaceRes
 		return nil, fmt.Errorf("%w: creating weather request: %w", errNoContent, err)
 	}
 
-	responseJson, err := decodeJsonFromRequest[openMeteoWeatherResponseJson](defaultHTTPClient, request)
+	responseJson, err := decodeJsonFromRequest[openMeteoWeatherResponseJson](newProviderHTTPClient(timeouts...), request)
 	if err != nil {
 		return nil, fmt.Errorf("%w: fetching weather data: %w", errNoContent, err)
 	}
@@ -646,4 +647,8 @@ var weatherCodeTable = map[int]string{
 
 func (widget *weatherWidget) MicroItems(open bool) []statusBarCompactItem {
 	return weatherStatusBarCompactItems(widget, open)
+}
+
+func (widget *weatherWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
 }

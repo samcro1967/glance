@@ -121,8 +121,8 @@ func TestOpenMeteoPlaceResourceEvictsIdleEntries(t *testing.T) {
 	}
 
 	openMeteoPlaceResourceCache.mu.Lock()
-	openMeteoPlaceResourceCache.entries["stale"] = stale
-	openMeteoPlaceResourceCache.entries["active"] = active
+	openMeteoPlaceResourceCache.entries[resourceTimeoutKey("stale")] = stale
+	openMeteoPlaceResourceCache.entries[resourceTimeoutKey("active")] = active
 	openMeteoPlaceResourceCache.mu.Unlock()
 
 	wave3Transport(t, func(request *http.Request) (*http.Response, error) {
@@ -139,9 +139,9 @@ func TestOpenMeteoPlaceResourceEvictsIdleEntries(t *testing.T) {
 	}
 
 	openMeteoPlaceResourceCache.mu.Lock()
-	_, staleExists := openMeteoPlaceResourceCache.entries["stale"]
-	_, activeExists := openMeteoPlaceResourceCache.entries["active"]
-	_, requestedExists := openMeteoPlaceResourceCache.entries[location]
+	_, staleExists := openMeteoPlaceResourceCache.entries[resourceTimeoutKey("stale")]
+	_, activeExists := openMeteoPlaceResourceCache.entries[resourceTimeoutKey("active")]
+	_, requestedExists := openMeteoPlaceResourceCache.entries[resourceTimeoutKey(location)]
 	openMeteoPlaceResourceCache.mu.Unlock()
 
 	if staleExists {

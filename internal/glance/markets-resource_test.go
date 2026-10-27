@@ -204,8 +204,8 @@ func TestYahooMarketResourceEvictsIdleEntries(t *testing.T) {
 	}
 
 	yahooMarketResourceCache.mu.Lock()
-	yahooMarketResourceCache.entries["STALE"] = stale
-	yahooMarketResourceCache.entries["ACTIVE"] = active
+	yahooMarketResourceCache.entries[resourceTimeoutKey("STALE")] = stale
+	yahooMarketResourceCache.entries[resourceTimeoutKey("ACTIVE")] = active
 	yahooMarketResourceCache.mu.Unlock()
 
 	wave3Transport(t, func(request *http.Request) (*http.Response, error) {
@@ -217,9 +217,9 @@ func TestYahooMarketResourceEvictsIdleEntries(t *testing.T) {
 	}
 
 	yahooMarketResourceCache.mu.Lock()
-	_, staleExists := yahooMarketResourceCache.entries["STALE"]
-	_, activeExists := yahooMarketResourceCache.entries["ACTIVE"]
-	_, requestedExists := yahooMarketResourceCache.entries["NSIT"]
+	_, staleExists := yahooMarketResourceCache.entries[resourceTimeoutKey("STALE")]
+	_, activeExists := yahooMarketResourceCache.entries[resourceTimeoutKey("ACTIVE")]
+	_, requestedExists := yahooMarketResourceCache.entries[resourceTimeoutKey("NSIT")]
 	yahooMarketResourceCache.mu.Unlock()
 
 	if staleExists {
@@ -246,7 +246,7 @@ func TestYahooMarketResourceRefreshesLastUsed(t *testing.T) {
 	}
 
 	yahooMarketResourceCache.mu.Lock()
-	entry := yahooMarketResourceCache.entries["NSIT"]
+	entry := yahooMarketResourceCache.entries[resourceTimeoutKey("NSIT")]
 	yahooMarketResourceCache.mu.Unlock()
 
 	entry.mu.Lock()

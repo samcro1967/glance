@@ -29,6 +29,7 @@ var (
 
 type redditWidget struct {
 	widgetBase          `yaml:",inline"`
+	Timeout             durationField       `yaml:"timeout"`
 	Posts               forumPostList       `yaml:"-"`
 	Subreddit           string              `yaml:"subreddit"`
 	Proxy               proxyOptionsField   `yaml:"proxy"`
@@ -194,7 +195,9 @@ func redditFetchError(err error, usePlaywright bool) error {
 }
 
 func (widget *redditWidget) fetchSubredditPosts(ctx context.Context) (forumPostList, error) {
-	var client requestDoer = redditHTTPClient
+	clientCopy := *redditHTTPClient
+	clientCopy.Timeout = resolveHTTPRequestTimeout(widget.Timeout)
+	var client requestDoer = &clientCopy
 	var baseURL string
 	var requestURL string
 	var headers http.Header
@@ -241,7 +244,7 @@ func (widget *redditWidget) fetchSubredditPosts(ctx context.Context) (forumPostL
 	if widget.RequestURLTemplate != "" {
 		requestURL = strings.ReplaceAll(widget.RequestURLTemplate, "{REQUEST-URL}", requestURL)
 	} else if widget.Proxy.client != nil {
-		client = widget.Proxy.client
+		client = widget.redditProxyHTTPClient()
 		tokenRoute = redditProxyRouteIdentity(widget.Proxy.URL)
 	}
 
@@ -261,7 +264,7 @@ func (widget *redditWidget) fetchSubredditPosts(ctx context.Context) (forumPostL
 
 	var responseJson subredditResponseJson
 	if widget.UsePlaywright {
-		responseJson, err = fetchRedditBrowserListing(ctx, widget.browserConfig, widget.browserRequestURL())
+		responseJson, err = fetchRedditBrowserListing(ctx, widget.browserConfig, widget.browserRequestURL(), widget.Timeout)
 	} else {
 		responseJson, err = decodeJsonFromRequest[subredditResponseJson](client, request)
 	}
@@ -355,7 +358,10 @@ func (widget *redditWidget) fetchNewAppAccessToken(ctx context.Context) error {
 		ExpiresIn   int    `json:"expires_in"`
 	}
 
-	client := ternary(widget.Proxy.client != nil, widget.Proxy.client, defaultHTTPClient)
+	client := newHTTPClient(widget.Timeout, false)
+	if widget.Proxy.client != nil {
+		client = widget.redditProxyHTTPClient()
+	}
 	response, err := decodeJsonFromRequest[tokenResponse](client, req)
 	if err != nil {
 		return err
@@ -371,7 +377,7 @@ func (widget *redditWidget) fetchNewAppAccessToken(ctx context.Context) error {
 // get detected and blocked by reddit (or cloudflare) presumably because of TLS fingerprinting,
 // so we use uTLS to mimic a real browser's TLS fingerprint, which seems to work around the issue
 var redditHTTPClient = &http.Client{
-	Timeout: 5 * time.Second,
+	Timeout: defaultClientTimeout,
 	//nolint:staticcheck // Preserve the specialized uTLS/HTTP2 transport used to avoid Reddit TLS fingerprint blocking.
 	Transport: observeHTTPTransport(&http2.Transport{
 		//nolint:staticcheck // Preserve the custom Firefox TLS handshake required by this transport.
@@ -595,4 +601,20 @@ func (widget *redditWidget) setDefaultProxy(value proxyOptionsField) error {
 	widget.Proxy.Timeout = value.Timeout
 
 	return widget.Proxy.initializeClient(widget.Proxy.URL)
+}
+
+func (widget *redditWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
+}
+
+// redditProxyHTTPClient preserves the proxy transport. An explicit proxy
+// timeout wins over the widget HTTP timeout; neither shared client is mutated.
+func (widget *redditWidget) redditProxyHTTPClient() *http.Client {
+	client := *widget.Proxy.client
+	if widget.Proxy.Timeout > 0 {
+		client.Timeout = resolveHTTPRequestTimeout(widget.Proxy.Timeout)
+	} else {
+		client.Timeout = resolveHTTPRequestTimeout(widget.Timeout)
+	}
+	return &client
 }

@@ -21,13 +21,14 @@ var (
 
 type dockerContainersWidget struct {
 	widgetBase           `yaml:",inline"`
-	HideByDefault        bool   `yaml:"hide-by-default"`
-	RunningOnly          bool   `yaml:"running-only"`
-	Category             string `yaml:"category"`
-	SockPath             string `yaml:"sock-path"`
-	FormatContainerNames bool   `yaml:"format-container-names"`
-	GroupBy              string `yaml:"group-by"`
-	Style                string `yaml:"style"`
+	Timeout              durationField `yaml:"timeout"`
+	HideByDefault        bool          `yaml:"hide-by-default"`
+	RunningOnly          bool          `yaml:"running-only"`
+	Category             string        `yaml:"category"`
+	SockPath             string        `yaml:"sock-path"`
+	FormatContainerNames bool          `yaml:"format-container-names"`
+	GroupBy              string        `yaml:"group-by"`
+	Style                string        `yaml:"style"`
 	searchTargets        searchTargetSnapshot
 	Containers           dockerContainerList          `yaml:"-"`
 	Groups               []dockerContainerGroup       `yaml:"-"`
@@ -59,6 +60,7 @@ func (widget *dockerContainersWidget) update(ctx context.Context) {
 		widget.FormatContainerNames,
 		widget.LabelOverrides,
 		widget.DefaultNewTab,
+		widget.Timeout,
 	)
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
 		return
@@ -258,12 +260,14 @@ func fetchDockerContainers(
 	formatNames bool,
 	labelOverrides map[string]map[string]string,
 	defaultNewTab *bool,
+	timeouts ...durationField,
 ) (dockerContainerList, error) {
 	containers, err := fetchDockerContainersFromSource(
 		ctx,
 		socketPath,
 		runningOnly,
 		labelOverrides,
+		timeouts...,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("fetching containers: %w", err)
@@ -406,12 +410,13 @@ func fetchDockerContainersFromSource(
 	source string,
 	runningOnly bool,
 	labelOverrides map[string]map[string]string,
+	timeouts ...durationField,
 ) ([]dockerContainerJsonResponse, error) {
 	var requestBaseURL string
 
 	var client *http.Client
 	if strings.HasPrefix(source, "tcp://") || strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://") {
-		client = newHTTPClient(0, false)
+		client = newProviderHTTPClient(timeouts...)
 		var err error
 		requestBaseURL, err = dockerContainersRemoteSourceURL(source)
 		if err != nil {
@@ -427,12 +432,12 @@ func fetchDockerContainersFromSource(
 		}
 		client = &http.Client{
 			Transport: observeHTTPTransport(transport),
-			Timeout:   defaultClientTimeout,
+			Timeout:   newProviderHTTPClient(timeouts...).Timeout,
 		}
 	}
 
 	fetchAll := ternary(runningOnly, "false", "true")
-	requestCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	requestCtx, cancel := context.WithTimeout(ctx, newProviderHTTPClient(timeouts...).Timeout)
 	defer cancel()
 
 	request, err := http.NewRequestWithContext(
@@ -516,4 +521,8 @@ func dockerContainersRemoteSourceURL(source string) (string, error) {
 func (widget *dockerContainersWidget) setDefaultNewTab(value bool) {
 	widget.DefaultNewTab = new(bool)
 	*widget.DefaultNewTab = value
+}
+
+func (widget *dockerContainersWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
 }
