@@ -220,6 +220,10 @@ All final Search destinations, including custom search templates and raw bangs, 
 ```
 
 
+## HTTP request timeout
+
+Configure `timeout` on the widget, or inherit it from global/type defaults. The built-in default is 5s; explicit `0s` selects the central 5s baseline. The limit applies per HTTP request rather than to the complete refresh. It applies to remote suggestions, preserving the configured-origin redirect policy. See [HTTP request timeouts](../request-timeouts.md) for supported scopes, precedence, cache behavior, and exceptions.
+
 ---
 
 [Widgets](../widgets.md) · [Configuration](../configuration.md) · [Back to top](#search-widget)

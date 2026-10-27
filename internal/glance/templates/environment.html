@@ -13,13 +13,17 @@
     <div><span class="color-subdue">NO₂</span><strong>{{ printf "%.1f" .AirQuality.NitrogenDioxide }}</strong><span class="color-subdue">µg/m³</span></div>
   </div>
   {{ end }}
-  {{ if .Pollen }}{{ with .Pollen.Current }}
+  {{ if .Pollen }}
   <div class="environment-section">
-    <div class="environment-section-heading"><span>POLLEN</span><strong>{{ .DisplayRisk }}</strong></div>
-    {{ range $i,$s := .ActiveSpecies }}{{ if lt $i 3 }}<div class="glance-key-value"><span class="glance-key">{{ $s.Name }}</span><span class="glance-value">{{ printf "%.1f" $s.Value }} grains/m³ · {{ $s.DisplayRisk }}</span></div>{{ end }}{{ end }}
-    <div class="environment-attribution">Pollen data: <a href="https://atmospore.com" target="_blank" rel="noopener noreferrer">AtmoSpore</a></div>
+    <div class="environment-section-heading"><span>ALLERGENS</span></div>
+    {{ template "environment-allergens" .Pollen }}
+    {{ with .Pollen.Current }}
+    {{ range $i, $s := .ActiveSpecies }}{{ if lt $i 3 }}
+    <div class="glance-key-value"><span class="glance-key">{{ $s.Name }}</span><span class="glance-value">{{ printf "%.1f" $s.Value }} {{ $s.Units }} · {{ $s.DisplayRisk }}</span></div>
+    {{ end }}{{ end }}
+    {{ end }}
   </div>
-  {{ end }}{{ else if and .HasPollenProvider (not .PollenError) }}<div class="environment-provider-note color-subdue">Pollen data unavailable</div>{{ end }}
+  {{ else if and .HasPollenProvider (not .PollenError) }}<div class="environment-provider-note color-subdue">Pollen data unavailable</div>{{ end }}
   {{ if .AirQualityError }}{{ if .AirQuality }}<div class="environment-provider-note color-subdue">Air quality refresh failed; showing last available data</div>{{ else }}<div class="environment-provider-note color-subdue">Air quality data unavailable</div>{{ end }}{{ end }}
   {{ if .PollenError }}{{ if .Pollen }}<div class="environment-provider-note color-subdue">Pollen refresh failed; showing last available data</div>{{ else }}<div class="environment-provider-note color-subdue">Pollen data unavailable</div>{{ end }}{{ end }}
   {{ with .Place }}<div class="environment-location color-subdue">{{ .Name }}{{ if .Area }}, {{ .Area }}{{ end }}</div>{{ end }}

@@ -18,7 +18,8 @@ const nasaAPODURL = "https://science.nasa.gov/wp-json/wp/v2/apod-basic"
 
 type nasaAPODWidget struct {
 	widgetBase `yaml:",inline"`
-	APOD       nasaAPOD `yaml:"-"`
+	Timeout    durationField `yaml:"timeout"`
+	APOD       nasaAPOD      `yaml:"-"`
 }
 
 type nasaAPOD struct {
@@ -51,7 +52,7 @@ func (w *nasaAPODWidget) update(ctx context.Context) {
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", glanceUserAgentString)
 
-	response, err := decodeJsonFromRequest[[]nasaAPOD](defaultHTTPClient, req)
+	response, err := decodeJsonFromRequest[[]nasaAPOD](newHTTPClient(w.Timeout, false), req)
 	if err != nil {
 		w.canContinueUpdateAfterHandlingErr(fmt.Errorf("fetching NASA APOD: %w", err))
 		return
@@ -114,4 +115,8 @@ func normalizeNASAAPODText(value string) string {
 	value = nasaAPODHTMLTagPattern.ReplaceAllString(value, "")
 	value = html.UnescapeString(value)
 	return strings.Join(strings.Fields(value), " ")
+}
+
+func (widget *nasaAPODWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
 }

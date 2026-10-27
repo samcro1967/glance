@@ -483,9 +483,15 @@ func TestRSSResourceRequestKeyIncludesHTTPPolicy(t *testing.T) {
 	})
 
 	base := rssResourceRequestKey(request, rssResourceRequestOptions{})
+	explicitDefault := rssResourceRequestKey(request, rssResourceRequestOptions{
+		Timeout: durationField(defaultClientTimeout),
+	})
+	if base != explicitDefault {
+		t.Fatal("equal effective timeouts produced different RSS resource keys")
+	}
 
 	withTimeout := rssResourceRequestKey(request, rssResourceRequestOptions{
-		Timeout: durationField(5 * time.Second),
+		Timeout: durationField(9 * time.Second),
 	})
 	if base == withTimeout {
 		t.Fatal("different timeout produced identical RSS resource key")

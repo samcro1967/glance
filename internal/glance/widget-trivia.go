@@ -17,6 +17,7 @@ const openTriviaDBURL = "https://opentdb.com/api.php?amount=1&type=multiple"
 
 type triviaWidget struct {
 	widgetBase `yaml:",inline"`
+	Timeout    durationField  `yaml:"timeout"`
 	Question   triviaQuestion `yaml:"-"`
 }
 type triviaQuestion struct {
@@ -49,7 +50,7 @@ func (w *triviaWidget) update(ctx context.Context) {
 		return
 	}
 	req.Header.Set("User-Agent", glanceUserAgentString)
-	response, err := decodeJsonFromRequest[openTriviaResponse](defaultHTTPClient, req)
+	response, err := decodeJsonFromRequest[openTriviaResponse](newHTTPClient(w.Timeout, false), req)
 	if err != nil {
 		w.canContinueUpdateAfterHandlingErr(fmt.Errorf("fetching trivia: %w", err))
 		return
@@ -86,4 +87,8 @@ func parseTriviaQuestion(r openTriviaResponse) (triviaQuestion, error) {
 		difficulty = strings.ToUpper(difficulty[:1]) + difficulty[1:]
 	}
 	return triviaQuestion{Category: html.UnescapeString(src.Category), Difficulty: difficulty, Question: html.UnescapeString(src.Question), Answers: answers}, nil
+}
+
+func (widget *triviaWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
 }

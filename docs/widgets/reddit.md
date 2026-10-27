@@ -203,6 +203,10 @@ The endpoint must be reachable from the **Glance container**. For example,
 `http://playwright:9223` requires both containers on the same Docker network.
 Avoid `127.0.0.1:9222` unless Chromium runs inside the Glance container.
 
+## HTTP request timeout
+
+Configure `timeout` on the widget, or inherit it from global/type defaults. The built-in default is 5s; explicit `0s` selects the central 5s baseline. The limit applies per HTTP request rather than to the complete refresh. The setting covers HTTP and CDP metadata only; authenticated Playwright login, navigation, session reuse, and listing waits keep their existing independent limits. Positive `proxy.timeout` overrides the widget budget for proxy requests. See [HTTP request timeouts](../request-timeouts.md) for supported scopes, precedence, cache behavior, and exceptions.
+
 ---
 
 [Widgets](../widgets.md) · [Configuration](../configuration.md) · [Back to top](#reddit)

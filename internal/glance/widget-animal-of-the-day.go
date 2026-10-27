@@ -18,6 +18,7 @@ const iNaturalistSpeciesCountsURL = "https://api.inaturalist.org/v1/observations
 
 type animalOfTheDayWidget struct {
 	widgetBase `yaml:",inline"`
+	Timeout    durationField  `yaml:"timeout"`
 	Animal     animalOfTheDay `yaml:"-"`
 }
 type animalOfTheDay struct {
@@ -63,7 +64,7 @@ func (w *animalOfTheDayWidget) update(ctx context.Context) {
 		return
 	}
 	req.Header.Set("User-Agent", glanceUserAgentString)
-	response, err := decodeJsonFromRequest[iNaturalistSpeciesCountsResponse](defaultHTTPClient, req)
+	response, err := decodeJsonFromRequest[iNaturalistSpeciesCountsResponse](newHTTPClient(w.Timeout, false), req)
 	if err != nil {
 		w.canContinueUpdateAfterHandlingErr(fmt.Errorf("fetching iNaturalist species: %w", err))
 		return
@@ -130,4 +131,8 @@ func titleWords(value string) string {
 		}
 	}
 	return strings.Join(words, " ")
+}
+
+func (widget *animalOfTheDayWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
 }

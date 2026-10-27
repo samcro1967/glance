@@ -71,10 +71,10 @@ func newSearchSuggestionRequest(ctx context.Context, endpoint *url.URL, query st
 	return request, nil
 }
 
-func newSearchSuggestionHTTPClient(endpoint *url.URL) *http.Client {
+func newSearchSuggestionHTTPClient(endpoint *url.URL, timeouts ...durationField) *http.Client {
 	// Keep the shared observed transport and timeout, but do not allow a remote
 	// provider to redirect requests to another origin or embed URL credentials.
-	client := *defaultHTTPClient
+	client := *newProviderHTTPClient(timeouts...)
 	client.CheckRedirect = func(request *http.Request, via []*http.Request) error {
 		if len(via) >= 10 {
 			return errors.New("suggestion provider exceeded redirect limit")
@@ -405,7 +405,7 @@ func (a *application) handleSearchSuggestions(w http.ResponseWriter, r *http.Req
 		http.Error(w, "Suggestion request unavailable", http.StatusBadGateway)
 		return
 	}
-	response, err := newSearchSuggestionHTTPClient(widget.suggestionEndpoint).Do(request)
+	response, err := newSearchSuggestionHTTPClient(widget.suggestionEndpoint, widget.Timeout).Do(request)
 	if err != nil {
 		http.Error(w, "Suggestion provider unavailable", http.StatusBadGateway)
 		return

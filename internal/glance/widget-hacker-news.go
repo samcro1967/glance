@@ -12,6 +12,7 @@ import (
 
 type hackerNewsWidget struct {
 	widgetBase          `yaml:",inline"`
+	Timeout             durationField `yaml:"timeout"`
 	Posts               forumPostList `yaml:"-"`
 	Limit               int           `yaml:"limit"`
 	SortBy              string        `yaml:"sort-by"`
@@ -43,7 +44,7 @@ func (widget *hackerNewsWidget) initialize() error {
 }
 
 func (widget *hackerNewsWidget) update(ctx context.Context) {
-	posts, err := fetchHackerNewsPosts(ctx, widget.SortBy, 40, widget.CommentsUrlTemplate)
+	posts, err := fetchHackerNewsPosts(ctx, widget.SortBy, 40, widget.CommentsUrlTemplate, widget.Timeout)
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
 		return
@@ -74,7 +75,7 @@ type hackerNewsPostResponseJson struct {
 	TimePosted   int64  `json:"time"`
 }
 
-func fetchHackerNewsPostIds(ctx context.Context, sort string) ([]int, error) {
+func fetchHackerNewsPostIds(ctx context.Context, sort string, timeouts ...durationField) ([]int, error) {
 	request, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
@@ -89,7 +90,7 @@ func fetchHackerNewsPostIds(ctx context.Context, sort string) ([]int, error) {
 		)
 	}
 
-	response, err := decodeJsonFromRequest[[]int](defaultHTTPClient, request)
+	response, err := decodeJsonFromRequest[[]int](newProviderHTTPClient(timeouts...), request)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"%w: fetching Hacker News post IDs: %w",
@@ -101,7 +102,7 @@ func fetchHackerNewsPostIds(ctx context.Context, sort string) ([]int, error) {
 	return response, nil
 }
 
-func fetchHackerNewsPostsFromIds(ctx context.Context, postIds []int, commentsUrlTemplate string) (forumPostList, error) {
+func fetchHackerNewsPostsFromIds(ctx context.Context, postIds []int, commentsUrlTemplate string, timeouts ...durationField) (forumPostList, error) {
 	requests := make([]*http.Request, 0, len(postIds))
 
 	for _, id := range postIds {
@@ -124,7 +125,7 @@ func fetchHackerNewsPostsFromIds(ctx context.Context, postIds []int, commentsUrl
 		requests = append(requests, request)
 	}
 
-	task := decodeJsonFromRequestTask[hackerNewsPostResponseJson](defaultHTTPClient)
+	task := decodeJsonFromRequestTask[hackerNewsPostResponseJson](newProviderHTTPClient(timeouts...))
 	job := newJob(task, requests).withWorkers(30).withContext(ctx)
 	results, errs, err := workerPoolDo(job)
 	if err != nil {
@@ -188,8 +189,8 @@ func fetchHackerNewsPostsFromIds(ctx context.Context, postIds []int, commentsUrl
 	return posts, nil
 }
 
-func fetchHackerNewsPosts(ctx context.Context, sort string, limit int, commentsUrlTemplate string) (forumPostList, error) {
-	postIds, err := fetchHackerNewsPostIds(ctx, sort)
+func fetchHackerNewsPosts(ctx context.Context, sort string, limit int, commentsUrlTemplate string, timeouts ...durationField) (forumPostList, error) {
+	postIds, err := fetchHackerNewsPostIds(ctx, sort, timeouts...)
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +199,7 @@ func fetchHackerNewsPosts(ctx context.Context, sort string, limit int, commentsU
 		postIds = postIds[:limit]
 	}
 
-	return fetchHackerNewsPostsFromIds(ctx, postIds, commentsUrlTemplate)
+	return fetchHackerNewsPostsFromIds(ctx, postIds, commentsUrlTemplate, timeouts...)
 }
 
 func (widget *hackerNewsWidget) setDefaultLimit(value int) {
@@ -207,4 +208,8 @@ func (widget *hackerNewsWidget) setDefaultLimit(value int) {
 
 func (widget *hackerNewsWidget) setDefaultCollapseAfter(value int) {
 	widget.CollapseAfter = value
+}
+
+func (widget *hackerNewsWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
 }

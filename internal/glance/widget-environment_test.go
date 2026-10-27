@@ -85,9 +85,9 @@ func TestEnvironmentProviderParsing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pollen fetch: %v", err)
 	}
-	active := pollen.Current().ActiveSpecies()
-	if len(pollen.Days) != 7 || pollen.Current().OverallRisk != "moderate" || len(active) != 1 || active[0].Name != "Bermuda Grass" {
-		t.Fatalf("pollen parse: %+v", pollen.Current())
+	active := pollen.Days[0].ActiveSpecies()
+	if len(pollen.Days) != 7 || pollen.Days[0].OverallRisk != "moderate" || len(active) != 1 || active[0].Name != "Bermuda Grass" {
+		t.Fatalf("pollen parse: %+v", pollen.Days[0])
 	}
 }
 

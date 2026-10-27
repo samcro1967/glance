@@ -3,6 +3,7 @@ package glance
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
 	"time"
@@ -28,22 +29,23 @@ type openMeteoEnvironmentResponse struct {
 }
 
 type openMeteoEnvironmentResourceKey struct {
+	Timeout             durationField
 	Latitude, Longitude float64
 	Timezone            string
 }
 
 var openMeteoEnvironmentResourceCache = newKeyedResourceCache[openMeteoEnvironmentResourceKey, *environmentAirQuality](openMeteoResourceIdleRetention)
 
-func fetchOpenMeteoEnvironmentResource(ctx context.Context, place *openMeteoPlaceResponseJson) (*environmentAirQuality, error) {
-	key := openMeteoEnvironmentResourceKey{place.Latitude, place.Longitude, place.Timezone}
+func fetchOpenMeteoEnvironmentResource(ctx context.Context, place *openMeteoPlaceResponseJson, timeouts ...durationField) (*environmentAirQuality, error) {
+	key := openMeteoEnvironmentResourceKey{resourceTimeoutPolicy(timeouts...), place.Latitude, place.Longitude, place.Timezone}
 	return openMeteoEnvironmentResourceCache.Get(ctx, key, func(c cachedEntry[*environmentAirQuality], now time.Time) bool {
 		return sameClockHour(c.timestamp, now)
 	}, func(ctx context.Context) (*environmentAirQuality, error) {
-		return fetchOpenMeteoEnvironment(ctx, place)
+		return fetchOpenMeteoEnvironment(ctx, place, timeouts...)
 	})
 }
 
-func fetchOpenMeteoEnvironment(ctx context.Context, place *openMeteoPlaceResponseJson) (*environmentAirQuality, error) {
+func fetchOpenMeteoEnvironment(ctx context.Context, place *openMeteoPlaceResponseJson, timeouts ...durationField) (*environmentAirQuality, error) {
 	q := url.Values{}
 	q.Set("latitude", fmt.Sprintf("%f", place.Latitude))
 	q.Set("longitude", fmt.Sprintf("%f", place.Longitude))
@@ -55,7 +57,7 @@ func fetchOpenMeteoEnvironment(ctx context.Context, place *openMeteoPlaceRespons
 	if err != nil {
 		return nil, fmt.Errorf("creating air quality request: %w", err)
 	}
-	r, err := decodeJsonFromRequest[openMeteoEnvironmentResponse](defaultHTTPClient, req)
+	r, err := decodeJsonFromRequest[openMeteoEnvironmentResponse](newProviderHTTPClient(timeouts...), req)
 	if err != nil {
 		return nil, fmt.Errorf("fetching air quality data: %w", err)
 	}
@@ -102,10 +104,10 @@ func fetchOpenMeteoEnvironment(ctx context.Context, place *openMeteoPlaceRespons
 }
 
 type atmoSporeSpecies struct {
-	Value       float64 `json:"value"`
-	RiskLevel   string  `json:"risk_level"`
-	DisplayName string  `json:"display_name"`
-	Category    string  `json:"category"`
+	Value       *float64 `json:"value"`
+	RiskLevel   string   `json:"risk_level"`
+	DisplayName string   `json:"display_name"`
+	Category    string   `json:"category"`
 }
 
 type atmoSporeResponse struct {
@@ -116,17 +118,20 @@ type atmoSporeResponse struct {
 	} `json:"data"`
 }
 type atmoSporeResourceKey struct {
+	Timeout             durationField
 	Latitude, Longitude float64
 	APIKey              string
 }
 
 var atmoSporePollenResourceCache = newKeyedResourceCache[atmoSporeResourceKey, *environmentPollen](24 * time.Hour)
 
-func fetchAtmoSporePollenResource(ctx context.Context, place *openMeteoPlaceResponseJson, apiKey string) (*environmentPollen, error) {
-	key := atmoSporeResourceKey{place.Latitude, place.Longitude, apiKey}
-	return atmoSporePollenResourceCache.Get(ctx, key, func(c cachedEntry[*environmentPollen], now time.Time) bool { return now.Sub(c.timestamp) < 6*time.Hour }, func(ctx context.Context) (*environmentPollen, error) { return fetchAtmoSporePollen(ctx, place, apiKey) })
+func fetchAtmoSporePollenResource(ctx context.Context, place *openMeteoPlaceResponseJson, apiKey string, timeouts ...durationField) (*environmentPollen, error) {
+	key := atmoSporeResourceKey{resourceTimeoutPolicy(timeouts...), place.Latitude, place.Longitude, apiKey}
+	return atmoSporePollenResourceCache.Get(ctx, key, environmentPollenCacheValid, func(ctx context.Context) (*environmentPollen, error) {
+		return fetchAtmoSporePollen(ctx, place, apiKey, timeouts...)
+	})
 }
-func fetchAtmoSporePollen(ctx context.Context, place *openMeteoPlaceResponseJson, apiKey string) (*environmentPollen, error) {
+func fetchAtmoSporePollen(ctx context.Context, place *openMeteoPlaceResponseJson, apiKey string, timeouts ...durationField) (*environmentPollen, error) {
 	q := url.Values{}
 	q.Set("lat", fmt.Sprintf("%f", place.Latitude))
 	q.Set("lon", fmt.Sprintf("%f", place.Longitude))
@@ -142,25 +147,38 @@ func fetchAtmoSporePollen(ctx context.Context, place *openMeteoPlaceResponseJson
 		return nil, fmt.Errorf("creating pollen request: %w", err)
 	}
 	req.Header.Set("x-api-key", apiKey)
-	r, err := decodeJsonFromRequest[atmoSporeResponse](defaultHTTPClient, req)
+	r, err := decodeJsonFromRequest[atmoSporeResponse](newProviderHTTPClient(timeouts...), req)
 	if err != nil {
 		return nil, fmt.Errorf("fetching pollen data: %w", err)
 	}
 	if len(r.Data) == 0 {
 		return nil, fmt.Errorf("pollen provider returned no forecast data")
 	}
-	out := &environmentPollen{}
+	out := &environmentPollen{Provider: "atmospore", Timezone: place.Timezone}
 	for i, d := range r.Data {
 		if i == 7 {
 			break
 		}
 		day := environmentPollenDay{Date: d.Date, OverallRisk: d.OverallRisk}
+		if _, err := time.Parse("2006-01-02", d.Date); err != nil {
+			return nil, fmt.Errorf("pollen provider returned an invalid forecast date")
+		}
+		if len(d.Species) == 0 {
+			day.OverallRisk = "unknown"
+		}
 		for speciesID, s := range d.Species {
 			name := s.DisplayName
 			if name == "" {
 				name = speciesID
 			}
-			day.Species = append(day.Species, environmentPollenSpecies{Name: name, Category: s.Category, Value: s.Value, RiskLevel: s.RiskLevel})
+			reading := environmentPollenSpecies{Name: name, Category: s.Category, RiskLevel: s.RiskLevel, Unavailable: true}
+			if s.Value != nil && *s.Value >= 0 && !math.IsNaN(*s.Value) && !math.IsInf(*s.Value, 0) {
+				reading.Value, reading.Unavailable = *s.Value, false
+			}
+			day.Species = append(day.Species, reading)
+			if reading.Unavailable {
+				day.OverallRisk = "unknown"
+			}
 		}
 		out.Days = append(out.Days, day)
 	}

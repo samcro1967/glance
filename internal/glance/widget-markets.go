@@ -17,6 +17,7 @@ var marketsWidgetExpandedTemplate = mustParseTemplate("markets-expanded.html")
 
 type marketsWidget struct {
 	widgetBase         `yaml:",inline"`
+	Timeout            durationField   `yaml:"timeout"`
 	StocksRequests     []marketRequest `yaml:"stocks"`
 	MarketRequests     []marketRequest `yaml:"markets"`
 	ChartLinkTemplate  string          `yaml:"chart-link-template"`
@@ -49,7 +50,7 @@ func (widget *marketsWidget) initialize() error {
 }
 
 func (widget *marketsWidget) update(ctx context.Context) {
-	markets, err := fetchMarketsDataFromYahoo(ctx, widget.MarketRequests)
+	markets, err := fetchMarketsDataFromYahoo(ctx, widget.MarketRequests, widget.Timeout)
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
 		return
@@ -126,7 +127,7 @@ type marketResponseJson struct {
 
 const marketChartDays = 21
 
-func fetchMarketsDataFromYahoo(ctx context.Context, marketRequests []marketRequest) (marketList, error) {
+func fetchMarketsDataFromYahoo(ctx context.Context, marketRequests []marketRequest, timeouts ...durationField) (marketList, error) {
 	for i := range marketRequests {
 		_, err := http.NewRequestWithContext(
 			ctx,
@@ -149,7 +150,7 @@ func fetchMarketsDataFromYahoo(ctx context.Context, marketRequests []marketReque
 	}
 
 	task := func(request marketRequest) (marketResponseJson, error) {
-		return fetchYahooMarketResource(ctx, request.Symbol)
+		return fetchYahooMarketResource(ctx, request.Symbol, timeouts...)
 	}
 
 	job := newJob(task, marketRequests).withContext(ctx)
@@ -292,4 +293,8 @@ var currencyToSymbol = map[string]string{
 
 func (widget *marketsWidget) MicroItems(open bool) []statusBarCompactItem {
 	return marketsStatusBarCompactItems(widget, open)
+}
+
+func (widget *marketsWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
 }

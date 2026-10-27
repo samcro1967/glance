@@ -32,9 +32,10 @@ var (
 
 type dilbertWidget struct {
 	widgetBase `yaml:",inline"`
-	Comic      dilbertComic `yaml:"-"`
-	Date       string       `yaml:"date"`
-	ArchiveURL string       `yaml:"archive-url"`
+	Timeout    durationField `yaml:"timeout"`
+	Comic      dilbertComic  `yaml:"-"`
+	Date       string        `yaml:"date"`
+	ArchiveURL string        `yaml:"archive-url"`
 }
 
 type dilbertComic struct {
@@ -73,7 +74,11 @@ func (widget *dilbertWidget) initialize() error {
 }
 
 func (widget *dilbertWidget) update(ctx context.Context) {
-	client := newHTTPClient(durationField(dilbertHTTPTimeout), false)
+	timeout := widget.Timeout
+	if timeout == 0 && !widget.configuredFields["timeout"] {
+		timeout = durationField(dilbertHTTPTimeout)
+	}
+	client := newHTTPClient(timeout, false)
 
 	maxAttempts := dilbertMaxAttempts
 	if widget.Date != "" {
@@ -279,4 +284,8 @@ func normalizeDilbertTitle(title string, date string) string {
 
 func formatDilbertDate(date time.Time) string {
 	return date.UTC().Format("2006-01-02")
+}
+
+func (widget *dilbertWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = durationField(resolveHTTPRequestTimeout(value))
 }

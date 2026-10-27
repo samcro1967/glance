@@ -128,13 +128,9 @@ func fetchWatchUUIDsFromChangeDetection(ctx context.Context, instanceURL string,
 		request.Header.Set("x-api-key", token)
 	}
 
-	baseClient := ternary(allowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
-	client := *baseClient
-	if timeout > 0 {
-		client.Timeout = time.Duration(timeout)
-	}
+	client := newHTTPClient(timeout, allowInsecure)
 
-	uuidsMap, err := decodeJsonFromRequest[map[string]struct{}](&client, request)
+	uuidsMap, err := decodeJsonFromRequest[map[string]struct{}](client, request)
 	if err != nil {
 		return nil, fmt.Errorf("fetching change detection watch list: %w", err)
 	}
@@ -185,13 +181,9 @@ func fetchWatchesFromChangeDetection(ctx context.Context, instanceURL string, li
 		requests = append(requests, request)
 	}
 
-	baseClient := ternary(allowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
-	client := *baseClient
-	if timeout > 0 {
-		client.Timeout = time.Duration(timeout)
-	}
+	client := newHTTPClient(timeout, allowInsecure)
 
-	task := decodeJsonFromRequestTask[changeDetectionResponseJson](&client)
+	task := decodeJsonFromRequestTask[changeDetectionResponseJson](client)
 	job := newJob(task, requests).withWorkers(15).withContext(ctx)
 	responses, errs, err := workerPoolDo(job)
 	if err != nil {

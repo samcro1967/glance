@@ -399,7 +399,8 @@ kbd:active {
     display: flex;
     flex-direction: column;
     min-width: 15rem;
-    margin: -0.4rem;
+    /* Keep content inside the shared popover scrolling box. */
+    margin: 0;
 }
 
 .dashboard-switcher-link {

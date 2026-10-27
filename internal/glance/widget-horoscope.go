@@ -32,6 +32,7 @@ var horoscopePeriods = map[string]struct{}{
 }
 
 type horoscopeWidget struct {
+	Timeout    durationField `yaml:"timeout"`
 	widgetBase `yaml:",inline"`
 	Provider   string                 `yaml:"provider"`
 	Signs      []string               `yaml:"signs"`
@@ -59,7 +60,7 @@ func (widget *horoscopeWidget) initialize() error {
 		widget.Provider = defaultHoroscopeProvider
 	}
 
-	provider, err := newHoroscopeProvider(widget.Provider)
+	provider, err := newHoroscopeProvider(widget.Provider, widget.Timeout)
 	if err != nil {
 		return err
 	}
@@ -156,4 +157,8 @@ func (widget *horoscopeWidget) PeriodTitle(period string) string {
 		return ""
 	}
 	return strings.ToUpper(period[:1]) + period[1:]
+}
+
+func (widget *horoscopeWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
 }

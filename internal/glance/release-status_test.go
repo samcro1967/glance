@@ -587,12 +587,12 @@ func TestUpdateForkReleaseStatusCachesInstalledDateIndependently(t *testing.T) {
 		t.Fatalf("date failure affected update status: %+v", got)
 	}
 	updateForkReleaseStatus(context.Background(), testCurrentReleaseVersion, &cache)
-	if got := cache.get(); got.InstalledReleaseTooltip() != "Released January 1, 2026 (UTC)" || got.Status != releaseStatusUpdateAvailable {
+	if got := cache.get(); got.InstalledReleaseTooltip() != "Released January 1, 2026" || got.Status != releaseStatusUpdateAvailable {
 		t.Fatalf("installed date was not acquired independently: %+v", got)
 	}
 	failLatest = true
 	updateForkReleaseStatus(context.Background(), testCurrentReleaseVersion, &cache)
-	if got := cache.get(); got.Status != releaseStatusUnknown || got.InstalledReleaseTooltip() != "Released January 1, 2026 (UTC)" {
+	if got := cache.get(); got.Status != releaseStatusUnknown || got.InstalledReleaseTooltip() != "Released January 1, 2026" {
 		t.Fatalf("latest failure discarded confirmed installed date: %+v", got)
 	}
 	if installedRequests != 2 || latestRequests != 3 {

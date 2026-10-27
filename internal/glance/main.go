@@ -53,8 +53,9 @@ func Main() int {
 			printConfigValidationError(err)
 			return 1
 		}
-		if len(validatedConfig.recoverableErrors) > 0 {
-			printRecoverableConfigValidationErrors(validatedConfig.recoverableErrors)
+		logConfigPropertyDiagnostics(validatedConfig.propertyDiagnostics)
+		if issues := configValidationIssues(validatedConfig); len(issues) > 0 {
+			printRecoverableConfigValidationErrors(issues)
 			return 1
 		}
 	case cliIntentConfigPrint:
@@ -196,6 +197,7 @@ func serveApp(configPath string) error {
 		return err
 	}
 	logRecoverableConfigErrors(initialConfig.recoverableErrors)
+	logConfigPropertyDiagnostics(initialConfig.propertyDiagnostics)
 
 	initialApp, err := newApplication(initialConfig)
 	if err != nil {
@@ -271,6 +273,7 @@ func serveApp(configPath string) error {
 			return
 		}
 		logRecoverableConfigErrors(candidateConfig.recoverableErrors)
+		logConfigPropertyDiagnostics(candidateConfig.propertyDiagnostics)
 
 		previousRuntime, err := generation.reload(server, candidateConfig, configDiagnostics, profilingDiagnostics)
 		if err != nil {

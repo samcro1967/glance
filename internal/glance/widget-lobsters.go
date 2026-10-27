@@ -11,6 +11,7 @@ import (
 
 type lobstersWidget struct {
 	widgetBase     `yaml:",inline"`
+	Timeout        durationField `yaml:"timeout"`
 	Posts          forumPostList `yaml:"-"`
 	InstanceURL    string        `yaml:"instance-url"`
 	CustomURL      string        `yaml:"custom-url"`
@@ -46,7 +47,7 @@ func (widget *lobstersWidget) initialize() error {
 }
 
 func (widget *lobstersWidget) update(ctx context.Context) {
-	posts, err := fetchLobstersPosts(ctx, widget.CustomURL, widget.InstanceURL, widget.SortBy, widget.Tags)
+	posts, err := fetchLobstersPosts(ctx, widget.CustomURL, widget.InstanceURL, widget.SortBy, widget.Tags, widget.Timeout)
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {
 		return
@@ -75,13 +76,13 @@ type lobstersPostResponseJson struct {
 
 type lobstersFeedResponseJson []lobstersPostResponseJson
 
-func fetchLobstersPostsFromFeed(ctx context.Context, feedUrl string) (forumPostList, error) {
+func fetchLobstersPostsFromFeed(ctx context.Context, feedUrl string, timeouts ...durationField) (forumPostList, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, feedUrl, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating Lobsters feed request: %w", err)
 	}
 
-	feed, err := decodeJsonFromRequest[lobstersFeedResponseJson](defaultHTTPClient, request)
+	feed, err := decodeJsonFromRequest[lobstersFeedResponseJson](newProviderHTTPClient(timeouts...), request)
 	if err != nil {
 		return nil, fmt.Errorf("fetching Lobsters posts: %w", err)
 	}
@@ -140,7 +141,7 @@ func fetchLobstersPostsFromFeed(ctx context.Context, feedUrl string) (forumPostL
 	return posts, nil
 }
 
-func fetchLobstersPosts(ctx context.Context, customURL string, instanceURL string, sortBy string, tags []string) (forumPostList, error) {
+func fetchLobstersPosts(ctx context.Context, customURL string, instanceURL string, sortBy string, tags []string, timeouts ...durationField) (forumPostList, error) {
 	var feedUrl string
 
 	if customURL != "" {
@@ -166,7 +167,7 @@ func fetchLobstersPosts(ctx context.Context, customURL string, instanceURL strin
 		}
 	}
 
-	posts, err := fetchLobstersPostsFromFeed(ctx, feedUrl)
+	posts, err := fetchLobstersPostsFromFeed(ctx, feedUrl, timeouts...)
 	if err != nil {
 		return nil, err
 	}
@@ -180,4 +181,8 @@ func (widget *lobstersWidget) setDefaultLimit(value int) {
 
 func (widget *lobstersWidget) setDefaultCollapseAfter(value int) {
 	widget.CollapseAfter = value
+}
+
+func (widget *lobstersWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
 }

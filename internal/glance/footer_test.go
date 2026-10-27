@@ -197,8 +197,8 @@ func TestFooterInstalledReleaseDateTooltip(t *testing.T) {
 			`type="button"`,
 			`data-popover-focus`,
 			`data-popover-position="above"`,
-			`data-popover-text="Released October 25, 2026 (UTC)"`,
-			`aria-label="` + testInstalledForkVersion + ` — Released October 25, 2026 (UTC)"`,
+			`data-popover-text="Released October 25, 2026"`,
+			`aria-label="` + testInstalledForkVersion + ` — Released October 25, 2026"`,
 			`>` + testInstalledForkVersion + `</button>`,
 		} {
 			if !strings.Contains(rendered, want) {

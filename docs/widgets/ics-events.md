@@ -90,6 +90,10 @@ The maximum number of events shown after all sources have been merged and sorted
 The number of events to show before the remaining events are collapsed. Set to `-1` to disable collapsing.
 
 
+## HTTP request timeout
+
+Configure `timeout` on HTTP entries in `sources`, or inherit it from global/type defaults. The built-in default is 5s; explicit `0s` selects the central 5s baseline. The limit applies per HTTP request rather than to the complete refresh. See [HTTP request timeouts](../request-timeouts.md) for supported scopes, precedence, cache behavior, and exceptions.
+
 ---
 
 [Widgets](../widgets.md) · [Configuration](../configuration.md) · [Back to top](#ics-events)

@@ -8,6 +8,8 @@
 
 [Layout & composition](#layout--composition) · [Feeds & content](#feeds--content) · [Search & custom content](#search-links--custom-content) · [Date, time & weather](#date-time--weather) · [Homelab & monitoring](#homelab--monitoring) · [Development & releases](#development--releases) · [Markets & streaming](#markets--streaming) · [Utilities](#utilities)
 
+Widgets that fetch remote data may also support [HTTP request timeouts](request-timeouts.md). This capability applies only to the documented widget and source scopes.
+
 ## Shared properties
 
 Every widget supports a common set of configuration properties in addition to its widget-specific options. Individual widget pages link back to this shared reference instead of duplicating it.

@@ -24,16 +24,17 @@ var (
 
 type videosWidget struct {
 	widgetBase        `yaml:",inline"`
-	Videos            videoList `yaml:"-"`
-	cachedVideoLists  sync.Map  `yaml:"-"`
-	VideoUrlTemplate  string    `yaml:"video-url-template"`
-	Style             string    `yaml:"style"`
-	CollapseAfter     int       `yaml:"collapse-after"`
-	CollapseAfterRows int       `yaml:"collapse-after-rows"`
-	Channels          []string  `yaml:"channels"`
-	Playlists         []string  `yaml:"playlists"`
-	Limit             int       `yaml:"limit"`
-	IncludeShorts     bool      `yaml:"include-shorts"`
+	Timeout           durationField `yaml:"timeout"`
+	Videos            videoList     `yaml:"-"`
+	cachedVideoLists  sync.Map      `yaml:"-"`
+	VideoUrlTemplate  string        `yaml:"video-url-template"`
+	Style             string        `yaml:"style"`
+	CollapseAfter     int           `yaml:"collapse-after"`
+	CollapseAfterRows int           `yaml:"collapse-after-rows"`
+	Channels          []string      `yaml:"channels"`
+	Playlists         []string      `yaml:"playlists"`
+	Limit             int           `yaml:"limit"`
+	IncludeShorts     bool          `yaml:"include-shorts"`
 }
 
 func (w *videosWidget) initialize() error {
@@ -206,7 +207,7 @@ func (w *videosWidget) fetchYoutubeChannelUploads(
 			return list, fmt.Errorf("creating YouTube feed request: %w", err)
 		}
 
-		response, err := decodeXmlFromRequest[youtubeFeedResponseXml](defaultHTTPClient, request)
+		response, err := decodeXmlFromRequest[youtubeFeedResponseXml](newHTTPClient(w.Timeout, false), request)
 		if err != nil && !includeShorts && strings.HasPrefix(id, "UC") {
 			primaryErr := err
 			uploadsPlaylistID := strings.Replace(id, "UC", "UU", 1)
@@ -216,7 +217,7 @@ func (w *videosWidget) fetchYoutubeChannelUploads(
 			if fallbackRequestErr != nil {
 				err = errors.Join(primaryErr, fallbackRequestErr)
 			} else {
-				response, err = decodeXmlFromRequest[youtubeFeedResponseXml](defaultHTTPClient, fallbackRequest)
+				response, err = decodeXmlFromRequest[youtubeFeedResponseXml](newHTTPClient(w.Timeout, false), fallbackRequest)
 				if err != nil {
 					err = errors.Join(primaryErr, err)
 				}
@@ -230,7 +231,7 @@ func (w *videosWidget) fetchYoutubeChannelUploads(
 				err = errors.Join(playlistErr, channelRequestErr)
 			} else {
 				// Channel feeds may contain Shorts when uploads playlists are unavailable.
-				response, err = decodeXmlFromRequest[youtubeFeedResponseXml](defaultHTTPClient, channelRequest)
+				response, err = decodeXmlFromRequest[youtubeFeedResponseXml](newHTTPClient(w.Timeout, false), channelRequest)
 				if err != nil {
 					err = errors.Join(playlistErr, err)
 				}
@@ -334,4 +335,8 @@ func (widget *videosWidget) setDefaultCollapseAfter(value int) {
 
 func (widget *videosWidget) setDefaultCollapseAfterRows(value int) {
 	widget.CollapseAfterRows = value
+}
+
+func (widget *videosWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
 }

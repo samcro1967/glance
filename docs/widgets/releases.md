@@ -147,6 +147,10 @@ The maximum number of releases to show.
 How many releases are visible before the "SHOW MORE" button appears. Set to `-1` to never collapse.
 
 
+## HTTP request timeout
+
+Configure `timeout` on the widget, or inherit it from global/type defaults. The built-in default is 5s; explicit `0s` selects the central 5s baseline. The limit applies per HTTP request rather than to the complete refresh. See [HTTP request timeouts](../request-timeouts.md) for supported scopes, precedence, cache behavior, and exceptions.
+
 ---
 
 [Widgets](../widgets.md) · [Configuration](../configuration.md) · [Back to top](#releases)

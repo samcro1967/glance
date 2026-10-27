@@ -25,6 +25,7 @@ var (
 
 type quoteOfTheDayWidget struct {
 	widgetBase `yaml:",inline"`
+	Timeout    durationField      `yaml:"timeout"`
 	Entry      quoteOfTheDayEntry `yaml:"-"`
 }
 type quoteOfTheDayEntry struct{ Quote, Author, AuthorURL, SourceURL, Date string }
@@ -64,7 +65,7 @@ func (w *quoteOfTheDayWidget) update(ctx context.Context) {
 		return
 	}
 	req.Header.Set("User-Agent", glanceUserAgentString)
-	response, err := decodeJsonFromRequest[wikiquoteParseResponse](defaultHTTPClient, req)
+	response, err := decodeJsonFromRequest[wikiquoteParseResponse](newHTTPClient(w.Timeout, false), req)
 	if err != nil {
 		w.canContinueUpdateAfterHandlingErr(fmt.Errorf("fetching Wikiquote quote of the day: %w", err))
 		return
@@ -237,4 +238,8 @@ func normalizeWikiquoteText(value string, preserveBreaks bool) string {
 		}
 	}
 	return strings.Join(normalized, "\n")
+}
+
+func (widget *quoteOfTheDayWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
 }

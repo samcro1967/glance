@@ -36,6 +36,7 @@ type searchHistoryConfig struct {
 
 type searchWidget struct {
 	widgetBase         `yaml:",inline"`
+	Timeout            durationField       `yaml:"timeout"`
 	cachedHTML         template.HTML       `yaml:"-"`
 	SearchEngine       string              `yaml:"search-engine"`
 	Bangs              []SearchBang        `yaml:"bangs"`
@@ -219,4 +220,8 @@ func (widget *searchWidget) setDefaultNewTab(value bool) {
 	}
 
 	widget.NewTab = value
+}
+
+func (widget *searchWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
 }

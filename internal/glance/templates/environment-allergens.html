@@ -1,0 +1,17 @@
+{{ define "environment-allergens" }}
+{{ $pollen := . }}
+<div class="environment-provider-note color-subdue">{{ .ReadingLabel }} · {{ .SourceName }}</div>
+<div class="environment-provider-note color-subdue">{{ .DateStatus }}</div>
+{{ if .IsObservation }}<div class="environment-provider-note color-subdue">St. Louis metropolitan area; not a measurement at your configured location.</div>{{ end }}
+{{ with .Current }}
+<div class="environment-provider-note">Report date: <time datetime="{{ .Date }}">{{ .Date }}</time></div>
+<div class="environment-allergen-levels">
+{{ range .ReportedCategoryLevels }}
+<div class="glance-key-value"><span class="glance-key">{{ .Name }}</span><span class="glance-value {{ if or (eq .RiskLevel "high") (eq .RiskLevel "very high") }}color-negative{{ else if eq .RiskLevel "moderate" }}color-primary{{ end }}">{{ if .Unavailable }}{{ if and (eq .Category "mold") (not $pollen.IsObservation) }}Not provided{{ else }}Unavailable{{ end }}{{ else }}{{ .DisplayRisk }}{{ end }}</span></div>
+{{ end }}
+</div>
+{{ if and .Species (not .ReportedSpecies) }}<div class="color-subdue">No nonzero allergen concentrations reported for this date.</div>{{ end }}
+{{ else }}<div class="environment-provider-note color-subdue">No report available for today or an earlier date.</div>{{ end }}
+{{ if not .IsObservation }}<div class="environment-attribution">Category levels reflect the highest reported species risk. Mold is not included.</div>{{ end }}
+<div class="environment-attribution">Allergen data: <a href="{{ .SourceURL }}" target="_blank" rel="noopener noreferrer">{{ .SourceName }}</a></div>
+{{ end }}

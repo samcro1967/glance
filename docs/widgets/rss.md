@@ -178,6 +178,10 @@ Adds HTTP headers to the request for a specific feed:
 
 Supplies HTTP Basic Authentication credentials for a feed.
 
+## HTTP request timeout
+
+Configure `timeout` on entries in `feeds`, or inherit it from global/type defaults. The built-in default is 5s; explicit `0s` selects the central 5s baseline. The limit applies per HTTP request rather than to the complete refresh. See [HTTP request timeouts](../request-timeouts.md) for supported scopes, precedence, cache behavior, and exceptions.
+
 ---
 
 [Widgets](../widgets.md) · [Configuration](../configuration.md) · [Back to top](#rss)

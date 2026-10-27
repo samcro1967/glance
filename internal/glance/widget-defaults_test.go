@@ -494,11 +494,9 @@ pages:
 }
 
 func TestHTTPDefaultsRejectUnsupportedWidget(t *testing.T) {
-	timeout := durationField(5 * time.Second)
 	insecure := true
 
 	for _, values := range []widgetDefaultValues{
-		{Timeout: &timeout},
 		{AllowInsecure: &insecure},
 		{Headers: map[string]string{"X-Test": "value"}},
 	} {

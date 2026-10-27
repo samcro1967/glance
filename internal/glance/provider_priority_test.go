@@ -34,7 +34,7 @@ func TestPriorityServerStatsInitializeNormalizesRequests(t *testing.T) {
 	if widget.Servers[0].URL != "https://example.com" {
 		t.Fatalf("URL = %q", widget.Servers[0].URL)
 	}
-	if time.Duration(widget.Servers[0].Timeout) != 3*time.Second {
+	if time.Duration(widget.Servers[0].Timeout) != defaultClientTimeout {
 		t.Fatalf("timeout = %v", widget.Servers[0].Timeout)
 	}
 }

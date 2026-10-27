@@ -47,7 +47,7 @@ func TestMicroDisplayValidation(t *testing.T) {
 func TestMicroEnvironmentProjection(t *testing.T) {
 	m := &microEnvironment{Display: []string{"air-quality", "uv", "pollen"}}
 	m.AirQuality = &environmentAirQuality{USAQI: 42, UVIndex: 5.5}
-	m.Pollen = &environmentPollen{Days: []environmentPollenDay{{OverallRisk: "high"}}}
+	m.Pollen = &environmentPollen{Days: []environmentPollenDay{{Date: "2020-01-01", OverallRisk: "high"}}}
 
 	items := m.MicroItems(false)
 	if len(items) != 1 {
@@ -56,7 +56,7 @@ func TestMicroEnvironmentProjection(t *testing.T) {
 	if items[0].Kind != "summary" {
 		t.Fatalf("kind=%q, want summary", items[0].Kind)
 	}
-	if items[0].Line1 != "AQI 42 Good · UV 5.5 Moderate · Pollen High" {
+	if items[0].Line1 != "AQI 42 Good · UV 5.5 Moderate · Pollen High (2020-01-01; AtmoSpore)" {
 		t.Fatalf("line1=%q", items[0].Line1)
 	}
 }

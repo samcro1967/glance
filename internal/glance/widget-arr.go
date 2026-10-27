@@ -473,3 +473,7 @@ func sortARRItems(items []arrItem) {
 		return strings.ToLower(items[i].Title) < strings.ToLower(items[j].Title)
 	})
 }
+
+func (widget *arrWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
+}

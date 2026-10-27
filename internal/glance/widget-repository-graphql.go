@@ -84,7 +84,7 @@ func githubGraphQLLimit(limit int) int {
 	return limit
 }
 
-func fetchRepositoryDetailsFromGithubGraphQL(ctx context.Context, repo, token string, maxPRs, maxIssues, maxCommits int) (repository, error) {
+func fetchRepositoryDetailsFromGithubGraphQL(ctx context.Context, repo, token string, maxPRs, maxIssues, maxCommits int, timeouts ...durationField) (repository, error) {
 	parts := strings.Split(repo, "/")
 	if len(parts) != 2 || parts[0] == "" || parts[1] == "" || strings.TrimSpace(repo) != repo || strings.ContainsAny(repo, " \t\r\n?#") {
 		return repository{}, fmt.Errorf("%w: invalid GitHub repository identifier", errNoContent)
@@ -112,7 +112,7 @@ func fetchRepositoryDetailsFromGithubGraphQL(ctx context.Context, repo, token st
 	request.Header.Set("Authorization", "Bearer "+token)
 	request.Header.Set("Content-Type", "application/json")
 
-	response, err := decodeJsonFromRequest[githubGraphQLRepositoryResponse](defaultHTTPClient, request)
+	response, err := decodeJsonFromRequest[githubGraphQLRepositoryResponse](newProviderHTTPClient(timeouts...), request)
 	if err != nil {
 		return repository{}, fmt.Errorf("%w: fetching repository details: %w", errNoContent, err)
 	}
