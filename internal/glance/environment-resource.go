@@ -3,6 +3,7 @@ package glance
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
 	"time"
@@ -103,10 +104,10 @@ func fetchOpenMeteoEnvironment(ctx context.Context, place *openMeteoPlaceRespons
 }
 
 type atmoSporeSpecies struct {
-	Value       float64 `json:"value"`
-	RiskLevel   string  `json:"risk_level"`
-	DisplayName string  `json:"display_name"`
-	Category    string  `json:"category"`
+	Value       *float64 `json:"value"`
+	RiskLevel   string   `json:"risk_level"`
+	DisplayName string   `json:"display_name"`
+	Category    string   `json:"category"`
 }
 
 type atmoSporeResponse struct {
@@ -126,7 +127,7 @@ var atmoSporePollenResourceCache = newKeyedResourceCache[atmoSporeResourceKey, *
 
 func fetchAtmoSporePollenResource(ctx context.Context, place *openMeteoPlaceResponseJson, apiKey string, timeouts ...durationField) (*environmentPollen, error) {
 	key := atmoSporeResourceKey{resourceTimeoutPolicy(timeouts...), place.Latitude, place.Longitude, apiKey}
-	return atmoSporePollenResourceCache.Get(ctx, key, func(c cachedEntry[*environmentPollen], now time.Time) bool { return now.Sub(c.timestamp) < 6*time.Hour }, func(ctx context.Context) (*environmentPollen, error) {
+	return atmoSporePollenResourceCache.Get(ctx, key, environmentPollenCacheValid, func(ctx context.Context) (*environmentPollen, error) {
 		return fetchAtmoSporePollen(ctx, place, apiKey, timeouts...)
 	})
 }
@@ -153,18 +154,31 @@ func fetchAtmoSporePollen(ctx context.Context, place *openMeteoPlaceResponseJson
 	if len(r.Data) == 0 {
 		return nil, fmt.Errorf("pollen provider returned no forecast data")
 	}
-	out := &environmentPollen{}
+	out := &environmentPollen{Provider: "atmospore", Timezone: place.Timezone}
 	for i, d := range r.Data {
 		if i == 7 {
 			break
 		}
 		day := environmentPollenDay{Date: d.Date, OverallRisk: d.OverallRisk}
+		if _, err := time.Parse("2006-01-02", d.Date); err != nil {
+			return nil, fmt.Errorf("pollen provider returned an invalid forecast date")
+		}
+		if len(d.Species) == 0 {
+			day.OverallRisk = "unknown"
+		}
 		for speciesID, s := range d.Species {
 			name := s.DisplayName
 			if name == "" {
 				name = speciesID
 			}
-			day.Species = append(day.Species, environmentPollenSpecies{Name: name, Category: s.Category, Value: s.Value, RiskLevel: s.RiskLevel})
+			reading := environmentPollenSpecies{Name: name, Category: s.Category, RiskLevel: s.RiskLevel, Unavailable: true}
+			if s.Value != nil && *s.Value >= 0 && !math.IsNaN(*s.Value) && !math.IsInf(*s.Value, 0) {
+				reading.Value, reading.Unavailable = *s.Value, false
+			}
+			day.Species = append(day.Species, reading)
+			if reading.Unavailable {
+				day.OverallRisk = "unknown"
+			}
 		}
 		out.Days = append(out.Days, day)
 	}

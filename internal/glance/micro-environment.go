@@ -38,7 +38,11 @@ func (m *microEnvironment) MicroItems(open bool) []statusBarCompactItem {
 			}
 		case "pollen":
 			if p := m.Pollen.Current(); p != nil {
-				v = append(v, "Pollen "+p.DisplayRisk())
+				label := "Pollen "
+				if m.Pollen.IsObservation() {
+					label = "Regional allergens "
+				}
+				v = append(v, label+p.DisplayRisk()+" ("+p.Date+"; "+m.Pollen.SourceName()+")")
 			}
 		}
 	}

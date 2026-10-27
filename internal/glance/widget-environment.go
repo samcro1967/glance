@@ -5,19 +5,19 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
-	"sort"
 	"strings"
 	"time"
 )
 
-var environmentWidgetTemplate = mustParseTemplate("environment.html", "widget-base.html")
-var environmentWidgetExpandedTemplate = mustParseTemplate("environment-expanded.html")
+var environmentWidgetTemplate = mustParseTemplate("environment.html", "widget-base.html", "environment-allergens.html")
+var environmentWidgetExpandedTemplate = mustParseTemplate("environment-expanded.html", "environment-allergens.html")
 
 type environmentWidget struct {
-	widgetBase   `yaml:",inline"`
-	Timeout      durationField `yaml:"timeout"`
-	Location     string        `yaml:"location"`
-	PollenAPIKey string        `yaml:"pollen-api-key"`
+	widgetBase     `yaml:",inline"`
+	Timeout        durationField `yaml:"timeout"`
+	Location       string        `yaml:"location"`
+	PollenAPIKey   string        `yaml:"pollen-api-key"`
+	PollenProvider string        `yaml:"pollen-provider"`
 
 	Place           *openMeteoPlaceResponseJson `yaml:"-"`
 	AirQuality      *environmentAirQuality      `yaml:"-"`
@@ -30,6 +30,13 @@ func (widget *environmentWidget) initialize() error {
 	widget.withTitle("Environment").withCacheOnTheHour()
 	if widget.Location == "" {
 		return errors.New("location is required")
+	}
+	widget.PollenProvider = strings.ToLower(strings.TrimSpace(widget.PollenProvider))
+	if widget.PollenProvider == "" {
+		widget.PollenProvider = "atmospore"
+	}
+	if widget.PollenProvider != "atmospore" && widget.PollenProvider != "st-louis-county" {
+		return fmt.Errorf("unknown pollen provider %q; valid providers are atmospore, st-louis-county", widget.PollenProvider)
 	}
 	return nil
 }
@@ -54,8 +61,14 @@ func (widget *environmentWidget) update(ctx context.Context) {
 	widget.AirQualityError = airErr
 
 	widget.PollenError = nil
-	if widget.PollenAPIKey != "" {
-		pollen, pollenErr := fetchAtmoSporePollenResource(ctx, widget.Place, widget.PollenAPIKey, widget.Timeout)
+	if widget.HasPollenProvider() {
+		var pollen *environmentPollen
+		var pollenErr error
+		if widget.PollenProvider == "st-louis-county" {
+			pollen, pollenErr = fetchStLouisCountyPollenResource(ctx, widget.Timeout)
+		} else {
+			pollen, pollenErr = fetchAtmoSporePollenResource(ctx, widget.Place, widget.PollenAPIKey, widget.Timeout)
+		}
 		if pollenErr == nil {
 			widget.Pollen = pollen
 		} else {
@@ -85,7 +98,9 @@ func (widget *environmentWidget) RenderExpanded() template.HTML {
 	return widget.renderTemplate(widget, environmentWidgetExpandedTemplate)
 }
 
-func (widget *environmentWidget) HasPollenProvider() bool { return widget.PollenAPIKey != "" }
+func (widget *environmentWidget) HasPollenProvider() bool {
+	return widget.PollenProvider == "st-louis-county" || widget.PollenAPIKey != ""
+}
 
 type environmentAirQuality struct {
 	USAQI           float64
@@ -144,22 +159,33 @@ func uvCategory(v float64) string {
 	}
 }
 
-type environmentPollen struct{ Days []environmentPollenDay }
+type environmentPollen struct {
+	Days     []environmentPollenDay
+	Provider string
+	Timezone string
+}
 type environmentPollenDay struct {
 	Date        string
 	OverallRisk string
 	Species     []environmentPollenSpecies
+	Categories  []environmentPollenSpecies
 }
 type environmentPollenSpecies struct {
-	Name      string
-	Category  string
-	Value     float64
-	RiskLevel string
+	Name        string
+	Category    string
+	Value       float64
+	RiskLevel   string
+	Unavailable bool
 }
 
-func (d environmentPollenDay) DisplayDate() string     { return environmentDisplayDate(d.Date) }
-func (d environmentPollenDay) DisplayRisk() string     { return environmentDisplayRisk(d.OverallRisk) }
-func (s environmentPollenSpecies) DisplayRisk() string { return environmentDisplayRisk(s.RiskLevel) }
+func (d environmentPollenDay) DisplayDate() string { return environmentDisplayDate(d.Date) }
+func (d environmentPollenDay) DisplayRisk() string { return environmentDisplayRisk(d.OverallRisk) }
+func (s environmentPollenSpecies) DisplayRisk() string {
+	if environmentRiskRank(s.RiskLevel) < 0 {
+		return "Unclassified"
+	}
+	return environmentDisplayRisk(s.RiskLevel)
+}
 
 func environmentDisplayDate(value string) string {
 	parsed, err := time.Parse("2006-01-02", value)
@@ -181,23 +207,19 @@ func (p *environmentPollen) Current() *environmentPollenDay {
 	if p == nil || len(p.Days) == 0 {
 		return nil
 	}
-	return &p.Days[0]
+	return p.currentAt(time.Now())
 }
 func (d *environmentPollenDay) ActiveSpecies() []environmentPollenSpecies {
 	if d == nil {
 		return nil
 	}
-	out := append([]environmentPollenSpecies(nil), d.Species...)
-	sort.Slice(out, func(i, j int) bool {
-		if out[i].Value != out[j].Value {
-			return out[i].Value > out[j].Value
+	out := []environmentPollenSpecies{}
+	for _, species := range d.AllSpecies() {
+		if !species.Unavailable && species.Value > 0 {
+			out = append(out, species)
 		}
-		return out[i].Name < out[j].Name
-	})
-	n := 0
-	for ; n < len(out) && out[n].Value > 0; n++ {
 	}
-	return out[:n]
+	return out
 }
 
 func (widget *environmentWidget) setDefaultTimeout(value durationField) {
