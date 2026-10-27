@@ -420,3 +420,7 @@ func seerrFormatDate(value string) string {
 	}
 	return value
 }
+
+func (widget *seerrWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
+}

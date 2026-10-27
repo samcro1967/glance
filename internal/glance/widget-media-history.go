@@ -144,3 +144,7 @@ func fetchJellyfinHistory(ctx context.Context, widget *mediaHistoryWidget) ([]me
 	}
 	return items, nil
 }
+
+func (widget *mediaHistoryWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
+}

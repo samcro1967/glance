@@ -158,3 +158,7 @@ func (widget *horoscopeWidget) PeriodTitle(period string) string {
 	}
 	return strings.ToUpper(period[:1]) + period[1:]
 }
+
+func (widget *horoscopeWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
+}

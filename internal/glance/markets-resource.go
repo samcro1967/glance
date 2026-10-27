@@ -16,20 +16,20 @@ var yahooMarketResourceCache = newKeyedResourceCache[string, marketResponseJson]
 	yahooMarketResourceIdleRetention,
 )
 
-func fetchYahooMarketResource(ctx context.Context, symbol string) (marketResponseJson, error) {
+func fetchYahooMarketResource(ctx context.Context, symbol string, timeouts ...durationField) (marketResponseJson, error) {
 	return yahooMarketResourceCache.Get(
 		ctx,
-		symbol,
+		resourceTimeoutKey(symbol, timeouts...),
 		func(cached cachedEntry[marketResponseJson], _ time.Time) bool {
 			return time.Since(cached.timestamp) < yahooMarketResourceCacheDuration
 		},
 		func(ctx context.Context) (marketResponseJson, error) {
-			return fetchYahooMarketResourceUncached(ctx, symbol)
+			return fetchYahooMarketResourceUncached(ctx, symbol, timeouts...)
 		},
 	)
 }
 
-func fetchYahooMarketResourceUncached(ctx context.Context, symbol string) (marketResponseJson, error) {
+func fetchYahooMarketResourceUncached(ctx context.Context, symbol string, timeouts ...durationField) (marketResponseJson, error) {
 	request, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
@@ -45,5 +45,5 @@ func fetchYahooMarketResourceUncached(ctx context.Context, symbol string) (marke
 
 	setBrowserUserAgentHeader(request)
 
-	return decodeJsonFromRequest[marketResponseJson](defaultHTTPClient, request)
+	return decodeJsonFromRequest[marketResponseJson](newProviderHTTPClient(timeouts...), request)
 }

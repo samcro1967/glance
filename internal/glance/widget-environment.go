@@ -15,8 +15,9 @@ var environmentWidgetExpandedTemplate = mustParseTemplate("environment-expanded.
 
 type environmentWidget struct {
 	widgetBase   `yaml:",inline"`
-	Location     string `yaml:"location"`
-	PollenAPIKey string `yaml:"pollen-api-key"`
+	Timeout      durationField `yaml:"timeout"`
+	Location     string        `yaml:"location"`
+	PollenAPIKey string        `yaml:"pollen-api-key"`
 
 	Place           *openMeteoPlaceResponseJson `yaml:"-"`
 	AirQuality      *environmentAirQuality      `yaml:"-"`
@@ -35,7 +36,7 @@ func (widget *environmentWidget) initialize() error {
 
 func (widget *environmentWidget) update(ctx context.Context) {
 	if widget.Place == nil {
-		place, err := fetchOpenMeteoPlaceResource(ctx, widget.Location)
+		place, err := fetchOpenMeteoPlaceResource(ctx, widget.Location, widget.Timeout)
 		if !widget.canContinueUpdateAfterHandlingErr(err) {
 			return
 		}
@@ -44,7 +45,7 @@ func (widget *environmentWidget) update(ctx context.Context) {
 
 	var providerErrors []error
 
-	air, airErr := fetchOpenMeteoEnvironmentResource(ctx, widget.Place)
+	air, airErr := fetchOpenMeteoEnvironmentResource(ctx, widget.Place, widget.Timeout)
 	if airErr == nil {
 		widget.AirQuality = air
 	} else {
@@ -54,7 +55,7 @@ func (widget *environmentWidget) update(ctx context.Context) {
 
 	widget.PollenError = nil
 	if widget.PollenAPIKey != "" {
-		pollen, pollenErr := fetchAtmoSporePollenResource(ctx, widget.Place, widget.PollenAPIKey)
+		pollen, pollenErr := fetchAtmoSporePollenResource(ctx, widget.Place, widget.PollenAPIKey, widget.Timeout)
 		if pollenErr == nil {
 			widget.Pollen = pollen
 		} else {
@@ -197,4 +198,8 @@ func (d *environmentPollenDay) ActiveSpecies() []environmentPollenSpecies {
 	for ; n < len(out) && out[n].Value > 0; n++ {
 	}
 	return out[:n]
+}
+
+func (widget *environmentWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
 }

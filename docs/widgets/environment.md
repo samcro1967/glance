@@ -66,6 +66,10 @@ Pollen concentrations are displayed in grains/m³. The widget uses AtmoSpore-pro
 >
 > Air quality and UV data are provided by Open-Meteo. Pollen data is provided by AtmoSpore and requires an AtmoSpore API key. Provider availability, forecasts, and classifications are controlled by those services.
 
+## HTTP request timeout
+
+Configure `timeout` on the widget, or inherit it from global/type defaults. The built-in default is 5s; explicit `0s` selects the central 5s baseline. The limit applies per HTTP request rather than to the complete refresh. See [HTTP request timeouts](../request-timeouts.md) for supported scopes, precedence, cache behavior, and exceptions.
+
 ---
 
 [Widgets](../widgets.md) · [Configuration](../configuration.md) · [Back to top](#environment)

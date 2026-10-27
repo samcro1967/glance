@@ -252,15 +252,15 @@ func TestMonitorResourceUsesCheckURLForIdentityAndRequest(t *testing.T) {
 	}
 }
 
-func TestMonitorResourceDefaultTimeoutMatchesExplicitThreeSeconds(t *testing.T) {
+func TestMonitorResourceDefaultTimeoutMatchesExplicitFiveSeconds(t *testing.T) {
 	defaultRequest := &SiteStatusRequest{DefaultURL: "https://example.invalid/status"}
 	explicitRequest := &SiteStatusRequest{
 		DefaultURL: "https://example.invalid/status",
-		Timeout:    durationField(3 * time.Second),
+		Timeout:    durationField(defaultClientTimeout),
 	}
 
 	if got, want := monitorResourceRequestKey(defaultRequest), monitorResourceRequestKey(explicitRequest); got != want {
-		t.Fatal("default timeout and explicit 3s timeout produced different keys")
+		t.Fatal("default timeout and explicit 5s timeout produced different keys")
 	}
 }
 

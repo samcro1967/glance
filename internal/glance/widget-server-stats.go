@@ -36,7 +36,7 @@ func (widget *serverStatsWidget) initialize() error {
 		server.URL = strings.TrimRight(server.URL, "/")
 
 		if server.Timeout == 0 {
-			server.Timeout = durationField(3 * time.Second)
+			server.Timeout = durationField(defaultClientTimeout)
 		}
 
 		mountpointOrder := ""
@@ -195,7 +195,7 @@ func (request *serverStatsRequest) UnmarshalYAML(node *yaml.Node) error {
 }
 
 func fetchRemoteServerInfo(ctx context.Context, infoReq *serverStatsRequest) (*sysinfo.SystemInfo, error) {
-	requestCtx, cancel := context.WithTimeout(ctx, time.Duration(infoReq.Timeout))
+	requestCtx, cancel := context.WithTimeout(ctx, resolveHTTPRequestTimeout(infoReq.Timeout))
 	defer cancel()
 
 	request, err := http.NewRequestWithContext(
@@ -212,7 +212,7 @@ func fetchRemoteServerInfo(ctx context.Context, infoReq *serverStatsRequest) (*s
 		request.Header.Set("Authorization", "Bearer "+infoReq.Token)
 	}
 
-	client := ternary(infoReq.AllowInsecure, defaultInsecureHTTPClient, defaultHTTPClient)
+	client := newHTTPClient(infoReq.Timeout, infoReq.AllowInsecure)
 	info, err := decodeJsonFromRequest[*sysinfo.SystemInfo](client, request)
 	if err != nil {
 		return nil, err

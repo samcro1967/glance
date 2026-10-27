@@ -17,6 +17,7 @@ const wiktionaryWordOfTheDayURL = "https://en.wiktionary.org/w/api.php?action=fe
 
 type wordOfTheDayWidget struct {
 	widgetBase `yaml:",inline"`
+	Timeout    durationField     `yaml:"timeout"`
 	Entry      wordOfTheDayEntry `yaml:"-"`
 }
 
@@ -45,7 +46,7 @@ func (w *wordOfTheDayWidget) update(ctx context.Context) {
 		return
 	}
 	req.Header.Set("User-Agent", glanceUserAgentString)
-	feed, err := decodeXmlFromRequest[wiktionaryFeed](defaultHTTPClient, req)
+	feed, err := decodeXmlFromRequest[wiktionaryFeed](newHTTPClient(w.Timeout, false), req)
 	if err != nil {
 		w.canContinueUpdateAfterHandlingErr(fmt.Errorf("fetching Wiktionary word of the day: %w", err))
 		return
@@ -181,4 +182,8 @@ func nodeText(n *xhtml.Node) string {
 	}
 	walk(n)
 	return b.String()
+}
+
+func (widget *wordOfTheDayWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
 }

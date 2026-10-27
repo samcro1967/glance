@@ -343,7 +343,7 @@ Applicability and inheritance scope are validated. A capability is applied only 
 
 List capabilities such as `limit` and `collapse-after` are not global defaults. They are available only for compatible widget types. `basic-auth` is also intentionally not global and is available only for compatible type, instance, or child/source scopes.
 
-HTTP defaults apply only to widgets whose endpoint semantics support them. Provider-owned services do not automatically inherit generic HTTP configuration merely because they perform network requests.
+HTTP defaults apply only to widgets whose endpoint semantics support them. Timeout support is declared explicitly for server-fetching widgets, including provider-owned services; this does not automatically enable headers, authentication, or insecure TLS options. See [HTTP request timeouts](request-timeouts.md) for the complete scope table, centralized five-second baseline, and documented exceptions.
 
 #### Child and source settings
 

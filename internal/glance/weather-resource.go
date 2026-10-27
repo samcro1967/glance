@@ -11,20 +11,21 @@ var openMeteoPlaceResourceCache = newKeyedResourceCache[string, *openMeteoPlaceR
 	openMeteoResourceIdleRetention,
 )
 
-func fetchOpenMeteoPlaceResource(ctx context.Context, location string) (*openMeteoPlaceResponseJson, error) {
+func fetchOpenMeteoPlaceResource(ctx context.Context, location string, timeouts ...durationField) (*openMeteoPlaceResponseJson, error) {
 	return openMeteoPlaceResourceCache.Get(
 		ctx,
-		location,
+		resourceTimeoutKey(location, timeouts...),
 		func(cachedEntry[*openMeteoPlaceResponseJson], time.Time) bool {
 			return true
 		},
 		func(ctx context.Context) (*openMeteoPlaceResponseJson, error) {
-			return fetchOpenMeteoPlaceFromName(ctx, location)
+			return fetchOpenMeteoPlaceFromName(ctx, location, timeouts...)
 		},
 	)
 }
 
 type openMeteoWeatherResourceKey struct {
+	Timeout   durationField
 	Latitude  float64
 	Longitude float64
 	Timezone  string
@@ -35,8 +36,9 @@ var openMeteoWeatherResourceCache = newKeyedResourceCache[openMeteoWeatherResour
 	openMeteoResourceIdleRetention,
 )
 
-func fetchOpenMeteoWeatherResource(ctx context.Context, place *openMeteoPlaceResponseJson, units string) (*weather, error) {
+func fetchOpenMeteoWeatherResource(ctx context.Context, place *openMeteoPlaceResponseJson, units string, timeouts ...durationField) (*weather, error) {
 	key := openMeteoWeatherResourceKey{
+		Timeout:   resourceTimeoutPolicy(timeouts...),
 		Latitude:  place.Latitude,
 		Longitude: place.Longitude,
 		Timezone:  place.Timezone,
@@ -50,7 +52,7 @@ func fetchOpenMeteoWeatherResource(ctx context.Context, place *openMeteoPlaceRes
 			return sameClockHour(cached.timestamp, now)
 		},
 		func(ctx context.Context) (*openMeteoWeatherResponseJson, error) {
-			return fetchOpenMeteoWeatherResponse(ctx, place, units)
+			return fetchOpenMeteoWeatherResponse(ctx, place, units, timeouts...)
 		},
 	)
 	if err != nil {

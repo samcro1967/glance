@@ -96,7 +96,7 @@ Properties for each site:
 | check-url | string | no | |
 | error-url | string | no | |
 | icon | string | no | |
-| timeout | string | no | 3s |
+| timeout | string | no | 5s |
 | allow-insecure | boolean | no | false |
 | headers | key & value | no | |
 | same-tab | boolean | no | false |
@@ -164,6 +164,10 @@ basic-auth:
 The expanded view presents the currently monitored services as a status table with service, status, HTTP code, response time, and any current request error. Use the filter to narrow the displayed services, or select a sortable column heading to cycle through ascending, descending, and original order. The interaction is client-side and temporary; the view uses the statuses from the normal widget refresh and does not perform additional health checks.
 
 ![Monitor expanded view](../images/widgets/monitor-expanded.png)
+
+## HTTP request timeout
+
+Configure `timeout` on entries in `sites`, or inherit it from global/type defaults. The built-in default is 5s; explicit `0s` selects the central 5s baseline. The limit applies per HTTP request rather than to the complete refresh. See [HTTP request timeouts](../request-timeouts.md) for supported scopes, precedence, cache behavior, and exceptions.
 
 ---
 

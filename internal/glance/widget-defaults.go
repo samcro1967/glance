@@ -323,7 +323,7 @@ func applyWidgetCapabilityDefaults(candidate widget, defaults widgetDefaultsConf
 
 	if resolved.Timeout != nil &&
 		widgetSupportsCapability(widgetDefaultsType(candidate), widgetCapabilityTimeout, widgetCapabilityScopeType) &&
-		!base.configuredFields["timeout"] {
+		(!base.configuredFields["timeout"] || widgetSupportsCapability(widgetDefaultsType(candidate), widgetCapabilityTimeout, widgetCapabilityScopeChild)) {
 		if setter, ok := candidate.(widgetTimeoutSetter); ok {
 			setter.setDefaultTimeout(*resolved.Timeout)
 		}

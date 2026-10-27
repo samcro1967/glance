@@ -398,3 +398,7 @@ func mediaPlayMethod(value string) string {
 		return value
 	}
 }
+
+func (widget *nowPlayingWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
+}

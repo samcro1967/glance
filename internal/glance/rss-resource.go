@@ -42,7 +42,7 @@ func rssResourceRequestKey(request *http.Request, options rssResourceRequestOpti
 	builder.WriteByte(0)
 	builder.WriteString(request.URL.String())
 	builder.WriteByte(0)
-	builder.WriteString(fmt.Sprintf("%d", options.Timeout))
+	builder.WriteString(fmt.Sprintf("%d", resolveHTTPRequestTimeout(options.Timeout)))
 	builder.WriteByte(0)
 	builder.WriteString(fmt.Sprintf("%t", options.AllowInsecure))
 	builder.WriteByte(0)

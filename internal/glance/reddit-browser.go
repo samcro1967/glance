@@ -197,17 +197,24 @@ func redditBrowserWebSocketURL(advertisedURL, relayEndpoint string) (string, err
 	return advertised.String(), nil
 }
 
-func redditBrowserConnect(ctx context.Context, endpoint string) (context.Context, context.CancelFunc, error) {
+func redditBrowserConnect(ctx context.Context, endpoint string, timeouts ...durationField) (context.Context, context.CancelFunc, error) {
 	endpoint = strings.TrimRight(endpoint, "/")
-	resolvedEndpoint, err := redditBrowserResolveEndpoint(ctx, endpoint)
+	// Bound metadata DNS and HTTP together, without attaching this short-lived
+	// context to the authenticated browser or its independent stage waits.
+	timeout := newProviderHTTPClient(timeouts...).Timeout
+	metadataCtx, cancelMetadata := context.WithTimeout(ctx, timeout)
+	defer cancelMetadata()
+	resolvedEndpoint, err := redditBrowserResolveEndpoint(metadataCtx, endpoint)
 	if err != nil {
 		return nil, nil, err
 	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, resolvedEndpoint+"/json/version", nil)
+	request, err := http.NewRequestWithContext(metadataCtx, http.MethodGet, resolvedEndpoint+"/json/version", nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("creating CDP metadata request: %w", err)
 	}
-	client := &http.Client{Timeout: 5 * time.Second}
+	// Preserve the CDP discovery transport and browser lifecycle; only its HTTP
+	// budget is configurable. This is not a browser login/navigation deadline.
+	client := &http.Client{Timeout: timeout}
 	response, err := client.Do(request)
 	if err != nil {
 		return nil, nil, fmt.Errorf("connecting to Playwright CDP: %w", err)
@@ -495,9 +502,9 @@ func redditBrowserDecodeListing(raw string, listing *subredditResponseJson) bool
 	return json.Unmarshal([]byte(raw), listing) == nil
 }
 
-func fetchRedditBrowserListing(ctx context.Context, cfg redditBrowserConfig, address string) (subredditResponseJson, error) {
+func fetchRedditBrowserListing(ctx context.Context, cfg redditBrowserConfig, address string, timeouts ...durationField) (subredditResponseJson, error) {
 	var listing subredditResponseJson
-	browser, cleanup, err := redditBrowserConnect(ctx, cfg.Endpoint)
+	browser, cleanup, err := redditBrowserConnect(ctx, cfg.Endpoint, timeouts...)
 	if err != nil {
 		return listing, err
 	}

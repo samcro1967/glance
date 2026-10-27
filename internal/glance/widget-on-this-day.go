@@ -15,6 +15,7 @@ const wikimediaOnThisDayURL = "https://api.wikimedia.org/feed/v1/wikipedia/en/on
 
 type onThisDayWidget struct {
 	widgetBase `yaml:",inline"`
+	Timeout    durationField    `yaml:"timeout"`
 	Limit      int              `yaml:"limit"`
 	Events     []onThisDayEvent `yaml:"-"`
 }
@@ -55,7 +56,7 @@ func (w *onThisDayWidget) update(ctx context.Context) {
 		return
 	}
 	req.Header.Set("User-Agent", glanceUserAgentString)
-	response, err := decodeJsonFromRequest[wikimediaOnThisDayResponse](defaultHTTPClient, req)
+	response, err := decodeJsonFromRequest[wikimediaOnThisDayResponse](newHTTPClient(w.Timeout, false), req)
 	if err != nil {
 		w.canContinueUpdateAfterHandlingErr(fmt.Errorf("fetching Wikimedia on this day: %w", err))
 		return
@@ -93,3 +94,7 @@ func (w *onThisDayWidget) update(ctx context.Context) {
 }
 func (w *onThisDayWidget) Render() template.HTML     { return w.renderTemplate(w, onThisDayWidgetTemplate) }
 func (w *onThisDayWidget) setDefaultLimit(value int) { w.Limit = value }
+
+func (widget *onThisDayWidget) setDefaultTimeout(value durationField) {
+	widget.Timeout = value
+}
