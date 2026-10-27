@@ -57,6 +57,8 @@ This widget also supports the [shared widget properties](../widgets.md#shared-pr
 ### `markets`
 An array of markets for which to display information about.
 
+The legacy `stocks` property remains accepted as a fallback when `markets` is not configured, but produces a deprecation warning. Use `markets` for new configurations. This warning does not fail `config:validate`.
+
 ### `sort-by`
 By default the markets are displayed in the order they were defined. You can customize their ordering by setting the `sort-by` property to `change` for descending order based on the stock's percentage change (e.g. 1% would be sorted higher than -1%) or `absolute-change` for descending order based on the stock's absolute price change (e.g. -1% would be sorted higher than +0.5%).
 

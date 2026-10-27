@@ -1978,7 +1978,6 @@ pages:
         widgets:
           - type: analog-clock
             title: Analog Clock
-            hour-format: 12h
 
           - type: calculator
             title: Calculator

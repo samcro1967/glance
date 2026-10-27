@@ -96,7 +96,8 @@ type config struct {
 	// failures that do not prevent the rest of the application from being constructed. The
 	// serve path logs them, while config:validate still treats them as invalid
 	// configuration so administrators do not lose validation coverage.
-	recoverableErrors []error `yaml:"-"`
+	recoverableErrors   []error                    `yaml:"-"`
+	propertyDiagnostics []configPropertyDiagnostic `yaml:"-"`
 }
 
 type user struct {
@@ -512,6 +513,10 @@ func newConfigFromParsedYAML(parsed *parsedYAMLConfig) (*config, error) {
 	err = yaml.Unmarshal(contents, config)
 	if err != nil {
 		return nil, configDiagnosticFromYAMLError(parsed, err)
+	}
+	config.propertyDiagnostics, err = inspectConfigProperties(contents, parsed)
+	if err != nil {
+		return nil, err
 	}
 
 	if err = captureThemeConfiguredFields(config, contents); err != nil {

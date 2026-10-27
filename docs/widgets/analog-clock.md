@@ -4,6 +4,8 @@
 
 Display an analog clock showing the current time. Optionally, display the date, AM/PM indicator, numerical dial markers, and clocks for additional timezones.
 
+The clock uses a fixed 12-hour dial. It does not support an `hour-format` setting or a 24-hour dial; `hide-am-pm-indicator` only controls the AM/PM label. For a digital 24-hour display, use the [Clock widget](clock.md) with `hour-format: 24h`.
+
 ## Quick start
 
 ```yaml
