@@ -77,6 +77,7 @@ func (widget *monitorWidget) initialize() error {
 }
 
 func (widget *monitorWidget) update(ctx context.Context) {
+	ctx = withWidgetResourceFreshness(ctx, &widget.widgetBase)
 	requests := make([]*SiteStatusRequest, len(widget.Sites))
 
 	for i := range widget.Sites {

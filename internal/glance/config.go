@@ -502,6 +502,10 @@ func normalizeAndValidateCompiledConfigWithSources(
 }
 
 func newConfigFromParsedYAML(parsed *parsedYAMLConfig) (*config, error) {
+	// Expansion can add lines. Keep the watcher's original include/source map
+	// unchanged and give this compilation its own expanded source mapping.
+	compiled := *parsed
+	parsed = &compiled
 	contents, err := parseConfigVariablesWithSources(parsed.Contents, parsed)
 	if err != nil {
 		return nil, err
@@ -808,6 +812,7 @@ func parseConfigVariablesWithSources(contents []byte, parsed *parsedYAMLConfig) 
 	// must survive line boundaries, while generated line numbers remain stable.
 	var scan yamlVariableScanState
 	lines := bytes.Split(contents, []byte("\n"))
+	var expandedSources []configSourceLocation
 	for i, line := range lines {
 		generatedLine = i + 1
 		commentIdx := scan.commentStart(line)
@@ -820,10 +825,18 @@ func parseConfigVariablesWithSources(contents []byte, parsed *parsedYAMLConfig) 
 		} else {
 			lines[i] = configVariablePattern.ReplaceAllFunc(line, replaceFunc)
 		}
+		if parsed != nil && i < len(parsed.Sources) {
+			for range bytes.Count(lines[i], []byte("\n")) + 1 {
+				expandedSources = append(expandedSources, parsed.Sources[i])
+			}
+		}
 	}
 
 	if err != nil {
 		return nil, semanticConfigDiagnostic(parsed, errorLine, err)
+	}
+	if parsed != nil && len(expandedSources) > 0 {
+		parsed.Sources = expandedSources
 	}
 
 	return bytes.Join(lines, []byte("\n")), nil

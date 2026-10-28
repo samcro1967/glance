@@ -114,6 +114,10 @@ func (d *durationField) UnmarshalYAML(node *yaml.Node) error {
 	if err != nil {
 		return err
 	}
+	unit := map[string]time.Duration{"s": time.Second, "m": time.Minute, "h": time.Hour, "d": 24 * time.Hour}[matches[2]]
+	if int64(duration) > int64(1<<63-1)/int64(unit) {
+		return fmt.Errorf("duration out of range: %s", value)
+	}
 
 	switch matches[2] {
 	case "s":

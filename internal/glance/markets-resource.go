@@ -20,8 +20,8 @@ func fetchYahooMarketResource(ctx context.Context, symbol string, timeouts ...du
 	return yahooMarketResourceCache.Get(
 		ctx,
 		resourceTimeoutKey(symbol, timeouts...),
-		func(cached cachedEntry[marketResponseJson], _ time.Time) bool {
-			return time.Since(cached.timestamp) < yahooMarketResourceCacheDuration
+		func(cached cachedEntry[marketResponseJson], now time.Time) bool {
+			return resourceFreshEnough(ctx, cached.timestamp, now, yahooMarketResourceCacheDuration)
 		},
 		func(ctx context.Context) (marketResponseJson, error) {
 			return fetchYahooMarketResourceUncached(ctx, symbol, timeouts...)
