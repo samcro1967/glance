@@ -64,6 +64,7 @@ func (widget *calendarWidget) initialize() error {
 	}
 
 	widget.FirstDay = int(calendarWeekdaysToInt[widget.FirstDayOfWeek])
+	widget.now = time.Now
 
 	if err := validateICSSources(widget.Sources, false); err != nil {
 		return err
@@ -77,7 +78,6 @@ func (widget *calendarWidget) initialize() error {
 
 	widget.withCacheDuration(30 * time.Minute)
 	widget.cachedSources = newICSSourceCache()
-	widget.now = time.Now
 
 	return nil
 }

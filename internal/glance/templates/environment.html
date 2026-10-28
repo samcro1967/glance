@@ -3,14 +3,14 @@
 <div class="environment-widget widget-small-content-bounds">
   {{ if .AirQuality }}
   <div class="environment-primary">
-    <div><div class="size-h6 color-subdue">AIR QUALITY</div><div class="size-h2 color-highlight">{{ printf "%.0f" .AirQuality.USAQI }}</div><div>{{ .AirQuality.USAQICategory }}</div></div>
-    <div><div class="size-h6 color-subdue">UV</div><div class="size-h2 color-highlight">{{ printf "%.1f" .AirQuality.UVIndex }}</div><div>{{ .AirQuality.UVCategory }}</div></div>
+    <div><div class="size-h6 color-subdue">AIR QUALITY</div><div class="size-h2 color-highlight">{{ .AirQuality.DisplayValue "us_aqi" .AirQuality.USAQI 0 }}</div><div>{{ if .AirQuality.HasMeasurement "us_aqi" }}{{ .AirQuality.USAQICategory }}{{ end }}</div></div>
+    <div><div class="size-h6 color-subdue">UV</div><div class="size-h2 color-highlight">{{ .AirQuality.DisplayValue "uv_index" .AirQuality.UVIndex 1 }}</div><div>{{ if .AirQuality.HasMeasurement "uv_index" }}{{ .AirQuality.UVCategory }}{{ end }}</div></div>
   </div>
   <div class="environment-measures">
-    <div><span class="color-subdue">PM2.5</span><strong>{{ printf "%.1f" .AirQuality.PM25 }}</strong><span class="color-subdue">µg/m³</span></div>
-    <div><span class="color-subdue">PM10</span><strong>{{ printf "%.1f" .AirQuality.PM10 }}</strong><span class="color-subdue">µg/m³</span></div>
-    <div><span class="color-subdue">Ozone</span><strong>{{ printf "%.1f" .AirQuality.Ozone }}</strong><span class="color-subdue">µg/m³</span></div>
-    <div><span class="color-subdue">NO₂</span><strong>{{ printf "%.1f" .AirQuality.NitrogenDioxide }}</strong><span class="color-subdue">µg/m³</span></div>
+    <div><span class="color-subdue">PM2.5</span><strong>{{ .AirQuality.DisplayValue "pm2_5" .AirQuality.PM25 1 }}</strong><span class="color-subdue">µg/m³</span></div>
+    <div><span class="color-subdue">PM10</span><strong>{{ .AirQuality.DisplayValue "pm10" .AirQuality.PM10 1 }}</strong><span class="color-subdue">µg/m³</span></div>
+    <div><span class="color-subdue">Ozone</span><strong>{{ .AirQuality.DisplayValue "ozone" .AirQuality.Ozone 1 }}</strong><span class="color-subdue">µg/m³</span></div>
+    <div><span class="color-subdue">NO₂</span><strong>{{ .AirQuality.DisplayValue "nitrogen_dioxide" .AirQuality.NitrogenDioxide 1 }}</strong><span class="color-subdue">µg/m³</span></div>
   </div>
   {{ end }}
   {{ if .Pollen }}

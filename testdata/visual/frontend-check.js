@@ -830,6 +830,22 @@ async function main() {
       menu.style.cssText = original.style;
     }, dashboardMenuOriginal);
     console.log("PASS real dashboard menu without unnecessary scrollbars");
+    for (const activation of ["Enter", "Space"]) {
+      await dashboardMenuTrigger.focus();
+      await page.keyboard.press(activation);
+      await popoverContainer.waitFor({ state: "visible" });
+      if (!(await popoverContainer.evaluate(element => element.contains(document.activeElement)))) {
+        throw new Error("Keyboard-opened dashboard menu did not receive focus");
+      }
+      await page.keyboard.press("ArrowDown");
+      await page.keyboard.press("Escape");
+      await popoverContainer.waitFor({ state: "hidden" });
+      if (!(await dashboardMenuTrigger.evaluate(element => element === document.activeElement))) {
+        throw new Error("Dashboard menu did not restore trigger focus");
+      }
+    }
+    console.log("PASS dashboard menu keyboard focus and Escape restoration");
+
 
     // The deterministic runtime is a dev build. Footer template tests cover
     // release metadata; this fixture exercises its real shared popover contract.

@@ -103,6 +103,7 @@ func (widget *environmentWidget) HasPollenProvider() bool {
 }
 
 type environmentAirQuality struct {
+	Unavailable     map[string]bool
 	USAQI           float64
 	EuropeanAQI     float64
 	PM25            float64
@@ -123,8 +124,25 @@ type environmentAirQualityDay struct {
 	HasUVIndex bool
 }
 
-func (a *environmentAirQuality) USAQICategory() string { return usAQICategory(a.USAQI) }
-func (a *environmentAirQuality) UVCategory() string    { return uvCategory(a.UVIndex) }
+func (a *environmentAirQuality) HasMeasurement(name string) bool { return !a.Unavailable[name] }
+func (a *environmentAirQuality) DisplayValue(name string, value float64, precision int) string {
+	if !a.HasMeasurement(name) {
+		return "Unavailable"
+	}
+	return fmt.Sprintf("%.*f", precision, value)
+}
+func (a *environmentAirQuality) USAQICategory() string {
+	if !a.HasMeasurement("us_aqi") {
+		return "Unavailable"
+	}
+	return usAQICategory(a.USAQI)
+}
+func (a *environmentAirQuality) UVCategory() string {
+	if !a.HasMeasurement("uv_index") {
+		return "Unavailable"
+	}
+	return uvCategory(a.UVIndex)
+}
 
 func (d environmentAirQualityDay) DisplayDate() string { return environmentDisplayDate(d.Date) }
 
