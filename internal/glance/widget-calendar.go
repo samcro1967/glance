@@ -71,7 +71,7 @@ func (widget *calendarWidget) initialize() error {
 
 	if len(widget.Sources) == 0 {
 		widget.withError(nil)
-		widget.cachedHTML = widget.renderTemplate(widget, calendarWidgetTemplate)
+		widget.cacheStaticTemplate(widget, calendarWidgetTemplate, &widget.cachedHTML)
 		return nil
 	}
 
@@ -88,7 +88,7 @@ func (widget *calendarWidget) setDefaultCollapseAfter(value int) {
 
 func (widget *calendarWidget) Render() template.HTML {
 	if len(widget.Sources) == 0 {
-		return widget.cachedHTML
+		return widget.renderCachedTemplate()
 	}
 
 	return widget.renderTemplate(widget, calendarWidgetTemplate)

@@ -149,7 +149,7 @@ func newApplication(c *config) (*application, error) {
 	return newApplicationWithOIDCRuntime(c, nil)
 }
 
-func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime) (*application, error) {
+func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime, reusableProxy ...*resourceProxy) (*application, error) {
 	app := &application{
 		Version:             buildVersion,
 		ShortRevision:       shortBuildRevision(buildRevision),
@@ -169,6 +169,12 @@ func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime) (*appli
 	app.resourceProxy, err = newResourceProxy(config.Server.ResourceProxy.AllowedOrigins)
 	if err != nil {
 		return nil, fmt.Errorf("initializing resource proxy policy: %w", err)
+	}
+	// Normalized origin policy is immutable. Retain opaque image registrations
+	// when it is unchanged so reused data/HTML and existing browser image URLs
+	// remain valid. A policy change still gets a fresh registry and fresh widgets.
+	if len(reusableProxy) > 0 && resourceProxyPoliciesEqual(reusableProxy[0], app.resourceProxy) {
+		app.resourceProxy = reusableProxy[0]
 	}
 
 	for _, trustedProxy := range config.Server.TrustedProxies {

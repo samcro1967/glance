@@ -12,10 +12,10 @@ type stopwatchWidget struct {
 
 func (widget *stopwatchWidget) initialize() error {
 	widget.withTitle("Stopwatch").withError(nil)
-	widget.cachedHTML = widget.renderTemplate(widget, stopwatchWidgetTemplate)
+	widget.cacheStaticTemplate(widget, stopwatchWidgetTemplate, &widget.cachedHTML)
 	return nil
 }
 
 func (widget *stopwatchWidget) Render() template.HTML {
-	return widget.cachedHTML
+	return widget.renderCachedTemplate()
 }

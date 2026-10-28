@@ -105,13 +105,13 @@ func (widget *bookmarksWidget) initialize() error {
 		template = bookmarksWidgetHorizontalTemplate
 	}
 
-	widget.cachedHTML = widget.renderTemplate(widget, template)
+	widget.cacheStaticTemplate(widget, template, &widget.cachedHTML)
 
 	return nil
 }
 
 func (widget *bookmarksWidget) Render() template.HTML {
-	return widget.cachedHTML
+	return widget.renderCachedTemplate()
 }
 
 func (widget *bookmarksWidget) setDefaultNewTab(value bool) {

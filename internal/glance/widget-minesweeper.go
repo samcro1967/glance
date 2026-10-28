@@ -28,12 +28,12 @@ func (widget *minesweeperWidget) initialize() error {
 	}
 
 	widget.withTitle("Minesweeper").withError(nil)
-	widget.cachedHTML = widget.renderTemplate(widget, minesweeperWidgetTemplate)
+	widget.cacheStaticTemplate(widget, minesweeperWidgetTemplate, &widget.cachedHTML)
 	return nil
 }
 
 func (widget *minesweeperWidget) Render() template.HTML {
-	return widget.cachedHTML
+	return widget.renderCachedTemplate()
 }
 
 func (widget *minesweeperWidget) RenderExpanded() template.HTML {
