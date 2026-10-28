@@ -29,14 +29,12 @@ func (widget *unitConverterWidget) initialize() error {
 	}
 
 	widget.CatalogJSON = template.JS(unitConverterCatalogJSON)
-	widget.cachedHTML = widget.renderTemplate(
-		widget,
-		unitConverterWidgetTemplate,
-	)
+	widget.cacheStaticTemplate(widget,
+		unitConverterWidgetTemplate, &widget.cachedHTML)
 
 	return nil
 }
 
 func (widget *unitConverterWidget) Render() template.HTML {
-	return widget.cachedHTML
+	return widget.renderCachedTemplate()
 }

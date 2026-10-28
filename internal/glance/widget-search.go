@@ -107,7 +107,7 @@ func (widget *searchWidget) initialize() error {
 		widget.Bangs[i].URL = convertSearchUrl(widget.Bangs[i].URL)
 	}
 
-	widget.cachedHTML = widget.renderTemplate(widget, searchWidgetTemplate)
+	widget.cacheStaticTemplate(widget, searchWidgetTemplate, &widget.cachedHTML)
 	return nil
 }
 
@@ -211,7 +211,7 @@ func safeSearchDestination(raw string) bool {
 }
 
 func (widget *searchWidget) Render() template.HTML {
-	return widget.cachedHTML
+	return widget.renderCachedTemplate()
 }
 
 func (widget *searchWidget) setDefaultNewTab(value bool) {

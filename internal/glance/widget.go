@@ -169,15 +169,11 @@ type yamlConfiguredFields map[string]bool
 
 func yamlMappingFields(node *yaml.Node) yamlConfiguredFields {
 	fields := make(yamlConfiguredFields)
-
-	if node == nil || node.Kind != yaml.MappingNode {
-		return fields
+	// Use the same effective keys as YAML decoding and property diagnostics.
+	// Explicit false/zero values from aliases and merges still override defaults.
+	for _, property := range configYAMLProperties(node, make(map[*yaml.Node]bool)) {
+		fields[property.key.Value] = true
 	}
-
-	for i := 0; i+1 < len(node.Content); i += 2 {
-		fields[node.Content[i].Value] = true
-	}
-
 	return fields
 }
 
@@ -344,6 +340,9 @@ type widgetBase struct {
 	Error                   error                  `yaml:"-"`
 	Notice                  error                  `yaml:"-"`
 	templateBuffer          bytes.Buffer           `yaml:"-"`
+	cachedTemplateRenderer  func() template.HTML   `yaml:"-"`
+	cachedTemplateHTML      *template.HTML         `yaml:"-"`
+	cachedTemplateDirty     bool                   `yaml:"-"`
 	cacheDuration           time.Duration          `yaml:"-"`
 	cacheCronSchedule       cron.Schedule          `yaml:"-"`
 	cacheType               cacheType              `yaml:"-"`
@@ -461,9 +460,31 @@ func (w *widgetBase) getWidgetBase() *widgetBase {
 
 func (w *widgetBase) setProviders(providers *widgetProviders) {
 	w.Providers = providers
+	w.cachedTemplateDirty = true
 	if providers != nil {
 		w.Icon.resolveResourceProxy(providers.resourceProxyURL)
 	}
+}
+
+// Static widgets are initialized before their application providers exist.
+// Defer rebinding their cached presentation until Render, after all child icons
+// have been resolved too. This also handles compatible widget reuse on reload.
+func (w *widgetBase) cacheStaticTemplate(data any, t *template.Template, output *template.HTML) {
+	w.cachedTemplateRenderer = func() template.HTML { return w.renderTemplate(data, t) }
+	w.cachedTemplateHTML = output
+	*output = w.cachedTemplateRenderer()
+	w.cachedTemplateDirty = false
+}
+
+func (w *widgetBase) renderCachedTemplate() template.HTML {
+	if w.cachedTemplateHTML == nil {
+		return ""
+	}
+	if w.cachedTemplateDirty && w.cachedTemplateRenderer != nil {
+		*w.cachedTemplateHTML = w.cachedTemplateRenderer()
+		w.cachedTemplateDirty = false
+	}
+	return *w.cachedTemplateHTML
 }
 
 func resolveBrowserImageURL(rawURL string, resolver func(string) (string, error)) (string, error) {
@@ -641,6 +662,7 @@ func (w *widgetBase) withError(err error) *widgetBase {
 }
 
 func (w *widgetBase) canContinueUpdateAfterHandlingErr(err error) bool {
+	err = safeHTTPTransportError(err)
 	if err != nil {
 		failureClass := classifyRefreshFailure(err)
 

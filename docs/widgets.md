@@ -61,7 +61,7 @@ cache: 1d  # 1 day
 
 > [!NOTE]
 >
-> Not all widgets can have their cache duration modified. The calendar and weather widgets update on the hour and this cannot be changed.
+> Caching depends on the widget. Calendar without sources is static; Calendar with iCalendar sources supports a configurable duration (30 minutes by default). Weather and Environment normally update on the hour. Supported refreshable widgets can use `cache-cron` instead of a duration. Monitor and Markets shared resources respect a shorter configured widget cache interval; cron-triggered checks request fresh data while equivalent in-flight requests can still be shared.
 
 ### `css-class`
 Set custom CSS classes for the specific widget instance.

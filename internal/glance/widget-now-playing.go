@@ -200,7 +200,7 @@ func fetchPlexNowPlaying(ctx context.Context, widget *nowPlayingWidget) ([]nowPl
 	request.Header.Set("Accept", "application/json")
 	response, err := newHTTPClient(widget.Timeout, widget.AllowInsecure).Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("requesting Plex now playing: %w", err)
+		return nil, fmt.Errorf("requesting Plex now playing: %w", safeHTTPTransportError(err))
 	}
 	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusOK {
@@ -259,7 +259,7 @@ func fetchJellyfinNowPlaying(ctx context.Context, widget *nowPlayingWidget) ([]n
 	request.Header.Set("Accept", "application/json")
 	response, err := newHTTPClient(widget.Timeout, widget.AllowInsecure).Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("requesting %s now playing: %w", widget.Service, err)
+		return nil, fmt.Errorf("requesting %s now playing: %w", widget.Service, safeHTTPTransportError(err))
 	}
 	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusOK {
@@ -313,7 +313,7 @@ func fetchNavidromeNowPlaying(ctx context.Context, widget *nowPlayingWidget) ([]
 	}
 	response, err := newHTTPClient(widget.Timeout, widget.AllowInsecure).Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("requesting Navidrome now playing: %w", err)
+		return nil, fmt.Errorf("requesting Navidrome now playing: %w", safeHTTPTransportError(err))
 	}
 	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusOK {
@@ -402,3 +402,5 @@ func mediaPlayMethod(value string) string {
 func (widget *nowPlayingWidget) setDefaultTimeout(value durationField) {
 	widget.Timeout = value
 }
+
+func (widget *nowPlayingWidget) setDefaultAllowInsecure(value bool) { widget.AllowInsecure = value }

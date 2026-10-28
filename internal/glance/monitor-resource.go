@@ -69,7 +69,7 @@ func fetchMonitorSiteResource(ctx context.Context, request *SiteStatusRequest) (
 		ctx,
 		key,
 		func(cached cachedEntry[siteStatus], now time.Time) bool {
-			return now.Sub(cached.timestamp) < monitorResourceCacheDuration
+			return resourceFreshEnough(ctx, cached.timestamp, now, monitorResourceCacheDuration)
 		},
 		func(ctx context.Context) (siteStatus, error) {
 			return fetchMonitorSiteResourceUncached(ctx, request)

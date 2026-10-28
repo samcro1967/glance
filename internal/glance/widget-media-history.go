@@ -95,7 +95,7 @@ func fetchPlexHistory(ctx context.Context, widget *mediaHistoryWidget) ([]mediaI
 	request.Header.Set("Accept", "application/json")
 	response, err := newHTTPClient(widget.Timeout, widget.AllowInsecure).Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("requesting Plex media history: %w", err)
+		return nil, fmt.Errorf("requesting Plex media history: %w", safeHTTPTransportError(err))
 	}
 	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusOK {
@@ -124,7 +124,7 @@ func fetchJellyfinHistory(ctx context.Context, widget *mediaHistoryWidget) ([]me
 	request.Header.Set("Accept", "application/json")
 	response, err := newHTTPClient(widget.Timeout, widget.AllowInsecure).Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("requesting %s media history: %w", widget.Service, err)
+		return nil, fmt.Errorf("requesting %s media history: %w", widget.Service, safeHTTPTransportError(err))
 	}
 	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusOK {
@@ -148,3 +148,7 @@ func fetchJellyfinHistory(ctx context.Context, widget *mediaHistoryWidget) ([]me
 func (widget *mediaHistoryWidget) setDefaultTimeout(value durationField) {
 	widget.Timeout = value
 }
+
+func (widget *mediaHistoryWidget) setDefaultAllowInsecure(value bool) { widget.AllowInsecure = value }
+
+func (widget *mediaHistoryWidget) setDefaultCollapseAfter(value int) { widget.CollapseAfter = value }

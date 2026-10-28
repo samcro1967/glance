@@ -64,6 +64,7 @@ func (widget *calendarWidget) initialize() error {
 	}
 
 	widget.FirstDay = int(calendarWeekdaysToInt[widget.FirstDayOfWeek])
+	widget.now = time.Now
 
 	if err := validateICSSources(widget.Sources, false); err != nil {
 		return err
@@ -71,13 +72,12 @@ func (widget *calendarWidget) initialize() error {
 
 	if len(widget.Sources) == 0 {
 		widget.withError(nil)
-		widget.cachedHTML = widget.renderTemplate(widget, calendarWidgetTemplate)
+		widget.cacheStaticTemplate(widget, calendarWidgetTemplate, &widget.cachedHTML)
 		return nil
 	}
 
 	widget.withCacheDuration(30 * time.Minute)
 	widget.cachedSources = newICSSourceCache()
-	widget.now = time.Now
 
 	return nil
 }
@@ -88,7 +88,7 @@ func (widget *calendarWidget) setDefaultCollapseAfter(value int) {
 
 func (widget *calendarWidget) Render() template.HTML {
 	if len(widget.Sources) == 0 {
-		return widget.cachedHTML
+		return widget.renderCachedTemplate()
 	}
 
 	return widget.renderTemplate(widget, calendarWidgetTemplate)

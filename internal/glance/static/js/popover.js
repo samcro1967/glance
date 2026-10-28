@@ -8,12 +8,14 @@ let activeTarget = null;
 let pendingTarget = null;
 let cleanupOnHidePopover = null;
 let togglePopoverTimeout = null;
+let focusNextPopover = false;
 
 const containerElement = document.createElement("div");
 const containerComputedStyle = getComputedStyle(containerElement);
 containerElement.addEventListener("mouseenter", clearTogglePopoverTimeout);
 containerElement.addEventListener("mouseleave", handleMouseLeave);
 containerElement.classList.add("popover-container");
+containerElement.id = "glance-popover";
 
 const frameElement = document.createElement("div");
 frameElement.classList.add("popover-frame");
@@ -52,6 +54,7 @@ function handleMouseLeave(event) {
     clearTogglePopoverTimeout();
     // Opted-in keyboard tooltips stay open while their trigger retains focus.
     if (activeTarget?.hasAttribute("data-popover-focus") && activeTarget === document.activeElement) return;
+    if (activeTarget?.dataset.popoverTrigger === "click" && containerElement.contains(document.activeElement)) return;
     const target = activeTarget || event.target;
     togglePopoverTimeout = setTimeout(hidePopover, target.dataset.popoverHideDelay || defaultHideDelayMs);
 }
@@ -76,7 +79,16 @@ function handleKeyboardActivation(event) {
     }
 
     event.preventDefault();
-    handleMouseEnter(event);
+    clearTogglePopoverTimeout();
+    if (activeTarget === event.currentTarget) {
+        pendingTarget = null;
+        hidePopover();
+        return;
+    }
+    hidePopover();
+    pendingTarget = event.currentTarget;
+    focusNextPopover = true;
+    showPopover();
 }
 
 function handleHidePopoverOnOutsideClick(event) {
@@ -151,6 +163,14 @@ function showPopover() {
     window.addEventListener("scroll", queueRepositionContainer);
     window.addEventListener("resize", queueRepositionContainer);
     observer.observe(containerElement);
+    // Interactive popovers move out of the trigger's DOM position. Keyboard
+    // activation must move focus with them instead of leaving actions at the
+    // end of the document's tab order. Passive tooltips retain their behavior.
+    if (focusNextPopover && activeTarget.dataset.popoverTrigger === "click") {
+        repositionContainer();
+        popoverActions()[0]?.focus({ preventScroll: true });
+    }
+    focusNextPopover = false;
 }
 
 function repositionContainer() {
@@ -235,11 +255,36 @@ function hidePopover() {
     }
 
     activeTarget = null;
+    focusNextPopover = false;
+}
+
+function popoverActions() {
+    return Array.from(contentElement.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]'))
+        .filter(element => element.getClientRects().length > 0);
 }
 
 function handleHidePopoverOnEscape(event) {
     if (event.key === "Escape") {
+        const target = activeTarget;
         hidePopover();
+        if (target?.dataset.popoverTrigger === "click") target.focus({ preventScroll: true });
+        return;
+    }
+    if (activeTarget?.dataset.popoverTrigger !== "click" || !containerElement.contains(document.activeElement)) return;
+    const actions = popoverActions();
+    const index = actions.indexOf(document.activeElement);
+    if (event.key === "ArrowDown" || event.key === "ArrowUp" || event.key === "Home" || event.key === "End") {
+        event.preventDefault();
+        let next = event.key === "Home" ? 0 : event.key === "End" ? actions.length - 1 : (index + (event.key === "ArrowDown" ? 1 : -1) + actions.length) % actions.length;
+        actions[next]?.focus({ preventScroll: true });
+    } else if (event.key === "Tab" && ((event.shiftKey && index === 0) || (!event.shiftKey && index === actions.length - 1))) {
+        event.preventDefault();
+        const target = activeTarget;
+        const candidates = Array.from(document.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex="0"]'))
+            .filter(element => !containerElement.contains(element) && element.getClientRects().length > 0);
+        const next = event.shiftKey ? target : candidates[candidates.indexOf(target) + 1] || target;
+        hidePopover();
+        next.focus({ preventScroll: true });
     }
 }
 
@@ -265,6 +310,8 @@ export function setupPopovers(root = document) {
         }
 
         if (target.dataset.popoverTrigger === "click") {
+            target.setAttribute("aria-expanded", "false");
+            target.setAttribute("aria-controls", containerElement.id);
             target.addEventListener("click", handleMouseEnter);
             target.addEventListener("keydown", handleKeyboardActivation);
         } else {

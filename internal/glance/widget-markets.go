@@ -50,6 +50,7 @@ func (widget *marketsWidget) initialize() error {
 }
 
 func (widget *marketsWidget) update(ctx context.Context) {
+	ctx = withWidgetResourceFreshness(ctx, &widget.widgetBase)
 	markets, err := fetchMarketsDataFromYahoo(ctx, widget.MarketRequests, widget.Timeout)
 
 	if !widget.canContinueUpdateAfterHandlingErr(err) {

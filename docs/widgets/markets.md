@@ -101,6 +101,10 @@ The link to go to when clicking on the symbol.
 The link to go to when clicking on the chart.
 
 
+## Shared resource freshness
+
+A shorter configured `cache` interval also limits reuse of the underlying shared result. A scheduled `cache-cron` refresh requests fresh data. Equivalent in-flight requests can still be shared across widgets with different schedules.
+
 ## HTTP request timeout
 
 Configure `timeout` on the widget, or inherit it from global/type defaults. The built-in default is 5s; explicit `0s` selects the central 5s baseline. The limit applies per HTTP request rather than to the complete refresh. See [HTTP request timeouts](../request-timeouts.md) for supported scopes, precedence, cache behavior, and exceptions.
