@@ -21,7 +21,16 @@ func checkHTTPRequestRedirect(request *http.Request, via []*http.Request) error 
 		return nil
 	}
 	for _, previous := range via {
-		if httpRequestHasCredentials(previous) && !httpURLsShareOrigin(previous.URL, request.URL) {
+		candidate := previous
+		// Go adds Referer on redirects when the original request has none.
+		// Earlier requests are checked separately for URL credentials; this
+		// generated header must not turn a public redirect into a private one.
+		// Explicitly configured Referer headers remain protected.
+		if via[0].Header.Get("Referer") == "" && previous.Header.Get("Referer") != "" {
+			candidate = previous.Clone(previous.Context())
+			candidate.Header.Del("Referer")
+		}
+		if httpRequestHasCredentials(candidate) && !httpURLsShareOrigin(previous.URL, request.URL) {
 			return errHTTPCredentialRedirect
 		}
 	}

@@ -87,3 +87,48 @@ func TestRequestPolicyRedirectOriginsAndCredentials(t *testing.T) {
 		}
 	}
 }
+
+func TestRequestPolicyPublicRedirectChain(t *testing.T) {
+	for _, credential := range []string{"none", "referer", "query", "header", "redirect-query"} {
+		t.Run(credential, func(t *testing.T) {
+			received := false
+			wave3Transport(t, func(r *http.Request) (*http.Response, error) {
+				switch r.URL.Path {
+				case "/start":
+					destination := "https://feed.invalid/middle"
+					if credential == "redirect-query" {
+						destination += "?token=PRIVATE"
+					}
+					return wave3Response(302, "", map[string]string{"Location": destination}), nil
+				case "/middle":
+					return wave3Response(302, "", map[string]string{"Location": "https://cdn.invalid/final"}), nil
+				default:
+					received = true
+					return wave3Response(200, "feed", nil), nil
+				}
+			})
+			address := "https://feed.invalid/start"
+			if credential == "query" {
+				address += "?token=PRIVATE"
+			}
+			request, _ := http.NewRequest("GET", address, nil)
+			if credential == "referer" {
+				request.Header.Set("Referer", "https://private.invalid/SECRET")
+			}
+			if credential == "header" {
+				request.Header.Set("X-Api-Key", "PRIVATE")
+			}
+			response, err := newHTTPClient(0, false).Do(request)
+			if response != nil {
+				_ = response.Body.Close()
+			}
+			if credential != "none" {
+				if !errors.Is(err, errHTTPCredentialRedirect) || received {
+					t.Fatalf("private request escaped: %v", err)
+				}
+			} else if err != nil || !received {
+				t.Fatalf("public redirect chain failed: %v", err)
+			}
+		})
+	}
+}
