@@ -14,12 +14,12 @@ type game2048Widget struct {
 
 func (widget *game2048Widget) initialize() error {
 	widget.withTitle("2048").withError(nil)
-	widget.cachedHTML = widget.renderTemplate(widget, game2048WidgetTemplate)
+	widget.cacheStaticTemplate(widget, game2048WidgetTemplate, &widget.cachedHTML)
 	return nil
 }
 
 func (widget *game2048Widget) Render() template.HTML {
-	return widget.cachedHTML
+	return widget.renderCachedTemplate()
 }
 
 func (widget *game2048Widget) RenderExpanded() template.HTML {

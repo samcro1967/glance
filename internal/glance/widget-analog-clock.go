@@ -46,11 +46,11 @@ func (widget *analogClockWidget) initialize() error {
 		}
 	}
 
-	widget.cachedHTML = widget.renderTemplate(widget, analogClockWidgetTemplate)
+	widget.cacheStaticTemplate(widget, analogClockWidgetTemplate, &widget.cachedHTML)
 
 	return nil
 }
 
 func (widget *analogClockWidget) Render() template.HTML {
-	return widget.cachedHTML
+	return widget.renderCachedTemplate()
 }

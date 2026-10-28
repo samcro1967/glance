@@ -114,6 +114,10 @@ func (d *durationField) UnmarshalYAML(node *yaml.Node) error {
 	if err != nil {
 		return err
 	}
+	unit := map[string]time.Duration{"s": time.Second, "m": time.Minute, "h": time.Hour, "d": 24 * time.Hour}[matches[2]]
+	if int64(duration) > int64(1<<63-1)/int64(unit) {
+		return fmt.Errorf("duration out of range: %s", value)
+	}
 
 	switch matches[2] {
 	case "s":
@@ -205,24 +209,25 @@ func (i *customIconField) resolveResourceProxy(resolver func(string) (string, er
 	if i == nil {
 		return
 	}
-
-	i.renderURL = ""
-	i.renderURLResolved = false
 	if i.URL == "" || resolver == nil {
+		if i.renderURLResolved || i.renderURL != "" {
+			i.renderURL = ""
+			i.renderURLResolved = false
+		}
 		return
 	}
-
 	resolved, err := resolveBrowserImageURL(string(i.URL), resolver)
-	i.renderURLResolved = true
 	if err != nil {
-		// Do not fall back to the original URL after a proxy registration failure.
-		// An HTTP icon rendered directly into an HTTPS dashboard would create a
-		// browser mixed-content error, and the raw URL may contain credentials.
 		slog.Warn("Configured image resource proxy registration failed", "error", err)
+		resolved = ""
+	}
+	// Compatible reloads retain proxy IDs. Do not rewrite unchanged icon fields:
+	// containing group headers can inspect them independently of leaf rendering.
+	if i.renderURLResolved && i.renderURL == template.URL(resolved) {
 		return
 	}
-
 	i.renderURL = template.URL(resolved)
+	i.renderURLResolved = true
 }
 
 type proxyOptionsField struct {

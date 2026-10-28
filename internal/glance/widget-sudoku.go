@@ -28,12 +28,12 @@ func (widget *sudokuWidget) initialize() error {
 	}
 
 	widget.withTitle("Sudoku").withError(nil)
-	widget.cachedHTML = widget.renderTemplate(widget, sudokuWidgetTemplate)
+	widget.cacheStaticTemplate(widget, sudokuWidgetTemplate, &widget.cachedHTML)
 	return nil
 }
 
 func (widget *sudokuWidget) Render() template.HTML {
-	return widget.cachedHTML
+	return widget.renderCachedTemplate()
 }
 
 func (widget *sudokuWidget) RenderExpanded() template.HTML {

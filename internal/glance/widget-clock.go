@@ -38,11 +38,11 @@ func (widget *clockWidget) initialize() error {
 		}
 	}
 
-	widget.cachedHTML = widget.renderTemplate(widget, clockWidgetTemplate)
+	widget.cacheStaticTemplate(widget, clockWidgetTemplate, &widget.cachedHTML)
 
 	return nil
 }
 
 func (widget *clockWidget) Render() template.HTML {
-	return widget.cachedHTML
+	return widget.renderCachedTemplate()
 }

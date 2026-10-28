@@ -23,10 +23,10 @@ func (widget *timerWidget) initialize() error {
 		return errors.New("hour-format must be either 12h or 24h")
 	}
 
-	widget.cachedHTML = widget.renderTemplate(widget, timerWidgetTemplate)
+	widget.cacheStaticTemplate(widget, timerWidgetTemplate, &widget.cachedHTML)
 	return nil
 }
 
 func (widget *timerWidget) Render() template.HTML {
-	return widget.cachedHTML
+	return widget.renderCachedTemplate()
 }

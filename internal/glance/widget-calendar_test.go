@@ -32,8 +32,8 @@ func TestCalendarStaticLifecycle(t *testing.T) {
 		t.Fatal("static calendar unexpectedly initialized ICS cache")
 	}
 
-	if widget.now != nil {
-		t.Fatal("static calendar unexpectedly initialized clock")
+	if !strings.Contains(string(widget.RenderExpanded()), "No upcoming events.") {
+		t.Fatal("static calendar expansion did not render its empty state")
 	}
 
 	if len(widget.Render()) == 0 {

@@ -50,6 +50,9 @@ The Calendar can consume iCalendar feeds exposed by applications such as Radarr 
 
 ## Expanded view
 
+A Calendar without sources also supports expansion and shows `No upcoming events.` It remains static and does not perform source fetches.
+
+
 Use the expand control in the widget header to open an upcoming-event agenda derived from the Calendar's already loaded event range. Completed events are omitted, and upcoming entries include their time, title, location, source, and event link when available.
 
 ![Calendar expanded agenda](../images/widgets/calendar-expanded.png)

@@ -33,11 +33,11 @@ func (widget *iframeWidget) initialize() error {
 		widget.Height = 50
 	}
 
-	widget.cachedHTML = widget.renderTemplate(widget, iframeWidgetTemplate)
+	widget.cacheStaticTemplate(widget, iframeWidgetTemplate, &widget.cachedHTML)
 
 	return nil
 }
 
 func (widget *iframeWidget) Render() template.HTML {
-	return widget.cachedHTML
+	return widget.renderCachedTemplate()
 }

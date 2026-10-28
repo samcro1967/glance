@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"mime"
 	"net"
 	"net/http"
@@ -15,6 +16,10 @@ import (
 	"strings"
 	"sync"
 )
+
+func resourceProxyPoliciesEqual(a, b *resourceProxy) bool {
+	return a != nil && b != nil && a.policy != nil && b.policy != nil && maps.Equal(a.policy.allowedOrigins, b.policy.allowedOrigins)
+}
 
 func normalizeResourceProxyOrigin(configuredOrigin string) (string, error) {
 	origin := strings.TrimSpace(configuredOrigin)

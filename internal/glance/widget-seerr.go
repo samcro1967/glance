@@ -153,7 +153,7 @@ func fetchSeerr(ctx context.Context, widget *seerrWidget) ([]seerrItem, error) {
 
 	response, err := newHTTPClient(widget.Timeout, widget.AllowInsecure).Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("requesting Seerr %s: %w", widget.View, err)
+		return nil, fmt.Errorf("requesting Seerr %s: %w", widget.View, safeHTTPTransportError(err))
 	}
 	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusOK {
@@ -200,7 +200,7 @@ func fetchSeerrDetail(ctx context.Context, widget *seerrWidget, mediaType string
 	request.Header.Set("Accept", "application/json")
 	response, err := newHTTPClient(widget.Timeout, widget.AllowInsecure).Do(request)
 	if err != nil {
-		return seerrItem{}, fmt.Errorf("requesting Seerr %s detail: %w", mediaType, err)
+		return seerrItem{}, fmt.Errorf("requesting Seerr %s detail: %w", mediaType, safeHTTPTransportError(err))
 	}
 	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusOK {
@@ -424,3 +424,7 @@ func seerrFormatDate(value string) string {
 func (widget *seerrWidget) setDefaultTimeout(value durationField) {
 	widget.Timeout = value
 }
+
+func (widget *seerrWidget) setDefaultAllowInsecure(value bool) { widget.AllowInsecure = value }
+
+func (widget *seerrWidget) setDefaultCollapseAfter(value int) { widget.CollapseAfter = value }

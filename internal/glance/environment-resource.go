@@ -11,15 +11,15 @@ import (
 
 type openMeteoEnvironmentResponse struct {
 	Current struct {
-		USAQI           float64 `json:"us_aqi"`
-		EuropeanAQI     float64 `json:"european_aqi"`
-		PM25            float64 `json:"pm2_5"`
-		PM10            float64 `json:"pm10"`
-		Ozone           float64 `json:"ozone"`
-		NitrogenDioxide float64 `json:"nitrogen_dioxide"`
-		SulphurDioxide  float64 `json:"sulphur_dioxide"`
-		CarbonMonoxide  float64 `json:"carbon_monoxide"`
-		UVIndex         float64 `json:"uv_index"`
+		USAQI           *float64 `json:"us_aqi"`
+		EuropeanAQI     *float64 `json:"european_aqi"`
+		PM25            *float64 `json:"pm2_5"`
+		PM10            *float64 `json:"pm10"`
+		Ozone           *float64 `json:"ozone"`
+		NitrogenDioxide *float64 `json:"nitrogen_dioxide"`
+		SulphurDioxide  *float64 `json:"sulphur_dioxide"`
+		CarbonMonoxide  *float64 `json:"carbon_monoxide"`
+		UVIndex         *float64 `json:"uv_index"`
 	} `json:"current"`
 	Hourly struct {
 		Time    []string   `json:"time"`
@@ -61,7 +61,25 @@ func fetchOpenMeteoEnvironment(ctx context.Context, place *openMeteoPlaceRespons
 	if err != nil {
 		return nil, fmt.Errorf("fetching air quality data: %w", err)
 	}
-	out := &environmentAirQuality{USAQI: r.Current.USAQI, EuropeanAQI: r.Current.EuropeanAQI, PM25: r.Current.PM25, PM10: r.Current.PM10, Ozone: r.Current.Ozone, NitrogenDioxide: r.Current.NitrogenDioxide, SulphurDioxide: r.Current.SulphurDioxide, CarbonMonoxide: r.Current.CarbonMonoxide, UVIndex: r.Current.UVIndex}
+	out := &environmentAirQuality{Unavailable: make(map[string]bool)}
+	// JSON null and omitted readings must not become real zero measurements.
+	reading := func(name string, value *float64) float64 {
+		if value == nil || *value < 0 || math.IsNaN(*value) || math.IsInf(*value, 0) {
+			out.Unavailable[name] = true
+			return 0
+		}
+		return *value
+	}
+	out.USAQI = reading("us_aqi", r.Current.USAQI)
+	out.EuropeanAQI = reading("european_aqi", r.Current.EuropeanAQI)
+	out.PM25 = reading("pm2_5", r.Current.PM25)
+	out.PM10 = reading("pm10", r.Current.PM10)
+	out.Ozone = reading("ozone", r.Current.Ozone)
+	out.NitrogenDioxide = reading("nitrogen_dioxide", r.Current.NitrogenDioxide)
+	out.SulphurDioxide = reading("sulphur_dioxide", r.Current.SulphurDioxide)
+	out.CarbonMonoxide = reading("carbon_monoxide", r.Current.CarbonMonoxide)
+	out.UVIndex = reading("uv_index", r.Current.UVIndex)
+
 	for i, timestamp := range r.Hourly.Time {
 		if len(timestamp) < len("2006-01-02") {
 			continue
@@ -99,6 +117,9 @@ func fetchOpenMeteoEnvironment(ctx context.Context, place *openMeteoPlaceRespons
 			}
 			day.HasUVIndex = true
 		}
+	}
+	if len(out.Unavailable) == 9 && len(out.Forecast) == 0 {
+		return nil, fmt.Errorf("air quality provider returned no available readings")
 	}
 	return out, nil
 }

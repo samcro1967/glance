@@ -353,7 +353,7 @@ func fetchBlockyStats(ctx context.Context, instanceURL string, allowInsecure boo
 	client := newHTTPClient(timeout, allowInsecure)
 	response, err := client.Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("fetching Blocky metrics: %w", err)
+		return nil, fmt.Errorf("fetching Blocky metrics: %w", safeHTTPTransportError(err))
 	}
 	defer func() { _ = response.Body.Close() }()
 
@@ -417,7 +417,7 @@ func fetchControldStats(ctx context.Context, instanceURL string, allowInsecure b
 		request.Header.Set("Authorization", "Bearer "+token)
 		response, err := client.Do(request)
 		if err != nil {
-			return err
+			return safeHTTPTransportError(err)
 		}
 		defer func() { _ = response.Body.Close() }()
 		body, err := readHTTPResponseBody(response.Body, 2*1024*1024)

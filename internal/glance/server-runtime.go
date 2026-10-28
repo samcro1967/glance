@@ -139,11 +139,13 @@ func (g *runtimeGeneration) reload(
 	}
 
 	var reusableOIDC *oidcRuntime
+	var reusableProxy *resourceProxy
 	if g.runtime != nil && g.runtime.app != nil {
 		reusableOIDC = g.runtime.app.oidc
+		reusableProxy = g.runtime.app.resourceProxy
 	}
 
-	candidateApp, err := newApplicationWithOIDCRuntime(candidateConfig, reusableOIDC)
+	candidateApp, err := newApplicationWithOIDCRuntime(candidateConfig, reusableOIDC, reusableProxy)
 	if err != nil {
 		return nil, err
 	}

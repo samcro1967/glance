@@ -30,11 +30,19 @@ func (m *microEnvironment) MicroItems(open bool) []statusBarCompactItem {
 		switch f {
 		case "air-quality":
 			if m.AirQuality != nil {
-				v = append(v, fmt.Sprintf("AQI %.0f %s", m.AirQuality.USAQI, m.AirQuality.USAQICategory()))
+				if m.AirQuality.HasMeasurement("us_aqi") {
+					v = append(v, fmt.Sprintf("AQI %.0f %s", m.AirQuality.USAQI, m.AirQuality.USAQICategory()))
+				} else {
+					v = append(v, "AQI unavailable")
+				}
 			}
 		case "uv":
 			if m.AirQuality != nil {
-				v = append(v, fmt.Sprintf("UV %.1f %s", m.AirQuality.UVIndex, m.AirQuality.UVCategory()))
+				if m.AirQuality.HasMeasurement("uv_index") {
+					v = append(v, fmt.Sprintf("UV %.1f %s", m.AirQuality.UVIndex, m.AirQuality.UVCategory()))
+				} else {
+					v = append(v, "UV unavailable")
+				}
 			}
 		case "pollen":
 			if p := m.Pollen.Current(); p != nil {

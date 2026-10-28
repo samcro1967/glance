@@ -14,14 +14,12 @@ type calculatorWidget struct {
 
 func (widget *calculatorWidget) initialize() error {
 	widget.withTitle("Calculator").withError(nil)
-	widget.cachedHTML = widget.renderTemplate(
-		widget,
-		calculatorWidgetTemplate,
-	)
+	widget.cacheStaticTemplate(widget,
+		calculatorWidgetTemplate, &widget.cachedHTML)
 
 	return nil
 }
 
 func (widget *calculatorWidget) Render() template.HTML {
-	return widget.cachedHTML
+	return widget.renderCachedTemplate()
 }

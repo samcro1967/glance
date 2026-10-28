@@ -143,7 +143,7 @@ func (a *application) applyWidgetReloadReusePlan(plan widgetReloadReusePlan) {
 
 	if a.widgetProviders != nil {
 		for _, micro := range a.Config.FooterMicroWidgets.allWidgets() {
-			micro.setProviders(a.widgetProviders)
+			rebindReloadProviders(micro, a.widgetProviders)
 		}
 	}
 
@@ -152,21 +152,21 @@ func (a *application) applyWidgetReloadReusePlan(plan widgetReloadReusePlan) {
 		for i := range page.HeadWidgets {
 			page.HeadWidgets[i] = replaceReloadWidget(page.HeadWidgets[i], plan)
 			if a.widgetProviders != nil {
-				page.HeadWidgets[i].setProviders(a.widgetProviders)
+				rebindReloadProviders(page.HeadWidgets[i], a.widgetProviders)
 			}
 		}
 		for c := range page.Columns {
 			for i := range page.Columns[c].Widgets {
 				page.Columns[c].Widgets[i] = replaceReloadWidget(page.Columns[c].Widgets[i], plan)
 				if a.widgetProviders != nil {
-					page.Columns[c].Widgets[i].setProviders(a.widgetProviders)
+					rebindReloadProviders(page.Columns[c].Widgets[i], a.widgetProviders)
 				}
 			}
 		}
 		for i := range page.BottomWidgets {
 			page.BottomWidgets[i] = replaceReloadWidget(page.BottomWidgets[i], plan)
 			if a.widgetProviders != nil {
-				page.BottomWidgets[i].setProviders(a.widgetProviders)
+				rebindReloadProviders(page.BottomWidgets[i], a.widgetProviders)
 			}
 		}
 	}
@@ -220,4 +220,24 @@ func (a *application) applyWidgetReloadReusePlan(plan widgetReloadReusePlan) {
 	}
 	a.registerStatusBarTargets()
 	a.widgetReloadFingerprints = reusedFingerprints
+}
+
+// A reused leaf can still be rendered/refreshed by the retiring generation.
+// Containers have their own lock; binding them recursively without separately
+// locking their leaves would race the child scheduler and cached presentation.
+func rebindReloadProviders(candidate widget, providers *widgetProviders) {
+	if container, ok := candidate.(widgetContainer); ok {
+		candidate.lockRefresh()
+		if base, ok := widgetBaseOf(candidate); ok {
+			base.setProviders(providers)
+		}
+		candidate.unlockRefresh()
+		for _, child := range container.childWidgets() {
+			rebindReloadProviders(child, providers)
+		}
+		return
+	}
+	candidate.lockRefresh()
+	defer candidate.unlockRefresh()
+	candidate.setProviders(providers)
 }

@@ -33,6 +33,8 @@ The compact view emphasizes the current US AQI and UV index, followed by PM2.5, 
 
 Use the expand control in the widget header for additional detail. The expanded view includes US and European AQI, additional pollutant measurements, the available air-quality and UV forecast, and all allergens with nonzero or unavailable concentrations. Confirmed zero concentrations and category summaries are hidden in both views; unavailable data remains visible. AtmoSpore supplies a forecast timeline; St. Louis County supplies recent observation history. An earlier report is labeled explicitly and is never presented as today's conditions.
 
+Missing or null current AQI, UV, and pollutant readings are shown as unavailable, rather than real zero measurements. Valid zero readings remain visible. A response without usable current or forecast readings fails the refresh and preserves previously available data.
+
 Air quality and pollen are fetched independently. If one provider temporarily fails while previously fetched data is available, the widget keeps that data visible and reports the failed refresh rather than discarding data from the successful provider.
 
 ## Configuration
