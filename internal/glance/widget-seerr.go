@@ -424,3 +424,7 @@ func seerrFormatDate(value string) string {
 func (widget *seerrWidget) setDefaultTimeout(value durationField) {
 	widget.Timeout = value
 }
+
+func (widget *seerrWidget) setDefaultAllowInsecure(value bool) { widget.AllowInsecure = value }
+
+func (widget *seerrWidget) setDefaultCollapseAfter(value int) { widget.CollapseAfter = value }

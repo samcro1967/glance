@@ -477,3 +477,7 @@ func sortARRItems(items []arrItem) {
 func (widget *arrWidget) setDefaultTimeout(value durationField) {
 	widget.Timeout = value
 }
+
+func (widget *arrWidget) setDefaultAllowInsecure(value bool) { widget.AllowInsecure = value }
+
+func (widget *arrWidget) setDefaultCollapseAfter(value int) { widget.CollapseAfter = value }

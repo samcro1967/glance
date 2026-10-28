@@ -308,3 +308,7 @@ func parseMediaTime(value string) time.Time {
 func (widget *latestMediaWidget) setDefaultTimeout(value durationField) {
 	widget.Timeout = value
 }
+
+func (widget *latestMediaWidget) setDefaultAllowInsecure(value bool) { widget.AllowInsecure = value }
+
+func (widget *latestMediaWidget) setDefaultCollapseAfter(value int) { widget.CollapseAfter = value }

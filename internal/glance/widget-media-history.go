@@ -148,3 +148,7 @@ func fetchJellyfinHistory(ctx context.Context, widget *mediaHistoryWidget) ([]me
 func (widget *mediaHistoryWidget) setDefaultTimeout(value durationField) {
 	widget.Timeout = value
 }
+
+func (widget *mediaHistoryWidget) setDefaultAllowInsecure(value bool) { widget.AllowInsecure = value }
+
+func (widget *mediaHistoryWidget) setDefaultCollapseAfter(value int) { widget.CollapseAfter = value }

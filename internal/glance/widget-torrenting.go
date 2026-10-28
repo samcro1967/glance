@@ -316,3 +316,7 @@ func formatTorrentETA(seconds int64) string {
 func (widget *torrentingWidget) setDefaultTimeout(value durationField) {
 	widget.Timeout = value
 }
+
+func (widget *torrentingWidget) setDefaultAllowInsecure(value bool) { widget.AllowInsecure = value }
+
+func (widget *torrentingWidget) setDefaultCollapseAfter(value int) { widget.CollapseAfter = value }

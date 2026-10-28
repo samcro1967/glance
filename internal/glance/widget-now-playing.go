@@ -402,3 +402,5 @@ func mediaPlayMethod(value string) string {
 func (widget *nowPlayingWidget) setDefaultTimeout(value durationField) {
 	widget.Timeout = value
 }
+
+func (widget *nowPlayingWidget) setDefaultAllowInsecure(value bool) { widget.AllowInsecure = value }

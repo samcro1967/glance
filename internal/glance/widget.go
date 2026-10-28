@@ -169,15 +169,11 @@ type yamlConfiguredFields map[string]bool
 
 func yamlMappingFields(node *yaml.Node) yamlConfiguredFields {
 	fields := make(yamlConfiguredFields)
-
-	if node == nil || node.Kind != yaml.MappingNode {
-		return fields
+	// Use the same effective keys as YAML decoding and property diagnostics.
+	// Explicit false/zero values from aliases and merges still override defaults.
+	for _, property := range configYAMLProperties(node, make(map[*yaml.Node]bool)) {
+		fields[property.key.Value] = true
 	}
-
-	for i := 0; i+1 < len(node.Content); i += 2 {
-		fields[node.Content[i].Value] = true
-	}
-
 	return fields
 }
 
