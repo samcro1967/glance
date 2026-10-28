@@ -226,7 +226,9 @@ pages:
 
 The `$include` directive can be used anywhere in the config file, not just in the `pages` property, however it must be on its own line and have the appropriate indentation.
 
-Glance preserves source-file mappings while expanding `$include` directives and reports the original included filename and line for supported source-aware configuration diagnostics. Raw YAML parser failures or errors that cannot be mapped to a semantic configuration location may still be easier to inspect in the fully expanded document. In those cases, use the `config:print` command and pipe it into `less -N`:
+Duration values outside the representable range are rejected instead of wrapping to a different timeout or cache interval.
+
+Glance preserves source-file mappings through multiline variable substitution and while expanding `$include` directives and reports the original included filename and line for supported source-aware configuration diagnostics. Raw YAML parser failures or errors that cannot be mapped to a semantic configuration location may still be easier to inspect in the fully expanded document. In those cases, use the `config:print` command and pipe it into `less -N`:
 
 ```sh
 glance --config /path/to/glance.yml config:print | less -N
@@ -349,9 +351,13 @@ Some capabilities are meaningful only for particular widget types. They can be c
 | `basic-auth` | object | HTTP Basic Authentication credentials |
 | `proxy` | string or object | HTTP proxy configuration where supported |
 
+YAML aliases and merges preserve explicitly configured values, including `false` and `0s`, ahead of global and type defaults. Declared defaults have matching capability implementations; ARR, Seerr, Latest Media, Media History, Now Playing, and Torrenting inherit `allow-insecure`, and their supported type-level collapse settings apply consistently.
+
 Applicability and inheritance scope are validated. A capability is applied only to widget types and scopes for which it has defined semantics; unsupported combinations are rejected rather than silently changing unrelated behavior.
 
 List capabilities such as `limit` and `collapse-after` are not global defaults. They are available only for compatible widget types. `basic-auth` is also intentionally not global and is available only for compatible type, instance, or child/source scopes.
+
+Shared HTTP clients allow same-origin redirects, but reject origin changes for requests carrying authentication, private custom headers, credential query parameters, or a replayable request body. Public GET redirects remain supported. Transport errors retain their safe cause and classification without exposing the request URL in logs or widget errors.
 
 HTTP defaults apply only to widgets whose endpoint semantics support them. Timeout support is declared explicitly for server-fetching widgets, including provider-owned services; this does not automatically enable headers, authentication, or insecure TLS options. See [HTTP request timeouts](request-timeouts.md) for the complete scope table, centralized five-second baseline, and documented exceptions.
 
@@ -701,6 +707,8 @@ Custom API templates opt individual resource URLs into this behavior with the `p
 ```
 
 When `$imageURL` belongs to an allowed HTTP origin, `proxyURL` returns a Glance-local `/api/resource-proxy/` URL containing an opaque identifier rather than the upstream URL. This is useful when an internal service requires credentials in an image URL: the credential-bearing upstream URL remains server-side instead of being rendered into browser HTML, browser history, or normal resource requests. Template-level `proxyURL` calls retain their existing passthrough behavior for URLs that are not eligible for the configured proxy. Browser-managed image surfaces apply a stricter policy: HTTPS and local relative images are rendered normally, allowlisted HTTP images are proxied, and non-allowlisted HTTP, protocol-relative, credential-bearing, or unsupported-scheme images are omitted rather than emitted as insecure browser requests. Configured branding images, icon fields, and provider images from RSS, Reddit, Twitch, and Videos use this browser-image policy automatically, alongside the existing page, widget, bookmark, monitor, footer micro-widget, Docker-label, Status Bar Custom API, and media image integrations.
+
+Static widget HTML is refreshed after image-provider binding. Existing opaque registrations survive reloads with the same normalized allowed-origin policy, preserving artwork in reused widget data. Policy changes and process restarts create a new registry; registry capacity remains bounded.
 
 The resource endpoint uses normal Glance authentication. Upstream requests use a dedicated HTTP transport that does not inherit environment proxy settings. Browser cookies, authorization, and arbitrary request headers are not forwarded upstream, and upstream cookies are not relayed to the browser. Redirects are followed only when they remain within the originally authorized origin; redirecting to another origin is rejected even when that second origin is separately allowlisted.
 
