@@ -641,6 +641,7 @@ func (w *widgetBase) withError(err error) *widgetBase {
 }
 
 func (w *widgetBase) canContinueUpdateAfterHandlingErr(err error) bool {
+	err = safeHTTPTransportError(err)
 	if err != nil {
 		failureClass := classifyRefreshFailure(err)
 

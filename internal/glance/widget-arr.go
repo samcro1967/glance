@@ -196,7 +196,7 @@ func fetchARR(ctx context.Context, widget *arrWidget) ([]arrItem, error) {
 	request.Header.Set("Accept", "application/json")
 	response, err := client.Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("requesting %s %s: %w", widget.Service, widget.View, err)
+		return nil, fmt.Errorf("requesting %s %s: %w", widget.Service, widget.View, safeHTTPTransportError(err))
 	}
 	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusOK {

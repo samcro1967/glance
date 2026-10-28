@@ -163,7 +163,7 @@ func testHttpRequestWithHeaders(method, url string, headers map[string]string, e
 
 	response, err := defaultHTTPClient.Do(request)
 	if err != nil {
-		return "", err
+		return "", safeHTTPTransportError(err)
 	}
 	defer func() { _ = response.Body.Close() }()
 

@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -55,6 +56,7 @@ func newHTTPClient(timeout durationField, allowInsecure bool) *http.Client {
 	client := *baseClient
 
 	client.Timeout = resolveHTTPRequestTimeout(timeout)
+	client.CheckRedirect = checkHTTPRequestRedirect
 
 	return &client
 }
@@ -210,15 +212,46 @@ func refreshFailureRetryable(err error) bool {
 	}
 }
 
-func safeHTTPTransportError(err error) error {
-	for {
-		var urlErr *url.Error
-		if !errors.As(err, &urlErr) || urlErr.Err == nil {
-			return err
-		}
+// Keep classification/unwrap behavior while removing URL-bearing client errors
+// from every public error string, including joined partial-provider failures.
+type safeHTTPError struct {
+	cause   error
+	message string
+}
 
-		err = urlErr.Err
+func (e *safeHTTPError) Error() string { return e.message }
+func (e *safeHTTPError) Unwrap() error { return e.cause }
+
+func safeHTTPTransportError(err error) error {
+	if err == nil {
+		return nil
 	}
+	if _, safe := err.(*safeHTTPError); safe {
+		return err
+	}
+	message := err.Error()
+	var redact func(error)
+	redact = func(current error) {
+		if current == nil {
+			return
+		}
+		if clientError, ok := current.(*url.Error); ok && clientError.Err != nil {
+			message = strings.ReplaceAll(message, clientError.Error(), safeHTTPTransportError(clientError.Err).Error())
+			return
+		}
+		if joined, ok := current.(interface{ Unwrap() []error }); ok {
+			for _, child := range joined.Unwrap() {
+				redact(child)
+			}
+		} else if wrapped, ok := current.(interface{ Unwrap() error }); ok {
+			redact(wrapped.Unwrap())
+		}
+	}
+	redact(err)
+	if message == err.Error() {
+		return err
+	}
+	return &safeHTTPError{cause: err, message: message}
 }
 
 func contentFetchError(

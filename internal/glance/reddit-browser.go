@@ -217,7 +217,7 @@ func redditBrowserConnect(ctx context.Context, endpoint string, timeouts ...dura
 	client := &http.Client{Timeout: timeout}
 	response, err := client.Do(request)
 	if err != nil {
-		return nil, nil, fmt.Errorf("connecting to Playwright CDP: %w", err)
+		return nil, nil, fmt.Errorf("connecting to Playwright CDP: %w", safeHTTPTransportError(err))
 	}
 	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusOK {

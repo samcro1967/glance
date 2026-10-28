@@ -162,7 +162,7 @@ func fetchPlexLatest(ctx context.Context, widget *latestMediaWidget) ([]mediaIte
 	request.Header.Set("Accept", "application/json")
 	response, err := newHTTPClient(widget.Timeout, widget.AllowInsecure).Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("requesting Plex latest media: %w", err)
+		return nil, fmt.Errorf("requesting Plex latest media: %w", safeHTTPTransportError(err))
 	}
 	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusOK {
@@ -190,7 +190,7 @@ func fetchJellyfinLatest(ctx context.Context, widget *latestMediaWidget) ([]medi
 	request.Header.Set("Accept", "application/json")
 	response, err := newHTTPClient(widget.Timeout, widget.AllowInsecure).Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("requesting %s latest media: %w", widget.Service, err)
+		return nil, fmt.Errorf("requesting %s latest media: %w", widget.Service, safeHTTPTransportError(err))
 	}
 	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusOK {
@@ -222,7 +222,7 @@ func fetchNavidromeLatest(ctx context.Context, widget *latestMediaWidget) ([]med
 	}
 	response, err := newHTTPClient(widget.Timeout, widget.AllowInsecure).Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("requesting Navidrome latest media: %w", err)
+		return nil, fmt.Errorf("requesting Navidrome latest media: %w", safeHTTPTransportError(err))
 	}
 	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusOK {

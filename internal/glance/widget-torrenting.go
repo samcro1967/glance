@@ -182,7 +182,7 @@ func fetchQBittorrentOnce(ctx context.Context, client *http.Client, endpoint, ap
 
 	response, err := client.Do(request)
 	if err != nil {
-		return nil, fmt.Errorf("requesting qBittorrent torrents: %w", err)
+		return nil, fmt.Errorf("requesting qBittorrent torrents: %w", safeHTTPTransportError(err))
 	}
 	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusOK {
@@ -207,7 +207,7 @@ func loginQBittorrent(ctx context.Context, client *http.Client, server, username
 
 	response, err := client.Do(request)
 	if err != nil {
-		return fmt.Errorf("logging in to qBittorrent: %w", err)
+		return fmt.Errorf("logging in to qBittorrent: %w", safeHTTPTransportError(err))
 	}
 	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusOK && response.StatusCode != http.StatusNoContent {

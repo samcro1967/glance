@@ -194,7 +194,7 @@ func fetchPrometheusGraph(ctx context.Context, widget *prometheusWidget, now tim
 	client := newHTTPClient(widget.Timeout, widget.AllowInsecure)
 	response, err := client.Do(request)
 	if err != nil {
-		return nil, nil, fmt.Errorf("fetching Prometheus query: %w", err)
+		return nil, nil, fmt.Errorf("fetching Prometheus query: %w", safeHTTPTransportError(err))
 	}
 	defer func() { _ = response.Body.Close() }()
 
