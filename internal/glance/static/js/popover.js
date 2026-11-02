@@ -152,6 +152,8 @@ function showPopover() {
     }
 
     contentElement.style.maxWidth = contentMaxWidth;
+    // Preserve scrolling while hiding scrollbar tracks only for theme choices.
+    contentElement.classList.toggle("hide-scrollbars", activeTarget.classList.contains("theme-picker"));
     activeTarget.classList.add("popover-active");
 
     if (activeTarget.hasAttribute("aria-expanded")) {
@@ -234,6 +236,7 @@ function hidePopover() {
     if (activeTarget === null) return;
 
     activeTarget.classList.remove("popover-active");
+    contentElement.classList.remove("hide-scrollbars");
 
     if (activeTarget.hasAttribute("aria-expanded")) {
         activeTarget.setAttribute("aria-expanded", "false");
