@@ -1137,10 +1137,29 @@ async function main() {
 
     const themePicker = page.locator('.header-container .theme-picker');
 
+    const assertThemePopoverScrollbars = async () => {
+      const state = await page.locator("#glance-popover .popover-content").evaluate(element => ({
+        hidden: element.classList.contains("hide-scrollbars"),
+        scrollbarWidth: getComputedStyle(element).scrollbarWidth,
+        overflowY: getComputedStyle(element).overflowY,
+        presetCount: element.querySelectorAll(".theme-choices .theme-preset").length
+      }));
+
+      if (!state.hidden ||
+          state.scrollbarWidth !== "none" ||
+          state.overflowY !== "auto" ||
+          state.presetCount === 0) {
+        throw new Error(`Theme picker scrollbar contract failed: ${JSON.stringify(state)}`);
+      }
+    };
+
     await themePicker.hover();
     await page.waitForFunction(() =>
       document.querySelector('.header-container .theme-picker')?.classList.contains('popover-active')
     );
+
+    await assertThemePopoverScrollbars();
+    console.log("PASS theme picker hidden scrollbars with scrolling preserved");
 
     const visibleThemePreset = page.locator(
       `.theme-choices .theme-preset[data-key="${targetTheme}"]:visible`
@@ -1185,6 +1204,19 @@ async function main() {
     }
 
     await assertThemePickerAccessibility(targetTheme);
+    await page.keyboard.press("Escape");
+    await page.locator("#glance-popover").waitFor({ state: "hidden" });
+
+    const themePopoverCleanup = await page.locator("#glance-popover .popover-content").evaluate(element => ({
+      hidden: element.classList.contains("hide-scrollbars"),
+      scrollbarWidth: getComputedStyle(element).scrollbarWidth
+    }));
+
+    if (themePopoverCleanup.hidden || themePopoverCleanup.scrollbarWidth === "none") {
+      throw new Error(`Theme picker scrollbar cleanup failed: ${JSON.stringify(themePopoverCleanup)}`);
+    }
+
+    console.log("PASS theme picker scrollbar cleanup");
     console.log("PASS theme picker accessibility state synchronization");
 
     await openPage(page, '/themes/theme-components', coveragePath);
