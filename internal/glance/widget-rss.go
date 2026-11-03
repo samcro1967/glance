@@ -46,8 +46,8 @@ type rssWidget struct {
 	NoItemsMessage string          `yaml:"-"`
 
 	cachedFeedsMutex sync.Mutex
-	cachedFeeds      map[string]*cachedRSSFeed `yaml:"-"`
-	feedTiers        map[string]int            `yaml:"-"`
+	cachedFeeds      map[[32]byte]*cachedRSSFeed `yaml:"-"`
+	feedTiers        map[string]int              `yaml:"-"`
 }
 
 func (widget *rssWidget) initialize() error {
@@ -92,7 +92,7 @@ func (widget *rssWidget) initialize() error {
 	}
 
 	widget.NoItemsMessage = "No items were returned from the feeds."
-	widget.cachedFeeds = make(map[string]*cachedRSSFeed)
+	widget.cachedFeeds = make(map[[32]byte]*cachedRSSFeed)
 
 	return nil
 }
@@ -145,7 +145,8 @@ func (widget *rssWidget) Render() template.HTML {
 type cachedRSSFeed struct {
 	etag         string
 	lastModified string
-	items        []rssFeedItem
+	feed         *gofeed.Feed
+	fetchedAt    time.Time
 }
 
 type rssFeedItem struct {
@@ -270,18 +271,6 @@ func (widget *rssWidget) fetchItemsFromFeedTask(ctx context.Context, request rss
 
 	req.Header.Add("User-Agent", glanceUserAgentString)
 
-	widget.cachedFeedsMutex.Lock()
-	cache, isCached := widget.cachedFeeds[request.URL]
-	if isCached {
-		if cache.etag != "" {
-			req.Header.Add("If-None-Match", cache.etag)
-		}
-		if cache.lastModified != "" {
-			req.Header.Add("If-Modified-Since", cache.lastModified)
-		}
-	}
-	widget.cachedFeedsMutex.Unlock()
-
 	for key, value := range request.Headers {
 		req.Header.Set(key, value)
 	}
@@ -290,35 +279,97 @@ func (widget *rssWidget) fetchItemsFromFeedTask(ctx context.Context, request rss
 		req.SetBasicAuth(request.BasicAuth.Username, request.BasicAuth.Password)
 	}
 
-	resource, err := fetchRSSResource(ctx, req, rssResourceRequestOptions{
+	options := rssResourceRequestOptions{
 		Timeout:       request.Timeout,
 		AllowInsecure: request.AllowInsecure,
-	})
+	}
+
+	// Identify the configured representation before adding cache validators.
+	cacheKey := rssResourceRequestKey(req, options)
+
+	widget.cachedFeedsMutex.Lock()
+	cache, isCached := widget.cachedFeeds[cacheKey]
+	widget.cachedFeedsMutex.Unlock()
+
+	if isCached {
+		if cache.etag != "" && req.Header.Get("If-None-Match") == "" {
+			req.Header.Set("If-None-Match", cache.etag)
+		}
+		if cache.lastModified != "" && req.Header.Get("If-Modified-Since") == "" {
+			req.Header.Set("If-Modified-Since", cache.lastModified)
+		}
+	}
+
+	resource, err := fetchRSSResource(ctx, req, options)
 	if err != nil {
 		return nil, err
 	}
 
-	if resource.StatusCode == http.StatusNotModified && isCached {
-		return cache.items, nil
-	}
+	var feed *gofeed.Feed
+	var fetchedAt time.Time
 
-	if resource.StatusCode != http.StatusOK {
+	switch resource.StatusCode {
+	case http.StatusNotModified:
+		if !isCached {
+			return nil, unexpectedHTTPStatusError(&http.Response{
+				Status:     resource.Status,
+				StatusCode: resource.StatusCode,
+			})
+		}
+		feed = cache.feed
+		fetchedAt = cache.fetchedAt
+
+	case http.StatusOK:
+		feed, err = feedParser.ParseString(string(resource.Body))
+		if err != nil {
+			return nil, fmt.Errorf("parsing RSS response: %w", err)
+		}
+
+		fetchedAt = time.Now()
+
+		widget.updateCachedFeed(cacheKey, cache, &cachedRSSFeed{
+			etag:         resource.Header.Get("ETag"),
+			lastModified: resource.Header.Get("Last-Modified"),
+			feed:         feed,
+			fetchedAt:    fetchedAt,
+		})
+
+	default:
 		return nil, unexpectedHTTPStatusError(&http.Response{
 			Status:     resource.Status,
 			StatusCode: resource.StatusCode,
 		})
 	}
 
-	feed, err := feedParser.ParseString(string(resource.Body))
-	if err != nil {
-		return nil, fmt.Errorf("parsing RSS response: %w", err)
+	return transformRSSFeedItems(request, feed, fetchedAt), nil
+}
+
+// updateCachedFeed applies a response only if the cache entry still matches
+// the snapshot observed when the request started. Responses without validators
+// invalidate the previous conditional representation.
+func (widget *rssWidget) updateCachedFeed(key [32]byte, previous, next *cachedRSSFeed) {
+	widget.cachedFeedsMutex.Lock()
+	defer widget.cachedFeedsMutex.Unlock()
+
+	if widget.cachedFeeds[key] != previous {
+		return
 	}
 
-	if request.Limit > 0 && len(feed.Items) > request.Limit {
-		feed.Items = feed.Items[:request.Limit]
+	if next.etag == "" && next.lastModified == "" {
+		delete(widget.cachedFeeds, key)
+		return
 	}
 
-	items := make(rssFeedItemList, 0, len(feed.Items))
+	widget.cachedFeeds[key] = next
+}
+
+func transformRSSFeedItems(request rssFeedRequest, feed *gofeed.Feed, fetchedAt time.Time) []rssFeedItem {
+	feedItems := feed.Items
+	if request.Limit > 0 && len(feedItems) > request.Limit {
+		feedItems = feedItems[:request.Limit]
+	}
+
+	items := make(rssFeedItemList, 0, len(feedItems))
 
 	channelURL := ""
 	if strings.TrimSpace(feed.Link) == "" {
@@ -334,8 +385,8 @@ func (widget *rssWidget) fetchItemsFromFeedTask(ctx context.Context, request rss
 		channelURL = resolveRSSURL(feed.Link, request.URL)
 	}
 
-	for i := range feed.Items {
-		item := feed.Items[i]
+	for i := range feedItems {
+		item := feedItems[i]
 
 		rssItem := rssFeedItem{
 			ChannelURL: channelURL,
@@ -409,23 +460,13 @@ func (widget *rssWidget) fetchItemsFromFeedTask(ctx context.Context, request rss
 		if item.PublishedParsed != nil {
 			rssItem.PublishedAt = *item.PublishedParsed
 		} else {
-			rssItem.PublishedAt = time.Now()
+			rssItem.PublishedAt = fetchedAt
 		}
 
 		items = append(items, rssItem)
 	}
 
-	if resource.Header.Get("ETag") != "" || resource.Header.Get("Last-Modified") != "" {
-		widget.cachedFeedsMutex.Lock()
-		widget.cachedFeeds[request.URL] = &cachedRSSFeed{
-			etag:         resource.Header.Get("ETag"),
-			lastModified: resource.Header.Get("Last-Modified"),
-			items:        items,
-		}
-		widget.cachedFeedsMutex.Unlock()
-	}
-
-	return items, nil
+	return items
 }
 
 func findThumbnailInItemExtensions(item *gofeed.Item) string {

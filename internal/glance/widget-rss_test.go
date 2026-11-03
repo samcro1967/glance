@@ -104,7 +104,7 @@ func TestRSSFetchItemsFromFeedsSuccess(t *testing.T) {
 		FeedRequests: []rssFeedRequest{
 			{URL: server.URL + "/feed"},
 		},
-		cachedFeeds: make(map[string]*cachedRSSFeed),
+		cachedFeeds: make(map[[32]byte]*cachedRSSFeed),
 	}
 
 	items, err := widget.fetchItemsFromFeeds(context.Background())
@@ -140,7 +140,7 @@ func TestRSSFetchItemsFromFeedsPartialFailurePreservesContentAndCause(t *testing
 			{URL: server.URL + "/good"},
 			{URL: server.URL + "/bad"},
 		},
-		cachedFeeds: make(map[string]*cachedRSSFeed),
+		cachedFeeds: make(map[[32]byte]*cachedRSSFeed),
 	}
 
 	items, err := widget.fetchItemsFromFeeds(context.Background())
@@ -194,7 +194,7 @@ func TestRSSFetchItemsFromFeedsTotalFailurePreservesCause(t *testing.T) {
 			{URL: server.URL + "/one"},
 			{URL: server.URL + "/two"},
 		},
-		cachedFeeds: make(map[string]*cachedRSSFeed),
+		cachedFeeds: make(map[[32]byte]*cachedRSSFeed),
 	}
 
 	items, err := widget.fetchItemsFromFeeds(context.Background())
@@ -255,7 +255,7 @@ func TestRSSFetchItemsFromFeedsUsesFirstFailureAsRepresentativeCause(t *testing.
 			{URL: server.URL + "/second"},
 			{URL: server.URL + "/good"},
 		},
-		cachedFeeds: make(map[string]*cachedRSSFeed),
+		cachedFeeds: make(map[[32]byte]*cachedRSSFeed),
 	}
 
 	_, err := widget.fetchItemsFromFeeds(context.Background())
@@ -288,7 +288,7 @@ func TestRSSFetchItemsFromFeedsCancellationPreservesClassificationAndCause(t *te
 		FeedRequests: []rssFeedRequest{
 			{URL: "https://example.com/feed"},
 		},
-		cachedFeeds: make(map[string]*cachedRSSFeed),
+		cachedFeeds: make(map[[32]byte]*cachedRSSFeed),
 	}
 
 	_, err := widget.fetchItemsFromFeeds(ctx)
@@ -349,7 +349,7 @@ func TestRSSFetchSendsConfiguredHeadersAndBasicAuth(t *testing.T) {
 
 	widget := &rssWidget{
 		FeedRequests: []rssFeedRequest{request},
-		cachedFeeds:  make(map[string]*cachedRSSFeed),
+		cachedFeeds:  make(map[[32]byte]*cachedRSSFeed),
 	}
 
 	items, err := widget.fetchItemsFromFeeds(context.Background())
