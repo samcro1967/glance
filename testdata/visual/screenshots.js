@@ -15,6 +15,7 @@
 
 const fs = require('fs');
 const { createRuntimeSelector } = require('./decoration-runtime');
+const { captureGuestScreenshots } = require("./guest-access-screenshots");
 const path = require('path');
 const { chromium } = require('playwright');
 
@@ -598,7 +599,7 @@ async function captureDocs(browser) {
     .filter(([filename, recipe]) =>
       recipe.kind === 'browser' &&
       (
-        decorationFilter ? Boolean(recipe.testConfig) : imageFilter
+        decorationFilter ? Boolean(recipe.testConfig && recipe.testConfig.startsWith("testdata/decorations/")) : imageFilter
           ? filename === imageFilter
           : (!allowedRoutes || allowedRoutes.has(recipe.route))
       )
@@ -620,7 +621,26 @@ async function captureDocs(browser) {
     );
   }
 
+  const guestMappings = browserMappings.filter(
+    ([, recipe]) => recipe.capture === "guest-access"
+  );
+  const guestNames = guestMappings.map(([filename]) => path.basename(filename));
+  let guestCaptured = false;
+
   for (const [filename, recipe] of browserMappings) {
+    if (recipe.capture === "guest-access") {
+      if (!guestCaptured) {
+        selectRuntime("testdata/guest-access.yml");
+        await captureGuestScreenshots(
+          browser,
+          path.join(DOCS_STAGING, "pages", "guest-access"),
+          guestNames
+        );
+        guestCaptured = true;
+      }
+      console.log("DOCS stage " + filename + " (guest-access)");
+      continue;
+    }
     selectRuntime(recipe.testConfig || 'test-instance.yml');
     const viewport = recipe.viewport || DEFAULT_VIEWPORT;
     const mobile = viewport.width === QA_VIEWPORTS.mobile.width &&
@@ -635,7 +655,7 @@ async function captureDocs(browser) {
 
     try {
       await openPage(page, recipe.route);
-      if (recipe.testConfig) {
+      if (recipe.testConfig && recipe.testConfig.startsWith("testdata/decorations/")) {
         await page.waitForFunction(() => document.querySelectorAll('.decoration-edge').length === 4);
         await page.waitForFunction(() => document.querySelectorAll('.decoration-footer-icon').length === 2 && [...document.querySelectorAll('.decoration-footer-icon')].every(img => img.complete && img.naturalWidth > 0));
       }

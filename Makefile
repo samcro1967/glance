@@ -37,6 +37,7 @@ TEST_PROD_CONTAINER ?= glance-prod-test
 TEST_FRONTEND_DIAGNOSTICS ?= true
 TEST_PROD_CONFIG_OVERRIDE ?= true
 TEST_PROD_HTTPS ?= false
+TEST_PROD_PROXIED ?= false
 TEST_PROD_EXTRA_ENV ?= GLANCE_OIDC_CLIENT_ID GLANCE_OIDC_CLIENT_SECRET
 TEST_PROD_CONFIG_APPEND_FILE ?= test-prod.yml
 TEST_PROD_CONFIG_DIR ?= .glance-prod-test-config
@@ -377,6 +378,7 @@ staged-check:
 docs-check:
 	python3 scripts/check_docs.py
 	python3 -m unittest discover -s scripts -p test_check_docs.py -v
+	python3 -m unittest discover -s scripts -p test_prepare_test_prod_config.py -v
 
 check: test test-race build fmt-check diff-check staged-check docs-check lint frontend-audit frontend-unit
 
@@ -2421,7 +2423,7 @@ test-prod-config-refresh:
 		--source "$$config_source/glance.yml" \
 		--destination "$$config_file" \
 		--frontend-diagnostics "$(TEST_FRONTEND_DIAGNOSTICS)" \
-		--https "$(TEST_PROD_HTTPS)" \
+		--https "$(TEST_PROD_HTTPS)" --proxied "$(TEST_PROD_PROXIED)" \
 		--resource-proxy-origins "$${TEST_PROD_RESOURCE_PROXY_ORIGINS:-}" \
 		"$${overlay_args[@]}"; \
 	echo "Refreshed $$config_file; running test instance will process the filesystem change."
@@ -2438,6 +2440,10 @@ test-prod-start:
 	fi; \
 	if [ "$(TEST_PROD_HTTPS)" != "false" ] && [ "$(TEST_PROD_HTTPS)" != "true" ]; then \
 		echo "TEST_PROD_HTTPS must be true or false."; \
+		exit 1; \
+	fi; \
+	if [ "$(TEST_PROD_PROXIED)" != "false" ] && [ "$(TEST_PROD_PROXIED)" != "true" ]; then \
+		echo "TEST_PROD_PROXIED must be true or false."; \
 		exit 1; \
 	fi; \
 	if [ -z "$(TEST_RUNTIME_CONTAINER)" ]; then \
@@ -2482,7 +2488,7 @@ test-prod-start:
 			--source "$$config_source/glance.yml" \
 			--destination "$$config_file" \
 			--frontend-diagnostics "$(TEST_FRONTEND_DIAGNOSTICS)" \
-			--https "$(TEST_PROD_HTTPS)" \
+			--https "$(TEST_PROD_HTTPS)" --proxied "$(TEST_PROD_PROXIED)" \
 			--resource-proxy-origins "$${TEST_PROD_RESOURCE_PROXY_ORIGINS:-}" \
 			"$${overlay_args[@]}"; \
 	fi; \
@@ -2603,7 +2609,7 @@ test-prod-stop:
 	rm -rf "$(TEST_PROD_CONFIG_DIR)"
 
 test-prod-restart:
-	@$(MAKE) --no-print-directory test-prod-start TEST_FRONTEND_DIAGNOSTICS=$(TEST_FRONTEND_DIAGNOSTICS) TEST_PROD_CONFIG_OVERRIDE=$(TEST_PROD_CONFIG_OVERRIDE) TEST_PROD_HTTPS=$(TEST_PROD_HTTPS)
+	@$(MAKE) --no-print-directory test-prod-start TEST_FRONTEND_DIAGNOSTICS=$(TEST_FRONTEND_DIAGNOSTICS) TEST_PROD_CONFIG_OVERRIDE=$(TEST_PROD_CONFIG_OVERRIDE) TEST_PROD_HTTPS=$(TEST_PROD_HTTPS) TEST_PROD_PROXIED=$(TEST_PROD_PROXIED)
 
 .PHONY: test-all-stop
 
@@ -2957,7 +2963,7 @@ frontend-audit:
 frontend-unit:
 	@echo "=== FRONTEND UNIT TESTS ==="
 	@node --test testdata/visual/search.test.mjs
-	@node --test testdata/visual/page-readiness.test.mjs testdata/visual/widget-loading.test.mjs testdata/visual/reddit-auth.test.mjs testdata/visual/personal-state.test.mjs testdata/visual/minesweeper.test.mjs testdata/visual/sudoku.test.mjs testdata/visual/2048.test.mjs testdata/visual/presentation.test.mjs testdata/visual/decorations.test.mjs testdata/visual/decoration-runtime.test.mjs
+	@node --test testdata/visual/page-readiness.test.mjs testdata/visual/widget-loading.test.mjs testdata/visual/reddit-auth.test.mjs testdata/visual/personal-state.test.mjs testdata/visual/minesweeper.test.mjs testdata/visual/sudoku.test.mjs testdata/visual/2048.test.mjs testdata/visual/presentation.test.mjs testdata/visual/decorations.test.mjs testdata/visual/decoration-runtime.test.mjs testdata/visual/guest-access-screenshots.test.mjs
 
 frontend-check:
 	@echo "=== FRONTEND REGRESSION CHECK ==="
@@ -3005,3 +3011,8 @@ visual-final: visual-all
 .PHONY: widget-loading-check
 widget-loading-check:
 	@bash testdata/visual/run.sh widget-loading
+
+.PHONY: visual-guest
+visual-guest:
+	@echo "=== GUEST ACCESS VISUAL QA ==="
+	@bash testdata/visual/run.sh guest

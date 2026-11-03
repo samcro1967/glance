@@ -70,6 +70,11 @@ if (loginURL.searchParams.get("reason") === "oidc_not_authorized") {
                 </svg>
             </a>
             {{- end }}
+            {{- if .App.Config.Auth.Guest.Enabled }}
+            <form method="post" action="{{ .App.Config.Server.BaseURL }}/api/auth/guest" class="animate-entrance">
+                <button type="submit" class="login-button">CONTINUE AS GUEST</button>
+            </form>
+            {{- end }}
         </main>
     </div>
     {{ template "footer.html" . }}

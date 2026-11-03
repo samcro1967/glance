@@ -231,7 +231,7 @@ func (a *application) personalStateSession(w http.ResponseWriter, r *http.Reques
 	}
 
 	session, authorized := a.authorizeSession(w, r)
-	if !authorized || session.AuthorizationIdentity == "" {
+	if !authorized || session.AuthorizationIdentity == "" || session.Method == authMethodGuest {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnauthorized)
 		_, _ = w.Write([]byte(`{"error":"Unauthorized"}`))

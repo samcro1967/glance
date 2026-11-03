@@ -10,6 +10,7 @@ const ROOT = path.resolve(__dirname, '../..');
 // this helper at production configuration or implement another server launcher.
 function validateTestConfig(config) {
   if (config === 'test-instance.yml') return config;
+  if (config === 'testdata/guest-access.yml') return config;
   if (!/^testdata\/decorations\/[a-z0-9-]+\.yml$/.test(config) ||
       !fs.statSync(path.join(ROOT, config), { throwIfNoEntry: false })?.isFile()) {
     throw new Error(`Invalid decoration test profile: ${config}`);
