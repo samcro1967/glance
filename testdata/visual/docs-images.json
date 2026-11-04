@@ -47,6 +47,36 @@
     },
     "fullPage": true
   },
+  "pages/guest-access/guest-dashboard-desktop.png": {
+    "kind": "browser",
+    "capture": "guest-access",
+    "route": "/",
+    "testConfig": "testdata/guest-access.yml",
+    "viewport": {
+      "width": 1600,
+      "height": 1000
+    }
+  },
+  "pages/guest-access/guest-login-desktop.png": {
+    "kind": "browser",
+    "capture": "guest-access",
+    "route": "/login",
+    "testConfig": "testdata/guest-access.yml",
+    "viewport": {
+      "width": 1600,
+      "height": 1000
+    }
+  },
+  "pages/guest-access/guest-login-mobile.png": {
+    "kind": "browser",
+    "capture": "guest-access",
+    "route": "/login",
+    "testConfig": "testdata/guest-access.yml",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    }
+  },
   "pages/gaming.png": {
     "kind": "browser",
     "capture": "page",

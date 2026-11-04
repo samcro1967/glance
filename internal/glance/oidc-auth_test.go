@@ -1013,3 +1013,50 @@ func TestOIDCCallbackRejectsWrongNonce(t *testing.T) {
 		}
 	}
 }
+
+func TestLoginRendersLocalOIDCAndGuestInOrder(t *testing.T) {
+	app := newOIDCTestApplication(t)
+	app.Config.Auth.Users = map[string]*user{
+		"test-user": {},
+	}
+	app.Config.Auth.OIDC.ProviderName = "Google"
+	app.Config.Auth.Guest = authGuestConfig{
+		Enabled: true,
+		Dashboards: map[string][]string{
+			"Default": {"home"},
+		},
+	}
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"https://glance.example.test/glance/login",
+		nil,
+	)
+	rec := httptest.NewRecorder()
+	app.handleLoginPageRequest(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("login status = %d, want 200", rec.Code)
+	}
+
+	body := rec.Body.String()
+	markers := []string{
+		`id="username"`,
+		`id="password"`,
+		`id="login-button"`,
+		"SIGN IN WITH Google",
+		"CONTINUE AS GUEST",
+	}
+
+	previous := -1
+	for _, marker := range markers {
+		position := strings.Index(body, marker)
+		if position < 0 {
+			t.Fatalf("missing login control %q", marker)
+		}
+		if position <= previous {
+			t.Fatalf("login control %q appears out of order", marker)
+		}
+		previous = position
+	}
+}

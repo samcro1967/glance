@@ -24,8 +24,10 @@ type rssResourceCall struct {
 }
 
 type rssResourceRequestOptions struct {
-	Timeout       durationField
-	AllowInsecure bool
+	Timeout         durationField
+	AllowInsecure   bool
+	BrowserEndpoint string
+	BrowserIdentity string
 }
 
 var rssResourceRequests = struct {
@@ -45,6 +47,10 @@ func rssResourceRequestKey(request *http.Request, options rssResourceRequestOpti
 	builder.WriteString(fmt.Sprintf("%d", resolveHTTPRequestTimeout(options.Timeout)))
 	builder.WriteByte(0)
 	builder.WriteString(fmt.Sprintf("%t", options.AllowInsecure))
+	builder.WriteByte(0)
+	builder.WriteString(options.BrowserEndpoint)
+	builder.WriteByte(0)
+	builder.WriteString(options.BrowserIdentity)
 	builder.WriteByte(0)
 
 	keys := make([]string, 0, len(request.Header))

@@ -22,6 +22,11 @@ case "$MODE" in
         RUNNER_ARGS=(--coverage=/tmp/glance-frontend-coverage-main.json)
         ACTIVITY="Frontend coverage check"
         ;;
+    guest)
+        RUNNER="testdata/visual/guest-access-screenshots.js"
+        RUNNER_ARGS=()
+        ACTIVITY="Guest access browser check"
+        ;;
     qa)
         RUNNER="testdata/visual/screenshots.js"
         RUNNER_ARGS=()
@@ -39,7 +44,7 @@ case "$MODE" in
         ;;
     *)
         echo "ERROR: unknown visual runner mode: $MODE" >&2
-        echo "Expected: frontend, frontend-coverage, qa, docs, or all" >&2
+        echo "Expected: frontend, frontend-coverage, guest, qa, docs, or all" >&2
         exit 2
         ;;
 esac
@@ -75,7 +80,9 @@ make test-instance-stop >/dev/null 2>&1 || true
 
 echo
 echo "=== START TEST INSTANCE + FIXTURE API ==="
-if [ "$MODE" = "widget-loading" ]; then
+if [ "$MODE" = "guest" ]; then
+    make test-instance-start TEST_CONFIG=testdata/guest-access.yml
+elif [ "$MODE" = "widget-loading" ]; then
     make test-instance-start TEST_CONFIG=testdata/widget-loading.yml
 else
     make test-instance-start

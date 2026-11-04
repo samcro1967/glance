@@ -75,11 +75,13 @@ def prepare(
     overlay: Path | None,
     frontend_diagnostics: bool,
     https: bool,
+    proxied: bool,
     resource_proxy_origins: list[str],
 ) -> None:
     lines = source.read_text(encoding="utf-8").splitlines()
     server_bounds(lines)
     set_server_bool(lines, "https", https)
+    set_server_bool(lines, "proxied", proxied)
     set_server_bool(lines, "frontend-diagnostics", frontend_diagnostics)
     add_resource_proxy(lines, resource_proxy_origins)
 
@@ -103,6 +105,7 @@ def main() -> int:
     parser.add_argument("--overlay", type=Path)
     parser.add_argument("--frontend-diagnostics", default="true")
     parser.add_argument("--https", default="false")
+    parser.add_argument("--proxied", default="false")
     parser.add_argument(
         "--resource-proxy-origins",
         default="",
@@ -117,6 +120,7 @@ def main() -> int:
             overlay=args.overlay,
             frontend_diagnostics=parse_bool(args.frontend_diagnostics),
             https=parse_bool(args.https),
+            proxied=parse_bool(args.proxied),
             resource_proxy_origins=args.resource_proxy_origins.split(),
         )
     except (OSError, ValueError) as error:

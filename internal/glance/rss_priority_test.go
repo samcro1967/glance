@@ -123,6 +123,266 @@ func TestPriorityRSSFeedTaskCachesAndRevalidates(t *testing.T) {
 	}
 }
 
+func TestPriorityRSSConditionalCacheAppliesFeedOptionsAfter304(t *testing.T) {
+	var requests int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		if requests > 1 {
+			if got := r.Header.Get("If-None-Match"); got != `"v1"` {
+				t.Errorf("If-None-Match = %q, want v1", got)
+			}
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+
+		w.Header().Set("ETag", `"v1"`)
+		_, _ = w.Write([]byte(`<?xml version="1.0"?>
+<rss version="2.0"><channel><title>Original</title><link>https://example.com</link>
+<item><title>First</title><link>/first</link><description>First description</description><category>News</category></item>
+<item><title>Second</title><link>/second</link><description>Second description</description><category>Sports</category></item>
+</channel></rss>`))
+	}))
+	defer server.Close()
+
+	widget := &rssWidget{}
+	if err := widget.initialize(); err != nil {
+		t.Fatal(err)
+	}
+
+	first, err := widget.fetchItemsFromFeedTask(t.Context(), rssFeedRequest{
+		URL: server.URL, Title: "Limited", Limit: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(first) != 1 || first[0].ChannelName != "Limited" {
+		t.Fatalf("first feed = %#v", first)
+	}
+
+	second, err := widget.fetchItemsFromFeedTask(t.Context(), rssFeedRequest{
+		URL: server.URL, Title: "Detailed", IsDetailed: true,
+		ItemLinkPrefix: "https://proxy.example/?url=",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if requests != 2 {
+		t.Fatalf("HTTP requests = %d, want 2", requests)
+	}
+	if len(second) != 2 {
+		t.Fatalf("second feed items = %d, want 2", len(second))
+	}
+	if second[0].ChannelName != "Detailed" {
+		t.Fatalf("channel name = %q", second[0].ChannelName)
+	}
+	if second[0].Link != "https://proxy.example/?url=/first" {
+		t.Fatalf("link = %q", second[0].Link)
+	}
+	if second[0].Description != "First description" {
+		t.Fatalf("description = %q", second[0].Description)
+	}
+	if len(second[0].Categories) != 1 || second[0].Categories[0] != "News" {
+		t.Fatalf("categories = %#v", second[0].Categories)
+	}
+}
+
+func TestPriorityRSSConditionalCacheSeparatesAuthorization(t *testing.T) {
+	var conditionalRequests int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		username, _, _ := r.BasicAuth()
+		if r.Header.Get("If-None-Match") != "" {
+			conditionalRequests++
+		}
+
+		w.Header().Set("ETag", `"`+username+`"`)
+		_, _ = w.Write([]byte(`<?xml version="1.0"?><rss version="2.0"><channel>
+<title>` + username + `</title><item><title>Item</title></item>
+</channel></rss>`))
+	}))
+	defer server.Close()
+
+	widget := &rssWidget{}
+	if err := widget.initialize(); err != nil {
+		t.Fatal(err)
+	}
+
+	firstRequest := rssFeedRequest{URL: server.URL}
+	firstRequest.BasicAuth.Username = "first"
+	firstRequest.BasicAuth.Password = "secret"
+
+	secondRequest := rssFeedRequest{URL: server.URL}
+	secondRequest.BasicAuth.Username = "second"
+	secondRequest.BasicAuth.Password = "secret"
+
+	first, err := widget.fetchItemsFromFeedTask(t.Context(), firstRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := widget.fetchItemsFromFeedTask(t.Context(), secondRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if conditionalRequests != 0 {
+		t.Fatalf("cross-credential conditional requests = %d, want 0", conditionalRequests)
+	}
+	if len(first) != 1 || first[0].ChannelName != "first" {
+		t.Fatalf("first response = %#v", first)
+	}
+	if len(second) != 1 || second[0].ChannelName != "second" {
+		t.Fatalf("second response = %#v", second)
+	}
+}
+
+func TestPriorityRSSConditionalCachePreservesUndatedPublicationTime(t *testing.T) {
+	var requests int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+		if requests == 2 {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+		w.Header().Set("ETag", `"v1"`)
+		_, _ = w.Write([]byte(`<?xml version="1.0"?><rss version="2.0"><channel>
+<title>Undated</title><item><title>Item</title></item>
+</channel></rss>`))
+	}))
+	defer server.Close()
+
+	widget := &rssWidget{}
+	if err := widget.initialize(); err != nil {
+		t.Fatal(err)
+	}
+
+	request := rssFeedRequest{URL: server.URL}
+	first, err := widget.fetchItemsFromFeedTask(t.Context(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := widget.fetchItemsFromFeedTask(t.Context(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if requests != 2 || len(first) != 1 || len(second) != 1 {
+		t.Fatalf("requests=%d first=%#v second=%#v", requests, first, second)
+	}
+	if first[0].PublishedAt.IsZero() || !first[0].PublishedAt.Equal(second[0].PublishedAt) {
+		t.Fatalf("publication timestamps differ: %v and %v",
+			first[0].PublishedAt, second[0].PublishedAt)
+	}
+}
+
+func TestPriorityRSSConditionalCacheClearsMissingValidators(t *testing.T) {
+	var requests int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests++
+
+		switch requests {
+		case 1:
+			if got := r.Header.Get("If-None-Match"); got != "" {
+				t.Errorf("initial validator = %q", got)
+			}
+			w.Header().Set("ETag", `"v1"`)
+		case 2:
+			if got := r.Header.Get("If-None-Match"); got != `"v1"` {
+				t.Errorf("second validator = %q, want v1", got)
+			}
+		case 3:
+			if got := r.Header.Get("If-None-Match"); got != "" {
+				t.Errorf("stale validator retained = %q", got)
+			}
+		}
+
+		_, _ = w.Write([]byte(`<?xml version="1.0"?><rss version="2.0"><channel>
+<title>Feed</title><item><title>Item</title></item>
+</channel></rss>`))
+	}))
+	defer server.Close()
+
+	widget := &rssWidget{}
+	if err := widget.initialize(); err != nil {
+		t.Fatal(err)
+	}
+
+	request := rssFeedRequest{URL: server.URL}
+	for i := 0; i < 3; i++ {
+		items, err := widget.fetchItemsFromFeedTask(t.Context(), request)
+		if err != nil {
+			t.Fatalf("fetch %d: %v", i+1, err)
+		}
+		if len(items) != 1 {
+			t.Fatalf("fetch %d items = %d", i+1, len(items))
+		}
+	}
+
+	if requests != 3 {
+		t.Fatalf("requests = %d, want 3", requests)
+	}
+}
+
+func TestPriorityRSSConditionalCacheSnapshotUpdates(t *testing.T) {
+	key := [32]byte{1}
+	widget := &rssWidget{
+		cachedFeeds: make(map[[32]byte]*cachedRSSFeed),
+	}
+
+	initial := &cachedRSSFeed{
+		etag: `"v1"`,
+		feed: &gofeed.Feed{Title: "Initial"},
+	}
+	newer := &cachedRSSFeed{
+		etag: `"v2"`,
+		feed: &gofeed.Feed{Title: "Newer"},
+	}
+	stale := &cachedRSSFeed{
+		etag: `"stale"`,
+		feed: &gofeed.Feed{Title: "Stale"},
+	}
+
+	widget.updateCachedFeed(key, nil, initial)
+	if got := widget.cachedFeeds[key]; got != initial {
+		t.Fatalf("initial cache entry = %p, want %p", got, initial)
+	}
+
+	widget.updateCachedFeed(key, initial, newer)
+	if got := widget.cachedFeeds[key]; got != newer {
+		t.Fatalf("replacement cache entry = %p, want %p", got, newer)
+	}
+
+	// An older request must not overwrite a representation that changed
+	// after the request read its original cache snapshot.
+	widget.updateCachedFeed(key, initial, stale)
+	if got := widget.cachedFeeds[key]; got != newer {
+		t.Fatalf("stale response replaced newer cache entry: %p", got)
+	}
+
+	// A stale response without validators must not delete newer data.
+	widget.updateCachedFeed(key, initial, &cachedRSSFeed{})
+	if got := widget.cachedFeeds[key]; got != newer {
+		t.Fatalf("stale invalidation removed newer cache entry: %p", got)
+	}
+
+	// A current response without validators must invalidate the entry.
+	widget.updateCachedFeed(key, newer, &cachedRSSFeed{})
+	if _, exists := widget.cachedFeeds[key]; exists {
+		t.Fatal("cache entry retained after validators disappeared")
+	}
+
+	// A response from the original empty snapshot can populate the cache.
+	widget.updateCachedFeed(key, nil, initial)
+	if got := widget.cachedFeeds[key]; got != initial {
+		t.Fatalf("cache entry after invalidation = %p, want %p", got, initial)
+	}
+
+	// A competing response from that same empty snapshot cannot replace it.
+	widget.updateCachedFeed(key, nil, stale)
+	if got := widget.cachedFeeds[key]; got != initial {
+		t.Fatalf("competing empty-snapshot response replaced entry: %p", got)
+	}
+}
+
 func TestPriorityRSSFeedTaskHonorsCustomHeadersAndItemPrefix(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if got := r.Header.Get("X-Test"); got != "priority" {

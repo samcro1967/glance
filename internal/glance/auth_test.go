@@ -2757,3 +2757,28 @@ func TestHandleAuthenticationAttemptReclaimsExpiredCapacity(t *testing.T) {
 		)
 	}
 }
+
+// Guest sessions are V4-only and must not be accepted by legacy token verifiers.
+func TestAuthTokenV4GuestMethodIsolation(t *testing.T) {
+	app := newAuthTestApplication(t)
+	now := time.Now()
+	token, err := generateSessionTokenV4(authMethodGuest, "guest", "Guest", "guest:public", app.authSecretKey, now)
+	if err != nil {
+		t.Fatalf("generate guest token: %v", err)
+	}
+	verified, err := verifySessionTokenV4(token, app.authSecretKey, now)
+	if err != nil {
+		t.Fatalf("verify guest token: %v", err)
+	}
+	if verified.Method != authMethodGuest || verified.AuthorizationIdentity != "guest:public" {
+		t.Fatalf("unexpected guest identity: %+v", verified)
+	}
+	if _, err := verifySessionTokenV3(token, app.authSecretKey, now); err == nil {
+		t.Fatal("guest V4 token accepted as V3")
+	}
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.AddCookie(&http.Cookie{Name: AUTH_SESSION_COOKIE_NAME, Value: token})
+	if _, authorized := app.resolveAuthenticatedSession(req, now); authorized {
+		t.Fatal("guest token accepted without guest configuration")
+	}
+}

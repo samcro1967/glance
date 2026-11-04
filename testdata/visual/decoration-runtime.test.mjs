@@ -7,6 +7,11 @@ test('runtime profiles cannot select arbitrary or production files', () => {
         assert.throws(() => runtime.validateTestConfig(value));
     }
 });
+test('guest fixture is explicitly allowed without permitting arbitrary fixtures', () => {
+    assert.equal(runtime.validateTestConfig('testdata/guest-access.yml'), 'testdata/guest-access.yml');
+    assert.throws(() => runtime.validateTestConfig('testdata/guest-access-other.yml'));
+    assert.throws(() => runtime.validateTestConfig('testdata/../glance.yml'));
+});
 test('runtime selection only restarts for a changed profile and uses Make', () => {
     const calls = [];
     const select = runtime.createRuntimeSelector((...args) => calls.push(args));

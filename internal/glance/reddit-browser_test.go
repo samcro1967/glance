@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"net"
+	"net/http"
 	"net/url"
+
+	"github.com/chromedp/cdproto/network"
 	"strings"
 	"testing"
 	"time"
@@ -425,4 +428,67 @@ func TestRedditBrowserRegistryCanceledWaiter(t *testing.T) {
 	releaseConcurrent()
 	releaseGate()
 	releaseState()
+}
+
+func TestRedditBrowserDocumentStatus(t *testing.T) {
+	address := "https://www.reddit.com/r/selfhosted/hot.json"
+	cases := []struct {
+		name       string
+		event      *network.EventResponseReceived
+		wantStatus int
+		wantMatch  bool
+	}{
+		{
+			name: "blocked main document",
+			event: &network.EventResponseReceived{
+				Type:     network.ResourceTypeDocument,
+				Response: &network.Response{URL: address, Status: 403},
+			},
+			wantStatus: http.StatusForbidden,
+			wantMatch:  true,
+		},
+		{
+			name: "rate limited main document",
+			event: &network.EventResponseReceived{
+				Type:     network.ResourceTypeDocument,
+				Response: &network.Response{URL: address, Status: 429},
+			},
+			wantStatus: http.StatusTooManyRequests,
+			wantMatch:  true,
+		},
+		{
+			name: "successful main document",
+			event: &network.EventResponseReceived{
+				Type:     network.ResourceTypeDocument,
+				Response: &network.Response{URL: address, Status: 200},
+			},
+			wantStatus: http.StatusOK,
+			wantMatch:  true,
+		},
+		{
+			name: "unrelated document",
+			event: &network.EventResponseReceived{
+				Type:     network.ResourceTypeDocument,
+				Response: &network.Response{URL: "https://www.reddit.com/login/", Status: 403},
+			},
+		},
+		{
+			name: "subresource",
+			event: &network.EventResponseReceived{
+				Type:     network.ResourceTypeXHR,
+				Response: &network.Response{URL: address, Status: 403},
+			},
+		},
+		{name: "nil event"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			status, match := redditBrowserDocumentStatus(address, tc.event)
+			if status != tc.wantStatus || match != tc.wantMatch {
+				t.Fatalf("status=%d match=%t; want status=%d match=%t",
+					status, match, tc.wantStatus, tc.wantMatch)
+			}
+		})
+	}
 }

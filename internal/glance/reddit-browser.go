@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/chromedp/cdproto/input"
+	"github.com/chromedp/cdproto/network"
 	"github.com/chromedp/chromedp"
 	"github.com/chromedp/chromedp/remote"
 )
@@ -33,6 +34,9 @@ type redditBrowserConfig struct {
 func configureRedditBrowser(candidate widget, cfg redditBrowserConfig) widget {
 	if reddit, ok := candidate.(*redditWidget); ok {
 		reddit.browserConfig = cfg
+	}
+	if rss, ok := candidate.(*rssWidget); ok {
+		rss.browserConfig = cfg
 	}
 
 	if container, ok := candidate.(widgetContainer); ok {
@@ -214,7 +218,12 @@ func redditBrowserConnect(ctx context.Context, endpoint string, timeouts ...dura
 	}
 	// Preserve the CDP discovery transport and browser lifecycle; only its HTTP
 	// budget is configurable. This is not a browser login/navigation deadline.
-	client := &http.Client{Timeout: timeout}
+	client := &http.Client{
+		Timeout: timeout,
+		Transport: &http.Transport{
+			DisableKeepAlives: true,
+		},
+	}
 	response, err := client.Do(request)
 	if err != nil {
 		return nil, nil, fmt.Errorf("connecting to Playwright CDP: %w", safeHTTPTransportError(err))
@@ -502,6 +511,18 @@ func redditBrowserDecodeListing(raw string, listing *subredditResponseJson) bool
 	return json.Unmarshal([]byte(raw), listing) == nil
 }
 
+// redditBrowserDocumentStatus tracks only the requested main-document response.
+// Subresource failures must not affect the listing result.
+func redditBrowserDocumentStatus(address string, event *network.EventResponseReceived) (int, bool) {
+	if event == nil || event.Type != network.ResourceTypeDocument {
+		return 0, false
+	}
+	if event.Response == nil || event.Response.URL != address {
+		return 0, false
+	}
+	return int(event.Response.Status), true
+}
+
 func fetchRedditBrowserListing(ctx context.Context, cfg redditBrowserConfig, address string, timeouts ...durationField) (subredditResponseJson, error) {
 	var listing subredditResponseJson
 	browser, cleanup, err := redditBrowserConnect(ctx, cfg.Endpoint, timeouts...)
@@ -512,12 +533,45 @@ func fetchRedditBrowserListing(ctx context.Context, cfg redditBrowserConfig, add
 	if err := redditBrowserEnsureLogin(ctx, browser, cfg); err != nil {
 		return listing, err
 	}
-	page, cancel, err := redditBrowserPage(browser, address)
-	if err != nil {
-		return listing, err
-	}
+	// Subscribe before navigation so immediate HTTP failures are observed.
+	// The subscription belongs to this temporary browser tab.
+	page, cancel := chromedp.NewContext(browser)
 	defer cancel()
+
+	var statusMu sync.Mutex
+	var documentStatus int
+
+	events := chromedp.Events(page, network.ResponseReceived)
+	go func() {
+		for event, err := range events {
+			if err != nil {
+				return
+			}
+			status, matches := redditBrowserDocumentStatus(address, &event)
+			if !matches {
+				continue
+			}
+			statusMu.Lock()
+			documentStatus = status
+			statusMu.Unlock()
+		}
+	}()
+
+	if err := chromedp.Do(page, chromedp.Navigate(address)); err != nil {
+		return listing, fmt.Errorf("navigating Reddit browser tab: %w", err)
+	}
+
 	err = redditBrowserWait(page, 15*time.Second, func() (bool, error) {
+		statusMu.Lock()
+		status := documentStatus
+		statusMu.Unlock()
+		if status >= 400 {
+			return false, &httpStatusError{
+				StatusCode: status,
+				Status:     fmt.Sprintf("%d %s", status, http.StatusText(status)),
+			}
+		}
+
 		raw, err := redditBrowserEvaluate(page, `(document.body?.innerText || "")`)
 		if err != nil {
 			return false, err

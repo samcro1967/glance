@@ -189,7 +189,7 @@ func (a *application) resolveResourceProxyURL(rawURL string) (string, error) {
 }
 
 func (a *application) handleResourceProxyRequest(w http.ResponseWriter, r *http.Request) {
-	if _, authenticated := a.authorizeSession(w, r); !authenticated {
+	if session, authenticated := a.authorizeSession(w, r); !authenticated || session.Method == authMethodGuest {
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}

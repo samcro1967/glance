@@ -57,6 +57,7 @@ type config struct {
 		OIDC      oidcConfig                 `yaml:"oidc"`
 		Groups    map[string]authGroupConfig `yaml:"groups"`
 		Access    authAccessConfig           `yaml:"access"`
+		Guest     authGuestConfig            `yaml:"guest"`
 	} `yaml:"auth"`
 
 	Playwright redditBrowserConfig `yaml:"playwright"`
@@ -113,10 +114,18 @@ type authGroupConfig struct {
 type authDashboardAccessConfig struct {
 	Users  []string `yaml:"users"`
 	Groups []string `yaml:"groups"`
+	Pages  []string `yaml:"pages"`
 }
 
 type authAccessConfig struct {
 	Dashboards map[string]authDashboardAccessConfig `yaml:"dashboards"`
+}
+
+// authGuestConfig is an explicit, opt-in grant set for anonymous guest sessions.
+// An omitted pages list grants every page in the named dashboard.
+type authGuestConfig struct {
+	Enabled    bool                `yaml:"enabled"`
+	Dashboards map[string][]string `yaml:"dashboards"`
 }
 
 type oidcConfig struct {
@@ -1899,7 +1908,7 @@ func validateAuthorizationConfig(
 		accessDashboardsLine = semanticSourceLine(sources.authAccessDashboards, accessLine)
 	}
 
-	authConfigured := len(config.Auth.Users) > 0 || config.Auth.OIDC.configured()
+	authConfigured := len(config.Auth.Users) > 0 || config.Auth.OIDC.configured() || config.Auth.Guest.Enabled
 	if !authConfigured {
 		return diagnostic(
 			accessLine,
@@ -1968,6 +1977,23 @@ func validateAuthorizationConfig(
 			)
 		}
 
+		if len(rule.Pages) > 0 {
+			configuredPages := make(map[string]struct{})
+			for _, pageName := range config.Dashboards.data[dashboardName] {
+				configuredPages[pageName] = struct{}{}
+			}
+			seenPages := make(map[string]struct{}, len(rule.Pages))
+			for _, pageName := range rule.Pages {
+				if _, exists := configuredPages[pageName]; !exists {
+					return diagnostic(line, fmt.Errorf("auth access dashboard %q references page %q outside that dashboard", dashboardName, pageName))
+				}
+				if _, duplicate := seenPages[pageName]; duplicate {
+					return diagnostic(line, fmt.Errorf("auth access dashboard %q contains duplicate page %q", dashboardName, pageName))
+				}
+				seenPages[pageName] = struct{}{}
+			}
+		}
+
 		seenUsers := make(map[string]struct{}, len(rule.Users))
 		for _, identity := range rule.Users {
 			if strings.TrimSpace(identity) == "" {
@@ -2021,6 +2047,44 @@ func validateAuthorizationConfig(
 		}
 	}
 
+	return nil
+}
+
+// validateGuestConfig rejects incomplete grants before any guest session can be issued.
+func validateGuestConfig(config *config) error {
+	guest := config.Auth.Guest
+	if !guest.Enabled {
+		if len(guest.Dashboards) > 0 {
+			return errors.New("auth guest dashboards requires enabled: true")
+		}
+		return nil
+	}
+	if len(guest.Dashboards) == 0 {
+		return errors.New("auth guest requires at least one dashboard grant")
+	}
+	if len(config.Dashboards.keys) == 0 {
+		return errors.New("auth guest requires dashboards configuration")
+	}
+	for name, pages := range guest.Dashboards {
+		configured, exists := config.Dashboards.Get(name)
+		if !exists {
+			return fmt.Errorf("auth guest references unknown dashboard %q", name)
+		}
+		allowed := make(map[string]struct{}, len(configured))
+		for _, page := range configured {
+			allowed[page] = struct{}{}
+		}
+		seen := make(map[string]struct{}, len(pages))
+		for _, page := range pages {
+			if _, exists := allowed[page]; !exists {
+				return fmt.Errorf("auth guest dashboard %q references page %q outside that dashboard", name, page)
+			}
+			if _, duplicate := seen[page]; duplicate {
+				return fmt.Errorf("auth guest dashboard %q contains duplicate page %q", name, page)
+			}
+			seen[page] = struct{}{}
+		}
+	}
 	return nil
 }
 
@@ -2129,7 +2193,7 @@ func isConfigStateValidWithSources(
 		}
 	}
 
-	authConfigured := len(config.Auth.Users) > 0 || config.Auth.OIDC.configured()
+	authConfigured := len(config.Auth.Users) > 0 || config.Auth.OIDC.configured() || config.Auth.Guest.Enabled
 	if authConfigured && config.Auth.SecretKey == "" {
 		line := rootLine
 		if sources != nil {
@@ -2220,6 +2284,10 @@ func isConfigStateValidWithSources(
 		} else if len([]byte(user.Password)) > 72 {
 			return diagnostic(line, fmt.Errorf("the password for %s must be at most 72 bytes", username))
 		}
+	}
+
+	if err := validateGuestConfig(config); err != nil {
+		return diagnostic(rootLine, err)
 	}
 
 	if err := validateAuthorizationConfig(config, parsed, sources); err != nil {

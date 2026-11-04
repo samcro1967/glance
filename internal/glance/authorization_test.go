@@ -373,3 +373,23 @@ func TestApplicationWidgetAuthorizationUsesContainingPages(t *testing.T) {
 		t.Fatal("identity denied global footer widget")
 	}
 }
+
+func TestAuthorizationPolicyDashboardPageAllowlist(t *testing.T) {
+	dashboards, byName, pages := newAuthorizationPolicyTestTopology()
+	policy := newAuthorizationPolicy(nil, authAccessConfig{Dashboards: map[string]authDashboardAccessConfig{
+		"Default": {Users: []string{"mark"}, Pages: []string{"home"}},
+		"Admin":   {Users: []string{"mark"}, Pages: []string{"sports"}},
+	}}, dashboards)
+	if !policy.canAccessDashboardPage("mark", byName["Default"], pages["home"]) {
+		t.Fatal("allowed page denied")
+	}
+	if policy.canAccessDashboardPage("mark", byName["Default"], pages["sports"]) {
+		t.Fatal("page grant leaked across dashboards")
+	}
+	if !policy.canAccessPage("mark", pages["sports"]) {
+		t.Fatal("page denied despite an allowed containing dashboard")
+	}
+	if got := policy.authorizedPages("mark", byName["Default"]); len(got) != 1 || got[0] != pages["home"] {
+		t.Fatalf("unexpected authorized pages: %v", got)
+	}
+}

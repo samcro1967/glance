@@ -199,7 +199,7 @@ func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime, reusabl
 	// Init auth
 	//
 
-	authConfigured := len(config.Auth.Users) > 0 || config.Auth.OIDC.configured()
+	authConfigured := len(config.Auth.Users) > 0 || config.Auth.OIDC.configured() || config.Auth.Guest.Enabled
 	if authConfigured {
 		secretBytes, err := base64.StdEncoding.DecodeString(config.Auth.SecretKey)
 		if err != nil {
@@ -546,6 +546,8 @@ func newApplicationWithOIDCRuntime(c *config, reusableOIDC *oidcRuntime, reusabl
 		app.dashboards,
 	)
 
+	app.authorization.grantGuest(app.Config.Auth.Guest, app.dashboards)
+
 	refreshSources := make(widgets, 0)
 	refreshSources = append(refreshSources, footerMicroWidgets...)
 	for _, candidate := range collectRefreshWidgets(footerMicroWidgets) {
@@ -800,6 +802,10 @@ func (a *application) handlePageRequest(w http.ResponseWriter, r *http.Request) 
 	}
 
 	if a.defaultDashboard == nil {
+		if session.Method == authMethodGuest {
+			a.renderNotFound(w, r, session, nil, nil, "")
+			return
+		}
 		page, exists := a.slugToPage[r.PathValue("page")]
 		if !exists {
 			a.renderNotFound(
@@ -851,7 +857,10 @@ func (a *application) handlePageRequest(w http.ResponseWriter, r *http.Request) 
 
 	var page *page
 	if pageSlug == "" {
-		page = a.defaultDashboard.Pages[0]
+		pages := a.authorization.authorizedPages(identity, a.defaultDashboard)
+		if len(pages) > 0 {
+			page = pages[0]
+		}
 	} else {
 		for _, candidate := range a.defaultDashboard.Pages {
 			if candidate.Slug == pageSlug {
@@ -861,12 +870,12 @@ func (a *application) handlePageRequest(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	if page == nil {
+	if !a.authorization.canAccessDashboardPage(identity, a.defaultDashboard, page) {
 		a.renderNotFound(
 			w,
 			r,
 			session,
-			a.defaultDashboard.Pages,
+			a.authorization.authorizedPages(identity, a.defaultDashboard),
 			a.defaultDashboard,
 			"",
 		)
@@ -878,7 +887,7 @@ func (a *application) handlePageRequest(w http.ResponseWriter, r *http.Request) 
 		r,
 		session,
 		page,
-		a.defaultDashboard.Pages,
+		a.authorization.authorizedPages(identity, a.defaultDashboard),
 		a.defaultDashboard,
 		"",
 	)
@@ -907,7 +916,10 @@ func (a *application) handleDashboardPageRequest(
 	var page *page
 
 	if pageSlug == "" {
-		page = dashboard.Pages[0]
+		pages := a.authorization.authorizedPages(session.AuthorizationIdentity, dashboard)
+		if len(pages) > 0 {
+			page = pages[0]
+		}
 	} else {
 		for _, candidate := range dashboard.Pages {
 			if candidate.Slug == pageSlug {
@@ -917,12 +929,12 @@ func (a *application) handleDashboardPageRequest(
 		}
 	}
 
-	if page == nil {
+	if !a.authorization.canAccessDashboardPage(session.AuthorizationIdentity, dashboard, page) {
 		a.renderNotFound(
 			w,
 			r,
 			session,
-			dashboard.Pages,
+			a.authorization.authorizedPages(session.AuthorizationIdentity, dashboard),
 			dashboard,
 			"/"+dashboard.Slug,
 		)
@@ -934,7 +946,7 @@ func (a *application) handleDashboardPageRequest(
 		r,
 		session,
 		page,
-		dashboard.Pages,
+		a.authorization.authorizedPages(session.AuthorizationIdentity, dashboard),
 		dashboard,
 		"/"+dashboard.Slug,
 	)
@@ -1118,7 +1130,24 @@ func (a *application) renderNotFound(
 }
 
 func (a *application) canAccessWidget(identity string, widgetID uint64) bool {
-	if a == nil || a.authorization == nil || !a.authorization.Enabled() {
+	if a == nil {
+		return false
+	}
+	if identity != guestSessionIdentity && (a.authorization == nil || !a.authorization.Enabled()) {
+		return true
+	}
+	if a.authorization == nil {
+		return false
+	}
+	if identity == guestSessionIdentity {
+		for _, page := range a.widgetPages[widgetID] {
+			if a.authorization.canAccessPage(identity, page) {
+				return true
+			}
+		}
+		return false
+	}
+	if !a.authorization.Enabled() {
 		return true
 	}
 	if _, global := a.globalWidgetIDs[widgetID]; global {
@@ -1133,7 +1162,7 @@ func (a *application) canAccessWidget(identity string, widgetID uint64) bool {
 }
 
 func (a *application) canAccessOperatorDiagnostics(identity string) bool {
-	return a.authorization.canAccessAllDashboards(identity, a.dashboards)
+	return identity != guestSessionIdentity && a.authorization.canAccessAllDashboards(identity, a.dashboards)
 }
 
 func (a *application) handleWidgetContentRequest(w http.ResponseWriter, r *http.Request) {
@@ -1309,6 +1338,9 @@ func (a *application) router() http.Handler {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 		})
 		mux.HandleFunc("POST /logout", a.handleLogoutRequest)
+		if a.Config.Auth.Guest.Enabled {
+			mux.HandleFunc("POST /api/auth/guest", a.handleGuestAuthentication)
+		}
 
 		if len(a.Config.Auth.Users) > 0 {
 			mux.HandleFunc("POST /api/authenticate", a.handleAuthenticationAttempt)

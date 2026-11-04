@@ -37,10 +37,11 @@ const lang = {
 container.clearStyles("display");
 setTimeout(() => {
     if (!container.contains(document.activeElement)) {
-        usernameInput.focus();
+        usernameInput?.focus();
     }
 }, 200);
 
+if (loginForm) {
 toggleVisibilityButton
     .html(showPasswordSVG)
     .attr("title", lang.showPassword)
@@ -146,3 +147,5 @@ loginForm.on("submit", event => {
     event.preventDefault();
     handleLoginAttempt();
 });
+
+}
