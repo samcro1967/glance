@@ -29,6 +29,7 @@ var (
 var feedParser = gofeed.NewParser()
 
 type rssWidget struct {
+	browserConfig    redditBrowserConfig `yaml:"-"`
 	widgetBase       `yaml:",inline"`
 	FeedRequests     []rssFeedRequest `yaml:"feeds"`
 	Style            string           `yaml:"style"`
@@ -70,6 +71,9 @@ func (widget *rssWidget) initialize() error {
 	}
 
 	for i := range widget.FeedRequests {
+		if err := validateRSSBrowserFeed(widget.FeedRequests[i], widget.browserConfig); err != nil {
+			return err
+		}
 		widget.FeedRequests[i].IsDetailed = widget.Style == "detailed-list"
 		widget.FeedRequests[i].IncludeImages =
 			widget.Style == "detailed-list" ||
@@ -174,6 +178,7 @@ type rssFeedRequest struct {
 	Tier                *int                 `yaml:"tier"`
 	Timeout             durationField        `yaml:"timeout"`
 	AllowInsecure       bool                 `yaml:"allow-insecure"`
+	UsePlaywright       bool                 `yaml:"use-playwright"`
 	BasicAuth           struct {
 		Username string `yaml:"username"`
 		Password string `yaml:"password"`
@@ -189,6 +194,60 @@ func (request *rssFeedRequest) UnmarshalYAML(node *yaml.Node) error {
 	}
 
 	request.configuredFields = yamlMappingFields(node)
+	return nil
+}
+
+func validateRSSBrowserFeed(request rssFeedRequest, cfg redditBrowserConfig) error {
+	if !request.UsePlaywright {
+		return nil
+	}
+
+	parsed, err := url.Parse(request.URL)
+	if err != nil || parsed == nil ||
+		parsed.Scheme != "https" ||
+		(parsed.Host != "www.reddit.com" && parsed.Host != "reddit.com") ||
+		parsed.User != nil || parsed.Fragment != "" ||
+		parsed.RawQuery != "" {
+		return fmt.Errorf("RSS use-playwright requires a Reddit HTTPS Atom feed URL")
+	}
+
+	parts := strings.Split(parsed.EscapedPath(), "/")
+	if len(parts) != 4 || parts[0] != "" ||
+		parts[1] != "r" || parts[2] == "" || parts[3] != ".rss" {
+		return fmt.Errorf("RSS use-playwright requires a /r/subreddit/.rss feed URL")
+	}
+
+	for _, name := range parts[2] {
+		if !((name >= 65 && name <= 90) ||
+			(name >= 97 && name <= 122) ||
+			(name >= 48 && name <= 57) ||
+			name == 95) {
+			return fmt.Errorf("RSS use-playwright requires a valid subreddit name")
+		}
+	}
+
+	if len(request.Headers) != 0 ||
+		request.BasicAuth.Username != "" ||
+		request.BasicAuth.Password != "" ||
+		request.AllowInsecure {
+		return fmt.Errorf("RSS use-playwright cannot be combined with headers, basic-auth, or allow-insecure")
+	}
+
+	endpoint := strings.TrimSpace(cfg.Endpoint)
+	browserURL, err := url.Parse(endpoint)
+	if err != nil || browserURL == nil ||
+		(browserURL.Scheme != "http" && browserURL.Scheme != "https") ||
+		browserURL.Host == "" ||
+		browserURL.User != nil ||
+		browserURL.RawQuery != "" ||
+		browserURL.Fragment != "" {
+		return fmt.Errorf("RSS use-playwright requires a valid playwright.endpoint HTTP URL")
+	}
+
+	if (cfg.Reddit.Username == "") != (cfg.Reddit.Password == "") {
+		return fmt.Errorf("playwright.reddit.username and playwright.reddit.password must both be configured or both omitted")
+	}
+
 	return nil
 }
 
@@ -284,6 +343,14 @@ func (widget *rssWidget) fetchItemsFromFeedTask(ctx context.Context, request rss
 		AllowInsecure: request.AllowInsecure,
 	}
 
+	if request.UsePlaywright {
+		if err := validateRSSBrowserFeed(request, widget.browserConfig); err != nil {
+			return nil, err
+		}
+		options.BrowserEndpoint = widget.browserConfig.Endpoint
+		options.BrowserIdentity = widget.browserConfig.Reddit.Username
+	}
+
 	// Identify the configured representation before adding cache validators.
 	cacheKey := rssResourceRequestKey(req, options)
 
@@ -300,7 +367,14 @@ func (widget *rssWidget) fetchItemsFromFeedTask(ctx context.Context, request rss
 		}
 	}
 
-	resource, err := fetchRSSResource(ctx, req, options)
+	var resource rssResourceResponse
+	if request.UsePlaywright {
+		// Browser responses are session-bound. Do not share them through the
+		// ordinary HTTP in-flight request registry.
+		resource, err = fetchRSSBrowserResource(ctx, widget.browserConfig, request.URL, request.Timeout)
+	} else {
+		resource, err = fetchRSSResource(ctx, req, options)
+	}
 	if err != nil {
 		return nil, err
 	}

@@ -35,6 +35,9 @@ func configureRedditBrowser(candidate widget, cfg redditBrowserConfig) widget {
 	if reddit, ok := candidate.(*redditWidget); ok {
 		reddit.browserConfig = cfg
 	}
+	if rss, ok := candidate.(*rssWidget); ok {
+		rss.browserConfig = cfg
+	}
 
 	if container, ok := candidate.(widgetContainer); ok {
 		for _, child := range container.childWidgets() {
@@ -215,7 +218,12 @@ func redditBrowserConnect(ctx context.Context, endpoint string, timeouts ...dura
 	}
 	// Preserve the CDP discovery transport and browser lifecycle; only its HTTP
 	// budget is configurable. This is not a browser login/navigation deadline.
-	client := &http.Client{Timeout: timeout}
+	client := &http.Client{
+		Timeout: timeout,
+		Transport: &http.Transport{
+			DisableKeepAlives: true,
+		},
+	}
 	response, err := client.Do(request)
 	if err != nil {
 		return nil, nil, fmt.Errorf("connecting to Playwright CDP: %w", safeHTTPTransportError(err))

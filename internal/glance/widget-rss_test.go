@@ -360,3 +360,50 @@ func TestRSSFetchSendsConfiguredHeadersAndBasicAuth(t *testing.T) {
 		t.Fatalf("items = %d, want 1", len(items))
 	}
 }
+
+func TestRSSBrowserFeedValidation(t *testing.T) {
+	cfg := browserTestConfig()
+
+	cases := []struct {
+		name  string
+		feed  rssFeedRequest
+		valid bool
+	}{
+		{"valid", rssFeedRequest{URL: "https://www.reddit.com/r/selfhosted/.rss", UsePlaywright: true}, true},
+		{"ordinary HTTP unchanged", rssFeedRequest{URL: "http://example.com/feed"}, true},
+		{"external domain", rssFeedRequest{URL: "https://example.com/r/selfhosted/.rss", UsePlaywright: true}, false},
+		{"HTTP Reddit", rssFeedRequest{URL: "http://www.reddit.com/r/selfhosted/.rss", UsePlaywright: true}, false},
+		{"URL credentials", rssFeedRequest{URL: "https://user:pass@www.reddit.com/r/selfhosted/.rss", UsePlaywright: true}, false},
+		{"unexpected path", rssFeedRequest{URL: "https://www.reddit.com/login/", UsePlaywright: true}, false},
+		{"encoded path", rssFeedRequest{URL: "https://www.reddit.com/r/%2e%2e/.rss", UsePlaywright: true}, false},
+		{"query", rssFeedRequest{URL: "https://www.reddit.com/r/selfhosted/.rss?x=1", UsePlaywright: true}, false},
+		{"headers", rssFeedRequest{URL: "https://www.reddit.com/r/selfhosted/.rss", UsePlaywright: true, Headers: map[string]string{"X-Test": "value"}}, false},
+		{"insecure TLS", rssFeedRequest{URL: "https://www.reddit.com/r/selfhosted/.rss", UsePlaywright: true, AllowInsecure: true}, false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateRSSBrowserFeed(tc.feed, cfg)
+			if (err == nil) != tc.valid {
+				t.Fatalf("validation error = %v, valid = %t", err, tc.valid)
+			}
+		})
+	}
+}
+
+func TestRSSBrowserConfigurationAssigned(t *testing.T) {
+	rss := &rssWidget{
+		FeedRequests: []rssFeedRequest{
+			{URL: "https://www.reddit.com/r/selfhosted/.rss", UsePlaywright: true},
+		},
+	}
+
+	configureRedditBrowser(rss, browserTestConfig())
+
+	if err := rss.initialize(); err != nil {
+		t.Fatalf("RSS browser configuration failed: %v", err)
+	}
+	if rss.browserConfig.Endpoint != "http://playwright:9223" {
+		t.Fatal("RSS widget did not receive shared Playwright configuration")
+	}
+}

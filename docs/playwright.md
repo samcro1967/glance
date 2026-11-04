@@ -2,7 +2,7 @@
 
 [Glance README](../README.md) · [Configuration](configuration.md) · [Reddit widget](widgets/reddit.md)
 
-Glance can optionally connect to a shared Chromium browser through the Chrome DevTools Protocol (CDP). Currently, Reddit widgets can opt in with `use-playwright: true`; other widgets continue using their existing request paths unless they explicitly support browser mode.
+Glance can optionally connect to a shared Chromium browser through the Chrome DevTools Protocol (CDP). Reddit widgets and supported Reddit Atom feeds in RSS widgets can opt in with `use-playwright: true`; other requests retain their existing HTTP paths.
 
 The browser runs separately from Glance and retains its own profile, so an authenticated session can survive restarts. Glance does not launch Chromium.
 
@@ -111,6 +111,20 @@ Enable browser requests per Reddit widget:
 ```
 
 See the [Reddit widget reference](widgets/reddit.md) for the supported options and restrictions.
+
+## RSS widget integration
+
+An RSS feed can reuse the same Chromium endpoint and authenticated Reddit session:
+
+```yaml
+- type: rss
+  title: Reddit - Selfhosted
+  feeds:
+    - url: https://www.reddit.com/r/selfhosted/.rss
+      use-playwright: true
+```
+
+The option belongs to each feed, not the RSS widget itself. See [RSS browser-backed feeds](widgets/rss.md#browser-backed-reddit-atom-feeds) for restrictions and timeout behavior.
 
 ## Reddit sessions and credentials
 

@@ -141,6 +141,7 @@ Each entry in `feeds` supports its own request and presentation options.
 | `allow-insecure` | boolean | no | `false` | Allows invalid or self-signed certificates |
 | `headers` | map | no | — | Additional HTTP request headers |
 | `basic-auth` | object | no | — | HTTP Basic Authentication credentials |
+| `use-playwright` | boolean | no | `false` | Fetch supported Reddit Atom feeds through Chromium |
 
 ### Per-feed `limit`
 
@@ -177,6 +178,22 @@ Adds HTTP headers to the request for a specific feed:
 ### `basic-auth`
 
 Supplies HTTP Basic Authentication credentials for a feed.
+
+### Browser-backed Reddit Atom feeds
+
+Set `use-playwright: true` on an individual Reddit Atom feed to retrieve the XML through the authenticated Chromium session instead of the ordinary HTTP client:
+
+```yaml
+- type: rss
+  title: Reddit - Selfhosted
+  feeds:
+    - url: https://www.reddit.com/r/selfhosted/.rss
+      use-playwright: true
+```
+
+Configure the top-level [`playwright.endpoint`](../playwright.md) first. The browser can reuse a persistent authenticated Reddit session, with optional credentials for login recovery. Only HTTPS `reddit.com` or `www.reddit.com` URLs of the form `/r/subreddit/.rss` are supported. Feed-level `headers`, `basic-auth`, and `allow-insecure` are incompatible with this option. Other feeds continue using the ordinary HTTP transport.
+
+Browser operations have a 60-second overall deadline; the feed `timeout` applies to CDP discovery, not the full browser operation. The existing RSS parser, sorting, limits, and widget refresh cache still apply. A browser session does not guarantee a successful Reddit response.
 
 ## HTTP request timeout
 

@@ -534,3 +534,9 @@ Decoration timers belong to the page lifecycle, not the widget scheduler.
 ---
 
 [Glance README](../README.md) · [Contributing](../CONTRIBUTING.md) · [Configuration](configuration.md) · [Widgets](widgets.md) · [Back to top](#about-this-fork)
+
+## Browser-backed Reddit Atom RSS
+
+The fork also adds per-feed `use-playwright: true` to the existing RSS widget for HTTPS Reddit subreddit Atom feeds. This reuses the shared authenticated Chromium CDP session to retrieve original Atom XML, then passes it through the existing RSS parser, sorting, and rendering. Ordinary RSS feeds retain their existing HTTP transport. Browser mode supports `/r/subreddit/.rss` only and excludes custom feed headers, Basic Authentication, and insecure TLS.
+
+See the [RSS widget](widgets/rss.md#browser-backed-reddit-atom-feeds) and [Playwright setup](playwright.md).
