@@ -1,7 +1,6 @@
 // Deterministic guest login and authorized dashboard screenshots.
 // Run only against the Makefile-managed guest-access test instance.
 'use strict';
-const { chromium } = require('playwright');
 const fs = require('node:fs');
 const path = require('node:path');
 const base = (process.env.GLANCE_VISUAL_URL || 'http://127.0.0.1:18080').replace(/\/$/, '');
@@ -58,6 +57,7 @@ module.exports = { captureGuestScreenshots, SCREENSHOTS };
 
 if (require.main === module) {
   (async () => {
+    const { chromium } = require('playwright');
     const browser = await chromium.launch({
       headless: true,
       executablePath: process.env.GLANCE_VISUAL_CHROME || '/usr/bin/google-chrome'
