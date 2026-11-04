@@ -450,7 +450,33 @@ for filename, recipe in docs_images.items():
         )
 
     profile = recipe.get("testConfig")
-    if profile is not None and (
+    capture = recipe.get("capture")
+
+    if capture == "guest-access":
+        expected_guest = {
+            "pages/guest-access/guest-dashboard-desktop.png": (
+                "/", {"width": 1600, "height": 1000}
+            ),
+            "pages/guest-access/guest-login-desktop.png": (
+                "/login", {"width": 1600, "height": 1000}
+            ),
+            "pages/guest-access/guest-login-mobile.png": (
+                "/login", {"width": 430, "height": 900}
+            ),
+        }
+        expected = expected_guest.get(filename)
+        if (
+            expected is None
+            or profile != "testdata/guest-access.yml"
+            or not (ROOT / "testdata/guest-access.yml").is_file()
+            or recipe.get("route") != (expected[0] if expected else None)
+            or recipe.get("viewport") != (expected[1] if expected else None)
+            or set(recipe) != {"kind", "capture", "route", "testConfig", "viewport"}
+        ):
+            invalid_docs_recipes.append(
+                f"{filename}: invalid guest screenshot recipe"
+            )
+    if capture != "guest-access" and profile is not None and (
         not isinstance(profile, str)
         or not re.fullmatch(r"testdata/decorations/[a-z0-9-]+\.yml", profile)
         or not (ROOT / profile).is_file()
@@ -485,9 +511,9 @@ for filename, recipe in docs_images.items():
             f"{filename}: clickNth requires click"
         )
 
-    if capture not in {"element", "page"}:
+    if capture not in {"element", "page", "guest-access"}:
         invalid_docs_recipes.append(
-            f"{filename}: capture must be 'element' or 'page'"
+            f"{filename}: capture must be 'element', 'page', or 'guest-access'"
         )
 
     route = recipe.get("route")

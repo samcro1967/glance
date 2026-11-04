@@ -528,3 +528,25 @@ func TestRSSResourceRequestKeyIncludesBasicAuth(t *testing.T) {
 		t.Fatal("different Basic Authentication produced identical RSS resource key")
 	}
 }
+
+func TestRSSResourceRequestKeySeparatesBrowserIdentity(t *testing.T) {
+	request := rssResourceTestRequest(t, nil)
+
+	normal := rssResourceRequestKey(request, rssResourceRequestOptions{})
+	browserA := rssResourceRequestKey(request, rssResourceRequestOptions{
+		BrowserEndpoint: "http://playwright-a:9223",
+		BrowserIdentity: "account-a",
+	})
+	browserB := rssResourceRequestKey(request, rssResourceRequestOptions{
+		BrowserEndpoint: "http://playwright-b:9223",
+		BrowserIdentity: "account-a",
+	})
+	browserC := rssResourceRequestKey(request, rssResourceRequestOptions{
+		BrowserEndpoint: "http://playwright-a:9223",
+		BrowserIdentity: "account-b",
+	})
+
+	if normal == browserA || browserA == browserB || browserA == browserC {
+		t.Fatal("RSS resource key did not isolate browser transport and identity")
+	}
+}

@@ -214,7 +214,7 @@ func (a *application) searchContext(r *http.Request, widget *searchWidget, ident
 	}
 	slug := strings.Trim(r.URL.Query().Get("dashboard"), "/")
 	for _, dashboard := range a.dashboards {
-		if dashboard.Slug != slug || !a.authorization.canAccessDashboard(identity, dashboard) {
+		if dashboard.Slug != slug || !a.authorization.canAccessDashboardPage(identity, dashboard, p) {
 			continue
 		}
 		for _, candidate := range dashboard.Pages {
@@ -235,7 +235,7 @@ func (a *application) searchPageRoute(identity string, p *page, preferred *dashb
 	}
 	dashboards := append([]*dashboard{preferred}, a.dashboards...)
 	for _, dashboard := range dashboards {
-		if dashboard == nil || !a.authorization.canAccessDashboard(identity, dashboard) {
+		if dashboard == nil || !a.authorization.canAccessDashboardPage(identity, dashboard, p) {
 			continue
 		}
 		for _, candidate := range dashboard.Pages {

@@ -204,6 +204,11 @@ func (a *application) handleDocsRequest(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if session.Method == authMethodGuest {
+		http.NotFound(w, r)
+		return
+	}
+
 	requestPath := strings.TrimPrefix(r.PathValue("path"), "/")
 	if requestPath == "" {
 		requestPath = "README"
@@ -284,7 +289,10 @@ func (a *application) handleDocsAssetRequest(w http.ResponseWriter, r *http.Requ
 		http.Redirect(w, r, a.Config.Server.BaseURL+"/login", http.StatusSeeOther)
 		return
 	}
-	_ = session
+	if session.Method == authMethodGuest {
+		http.NotFound(w, r)
+		return
+	}
 
 	assetPath := strings.TrimPrefix(r.PathValue("path"), "/")
 	if assetPath == "" ||

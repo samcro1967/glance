@@ -85,7 +85,7 @@ browser_images = {
 }
 
 if args.decorations:
-    selected_browser_images = {name for name in browser_images if recipes[name].get("testConfig")}
+    selected_browser_images = {name for name in browser_images if str(recipes[name].get("testConfig", "")).startswith("testdata/decorations/")}
 elif args.image:
     selected_browser_images = {args.image}
 else:

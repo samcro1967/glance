@@ -1,0 +1,33 @@
+# Deterministic, non-production fixture for guest login browser screenshots.
+server:
+  host: 127.0.0.1
+  port: 18080
+auth:
+  secret-key: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==
+  users:
+    visual-test:
+      password: visual-test-password
+  guest:
+    enabled: true
+    dashboards:
+      Default:
+        - home
+pages:
+  - name: Home
+    slug: home
+    columns:
+      - size: full
+        widgets:
+          - type: markdown
+            source: Public guest dashboard fixture.
+  - name: Private
+    slug: private
+    columns:
+      - size: full
+        widgets:
+          - type: markdown
+            source: This page must not be visible to guests.
+dashboards:
+  Default:
+    - home
+    - private

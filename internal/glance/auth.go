@@ -13,6 +13,7 @@ import (
 	"log/slog"
 	mathrand "math/rand/v2"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -73,6 +74,7 @@ type authMethod byte
 const (
 	authMethodLocal authMethod = 1
 	authMethodOIDC  authMethod = 2
+	authMethodGuest authMethod = 3
 )
 
 type verifiedSessionTokenV2 struct {
@@ -305,7 +307,7 @@ func generateSessionTokenV4(
 	if len(secret) != AUTH_SECRET_KEY_LENGTH {
 		return "", fmt.Errorf("secret key length is not %d bytes", AUTH_SECRET_KEY_LENGTH)
 	}
-	if method != authMethodLocal && method != authMethodOIDC {
+	if method != authMethodLocal && method != authMethodOIDC && method != authMethodGuest {
 		return "", fmt.Errorf("authentication method is invalid")
 	}
 
@@ -435,7 +437,7 @@ func verifySessionTokenV4(
 	offset += AUTH_TOKEN_V2_VERSION_LENGTH
 
 	method := authMethod(tokenBytes[offset])
-	if method != authMethodLocal && method != authMethodOIDC {
+	if method != authMethodLocal && method != authMethodOIDC && method != authMethodGuest {
 		return verified, fmt.Errorf("authentication method is invalid")
 	}
 	offset += AUTH_TOKEN_V2_METHOD_LENGTH
@@ -1010,6 +1012,13 @@ func (a *application) oidcAuthorizationIdentityAllowed(identity string) bool {
 	return false
 }
 
+// Guest tokens use a reserved identity distinct from local and OIDC principals.
+const (
+	guestSessionPrincipal   = "\x00glance:guest"
+	guestSessionIdentity    = "\x00glance:guest"
+	guestSessionDisplayName = "Guest"
+)
+
 func (a *application) resolveAuthenticatedSession(
 	r *http.Request,
 	now time.Time,
@@ -1033,6 +1042,14 @@ func (a *application) resolveAuthenticatedSession(
 		switch verified.Method {
 		case authMethodLocal:
 			if _, exists := a.Config.Auth.Users[verified.Principal]; !exists {
+				return session, false
+			}
+
+		case authMethodGuest:
+			if !a.Config.Auth.Guest.Enabled || len(a.Config.Auth.Guest.Dashboards) == 0 ||
+				verified.Principal != guestSessionPrincipal ||
+				verified.AuthorizationIdentity != guestSessionIdentity ||
+				verified.DisplayName != guestSessionDisplayName {
 				return session, false
 			}
 
@@ -1331,4 +1348,34 @@ func (a *application) handleLoginPageRequest(w http.ResponseWriter, r *http.Requ
 	}
 
 	_, _ = w.Write(responseBytes.Bytes())
+}
+
+// handleGuestAuthentication issues only the canonical restricted guest identity.
+func (a *application) handleGuestAuthentication(w http.ResponseWriter, r *http.Request) {
+	if !a.RequiresAuth || !a.Config.Auth.Guest.Enabled || len(a.Config.Auth.Guest.Dashboards) == 0 {
+		http.NotFound(w, r)
+		return
+	}
+	if site := r.Header.Get("Sec-Fetch-Site"); site != "" && site != "same-origin" && site != "none" {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+	if origin := r.Header.Get("Origin"); origin != "" {
+		parsed, err := url.Parse(origin)
+		expectedScheme := "http"
+		if a.requestIsSecure(r) {
+			expectedScheme = "https"
+		}
+		if err != nil || parsed.Host != r.Host || parsed.Scheme != expectedScheme {
+			http.Error(w, "Forbidden", http.StatusForbidden)
+			return
+		}
+	}
+	token, err := generateSessionTokenV4(authMethodGuest, guestSessionPrincipal, guestSessionDisplayName, guestSessionIdentity, a.authSecretKey, time.Now())
+	if err != nil {
+		http.Error(w, "Unable to create guest session", http.StatusInternalServerError)
+		return
+	}
+	a.setAuthSessionCookie(w, r, token, time.Now().Add(AUTH_TOKEN_VALID_PERIOD))
+	http.Redirect(w, r, a.Config.Server.BaseURL+"/", http.StatusSeeOther)
 }

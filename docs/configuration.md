@@ -526,6 +526,26 @@ Client secrets and the Glance authentication secret should not be committed dire
 
 OIDC configuration participates in normal Glance configuration reloads. Changes such as updating `allowed-users` apply to new authentication attempts without restarting Glance. Removing an identity from `allowed-users` does not revoke a Glance session that was already established; existing sessions remain valid until their normal expiration or invalidation. Rotating `secret-key` invalidates existing Glance sessions globally.
 
+### Guest dashboard access (fork feature)
+
+Guest access is **disabled by default**. To show a **Continue as Guest** button on the login page, configure an authentication secret and explicitly grant named dashboards and optionally their pages:
+
+```yaml
+auth:
+  secret-key: ${GLANCE_AUTH_SECRET_KEY}
+  guest:
+    enabled: true
+    dashboards:
+      Default:
+        - sports  # only the Sports page is guest-accessible
+```
+
+The dashboard names must match `dashboards` keys; page entries must match pages belonging to that dashboard. An omitted or empty page list grants all pages of that dashboard. Unknown names and duplicate page grants fail configuration validation. Guest access requires at least one dashboard and a configured authentication secret. Local accounts and OIDC may remain enabled alongside guests.
+
+When HTTPS terminates at a reverse proxy, configure `server.proxied: true` so Glance recognizes the forwarded HTTPS request. Configure `server.trusted-proxies` for the direct proxy peers where possible. Otherwise, same-origin guest login requests can be rejected with HTTP 403 because the browser uses HTTPS while Glance sees an HTTP connection.
+
+Guest sessions use a distinct signed V4 identity and expire like other sessions. Removing guest access invalidates guest sessions on subsequent requests. Dashboard and page navigation, direct routes, page content, widget content, search, and live-update subscriptions are restricted to granted pages. Guest sessions cannot access operator diagnostics, personal-state storage, the resource proxy, or documentation routes. Do not place sensitive information in a guest-accessible widget or page; guest grants are not widget-level redaction rules.
+
 ### Dashboard authorization
 
 When named dashboards are configured, Glance can restrict each dashboard to specific authenticated users or reusable groups. Dashboard authorization works with both local username/password authentication and OIDC.
@@ -563,13 +583,15 @@ auth:
 
 `groups` defines reusable sets of authorization identities. Groups contain users directly and cannot contain other groups. Defining groups by itself does not enable dashboard authorization.
 
+For example, adding `pages: [sports]` beneath a `Default` dashboard access rule limits that rule to the Sports page. Page names must match pages assigned to that dashboard; unknown or duplicate page grants fail configuration validation.
+
 `access.dashboards` defines the dashboard access policy. A dashboard is accessible when the authenticated identity is listed directly under `users` or belongs to any group listed under `groups`. Direct users and groups can be combined in the same rule.
 
 For local authentication, the authorization identity is the configured username and matching is case-sensitive. For OIDC, dashboard authorization uses the provider's verified `email` claim, normalized for letter case and surrounding whitespace. An OIDC identity without a verified email cannot use dashboard authorization. `oidc.allowed-users` remains a separate global OIDC authentication admission control: an identity must first be admitted by `allowed-users`, when configured, before dashboard authorization is evaluated.
 
 Dashboard authorization is optional. When `auth.access.dashboards` is omitted or empty, existing authentication and dashboard behavior is unchanged. Once at least one dashboard access rule is configured, authorization is enabled and dashboards are deny-by-default: every accessible dashboard must have an explicit rule granting the authenticated identity access. Dashboard access rules require named dashboards and do not apply to legacy configurations that use standalone pages without dashboards.
 
-Pages do not have independent access rules. A page is accessible when it belongs to at least one dashboard the authenticated identity can access. This means a page shared by multiple dashboards remains accessible through any authorized containing dashboard, while a page that belongs only to unauthorized dashboards is inaccessible. Dashboard navigation is filtered to dashboards available to the current identity.
+Dashboard access rules can optionally include a `pages` list to restrict an authenticated identity to specific pages in that dashboard. When `pages` is omitted or empty, all pages in the granted dashboard are accessible. A page is accessible when it belongs to at least one dashboard through which the identity is permitted to access that page. This means a page shared by multiple dashboards remains accessible through any authorized containing dashboard, while a page that belongs only to unauthorized dashboards is inaccessible. Dashboard navigation is filtered to dashboards available to the current identity.
 
 Authorization preserves the existing dashboard routing topology. Granting access to a page through one dashboard does not create a new route for that page through another dashboard. For example, a page assigned only to an `Admin` dashboard does not become available at the Default dashboard's page route merely because the current user can access `Admin`.
 
@@ -577,7 +599,7 @@ After authentication, requests for unauthorized dashboards and pages return HTTP
 
 Dashboard authorization participates in normal Glance configuration reloads. A successfully reloaded policy is used for subsequent requests from existing authenticated sessions; changing dashboard grants therefore does not require those users to sign in again. This differs from `oidc.allowed-users`, which controls admission when an OIDC authentication is established rather than continuously revoking existing sessions.
 
-These rules protect dashboard and page access through the Glance UI and normal page routes. They are not a general resource-level or multi-tenant security boundary: widgets do not have independent ACLs, and widget-content APIs, live-update/SSE endpoints, static assets, and other underlying resources are not individually isolated by dashboard authorization. Do not rely on dashboard authorization to protect secrets that those resources themselves expose.
+These rules protect dashboard and page access through the Glance UI and normal page routes. They are not a general resource-level or multi-tenant security boundary: widgets do not have independent ACLs. Guest sessions have additional page-aware widget-content and live-update restrictions, but static assets and other underlying resources are not a general multi-tenant isolation boundary. Do not rely on dashboard authorization to protect secrets that those resources themselves expose.
 
 ### Using hashed passwords
 
