@@ -165,7 +165,7 @@ func TestChangeDetectionHTTPPolicySendsHeadersAndTokenWins(t *testing.T) {
 		case "/api/v1/watch":
 			_, _ = w.Write([]byte(`{"watch-1":{}}`))
 		case "/api/v1/watch/watch-1":
-			_, _ = w.Write([]byte(`{"title":"Test","url":"https://example.com","last_changed":2}`))
+			_, _ = w.Write([]byte(`{"title":"Test","open_link":"https://example.com","last_changed":2}`))
 		default:
 			http.NotFound(w, r)
 		}
@@ -219,7 +219,7 @@ func TestFetchWatchesFromChangeDetectionUsesLinkURLOnlyForDiffLinks(t *testing.T
 			http.NotFound(w, r)
 			return
 		}
-		_, _ = w.Write([]byte(`{"title":"Test","url":"https://example.com","last_changed":5}`))
+		_, _ = w.Write([]byte(`{"title":"Test","open_link":"https://example.com","last_changed":5}`))
 	}))
 	defer apiServer.Close()
 
