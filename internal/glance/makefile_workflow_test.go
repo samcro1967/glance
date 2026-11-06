@@ -217,6 +217,10 @@ func TestMakefileImageVulnerabilityVisibility(t *testing.T) {
 	imageVuln := makeTargetRecipe(t, makefile, "image-vuln")
 	for _, fragment := range []string{
 		`--only-fixed`,
+		`docker pull "$$image"`,
+		`WARNING: CONTAINER IMAGE REFRESH FAILED`,
+		`Refusing to scan a potentially stale local image.`,
+		`Immutable image digest supplied; skipping tag refresh.`,
 		`WARNING: CONTAINER VULNERABILITY SCAN UNAVAILABLE`,
 		`WARNING: CONTAINER VULNERABILITY SCAN FAILED`,
 		`Pipeline will continue`,
@@ -246,6 +250,102 @@ func TestMakefileImageVulnerabilityVisibility(t *testing.T) {
 	nonRuntime := makeTargetRecipe(t, makefile, "ship-nonruntime")
 	if strings.Contains(nonRuntime, "image-vuln") {
 		t.Fatal("ship-nonruntime must not invoke container vulnerability scanning")
+	}
+}
+
+func TestMakefileImageVulnerabilityRefreshBehavior(t *testing.T) {
+	tests := []struct {
+		name      string
+		image     string
+		pullFails bool
+		wantPull  bool
+		wantScan  bool
+	}{
+		{
+			name:     "published tag refreshed before scan",
+			image:    "ghcr.io/example/glance:dev",
+			wantPull: true,
+			wantScan: true,
+		},
+		{
+			name:      "failed refresh prevents stale scan",
+			image:     "ghcr.io/example/glance:dev",
+			pullFails: true,
+			wantPull:  true,
+		},
+		{
+			name:     "immutable digest skips refresh",
+			image:    "ghcr.io/example/glance@sha256:0123456789abcdef",
+			wantScan: true,
+		},
+		{
+			name:     "local image skips refresh",
+			image:    "glance-local",
+			wantScan: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			logPath := filepath.Join(dir, "calls.log")
+
+			dockerScript := "#!/bin/sh\n" +
+				"printf \"docker %s\\n\" \"$*\" >> \"$CALL_LOG\"\n" +
+				"if [ \"$PULL_FAILS\" = 1 ]; then exit 1; fi\n"
+			grypeScript := "#!/bin/sh\n" +
+				"printf \"grype %s\\n\" \"$*\" >> \"$CALL_LOG\"\n"
+
+			for name, script := range map[string]string{
+				"docker": dockerScript,
+				"grype":  grypeScript,
+			} {
+				if err := os.WriteFile(filepath.Join(dir, name), []byte(script), 0755); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			cmd := exec.Command("make", "--no-print-directory", "image-vuln",
+				"IMAGE="+tt.image, "GRYPE="+filepath.Join(dir, "grype"))
+			cmd.Dir = filepath.Join("..", "..")
+			cmd.Env = append(os.Environ(),
+				"PATH="+dir+":"+os.Getenv("PATH"),
+				"CALL_LOG="+logPath,
+			)
+			if tt.pullFails {
+				cmd.Env = append(cmd.Env, "PULL_FAILS=1")
+			}
+
+			output, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatalf("image-vuln failed: %v\n%s", err, output)
+			}
+
+			calls, err := os.ReadFile(logPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			actual := string(calls)
+
+			pulled := strings.Contains(actual, "docker pull "+tt.image)
+			scanned := strings.Contains(actual, "grype "+tt.image+" --only-fixed")
+
+			if pulled != tt.wantPull || scanned != tt.wantScan {
+				t.Fatalf("unexpected scan operations:\n%s\nOutput:\n%s", actual, output)
+			}
+
+			if tt.pullFails && !strings.Contains(string(output), "WARNING: CONTAINER IMAGE REFRESH FAILED") {
+				t.Fatalf("missing refresh failure warning:\n%s", output)
+			}
+
+			if tt.wantPull && tt.wantScan {
+				pullPosition := strings.Index(actual, "docker pull ")
+				scanPosition := strings.Index(actual, "grype "+tt.image+" --only-fixed")
+				if pullPosition < 0 || scanPosition <= pullPosition {
+					t.Fatalf("scan did not follow refresh:\n%s", actual)
+				}
+			}
+		})
 	}
 }
 
