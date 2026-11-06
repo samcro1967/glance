@@ -438,7 +438,7 @@ func TestRemainingValueProviderWidgetUpdateAndRenderPaths(t *testing.T) {
 					"application/json",
 					`{
 						"title":"`+id+`",
-						"url":"https://example.invalid/`+id+`",
+						"open_link":"https://example.invalid/`+id+`",
 						"last_changed":`+changed+`,
 						"previous_md5":"123456789",
 						"viewed":false
@@ -539,7 +539,7 @@ func TestRemainingValueProviderWidgetUpdateAndRenderPaths(t *testing.T) {
 					"id":`+id+`,
 					"score":`+score+`,
 					"title":"post`+id+`",
-					"url":"https://example.invalid/`+id+`",
+					"open_link":"https://example.invalid/`+id+`",
 					"descendants":10,
 					"time":10
 				}`,
@@ -574,7 +574,7 @@ func TestRemainingValueProviderWidgetUpdateAndRenderPaths(t *testing.T) {
 					{
 						"created_at":"2026-08-30T12:00:00Z",
 						"title":"one",
-						"url":"https://example.invalid/1",
+						"open_link":"https://example.invalid/1",
 						"score":1,
 						"comment_count":2,
 						"comments_url":"https://lobste.rs/s/1",
@@ -583,7 +583,7 @@ func TestRemainingValueProviderWidgetUpdateAndRenderPaths(t *testing.T) {
 					{
 						"created_at":"2026-08-30T13:00:00Z",
 						"title":"two",
-						"url":"https://example.invalid/2",
+						"open_link":"https://example.invalid/2",
 						"score":2,
 						"comment_count":3,
 						"comments_url":"https://lobste.rs/s/2",
@@ -1081,7 +1081,7 @@ func TestRemainingValueRedditFetchUpdateTokenAndRender(t *testing.T) {
 									"id":"one",
 									"title":"One &amp; Only",
 									"ups":5,
-									"url":"https://example.invalid/one",
+									"open_link":"https://example.invalid/one",
 									"created":20,
 									"num_comments":3,
 									"domain":"example.invalid",
@@ -1095,7 +1095,7 @@ func TestRemainingValueRedditFetchUpdateTokenAndRender(t *testing.T) {
 									"id":"two",
 									"title":"Two",
 									"ups":50,
-									"url":"https://example.invalid/two",
+									"open_link":"https://example.invalid/two",
 									"created":30,
 									"num_comments":4,
 									"domain":"example.invalid",

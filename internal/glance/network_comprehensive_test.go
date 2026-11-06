@@ -128,11 +128,11 @@ func TestComprehensiveChangeDetectionFetchesUUIDsAndWatches(t *testing.T) {
 		case "/api/v1/watch":
 			_, _ = rw.Write([]byte(`{"watch-1":{},"watch-2":{},"watch-3":{}}`))
 		case "/api/v1/watch/watch-1":
-			_, _ = rw.Write([]byte(`{"title":"Explicit","page_title":"Ignored Page Title","url":"https://www.example.invalid/a","last_changed":20,"date_created":10,"previous_md5":"1234567890"}`))
+			_, _ = rw.Write([]byte(`{"title":"Explicit","page_title":"Ignored Page Title","url":"https://legacy.example.invalid/a","open_link":"https://www.example.invalid/a","last_changed":20,"date_created":10,"previous_md5":"1234567890"}`))
 		case "/api/v1/watch/watch-2":
-			_, _ = rw.Write([]byte(`{"title":"","page_title":"Page B","url":"https://www.example.invalid/b/","last_changed":0,"date_created":30,"previous_md5":"abc"}`))
+			_, _ = rw.Write([]byte(`{"title":"","page_title":"Page B","open_link":"https://www.example.invalid/b/","last_changed":0,"date_created":30,"previous_md5":"abc"}`))
 		case "/api/v1/watch/watch-3":
-			_, _ = rw.Write([]byte(`{"title":"","page_title":"","url":"https://www.example.invalid/c/","last_changed":10,"date_created":5,"previous_md5":"def"}`))
+			_, _ = rw.Write([]byte(`{"title":"","page_title":"","open_link":"https://www.example.invalid/c/","last_changed":10,"date_created":5,"previous_md5":"def"}`))
 		default:
 			http.NotFound(rw, r)
 		}
@@ -176,7 +176,7 @@ func TestComprehensiveChangeDetectionFetchesUUIDsAndWatches(t *testing.T) {
 func TestComprehensiveChangeDetectionPartialAndEmpty(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/good") {
-			_, _ = rw.Write([]byte(`{"title":"Good","url":"https://example.invalid","last_changed":2}`))
+			_, _ = rw.Write([]byte(`{"title":"Good","open_link":"https://example.invalid","last_changed":2}`))
 			return
 		}
 		http.Error(rw, "bad", http.StatusInternalServerError)
