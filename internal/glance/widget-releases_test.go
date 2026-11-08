@@ -302,6 +302,81 @@ func TestReleaseRequestUnmarshalPreservesSupportedSources(t *testing.T) {
 	}
 }
 
+func TestReleaseRequestStructuredSourcePrefixes(t *testing.T) {
+	tests := []struct {
+		name       string
+		config     string
+		wantSource releaseSource
+		wantRepo   string
+		wantPre    bool
+		wantErr    bool
+	}{
+		{
+			name:       "GitHub explicit prefix",
+			config:     "repository: github:glanceapp/glance\ninclude-prereleases: true\n",
+			wantSource: releaseSourceGithub,
+			wantRepo:   "glanceapp/glance",
+			wantPre:    true,
+		},
+		{
+			name:       "GitLab prefix",
+			config:     "repository: gitlab:inkscape/inkscape\n",
+			wantSource: releaseSourceGitlab,
+			wantRepo:   "inkscape/inkscape",
+		},
+		{
+			name:       "Codeberg prefix",
+			config:     "repository: codeberg:redict/redict\n",
+			wantSource: releaseSourceCodeberg,
+			wantRepo:   "redict/redict",
+		},
+		{
+			name:       "Docker Hub tag",
+			config:     "repository: dockerhub:nginx:stable-alpine\n",
+			wantSource: releaseSourceDockerHub,
+			wantRepo:   "nginx:stable-alpine",
+		},
+		{
+			name:    "unsupported string source",
+			config:  "gitea:owner/repo",
+			wantErr: true,
+		},
+		{
+			name:    "unsupported structured source",
+			config:  "repository: gitea:owner/repo\n",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var request releaseRequest
+			err := yaml.Unmarshal([]byte(tt.config), &request)
+
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected unsupported source error")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unmarshalling release request: %v", err)
+			}
+
+			if request.source != tt.wantSource {
+				t.Errorf("source = %q, want %q", request.source, tt.wantSource)
+			}
+			if request.Repository != tt.wantRepo {
+				t.Errorf("repository = %q, want %q", request.Repository, tt.wantRepo)
+			}
+			if request.IncludePreleases != tt.wantPre {
+				t.Errorf("include-prereleases = %v, want %v", request.IncludePreleases, tt.wantPre)
+			}
+		})
+	}
+}
+
 func TestReleaseRequestUnmarshalPreservesStructuredConfiguration(t *testing.T) {
 	var request releaseRequest
 

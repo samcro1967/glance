@@ -132,7 +132,7 @@ func TestComprehensiveChangeDetectionFetchesUUIDsAndWatches(t *testing.T) {
 		case "/api/v1/watch/watch-2":
 			_, _ = rw.Write([]byte(`{"title":"","page_title":"Page B","open_link":"https://www.example.invalid/b/","last_changed":0,"date_created":30,"previous_md5":"abc"}`))
 		case "/api/v1/watch/watch-3":
-			_, _ = rw.Write([]byte(`{"title":"","page_title":"","open_link":"https://www.example.invalid/c/","last_changed":10,"date_created":5,"previous_md5":"def"}`))
+			_, _ = rw.Write([]byte(`{"title":"","page_title":"","url":"https://www.example.invalid/c/","last_changed":10,"date_created":5,"previous_md5":"def"}`))
 		default:
 			http.NotFound(rw, r)
 		}
@@ -168,7 +168,7 @@ func TestComprehensiveChangeDetectionFetchesUUIDsAndWatches(t *testing.T) {
 	}
 
 	urlFallback := byURL["https://www.example.invalid/c/"]
-	if urlFallback.Title != "example.invalid/c" {
+	if urlFallback.Title != "example.invalid/c" || urlFallback.URL != "https://www.example.invalid/c/" {
 		t.Fatalf("URL fallback=%#v", urlFallback)
 	}
 }

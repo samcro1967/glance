@@ -102,7 +102,8 @@ func (r changeDetectionWatchList) sortByNewest() changeDetectionWatchList {
 
 type changeDetectionResponseJson struct {
 	Title        string `json:"title"`
-	URL          string `json:"open_link"`
+	URL          string `json:"url"`
+	OpenLink     string `json:"open_link"`
 	LastChanged  int64  `json:"last_changed"`
 	DateCreated  int64  `json:"date_created"`
 	PreviousHash string `json:"previous_md5"`
@@ -206,8 +207,13 @@ func fetchWatchesFromChangeDetection(ctx context.Context, instanceURL string, li
 
 		watchJson := responses[i]
 
+		openURL := watchJson.OpenLink
+		if openURL == "" {
+			openURL = watchJson.URL
+		}
+
 		watch := changeDetectionWatch{
-			URL:     watchJson.URL,
+			URL:     openURL,
 			DiffURL: fmt.Sprintf("%s/diff/%s?from_version=%d", linkURL, requestedWatchIDs[i], watchJson.LastChanged-1),
 		}
 
@@ -222,7 +228,7 @@ func fetchWatchesFromChangeDetection(ctx context.Context, instanceURL string, li
 		} else if watchJson.PageTitle != "" {
 			watch.Title = watchJson.PageTitle
 		} else {
-			watch.Title = strings.TrimPrefix(strings.Trim(stripURLScheme(watchJson.URL), "/"), "www.")
+			watch.Title = strings.TrimPrefix(strings.Trim(stripURLScheme(openURL), "/"), "www.")
 		}
 
 		if watchJson.PreviousHash != "" {

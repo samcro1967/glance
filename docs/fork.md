@@ -507,6 +507,14 @@ The fork intentionally avoids unnecessary divergence from upstream. Production c
 
 This allows the implementation to evolve substantially where justified without unnecessarily creating a configuration or user-experience boundary between upstream Glance and this distribution.
 
+### Issue reporting and upstream attribution
+
+Report bugs affecting this fork through the [fork issue tracker](https://github.com/samcro1967/glance/issues/new/choose), using the existing bug-report template and including the running fork version, relevant configuration, reproduction steps, and diagnostic evidence where available. Feature requests should use the corresponding feature-request template.
+
+Issues confirmed to affect upstream Glance independently of fork-specific functionality may also be relevant to the [upstream issue tracker](https://github.com/glanceapp/glance/issues). Reference existing upstream issues or pull requests when applicable, while keeping fork-specific regression reports and implementation discussions in this repository.
+
+Security vulnerabilities should be reported privately through the repository security-reporting process rather than disclosed in public issues.
+
 ## Current stability
 
 The fork has undergone a focused stabilization and architectural consolidation effort covering configuration handling, application lifecycle behavior, widget refresh and recovery, provider failure handling, HTTP infrastructure, frontend lifecycle ownership, live updates, concurrency, shutdown and reload behavior, diagnostics, security, regression testing, CI validation, and production deployment.

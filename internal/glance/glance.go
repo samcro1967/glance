@@ -961,16 +961,16 @@ func pagePointers(pages []page) []*page {
 }
 
 func (a *application) handlePageContentRequest(w http.ResponseWriter, r *http.Request) {
-	page, exists := a.slugToPage[r.PathValue("page")]
-	if !exists {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-
 	session, authenticated := a.authorizeSession(w, r)
 	if !authenticated {
 		w.WriteHeader(http.StatusUnauthorized)
 		_, _ = w.Write([]byte(`{"error": "Unauthorized"}`))
+		return
+	}
+
+	page, exists := a.slugToPage[r.PathValue("page")]
+	if !exists {
+		w.WriteHeader(http.StatusNotFound)
 		return
 	}
 
