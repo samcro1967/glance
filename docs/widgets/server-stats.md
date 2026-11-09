@@ -63,6 +63,7 @@ If not provided it will display the statistics of the server Glance is running o
 | type | string | yes |  |
 | name | string | no |  |
 | hide-swap | boolean | no | false |
+| hide-compact-header | boolean | no | false |
 
 #### `type`
 Whether to display statistics for the local server or a remote server. Possible values are `local` and `remote`.
@@ -72,6 +73,25 @@ The name of the server which will be displayed on the widget. If not provided it
 
 #### `hide-swap`
 Whether to hide the swap usage.
+
+#### `hide-compact-header`
+When `true`, hides the server name and status/uptime header in the compact view while retaining CPU, RAM, and disk statistics. The expanded view continues to show the server identity and status. This option applies independently to each server and defaults to `false`.
+
+```yaml
+- type: server-stats
+  servers:
+    - type: local
+      name: Services
+      hide-compact-header: true
+```
+
+**Compact preview with header hidden:**
+
+![Server Stats without compact server header](../images/widgets/server-stats-header-hidden.png)
+
+**Mobile preview with header hidden:**
+
+![Server Stats mobile without compact server header](../images/widgets/mobile/server-stats-header-hidden.png)
 
 ### Additional properties for the `local` server
 | Name | Type | Required | Default |
