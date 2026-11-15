@@ -151,7 +151,7 @@
     "variants": ["standard", "bangs"]
   },
   "server-stats": {
-    "variants": ["standard"]
+    "variants": ["standard", "header-hidden"]
   },
   "split-column": {
     "variants": ["standard", "three-columns", "four-columns", "masonry"]

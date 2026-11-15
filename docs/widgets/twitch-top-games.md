@@ -46,6 +46,8 @@ https://www.twitch.tv/directory/category/grand-theft-auto-v
 ### `limit`
 The maximum number of games to show.
 
+Twitch returns at most 100 categories per request. Excluded categories are filtered from those results, so the widget may show fewer games than this limit.
+
 ### `collapse-after`
 How many games are visible before the "SHOW MORE" button appears. Set to `-1` to never collapse.
 

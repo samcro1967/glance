@@ -70,6 +70,9 @@ type twitchCategory struct {
 }
 
 type twitchDirectoriesOperationResponse struct {
+	Errors []struct {
+		Message string `json:"message"`
+	} `json:"errors"`
 	Data struct {
 		DirectoriesWithTags struct {
 			Edges []struct {
@@ -83,8 +86,12 @@ const twitchDirectoriesOperationRequestBody = `[
 {"operationName": "BrowsePage_AllDirectories","variables": {"limit": %d,"options": {"sort": "VIEWER_COUNT","tags": []}},"extensions": {"persistedQuery": {"version": 1,"sha256Hash": "2f67f71ba89f3c0ed26a141ec00da1defecb2303595f5cda4298169549783d9e"}}}
 ]`
 
+// Twitch rejects directory requests containing more than 100 categories.
+const twitchMaxCategoriesPerRequest = 100
+
 func fetchTopGamesFromTwitch(ctx context.Context, exclude []string, limit int, timeouts ...durationField) ([]twitchCategory, error) {
-	reader := strings.NewReader(fmt.Sprintf(twitchDirectoriesOperationRequestBody, len(exclude)+limit))
+	requestLimit := min(len(exclude)+limit, twitchMaxCategoriesPerRequest)
+	reader := strings.NewReader(fmt.Sprintf(twitchDirectoriesOperationRequestBody, requestLimit))
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, twitchGqlEndpoint, reader)
 	if err != nil {
 		return nil, fmt.Errorf("creating Twitch top games request: %w", err)
@@ -99,6 +106,12 @@ func fetchTopGamesFromTwitch(ctx context.Context, exclude []string, limit int, t
 
 	if len(response) == 0 {
 		return nil, errors.New("no Twitch top game categories could be retrieved")
+	}
+
+	// GraphQL can report an operation failure inside an HTTP 200 response.
+	// Return it through the widget's existing error and stale-content handling.
+	if len(response[0].Errors) > 0 {
+		return nil, fmt.Errorf("Twitch GraphQL BrowsePage_AllDirectories operation failed: %s", response[0].Errors[0].Message)
 	}
 
 	edges := (response)[0].Data.DirectoriesWithTags.Edges

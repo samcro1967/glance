@@ -1720,5 +1720,22 @@
     "route": "/screenshots/docs-overview",
     "fullPage": false,
     "testConfig": "testdata/decorations/fathers-day.yml"
+  },
+  "widgets/server-stats-header-hidden.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-server-stats-header-hidden"
+  },
+  "widgets/mobile/server-stats-header-hidden.png": {
+    "kind": "browser",
+    "capture": "element",
+    "route": "/homelab-monitoring",
+    "selector": ".visual-fixture-server-stats-header-hidden",
+    "viewport": {
+      "width": 430,
+      "height": 900
+    },
+    "mobileCapture": "element"
   }
 }
