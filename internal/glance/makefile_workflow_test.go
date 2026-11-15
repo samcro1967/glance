@@ -262,6 +262,12 @@ func TestMakefileImageVulnerabilityRefreshBehavior(t *testing.T) {
 		wantScan  bool
 	}{
 		{
+			name:     "default production image refreshed before scan",
+			image:    "",
+			wantPull: true,
+			wantScan: true,
+		},
+		{
 			name:     "published tag refreshed before scan",
 			image:    "ghcr.io/example/glance:dev",
 			wantPull: true,
@@ -305,8 +311,16 @@ func TestMakefileImageVulnerabilityRefreshBehavior(t *testing.T) {
 				}
 			}
 
-			cmd := exec.Command("make", "--no-print-directory", "image-vuln",
-				"IMAGE="+tt.image, "GRYPE="+filepath.Join(dir, "grype"))
+			args := []string{"--no-print-directory", "image-vuln",
+				"GRYPE=" + filepath.Join(dir, "grype")}
+			image := tt.image
+			if image == "" {
+				image = "ghcr.io/example/glance:production"
+				args = append(args, "DEPLOY_IMAGE="+image)
+			} else {
+				args = append(args, "IMAGE="+image)
+			}
+			cmd := exec.Command("make", args...)
 			cmd.Dir = filepath.Join("..", "..")
 			cmd.Env = append(os.Environ(),
 				"PATH="+dir+":"+os.Getenv("PATH"),
@@ -327,8 +341,8 @@ func TestMakefileImageVulnerabilityRefreshBehavior(t *testing.T) {
 			}
 			actual := string(calls)
 
-			pulled := strings.Contains(actual, "docker pull "+tt.image)
-			scanned := strings.Contains(actual, "grype "+tt.image+" --only-fixed")
+			pulled := strings.Contains(actual, "docker pull "+image)
+			scanned := strings.Contains(actual, "grype "+image+" --only-fixed")
 
 			if pulled != tt.wantPull || scanned != tt.wantScan {
 				t.Fatalf("unexpected scan operations:\n%s\nOutput:\n%s", actual, output)
@@ -340,7 +354,7 @@ func TestMakefileImageVulnerabilityRefreshBehavior(t *testing.T) {
 
 			if tt.wantPull && tt.wantScan {
 				pullPosition := strings.Index(actual, "docker pull ")
-				scanPosition := strings.Index(actual, "grype "+tt.image+" --only-fixed")
+				scanPosition := strings.Index(actual, "grype "+image+" --only-fixed")
 				if pullPosition < 0 || scanPosition <= pullPosition {
 					t.Fatalf("scan did not follow refresh:\n%s", actual)
 				}
