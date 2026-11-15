@@ -1181,6 +1181,14 @@ pages:
               - type: local
                 name: Local Test Instance
 
+          - type: server-stats
+            title: Server Stats - Header Hidden
+            css-class: visual-fixture-server-stats-header-hidden
+            servers:
+              - type: local
+                name: Hidden Header Test Instance
+                hide-compact-header: true
+
           - type: dns-stats
             title: DNS Stats
             css-class: visual-fixture-dns-stats

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/samcro1967/glance/pkg/sysinfo"
+	"gopkg.in/yaml.v3"
 )
 
 func TestServerStatsWidgetInitializeMountpointOrder(t *testing.T) {
@@ -446,4 +447,78 @@ func TestServerStatsUpdateNullResponseFailureState(t *testing.T) {
 			t.Fatalf("recovery did not clear failure: error=%v, notice=%v", widget.Error, widget.Notice)
 		}
 	}
+}
+
+func TestServerStatsHideCompactHeader(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		yaml   string
+		hidden []bool
+	}{
+		{
+			name:   "omitted defaults to visible",
+			yaml:   "servers:\n  - type: local\n    name: Default Server\n",
+			hidden: []bool{false},
+		},
+		{
+			name:   "explicit false",
+			yaml:   "servers:\n  - type: local\n    name: Visible Server\n    hide-compact-header: false\n",
+			hidden: []bool{false},
+		},
+		{
+			name:   "explicit true",
+			yaml:   "servers:\n  - type: local\n    name: Hidden Server\n    hide-compact-header: true\n",
+			hidden: []bool{true},
+		},
+		{
+			name:   "mixed servers",
+			yaml:   "servers:\n  - type: local\n    name: Visible Server\n  - type: local\n    name: Hidden Server\n    hide-compact-header: true\n",
+			hidden: []bool{false, true},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var widget serverStatsWidget
+			if err := yaml.Unmarshal([]byte(tc.yaml), &widget); err != nil {
+				t.Fatalf("decode configuration: %v", err)
+			}
+			if len(widget.Servers) != len(tc.hidden) {
+				t.Fatalf("server count = %d, want %d", len(widget.Servers), len(tc.hidden))
+			}
+			for i, server := range widget.Servers {
+				if server.HideCompactHeader != tc.hidden[i] {
+					t.Fatalf("server %d hide-compact-header = %v, want %v", i, server.HideCompactHeader, tc.hidden[i])
+				}
+				server.Info = &sysinfo.SystemInfo{Hostname: "test-host"}
+				server.IsReachable = true
+				widget.Servers[i] = server
+			}
+
+			widget.Type = "server-stats"
+			widget.ContentAvailable = true
+			compact := string(widget.Render())
+			expanded := string(widget.RenderExpanded())
+
+			if got := strings.Count(compact, "class=\"server-info\""); got != len(tc.hidden)-countHidden(tc.hidden) {
+				t.Fatalf("compact server-info count = %d, want %d", got, len(tc.hidden)-countHidden(tc.hidden))
+			}
+			if got := strings.Count(compact, "class=\"server-stats\""); got != len(tc.hidden) {
+				t.Fatalf("compact stats count = %d, want %d", got, len(tc.hidden))
+			}
+			for _, server := range widget.Servers {
+				if !strings.Contains(expanded, server.Name) {
+					t.Fatalf("expanded view lost server %q", server.Name)
+				}
+			}
+		})
+	}
+}
+
+func countHidden(values []bool) int {
+	count := 0
+	for _, hidden := range values {
+		if hidden {
+			count++
+		}
+	}
+	return count
 }

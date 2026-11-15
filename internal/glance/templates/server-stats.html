@@ -3,6 +3,7 @@
 {{- define "widget-content" }}
 {{- range .Servers }}
 <div class="server">
+    {{ if not .HideCompactHeader }}
     <div class="server-info">
         <div class="server-details">
             <div class="server-name color-highlight size-h3">{{ if .Name }}{{ .Name }}{{ else }}{{ .Info.Hostname }}{{ end }}</div>
@@ -26,6 +27,7 @@
             </svg>
         </div>
     </div>
+    {{ end }}
     <div class="server-stats">
         <div class="flex-1{{ if not .Info.CPU.LoadIsAvailable }} server-stat-unavailable{{ end }}">
             <div class="flex items-end size-h5">
