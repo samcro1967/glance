@@ -14,6 +14,15 @@
 
 <p align="center">A lightweight, highly customizable dashboard that displays<br>your feeds and services in a beautiful, streamlined interface.</p>
 
+> [!WARNING]
+> **Reddit Integration — Currently Unavailable**
+>
+> Reddit's recent access restrictions and RSS discontinuation have rendered both native Reddit widgets and Reddit RSS feeds nonfunctional in our environment.
+>
+> We are monitoring potential solutions before deciding whether to retire these integrations.
+>
+> See [Issue #439](https://github.com/samcro1967/glance/issues/439) for details and updates.
+
 ![Glance dashboard preview](docs/images/pages/overview.png)
 
 ## About this fork
