@@ -6,7 +6,7 @@ export GH_PAGER := cat
 export GIT_EDITOR := true
 export GIT_MERGE_AUTOEDIT := no
 
-.PHONY: export help deps build goreleaser-check frontend-audit frontend-unit frontend-check validate validate-all test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-restart test-instance-status test-instance-stop test-prod-start test-prod-restart test-prod-status test-prod-stop test-container-restart test test-race test-count test-race-count fuzz fuzz-all fmt-check diff-check staged-check docs-check check coverage vuln image-vuln status staged-diff upstream-status upstream-dev-status branch abandon park push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-retry release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-nonruntime deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final lint lighthouse performance-check performance
+.PHONY: parked export help deps build goreleaser-check frontend-audit frontend-unit frontend-check validate validate-all test-instance-fixture-start test-instance-fixture-stop test-instance-start test-instance-restart test-instance-status test-instance-stop test-prod-start test-prod-restart test-prod-status test-prod-stop test-container-restart test test-race test-count test-race-count fuzz fuzz-all fmt-check diff-check staged-check docs-check check coverage vuln image-vuln status staged-diff upstream-status upstream-dev-status branch abandon park push pr-create promote-create sync-dev-create pr-view pr-runs pr-watch pr-merge post-merge image-runs image-watch release-runs release-retry release-watch ci-watch ci-view verify-dev verify-main release-status release-check release deploy-status deploy-dev deploy pr-finish promote-finish sync-finish release-finish ship ship-nonruntime deploy-finish workflow-status visual-check visual-screenshots visual-docs visual-docs-promote visual-all visual-final lint lighthouse performance-check performance
 
 COUNT ?= 10
 FUZZTIME ?= 30s
@@ -97,6 +97,7 @@ help:
 	@echo "  make abandon                  Discard an uncommitted feature branch and return to clean local dev"
 	@echo "                                Refuses branches containing feature-only commits"
 	@echo "  make park                     Return committed feature work to local dev without pushing"
+	@echo "  make parked                   Show commits parked locally on dev and their change summary"
 	@echo "  make ship TITLE='Description' [BODY_FILE=file]"
 	@echo "                                Ship all parked local dev commits through PR -> main -> release"
 	@echo "                                -> production -> main/dev sync -> final verification"
@@ -603,6 +604,30 @@ abandon:
 		exit 1; \
 	fi; \
 	echo "Feature $$feature discarded; $(DEV_BRANCH) is clean."
+
+parked:
+	@set -euo pipefail; \
+	local_ref="$(DEV_BRANCH)"; \
+	remote_ref="origin/$(DEV_BRANCH)"; \
+	git rev-parse --verify "$$local_ref^{commit}" >/dev/null; \
+	git rev-parse --verify "$$remote_ref^{commit}" >/dev/null; \
+	echo "=== LOCAL PARKED COMMITS ($$local_ref vs $$remote_ref) ==="; \
+	if ! git merge-base --is-ancestor "$$remote_ref" "$$local_ref"; then \
+		echo "Cannot report parked commits: local $$local_ref is behind or has diverged from $$remote_ref."; \
+		echo "Reconcile branch history before relying on this comparison."; \
+		exit 1; \
+	fi; \
+	count="$$(git rev-list --count "$$remote_ref..$$local_ref")"; \
+	echo "$$count unpublished commit(s)"; \
+	if [ "$$count" -eq 0 ]; then \
+		echo "Nothing parked locally."; \
+	else \
+		echo; \
+		git --no-pager log --oneline "$$remote_ref..$$local_ref"; \
+		echo; \
+		echo "=== PARKED CHANGE SUMMARY ==="; \
+		git --no-pager diff --stat "$$remote_ref..$$local_ref"; \
+	fi
 
 park:
 	@set -euo pipefail; \
