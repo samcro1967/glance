@@ -111,6 +111,23 @@ repositories:
   - codeberg:redict/redict
 ```
 
+### `use-tags` (per repository)
+
+Some projects publish Git tags without creating formal releases. Set `use-tags: true` on an individual GitHub or GitLab repository to show its latest tag in the existing Releases widget:
+
+```yaml
+repositories:
+  - repository: apache/cordova-android
+    use-tags: true
+  - repository: gitlab:inkscape/inkscape
+    use-tags: true
+  - repository: gitlab:group/project
+    base-url: https://gitlab.example.com
+    use-tags: true
+```
+
+The default remains published releases. Tag mode is supported only for GitHub and GitLab; using it with Codeberg, Docker Hub, or GHCR produces a configuration error. `include-prereleases` has no effect in tag mode: tags are not classified as stable or prerelease. GitHub uses its Atom tag feed (without GitHub REST API rate-limit consumption). GitLab uses the repository tags API and honors `base-url` and `gitlab-token`. GitLab uses the tag creation timestamp when available, falling back to the tagged commit timestamp for lightweight tags or older GitLab versions. The fallback may not reflect when the tag was published. Tag mode does not provide release notes or notifications.
+
 ### `show-source-icon`
 Shows an icon of the source (GitHub/GitLab/Codeberg/Docker Hub/GHCR) next to the repository name when set to `true`. GHCR uses the GitHub source icon.
 

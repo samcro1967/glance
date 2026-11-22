@@ -2,7 +2,11 @@ package glance
 
 import (
 	"context"
+	"encoding/json"
+	"encoding/xml"
 	"errors"
+	"io"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -703,6 +707,184 @@ func TestReleaseProviderURLs(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			if got := test.build(test.request); got != test.want {
 				t.Fatalf("URL = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestReleaseRequestUseTags(t *testing.T) {
+	tests := []struct {
+		name, config     string
+		enabled, invalid bool
+	}{
+		{"default", "repository: owner/repo", false, false},
+		{"github", "repository: owner/repo\nuse-tags: true", true, false},
+		{"gitlab", "repository: gitlab:group/repo\nuse-tags: true\nbase-url: https://gitlab.example.com", true, false},
+		{"codeberg", "repository: codeberg:owner/repo\nuse-tags: true", false, true},
+		{"ghcr", "repository: ghcr:owner/repo\nuse-tags: true", false, true},
+		{"dockerhub", "repository: dockerhub:owner/repo\nuse-tags: true", false, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var r releaseRequest
+			err := yaml.Unmarshal([]byte(tt.config), &r)
+			if tt.invalid {
+				if err == nil {
+					t.Fatal("expected unsupported provider error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if r.UseTags != tt.enabled {
+				t.Fatalf("use-tags = %v, want %v", r.UseTags, tt.enabled)
+			}
+		})
+	}
+}
+
+func TestGithubTagToRelease(t *testing.T) {
+	body := `<feed xmlns="http://www.w3.org/2005/Atom"><entry><title>14.0.1</title><updated>2025-05-01T10:00:00Z</updated><link rel="alternate" href="https://github.com/apache/cordova-android/releases/tag/14.0.1"/></entry></feed>`
+	var feed githubTagsFeed
+	if err := xml.Unmarshal([]byte(body), &feed); err != nil {
+		t.Fatal(err)
+	}
+	release, err := githubTagToRelease("apache/cordova-android", feed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if release.Version != "v14.0.1" || release.Source != releaseSourceGithub || release.NotesUrl != "https://github.com/apache/cordova-android/releases/tag/14.0.1" {
+		t.Fatalf("unexpected release: %+v", release)
+	}
+	if !release.TimeReleased.Equal(time.Date(2025, 5, 1, 10, 0, 0, 0, time.UTC)) {
+		t.Fatalf("unexpected date: %s", release.TimeReleased)
+	}
+	if _, err := githubTagToRelease("repo", githubTagsFeed{}); err == nil {
+		t.Fatal("expected empty feed error")
+	}
+	feed.Entries[0].Links[0].Href = "javascript:alert(1)"
+	release, err = githubTagToRelease("apache/cordova-android", feed)
+	if err != nil || release.NotesUrl != "https://github.com/apache/cordova-android/tags" {
+		t.Fatalf("unsafe URL fallback: %+v, %v", release, err)
+	}
+}
+
+func TestGitlabTagToRelease(t *testing.T) {
+	var tags []gitlabTagResponseJson
+	if err := json.Unmarshal([]byte(`[{"name":"INKSCAPE_1_4","commit":{"created_at":"2024-10-01T08:30:00Z"}}]`), &tags); err != nil {
+		t.Fatal(err)
+	}
+	req := &releaseRequest{Repository: "group/project", BaseURL: "https://gitlab.example.com"}
+	if got := gitLabTagsURL(req); got != "https://gitlab.example.com/api/v4/projects/group%2Fproject/repository/tags?order_by=updated&sort=desc&per_page=1" {
+		t.Fatalf("URL = %q", got)
+	}
+	release, err := gitlabTagToRelease(req, tags)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if release.Version != "vinkscape_1_4" || release.NotesUrl != "https://gitlab.example.com/group/project/-/tags/INKSCAPE_1_4" {
+		t.Fatalf("unexpected tag: %+v", release)
+	}
+	if !release.TimeReleased.Equal(time.Date(2024, 10, 1, 8, 30, 0, 0, time.UTC)) {
+		t.Fatalf("date = %s", release.TimeReleased)
+	}
+	tags[0].CreatedAt = "2026-11-19T09:00:00Z"
+	release, err = gitlabTagToRelease(req, tags)
+	if err != nil || !release.TimeReleased.Equal(time.Date(2026, 11, 19, 9, 0, 0, 0, time.UTC)) {
+		t.Fatalf("tag creation date not preferred: %+v, %v", release, err)
+	}
+	if _, err := gitlabTagToRelease(req, nil); err == nil {
+		t.Fatal("expected empty tags error")
+	}
+}
+
+func TestFetchLatestReleaseTagCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	for _, source := range []releaseSource{releaseSourceGithub, releaseSourceGitlab} {
+		_, err := fetchLatestReleaseTask(ctx, &releaseRequest{Repository: "example/repo", source: source, UseTags: true})
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("%s: expected cancellation, got %v", source, err)
+		}
+	}
+}
+
+func TestReleaseTagHTTPRequests(t *testing.T) {
+	tests := []struct {
+		name, requestURL, token, response, wantVersion string
+		gitlab                                         bool
+	}{
+		{
+			name:        "github atom",
+			requestURL:  "https://github.com/example/project/tags.atom",
+			response:    `<feed xmlns="http://www.w3.org/2005/Atom"><entry><title>v2.0</title><updated>2026-11-19T09:00:00Z</updated></entry></feed>`,
+			wantVersion: "v2.0",
+		},
+		{
+			name:        "gitlab custom authenticated",
+			requestURL:  "https://gitlab.example.com/api/v4/projects/group%2Fproject/repository/tags?order_by=updated&sort=desc&per_page=1",
+			token:       "test-token",
+			response:    `[{"name":"v3.0","created_at":"2026-11-19T09:00:00Z","commit":{"created_at":"2020-01-01T00:00:00Z"}}]`,
+			wantVersion: "v3.0",
+			gitlab:      true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := &http.Client{
+				Transport: testRoundTripper(func(r *http.Request) (*http.Response, error) {
+					if r.URL.String() != tt.requestURL {
+						t.Errorf("URL = %q, want %q", r.URL, tt.requestURL)
+					}
+					if r.Header.Get("PRIVATE-TOKEN") != tt.token {
+						t.Error("PRIVATE-TOKEN header mismatch")
+					}
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Status:     "200 OK",
+						Header:     make(http.Header),
+						Body:       io.NopCloser(strings.NewReader(tt.response)),
+						Request:    r,
+					}, nil
+				}),
+			}
+
+			request, err := http.NewRequestWithContext(context.Background(), http.MethodGet, tt.requestURL, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tt.token != "" {
+				request.Header.Set("PRIVATE-TOKEN", tt.token)
+			}
+
+			var release *appRelease
+			if tt.gitlab {
+				tags, err := decodeJsonFromRequest[[]gitlabTagResponseJson](client, request)
+				if err != nil {
+					t.Fatal(err)
+				}
+				release, err = gitlabTagToRelease(&releaseRequest{
+					Repository: "group/project",
+					BaseURL:    "https://gitlab.example.com",
+				}, tags)
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				feed, err := decodeXmlFromRequest[githubTagsFeed](client, request)
+				if err != nil {
+					t.Fatal(err)
+				}
+				release, err = githubTagToRelease("example/project", feed)
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			if release.Version != tt.wantVersion {
+				t.Fatalf("version = %q, want %q", release.Version, tt.wantVersion)
 			}
 		})
 	}

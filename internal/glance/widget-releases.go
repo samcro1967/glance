@@ -117,6 +117,7 @@ func (r appReleaseList) sortByNewest() appReleaseList {
 
 type releaseRequest struct {
 	IncludePreleases bool   `yaml:"include-prereleases"`
+	UseTags          bool   `yaml:"use-tags"`
 	Repository       string `yaml:"repository"`
 	BaseURL          string `yaml:"base-url"`
 
@@ -175,6 +176,10 @@ func (r *releaseRequest) UnmarshalYAML(node *yaml.Node) error {
 			return err
 		}
 		r.BaseURL = baseURL
+	}
+
+	if r.UseTags && r.source != releaseSourceGithub && r.source != releaseSourceGitlab {
+		return fmt.Errorf("use-tags is only supported for GitHub and GitLab repositories, not %s", r.source)
 	}
 
 	return nil
@@ -267,8 +272,14 @@ func fetchLatestReleaseTask(ctx context.Context, request *releaseRequest, timeou
 	case releaseSourceCodeberg:
 		return fetchLatestCodebergRelease(ctx, request, timeouts...)
 	case releaseSourceGithub:
+		if request.UseTags {
+			return fetchLatestGithubTag(ctx, request, timeouts...)
+		}
 		return fetchLatestGithubRelease(ctx, request, timeouts...)
 	case releaseSourceGitlab:
+		if request.UseTags {
+			return fetchLatestGitLabTag(ctx, request, timeouts...)
+		}
 		return fetchLatestGitLabRelease(ctx, request, timeouts...)
 	case releaseSourceGHCR:
 		return fetchLatestGHCRRelease(ctx, request, timeouts...)
@@ -333,6 +344,50 @@ func fetchLatestGithubRelease(ctx context.Context, request *releaseRequest, time
 		TimeReleased: parseRFC3339Time(response.PublishedAt),
 		Downvotes:    response.Reactions.Downvotes,
 	}, nil
+}
+
+type githubTagsFeed struct {
+	Entries []struct {
+		Title   string `xml:"title"`
+		Updated string `xml:"updated"`
+		Links   []struct {
+			Rel  string `xml:"rel,attr"`
+			Href string `xml:"href,attr"`
+		} `xml:"link"`
+	} `xml:"entry"`
+}
+
+// GitHub Atom entries are ordered by update time without consuming REST API quota.
+func fetchLatestGithubTag(ctx context.Context, request *releaseRequest, timeouts ...durationField) (*appRelease, error) {
+	requestURL := fmt.Sprintf("https://github.com/%s/tags.atom", request.Repository)
+	httpRequest, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	feed, err := decodeXmlFromRequest[githubTagsFeed](newProviderHTTPClient(timeouts...), httpRequest)
+	if err != nil {
+		return nil, err
+	}
+	return githubTagToRelease(request.Repository, feed)
+}
+
+func githubTagToRelease(repository string, feed githubTagsFeed) (*appRelease, error) {
+	if len(feed.Entries) == 0 {
+		return nil, fmt.Errorf("no tags found for repository %s", repository)
+	}
+	entry := feed.Entries[0]
+	notesURL := fmt.Sprintf("https://github.com/%s/tags", repository)
+	for _, link := range entry.Links {
+		if link.Rel != "alternate" {
+			continue
+		}
+		parsed, err := url.Parse(link.Href)
+		if err == nil && parsed.Scheme == "https" && parsed.Host == "github.com" && parsed.User == nil {
+			notesURL = link.Href
+			break
+		}
+	}
+	return &appRelease{Source: releaseSourceGithub, Name: repository, Version: normalizeVersionFormat(entry.Title), NotesUrl: notesURL, TimeReleased: parseRFC3339Time(entry.Updated)}, nil
 }
 
 type ghcrPackageVersionResponse struct {
@@ -570,6 +625,47 @@ func fetchLatestGitLabRelease(ctx context.Context, request *releaseRequest, time
 		NotesUrl:     response.Links.Self,
 		TimeReleased: parseRFC3339Time(response.ReleasedAt),
 	}, nil
+}
+
+type gitlabTagResponseJson struct {
+	Name      string `json:"name"`
+	CreatedAt string `json:"created_at"`
+	Commit    struct {
+		CreatedAt string `json:"created_at"`
+	} `json:"commit"`
+}
+
+func gitLabTagsURL(request *releaseRequest) string {
+	return fmt.Sprintf("%s/api/v4/projects/%s/repository/tags?order_by=updated&sort=desc&per_page=1", request.providerBaseURL("https://gitlab.com"), url.QueryEscape(request.Repository))
+}
+
+func fetchLatestGitLabTag(ctx context.Context, request *releaseRequest, timeouts ...durationField) (*appRelease, error) {
+	httpRequest, err := http.NewRequestWithContext(ctx, http.MethodGet, gitLabTagsURL(request), nil)
+	if err != nil {
+		return nil, err
+	}
+	if request.token != nil {
+		httpRequest.Header.Add("PRIVATE-TOKEN", *request.token)
+	}
+	tags, err := decodeJsonFromRequest[[]gitlabTagResponseJson](newProviderHTTPClient(timeouts...), httpRequest)
+	if err != nil {
+		return nil, err
+	}
+	return gitlabTagToRelease(request, tags)
+}
+
+func gitlabTagToRelease(request *releaseRequest, tags []gitlabTagResponseJson) (*appRelease, error) {
+	if len(tags) == 0 {
+		return nil, fmt.Errorf("no tags found for repository %s", request.Repository)
+	}
+	tag := tags[0]
+	notesURL := fmt.Sprintf("%s/%s/-/tags/%s", request.providerBaseURL("https://gitlab.com"), request.Repository, url.PathEscape(tag.Name))
+	// Lightweight tags and older GitLab versions may omit the tag creation date.
+	createdAt := tag.CreatedAt
+	if createdAt == "" {
+		createdAt = tag.Commit.CreatedAt
+	}
+	return &appRelease{Source: releaseSourceGitlab, Name: request.Repository, Version: normalizeVersionFormat(tag.Name), NotesUrl: notesURL, TimeReleased: parseRFC3339Time(createdAt)}, nil
 }
 
 type codebergReleaseResponseJson struct {
